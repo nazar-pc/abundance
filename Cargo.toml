@@ -113,6 +113,7 @@ ouroboros = "0.18.5"
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
 pin-project = "1.1.10"
+prettyplease = "0.2.37"
 proc-macro2 = "1.0.105"
 prometheus-client = "0.23.1"
 quote = "1.0.43"

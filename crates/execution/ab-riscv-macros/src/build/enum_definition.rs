@@ -1,6 +1,7 @@
 use crate::build::state::{PendingEnumDefinition, State};
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 use anyhow::Context;
+use prettyplease::unparse;
 use quote::{ToTokens, format_ident};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -9,7 +10,7 @@ use std::rc::Rc;
 use std::{env, fs};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{Error, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_str, parse2};
+use syn::{Error, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file, parse_str, parse2};
 
 const ENUM_DEFINITION_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEFINITION_PATH";
 const ENUM_DEPENDENCIES_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEPENDENCIES";
@@ -141,27 +142,29 @@ fn output_processed_enum_definition(
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
-    let enum_file_path = out_dir.join(format!("{}_definition.rs", item_enum.ident));
+    let enum_name = item_enum.ident.clone();
+    let enum_file_path = out_dir.join(format!("{}_definition.rs", enum_name));
     let code = item_enum.to_token_stream().to_string();
+    // Format
+    let code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+    // Normalize source
+    let item_enum = parse_str(&code).expect("Generated code is valid; qed");
 
     // Avoid extra file truncation/override if it didn't change
     if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
         fs::write(&enum_file_path, code).with_context(|| {
             format!(
                 "Failed to write generated Rust file with instruction enum `{}`",
-                item_enum.ident,
+                enum_name,
             )
         })?;
     }
     println!(
-        "cargo::metadata={}{ENUM_DEFINITION_ENV_VAR_SUFFIX}={}",
-        item_enum.ident,
+        "cargo::metadata={enum_name}{ENUM_DEFINITION_ENV_VAR_SUFFIX}={}",
         enum_file_path.display()
     );
     println!(
-        "cargo::metadata={}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}={}={}",
-        item_enum.ident,
-        item_enum.ident,
+        "cargo::metadata={enum_name}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}={enum_name}={}",
         dependencies
             .iter()
             .map(ToString::to_string)

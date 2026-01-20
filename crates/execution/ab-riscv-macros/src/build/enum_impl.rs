@@ -6,14 +6,15 @@ use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
 use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
+use prettyplease::unparse;
 use quote::{ToTokens, format_ident, quote};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
 use syn::{
-    Expr, Fields, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, Pat, Stmt, Type, parse_quote,
-    parse_str, parse2,
+    Expr, Fields, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, Pat, Stmt, Type, parse_file,
+    parse_quote, parse_str, parse2,
 };
 
 const ENUM_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_IMPL_PATH";
@@ -95,7 +96,11 @@ fn output_processed_enum_decoding_impl(
     state: &mut State,
 ) -> anyhow::Result<()> {
     let enum_file_path = out_dir.join(format!("{}_decoding_impl.rs", enum_name));
-    let mut code = item_impl.to_token_stream().to_string();
+    let code = item_impl.to_token_stream().to_string();
+    // Format
+    let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+    // Normalize source
+    let item_impl = parse_str(&code).expect("Generated code is valid; qed");
     post_process_rust_code(&mut code);
 
     // Avoid extra file truncation/override if it didn't change
@@ -103,7 +108,7 @@ fn output_processed_enum_decoding_impl(
         fs::write(&enum_file_path, code).with_context(|| {
             format!(
                 "Failed to write generated Rust file with instruction decoding implementation for \
-            `{enum_name}`"
+                `{enum_name}`"
             )
         })?;
     }
@@ -122,7 +127,9 @@ fn output_processed_enum_display_impl(
     out_dir: &Path,
 ) -> anyhow::Result<()> {
     let enum_file_path = out_dir.join(format!("{}_display_impl.rs", enum_name));
-    let mut code = item_impl.to_token_stream().to_string();
+    let code = item_impl.to_token_stream().to_string();
+    // Format
+    let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
     post_process_rust_code(&mut code);
 
     // Avoid extra file truncation/override if it didn't change
@@ -130,7 +137,7 @@ fn output_processed_enum_display_impl(
         fs::write(&enum_file_path, code).with_context(|| {
             format!(
                 "Failed to write generated Rust file with instruction display implementation for \
-            `{enum_name}`"
+                `{enum_name}`"
             )
         })?;
     }
@@ -259,6 +266,7 @@ pub(super) fn process_enum_decoding_impl(
         });
 
     *try_decode_block = parse2(quote! {{
+        #[expect(clippy::allow_attributes, reason = "Attribute below")]
         #[allow(
             clippy::if_same_then_else,
             reason = "In presence of ignored instructions, simple replacement sometimes results in \

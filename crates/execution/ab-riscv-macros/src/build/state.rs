@@ -126,17 +126,19 @@ impl State {
         if let Err(OccupiedError { entry, value }) = self.known_enum_impls.try_insert(
             enum_name.clone(),
             KnownEnumImpl {
-                item_impl,
+                item_impl: item_impl.clone(),
                 source: source.clone(),
             },
         ) && entry.get().item_impl != value.item_impl
         {
             return Err(anyhow::anyhow!(
                 "Implementation for enum `{}` is already defined in `{}`, a different duplicate \
-                found in `{}`",
+                found in `{}`\n{:?}\n{:?}",
                 enum_name,
                 entry.get().source.display(),
                 source.display(),
+                entry.get().item_impl,
+                item_impl,
             ));
         }
 

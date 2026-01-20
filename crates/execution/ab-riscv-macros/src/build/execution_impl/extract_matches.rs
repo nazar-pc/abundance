@@ -25,13 +25,6 @@ fn get_variant_ident_and_block(arm: &Arm) -> anyhow::Result<(Ident, Arm)> {
         ));
     }
 
-    let Expr::Block(ExprBlock { .. }) = arm.body.as_ref() else {
-        return Err(anyhow::anyhow!(
-            "`match` arm body must be a block {{ .. }}: {}",
-            arm.body.to_token_stream()
-        ));
-    };
-
     let path = match &arm.pat {
         Pat::Struct(pat_struct) => &pat_struct.path,
         Pat::TupleStruct(pat_tuple_struct) => &pat_tuple_struct.path,
@@ -53,49 +46,48 @@ fn get_variant_ident_and_block(arm: &Arm) -> anyhow::Result<(Ident, Arm)> {
         && segments.next().is_none()
     {
         let mut arm = arm.clone();
-        let Expr::Block(ExprBlock { block, .. }) = arm.body.as_mut() else {
-            unreachable!("Checked above; qed")
-        };
+        // If not a block then must be an expression, which we'll keep as is
+        if let Expr::Block(ExprBlock { block, .. }) = arm.body.as_mut() {
+            let continue_expr = parse_quote! { Ok(ControlFlow::Continue(())) };
+            if let Some(last_statement) = block.stmts.last_mut() {
+                // Has at least one statement
+                if let Stmt::Expr(expr, maybe_semicolon) = last_statement {
+                    // Statement ends with `;`
+                    match expr {
+                        Expr::Return(expr_return) => {
+                            // Expression is `return?;`
 
-        let continue_expr = parse_quote! { Ok(ControlFlow::Continue(())) };
-        if let Some(last_statement) = block.stmts.last_mut() {
-            // Has at least one statement
-            if let Stmt::Expr(expr, maybe_semicolon) = last_statement {
-                // Statement ends with `;`
-                match expr {
-                    Expr::Return(expr_return) => {
-                        // Expression is `return?;`
+                            // Remove `;` first
+                            maybe_semicolon.take();
 
-                        // Remove `;` first
-                        maybe_semicolon.take();
-
-                        *expr = if let Some(inner_expr) = &mut expr_return.expr {
-                            // Replace `return T` with `T`
-                            inner_expr.as_ref().clone()
-                        } else {
-                            // Replace `return` with `Ok(ControlFlow::Continue(()))`
-                            continue_expr
+                            *expr = if let Some(inner_expr) = &mut expr_return.expr {
+                                // Replace `return T` with `T`
+                                inner_expr.as_ref().clone()
+                            } else {
+                                // Replace `return` with `Ok(ControlFlow::Continue(()))`
+                                continue_expr
+                            }
                         }
-                    }
-                    Expr::If(expr_if) => {
-                        if expr_if.else_branch.is_none() {
-                            // If branch with `else`, insert `Ok(ControlFlow::Continue(()))` at the
-                            // end of the block
-                            block.stmts.push(Stmt::Expr(continue_expr, None));
+                        Expr::If(expr_if) => {
+                            if expr_if.else_branch.is_none() {
+                                // If branch with `else`, insert `Ok(ControlFlow::Continue(()))` at
+                                // the end of the block
+                                block.stmts.push(Stmt::Expr(continue_expr, None));
+                            }
                         }
-                    }
-                    _ => {
-                        if maybe_semicolon.is_some() {
-                            // Something other than `return` ended with semicolon, insert
-                            // `Ok(ControlFlow::Continue(()))` at the end of the block
-                            block.stmts.push(Stmt::Expr(continue_expr, None));
+                        _ => {
+                            if maybe_semicolon.is_some() {
+                                // Something other than `return` ended with semicolon, insert
+                                // `Ok(ControlFlow::Continue(()))` at the end of the block
+                                block.stmts.push(Stmt::Expr(continue_expr, None));
+                            }
                         }
                     }
                 }
+            } else {
+                // No statements, insert `Ok(ControlFlow::Continue(()))` at the end of the block
+                block.stmts.push(Stmt::Expr(continue_expr, None));
             }
-        } else {
-            // No statements, insert `Ok(ControlFlow::Continue(()))` at the end of the block
-            block.stmts.push(Stmt::Expr(continue_expr, None));
         }
 
         Ok((second_path_segment.ident.clone(), arm))

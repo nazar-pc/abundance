@@ -5,12 +5,13 @@ use crate::build::execution_impl::extract_matches::extract_variant_arms;
 use crate::build::state::{PendingEnumExecutionImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
+use prettyplease::unparse;
 use quote::{ToTokens, quote};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
-use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_str, parse2};
+use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_str, parse2};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
 
@@ -75,7 +76,11 @@ fn output_processed_enum_execution_impl(
     state: &mut State,
 ) -> anyhow::Result<()> {
     let enum_file_path = out_dir.join(format!("{}_execution_impl.rs", enum_name));
-    let mut code = item_impl.to_token_stream().to_string();
+    let code = item_impl.to_token_stream().to_string();
+    // Format
+    let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+    // Normalize source
+    let item_impl = parse_str(&code).expect("Generated code is valid; qed");
     post_process_rust_code(&mut code);
 
     // Avoid extra file truncation/override if it didn't change
@@ -83,7 +88,7 @@ fn output_processed_enum_execution_impl(
         fs::write(&enum_file_path, code).with_context(|| {
             format!(
                 "Failed to write generated Rust file with instruction execution implementation for \
-            `{enum_name}`",
+                `{enum_name}`",
             )
         })?;
     }

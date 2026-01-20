@@ -17,6 +17,7 @@ all-features = true
 ab-riscv-macros-impl = { workspace = true, optional = true }
 ab-riscv-macros-common = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
+prettyplease = { workspace = true, optional = true }
 quote = { workspace = true, optional = true }
 syn = { workspace = true, optional = true, features = ["extra-traits", "full", "visit", "visit-mut"] }
 
@@ -29,6 +30,7 @@ default = [
 build = [
     "dep:ab-riscv-macros-common",
     "dep:anyhow",
+    "dep:prettyplease",
     "dep:quote",
     "dep:syn",
 ]
