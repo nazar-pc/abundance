@@ -6,8 +6,8 @@ version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
-    "/build.rs",
     "/src",
+    "/build.rs",
     "/Cargo.toml",
 ]
 links = "ab-riscv-primitives"
