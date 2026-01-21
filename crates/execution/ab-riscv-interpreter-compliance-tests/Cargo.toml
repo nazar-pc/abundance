@@ -1,0 +1,28 @@
+[package]
+name = "ab-riscv-interpreter-compliance-tests"
+description = "Compliance tests for RISC-V interpreter"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/build.rs",
+    "/Cargo.toml",
+    "/tests",
+]
+links = "ab-riscv-interpreter-compliance-tests"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-riscv-interpreter = { workspace = true }
+ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
+ab-riscv-primitives = { workspace = true }
+
+[build-dependencies]
+ab-riscv-macros = { workspace = true, features = ["build"] }
+
+[lints]
+workspace = true

@@ -1060,7 +1060,6 @@ fn test_fence() {
     let mut state = initialize_state(vec![Rv64Instruction::Fence {
         pred: 0xF,
         succ: 0xF,
-        fm: 0,
     }]);
 
     execute(&mut state).unwrap();

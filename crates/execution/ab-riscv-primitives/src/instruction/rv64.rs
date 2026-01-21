@@ -85,8 +85,8 @@ pub enum Rv64Instruction<Reg> {
     // Jal (J-type)
     Jal { rd: Reg, imm: i32 },
 
-    // Fence (I-type like, simplified for EM)
-    Fence { pred: u8, succ: u8, fm: u8 },
+    // Fence
+    Fence { pred: u8, succ: u8 },
 
     // System instructions
     Ecall,
@@ -295,10 +295,14 @@ where
             // Fence (I-type like, simplified for EM)
             0b0001111 => {
                 if funct3 == 0b000 && rd_bits == 0 && rs1_bits == 0 {
-                    let pred = ((instruction >> 24) & 0xf) as u8;
-                    let succ = ((instruction >> 20) & 0xf) as u8;
-                    let fm = ((instruction >> 28) & 0xf) as u8;
-                    Some(Self::Fence { pred, succ, fm })
+                    // fm is bits 31:28 — must be 0 per spec
+                    if (instruction >> 28) & 0b1111 == 0 {
+                        let pred = ((instruction >> 24) & 0xf) as u8;
+                        let succ = ((instruction >> 20) & 0xf) as u8;
+                        Some(Self::Fence { pred, succ })
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -401,7 +405,7 @@ where
 
             Self::Jal { rd, imm } => write!(f, "jal {}, {}", rd, imm),
 
-            Self::Fence { pred, succ, fm } => write!(f, "fence {}, {}, {}", pred, succ, fm),
+            Self::Fence { pred, succ } => write!(f, "fence {}, {}", pred, succ),
 
             Self::Ecall => write!(f, "ecall"),
             Self::Ebreak => write!(f, "ebreak"),
