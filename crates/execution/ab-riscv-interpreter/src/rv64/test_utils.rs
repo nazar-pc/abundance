@@ -192,14 +192,17 @@ pub(super) type TestInterpreterState<Instruction> = Rv64InterpreterState<
     &'static str,
 >;
 
-pub(super) fn initialize_state<Instruction>(
-    instructions: Vec<Instruction>,
-) -> TestInterpreterState<Instruction> {
+pub(super) fn initialize_state<Instruction, Instructions>(
+    instructions: Instructions,
+) -> TestInterpreterState<Instruction>
+where
+    Instructions: Into<Vec<Instruction>>,
+{
     Rv64InterpreterState {
         regs: Registers::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(
-            instructions,
+            instructions.into(),
             TRAP_ADDRESS,
             TEST_BASE_ADDR,
             TEST_BASE_ADDR,
@@ -207,16 +210,6 @@ pub(super) fn initialize_state<Instruction>(
         system_instruction_handler: TestInstructionHandler,
         _phantom: PhantomData,
     }
-}
-
-pub(super) fn initialize_test_instruction_state<I, Iter>(
-    instructions: Iter,
-) -> TestInterpreterState<I>
-where
-    I: Instruction<Reg = EReg<u64>>,
-    Iter: IntoIterator<Item = I>,
-{
-    initialize_state(instructions.into_iter().collect())
 }
 
 pub(super) fn execute<I>(

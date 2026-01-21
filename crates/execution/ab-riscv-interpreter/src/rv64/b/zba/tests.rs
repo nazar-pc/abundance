@@ -1,10 +1,10 @@
-use crate::rv64::test_utils::{execute, initialize_test_instruction_state};
+use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instruction::rv64::b::zba::Rv64ZbaInstruction;
 use ab_riscv_primitives::registers::EReg;
 
 #[test]
 fn test_add_uw() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::AddUw {
+    let mut state = initialize_state([Rv64ZbaInstruction::AddUw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -21,7 +21,7 @@ fn test_add_uw() {
 
 #[test]
 fn test_sh1add() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::Sh1add {
+    let mut state = initialize_state([Rv64ZbaInstruction::Sh1add {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -38,7 +38,7 @@ fn test_sh1add() {
 
 #[test]
 fn test_sh2add() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::Sh2add {
+    let mut state = initialize_state([Rv64ZbaInstruction::Sh2add {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -55,7 +55,7 @@ fn test_sh2add() {
 
 #[test]
 fn test_sh3add() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::Sh3add {
+    let mut state = initialize_state([Rv64ZbaInstruction::Sh3add {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -72,7 +72,7 @@ fn test_sh3add() {
 
 #[test]
 fn test_sh1add_uw() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::Sh1addUw {
+    let mut state = initialize_state([Rv64ZbaInstruction::Sh1addUw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -89,7 +89,7 @@ fn test_sh1add_uw() {
 
 #[test]
 fn test_sh2add_uw() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::Sh2addUw {
+    let mut state = initialize_state([Rv64ZbaInstruction::Sh2addUw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -106,7 +106,7 @@ fn test_sh2add_uw() {
 
 #[test]
 fn test_sh3add_uw() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::Sh3addUw {
+    let mut state = initialize_state([Rv64ZbaInstruction::Sh3addUw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -123,7 +123,7 @@ fn test_sh3add_uw() {
 
 #[test]
 fn test_slli_uw() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::SlliUw {
+    let mut state = initialize_state([Rv64ZbaInstruction::SlliUw {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 4,
@@ -139,7 +139,7 @@ fn test_slli_uw() {
 
 #[test]
 fn test_slli_uw_max_shamt() {
-    let mut state = initialize_test_instruction_state([Rv64ZbaInstruction::SlliUw {
+    let mut state = initialize_state([Rv64ZbaInstruction::SlliUw {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 63,

@@ -1,10 +1,10 @@
-use crate::rv64::test_utils::{execute, initialize_test_instruction_state};
+use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instruction::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::registers::EReg;
 
 #[test]
 fn test_clmul_simple() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmul {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmul {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -24,7 +24,7 @@ fn test_clmul_simple() {
 
 #[test]
 fn test_clmul_zero() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmul {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmul {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -40,7 +40,7 @@ fn test_clmul_zero() {
 
 #[test]
 fn test_clmul_identity() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmul {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmul {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -56,7 +56,7 @@ fn test_clmul_identity() {
 
 #[test]
 fn test_clmulh_simple() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmulh {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmulh {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -83,7 +83,7 @@ fn test_clmulh_simple() {
 
 #[test]
 fn test_clmulh_zero() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmulh {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmulh {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -99,7 +99,7 @@ fn test_clmulh_zero() {
 
 #[test]
 fn test_clmulr_simple() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmulr {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmulr {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -116,7 +116,7 @@ fn test_clmulr_simple() {
 
 #[test]
 fn test_clmulr_with_high_bits() {
-    let mut state = initialize_test_instruction_state([Rv64ZbcInstruction::Clmulr {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmulr {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -138,7 +138,7 @@ fn test_clmulr_with_high_bits() {
 
 #[test]
 fn test_clmul_combination() {
-    let mut state = initialize_test_instruction_state([
+    let mut state = initialize_state([
         Rv64ZbcInstruction::Clmul {
             rd: EReg::A2,
             rs1: EReg::A0,

@@ -1,10 +1,10 @@
-use crate::rv64::test_utils::{execute, initialize_test_instruction_state};
+use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instruction::rv64::b::zbb::Rv64ZbbInstruction;
 use ab_riscv_primitives::registers::EReg;
 
 #[test]
 fn test_andn() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Andn {
+    let mut state = initialize_state([Rv64ZbbInstruction::Andn {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -21,7 +21,7 @@ fn test_andn() {
 
 #[test]
 fn test_orn() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Orn {
+    let mut state = initialize_state([Rv64ZbbInstruction::Orn {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -38,7 +38,7 @@ fn test_orn() {
 
 #[test]
 fn test_xnor() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Xnor {
+    let mut state = initialize_state([Rv64ZbbInstruction::Xnor {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -55,7 +55,7 @@ fn test_xnor() {
 
 #[test]
 fn test_clz() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Clz {
+    let mut state = initialize_state([Rv64ZbbInstruction::Clz {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -71,7 +71,7 @@ fn test_clz() {
 
 #[test]
 fn test_ctz() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Ctz {
+    let mut state = initialize_state([Rv64ZbbInstruction::Ctz {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -85,7 +85,7 @@ fn test_ctz() {
 
 #[test]
 fn test_cpop() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Cpop {
+    let mut state = initialize_state([Rv64ZbbInstruction::Cpop {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -99,7 +99,7 @@ fn test_cpop() {
 
 #[test]
 fn test_max() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Max {
+    let mut state = initialize_state([Rv64ZbbInstruction::Max {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -115,7 +115,7 @@ fn test_max() {
 
 #[test]
 fn test_min() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Min {
+    let mut state = initialize_state([Rv64ZbbInstruction::Min {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -131,7 +131,7 @@ fn test_min() {
 
 #[test]
 fn test_sext_b() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Sextb {
+    let mut state = initialize_state([Rv64ZbbInstruction::Sextb {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -145,7 +145,7 @@ fn test_sext_b() {
 
 #[test]
 fn test_sext_h() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Sexth {
+    let mut state = initialize_state([Rv64ZbbInstruction::Sexth {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -159,7 +159,7 @@ fn test_sext_h() {
 
 #[test]
 fn test_zext_h() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Zexth {
+    let mut state = initialize_state([Rv64ZbbInstruction::Zexth {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -173,7 +173,7 @@ fn test_zext_h() {
 
 #[test]
 fn test_rol() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Rol {
+    let mut state = initialize_state([Rv64ZbbInstruction::Rol {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -189,7 +189,7 @@ fn test_rol() {
 
 #[test]
 fn test_ror() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Ror {
+    let mut state = initialize_state([Rv64ZbbInstruction::Ror {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -205,7 +205,7 @@ fn test_ror() {
 
 #[test]
 fn test_rori() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Rori {
+    let mut state = initialize_state([Rv64ZbbInstruction::Rori {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 1,
@@ -220,7 +220,7 @@ fn test_rori() {
 
 #[test]
 fn test_orc_b() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Orcb {
+    let mut state = initialize_state([Rv64ZbbInstruction::Orcb {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
@@ -234,7 +234,7 @@ fn test_orc_b() {
 
 #[test]
 fn test_rev8() {
-    let mut state = initialize_test_instruction_state([Rv64ZbbInstruction::Rev8 {
+    let mut state = initialize_state([Rv64ZbbInstruction::Rev8 {
         rd: EReg::A2,
         rs1: EReg::A0,
     }]);
