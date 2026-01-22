@@ -1,10 +1,10 @@
-use crate::rv64::test_utils::{execute, initialize_test_instruction_state};
+use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instruction::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::registers::EReg;
 
 #[test]
 fn test_bset_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bset {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bset {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -21,7 +21,7 @@ fn test_bset_basic() {
 
 #[test]
 fn test_bseti_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bseti {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bseti {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 0,
@@ -36,7 +36,7 @@ fn test_bseti_basic() {
 
 #[test]
 fn test_bset_high_bit() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bset {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bset {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -53,7 +53,7 @@ fn test_bset_high_bit() {
 
 #[test]
 fn test_bclr_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bclr {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bclr {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -70,7 +70,7 @@ fn test_bclr_basic() {
 
 #[test]
 fn test_bclri_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bclri {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bclri {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 0,
@@ -85,7 +85,7 @@ fn test_bclri_basic() {
 
 #[test]
 fn test_bclr_high_bit() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bclr {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bclr {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -102,7 +102,7 @@ fn test_bclr_high_bit() {
 
 #[test]
 fn test_binv_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Binv {
+    let mut state = initialize_state([Rv64ZbsInstruction::Binv {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -119,7 +119,7 @@ fn test_binv_basic() {
 
 #[test]
 fn test_binvi_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Binvi {
+    let mut state = initialize_state([Rv64ZbsInstruction::Binvi {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 0,
@@ -134,7 +134,7 @@ fn test_binvi_basic() {
 
 #[test]
 fn test_binv_twice() {
-    let mut state = initialize_test_instruction_state([
+    let mut state = initialize_state([
         Rv64ZbsInstruction::Binv {
             rd: EReg::A2,
             rs1: EReg::A0,
@@ -158,7 +158,7 @@ fn test_binv_twice() {
 
 #[test]
 fn test_bext_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bext {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bext {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -175,7 +175,7 @@ fn test_bext_basic() {
 
 #[test]
 fn test_bexti_basic() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bexti {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bexti {
         rd: EReg::A2,
         rs1: EReg::A0,
         shamt: 2,
@@ -190,7 +190,7 @@ fn test_bexti_basic() {
 
 #[test]
 fn test_bext_high_bit() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bext {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bext {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -207,7 +207,7 @@ fn test_bext_high_bit() {
 
 #[test]
 fn test_bext_zero_bit() {
-    let mut state = initialize_test_instruction_state([Rv64ZbsInstruction::Bext {
+    let mut state = initialize_state([Rv64ZbsInstruction::Bext {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -224,7 +224,7 @@ fn test_bext_zero_bit() {
 
 #[test]
 fn test_combination() {
-    let mut state = initialize_test_instruction_state([
+    let mut state = initialize_state([
         // Set bit 5
         Rv64ZbsInstruction::Bset {
             rd: EReg::A2,

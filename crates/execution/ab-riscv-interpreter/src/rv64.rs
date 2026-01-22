@@ -189,57 +189,57 @@ where
 
             Self::Addw { rd, rs1, rs2 } => {
                 let sum = (state.regs.read(rs1) as i32).wrapping_add(state.regs.read(rs2) as i32);
-                state.regs.write(rd, (sum as i64).cast_unsigned());
+                state.regs.write(rd, i64::from(sum).cast_unsigned());
             }
             Self::Subw { rd, rs1, rs2 } => {
                 let diff = (state.regs.read(rs1) as i32).wrapping_sub(state.regs.read(rs2) as i32);
-                state.regs.write(rd, (diff as i64).cast_unsigned());
+                state.regs.write(rd, i64::from(diff).cast_unsigned());
             }
             Self::Sllw { rd, rs1, rs2 } => {
                 let shamt = state.regs.read(rs2) & 0x1f;
                 let shifted = (state.regs.read(rs1) as u32) << shamt;
                 state
                     .regs
-                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+                    .write(rd, i64::from(shifted.cast_signed()).cast_unsigned());
             }
             Self::Srlw { rd, rs1, rs2 } => {
                 let shamt = state.regs.read(rs2) & 0x1f;
                 let shifted = (state.regs.read(rs1) as u32) >> shamt;
                 state
                     .regs
-                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+                    .write(rd, i64::from(shifted.cast_signed()).cast_unsigned());
             }
             Self::Sraw { rd, rs1, rs2 } => {
                 let shamt = state.regs.read(rs2) & 0x1f;
                 let shifted = (state.regs.read(rs1) as i32) >> shamt;
-                state.regs.write(rd, (shifted as i64).cast_unsigned());
+                state.regs.write(rd, i64::from(shifted).cast_unsigned());
             }
 
             Self::Addi { rd, rs1, imm } => {
                 let value = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 state.regs.write(rd, value);
             }
             Self::Slti { rd, rs1, imm } => {
-                let value = state.regs.read(rs1).cast_signed() < (imm as i64);
+                let value = state.regs.read(rs1).cast_signed() < i64::from(imm);
                 state.regs.write(rd, value as u64);
             }
             Self::Sltiu { rd, rs1, imm } => {
-                let value = state.regs.read(rs1) < ((imm as i64).cast_unsigned());
+                let value = state.regs.read(rs1) < i64::from(imm).cast_unsigned();
                 state.regs.write(rd, value as u64);
             }
             Self::Xori { rd, rs1, imm } => {
-                let value = state.regs.read(rs1) ^ ((imm as i64).cast_unsigned());
+                let value = state.regs.read(rs1) ^ i64::from(imm).cast_unsigned();
                 state.regs.write(rd, value);
             }
             Self::Ori { rd, rs1, imm } => {
-                let value = state.regs.read(rs1) | ((imm as i64).cast_unsigned());
+                let value = state.regs.read(rs1) | i64::from(imm).cast_unsigned();
                 state.regs.write(rd, value);
             }
             Self::Andi { rd, rs1, imm } => {
-                let value = state.regs.read(rs1) & ((imm as i64).cast_unsigned());
+                let value = state.regs.read(rs1) & i64::from(imm).cast_unsigned();
                 state.regs.write(rd, value);
             }
             Self::Slli { rd, rs1, shamt } => {
@@ -256,55 +256,55 @@ where
             }
 
             Self::Addiw { rd, rs1, imm } => {
-                let sum = (state.regs.read(rs1) as i32).wrapping_add(imm);
-                state.regs.write(rd, (sum as i64).cast_unsigned());
+                let sum = (state.regs.read(rs1) as i32).wrapping_add(i32::from(imm));
+                state.regs.write(rd, i64::from(sum).cast_unsigned());
             }
             Self::Slliw { rd, rs1, shamt } => {
                 let shifted = (state.regs.read(rs1) as u32) << shamt;
                 state
                     .regs
-                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+                    .write(rd, i64::from(shifted.cast_signed()).cast_unsigned());
             }
             Self::Srliw { rd, rs1, shamt } => {
                 let shifted = (state.regs.read(rs1) as u32) >> shamt;
                 state
                     .regs
-                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+                    .write(rd, i64::from(shifted.cast_signed()).cast_unsigned());
             }
             Self::Sraiw { rd, rs1, shamt } => {
                 let shifted = (state.regs.read(rs1) as i32) >> shamt;
-                state.regs.write(rd, (shifted as i64).cast_unsigned());
+                state.regs.write(rd, i64::from(shifted).cast_unsigned());
             }
 
             Self::Lb { rd, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
-                let value = state.memory.read::<i8>(addr)? as i64;
+                    .wrapping_add(i64::from(imm).cast_unsigned());
+                let value = i64::from(state.memory.read::<i8>(addr)?);
                 state.regs.write(rd, value.cast_unsigned());
             }
             Self::Lh { rd, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
-                let value = state.memory.read::<i16>(addr)? as i64;
+                    .wrapping_add(i64::from(imm).cast_unsigned());
+                let value = i64::from(state.memory.read::<i16>(addr)?);
                 state.regs.write(rd, value.cast_unsigned());
             }
             Self::Lw { rd, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
-                let value = state.memory.read::<i32>(addr)? as i64;
+                    .wrapping_add(i64::from(imm).cast_unsigned());
+                let value = i64::from(state.memory.read::<i32>(addr)?);
                 state.regs.write(rd, value.cast_unsigned());
             }
             Self::Ld { rd, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 let value = state.memory.read::<u64>(addr)?;
                 state.regs.write(rd, value);
             }
@@ -312,7 +312,7 @@ where
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 let value = state.memory.read::<u8>(addr)?;
                 state.regs.write(rd, value as u64);
             }
@@ -320,7 +320,7 @@ where
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 let value = state.memory.read::<u16>(addr)?;
                 state.regs.write(rd, value as u64);
             }
@@ -328,7 +328,7 @@ where
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 let value = state.memory.read::<u32>(addr)?;
                 state.regs.write(rd, value as u64);
             }
@@ -337,7 +337,7 @@ where
                 let target = (state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned()))
+                    .wrapping_add(i64::from(imm).cast_unsigned()))
                     & !1u64;
                 state.regs.write(rd, state.instruction_fetcher.get_pc());
                 return state
@@ -350,28 +350,28 @@ where
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 state.memory.write(addr, state.regs.read(rs2) as u8)?;
             }
             Self::Sh { rs2, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 state.memory.write(addr, state.regs.read(rs2) as u16)?;
             }
             Self::Sw { rs2, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 state.memory.write(addr, state.regs.read(rs2) as u32)?;
             }
             Self::Sd { rs2, rs1, imm } => {
                 let addr = state
                     .regs
                     .read(rs1)
-                    .wrapping_add((imm as i64).cast_unsigned());
+                    .wrapping_add(i64::from(imm).cast_unsigned());
                 state.memory.write(addr, state.regs.read(rs2))?;
             }
 
@@ -385,7 +385,7 @@ where
                         .instruction_fetcher
                         .set_pc(
                             &mut state.memory,
-                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                            old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
                 }
@@ -400,7 +400,7 @@ where
                         .instruction_fetcher
                         .set_pc(
                             &mut state.memory,
-                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                            old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
                 }
@@ -415,7 +415,7 @@ where
                         .instruction_fetcher
                         .set_pc(
                             &mut state.memory,
-                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                            old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
                 }
@@ -430,7 +430,7 @@ where
                         .instruction_fetcher
                         .set_pc(
                             &mut state.memory,
-                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                            old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
                 }
@@ -445,7 +445,7 @@ where
                         .instruction_fetcher
                         .set_pc(
                             &mut state.memory,
-                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                            old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
                 }
@@ -460,14 +460,14 @@ where
                         .instruction_fetcher
                         .set_pc(
                             &mut state.memory,
-                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                            old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
                 }
             }
 
             Self::Lui { rd, imm } => {
-                state.regs.write(rd, (imm as i64).cast_unsigned());
+                state.regs.write(rd, i64::from(imm).cast_unsigned());
             }
 
             Self::Auipc { rd, imm } => {
@@ -477,7 +477,7 @@ where
                     .wrapping_sub(self.size().into());
                 state
                     .regs
-                    .write(rd, old_pc.wrapping_add((imm as i64).cast_unsigned()));
+                    .write(rd, old_pc.wrapping_add(i64::from(imm).cast_unsigned()));
             }
 
             Self::Jal { rd, imm } => {
@@ -488,7 +488,7 @@ where
                     .instruction_fetcher
                     .set_pc(
                         &mut state.memory,
-                        old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                     )
                     .map_err(ExecutionError::from);
             }

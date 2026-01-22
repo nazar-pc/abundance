@@ -1,4 +1,4 @@
-use crate::rv64::test_utils::{execute, initialize_test_instruction_state};
+use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::registers::EReg;
 
@@ -6,7 +6,7 @@ use ab_riscv_primitives::registers::EReg;
 
 #[test]
 fn test_mul() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mul {
+    let mut state = initialize_state([Rv64MInstruction::Mul {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -22,7 +22,7 @@ fn test_mul() {
 
 #[test]
 fn test_mulh() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulh {
+    let mut state = initialize_state([Rv64MInstruction::Mulh {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -39,7 +39,7 @@ fn test_mulh() {
 
 #[test]
 fn test_mulhu() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulhu {
+    let mut state = initialize_state([Rv64MInstruction::Mulhu {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -56,7 +56,7 @@ fn test_mulhu() {
 
 #[test]
 fn test_mulhsu() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulhsu {
+    let mut state = initialize_state([Rv64MInstruction::Mulhsu {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -78,7 +78,7 @@ fn test_mulhsu() {
 
 #[test]
 fn test_div() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Div {
+    let mut state = initialize_state([Rv64MInstruction::Div {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -94,7 +94,7 @@ fn test_div() {
 
 #[test]
 fn test_div_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Div {
+    let mut state = initialize_state([Rv64MInstruction::Div {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -110,7 +110,7 @@ fn test_div_by_zero() {
 
 #[test]
 fn test_div_overflow() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Div {
+    let mut state = initialize_state([Rv64MInstruction::Div {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -126,7 +126,7 @@ fn test_div_overflow() {
 
 #[test]
 fn test_divu() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divu {
+    let mut state = initialize_state([Rv64MInstruction::Divu {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -142,7 +142,7 @@ fn test_divu() {
 
 #[test]
 fn test_divu_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divu {
+    let mut state = initialize_state([Rv64MInstruction::Divu {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -158,7 +158,7 @@ fn test_divu_by_zero() {
 
 #[test]
 fn test_rem() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Rem {
+    let mut state = initialize_state([Rv64MInstruction::Rem {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -174,7 +174,7 @@ fn test_rem() {
 
 #[test]
 fn test_rem_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Rem {
+    let mut state = initialize_state([Rv64MInstruction::Rem {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -190,7 +190,7 @@ fn test_rem_by_zero() {
 
 #[test]
 fn test_rem_overflow() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Rem {
+    let mut state = initialize_state([Rv64MInstruction::Rem {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -206,7 +206,7 @@ fn test_rem_overflow() {
 
 #[test]
 fn test_remu() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remu {
+    let mut state = initialize_state([Rv64MInstruction::Remu {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -222,7 +222,7 @@ fn test_remu() {
 
 #[test]
 fn test_remu_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remu {
+    let mut state = initialize_state([Rv64MInstruction::Remu {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -240,7 +240,7 @@ fn test_remu_by_zero() {
 
 #[test]
 fn test_mulw_basic() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulw {
+    let mut state = initialize_state([Rv64MInstruction::Mulw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -256,7 +256,7 @@ fn test_mulw_basic() {
 
 #[test]
 fn test_mulw_overflow() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulw {
+    let mut state = initialize_state([Rv64MInstruction::Mulw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -274,7 +274,7 @@ fn test_mulw_overflow() {
 
 #[test]
 fn test_mulw_negative() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulw {
+    let mut state = initialize_state([Rv64MInstruction::Mulw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -290,7 +290,7 @@ fn test_mulw_negative() {
 
 #[test]
 fn test_mulw_ignores_upper_bits() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Mulw {
+    let mut state = initialize_state([Rv64MInstruction::Mulw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -308,7 +308,7 @@ fn test_mulw_ignores_upper_bits() {
 
 #[test]
 fn test_divw_basic() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divw {
+    let mut state = initialize_state([Rv64MInstruction::Divw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -324,7 +324,7 @@ fn test_divw_basic() {
 
 #[test]
 fn test_divw_negative() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divw {
+    let mut state = initialize_state([Rv64MInstruction::Divw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -340,7 +340,7 @@ fn test_divw_negative() {
 
 #[test]
 fn test_divw_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divw {
+    let mut state = initialize_state([Rv64MInstruction::Divw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -357,7 +357,7 @@ fn test_divw_by_zero() {
 
 #[test]
 fn test_divw_overflow() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divw {
+    let mut state = initialize_state([Rv64MInstruction::Divw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -374,7 +374,7 @@ fn test_divw_overflow() {
 
 #[test]
 fn test_divw_ignores_upper_bits() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divw {
+    let mut state = initialize_state([Rv64MInstruction::Divw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -391,7 +391,7 @@ fn test_divw_ignores_upper_bits() {
 
 #[test]
 fn test_divuw_basic() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divuw {
+    let mut state = initialize_state([Rv64MInstruction::Divuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -407,7 +407,7 @@ fn test_divuw_basic() {
 
 #[test]
 fn test_divuw_large_unsigned() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divuw {
+    let mut state = initialize_state([Rv64MInstruction::Divuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -424,7 +424,7 @@ fn test_divuw_large_unsigned() {
 
 #[test]
 fn test_divuw_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divuw {
+    let mut state = initialize_state([Rv64MInstruction::Divuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -441,7 +441,7 @@ fn test_divuw_by_zero() {
 
 #[test]
 fn test_divuw_ignores_upper_bits() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Divuw {
+    let mut state = initialize_state([Rv64MInstruction::Divuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -458,7 +458,7 @@ fn test_divuw_ignores_upper_bits() {
 
 #[test]
 fn test_remw_basic() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remw {
+    let mut state = initialize_state([Rv64MInstruction::Remw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -474,7 +474,7 @@ fn test_remw_basic() {
 
 #[test]
 fn test_remw_negative_dividend() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remw {
+    let mut state = initialize_state([Rv64MInstruction::Remw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -491,7 +491,7 @@ fn test_remw_negative_dividend() {
 
 #[test]
 fn test_remw_negative_divisor() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remw {
+    let mut state = initialize_state([Rv64MInstruction::Remw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -508,7 +508,7 @@ fn test_remw_negative_divisor() {
 
 #[test]
 fn test_remw_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remw {
+    let mut state = initialize_state([Rv64MInstruction::Remw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -525,7 +525,7 @@ fn test_remw_by_zero() {
 
 #[test]
 fn test_remw_overflow() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remw {
+    let mut state = initialize_state([Rv64MInstruction::Remw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -542,7 +542,7 @@ fn test_remw_overflow() {
 
 #[test]
 fn test_remw_ignores_upper_bits() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remw {
+    let mut state = initialize_state([Rv64MInstruction::Remw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -560,7 +560,7 @@ fn test_remw_ignores_upper_bits() {
 
 #[test]
 fn test_remuw_basic() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remuw {
+    let mut state = initialize_state([Rv64MInstruction::Remuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -576,7 +576,7 @@ fn test_remuw_basic() {
 
 #[test]
 fn test_remuw_large_unsigned() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remuw {
+    let mut state = initialize_state([Rv64MInstruction::Remuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -593,7 +593,7 @@ fn test_remuw_large_unsigned() {
 
 #[test]
 fn test_remuw_by_zero() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remuw {
+    let mut state = initialize_state([Rv64MInstruction::Remuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -610,7 +610,7 @@ fn test_remuw_by_zero() {
 
 #[test]
 fn test_remuw_ignores_upper_bits() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remuw {
+    let mut state = initialize_state([Rv64MInstruction::Remuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -628,7 +628,7 @@ fn test_remuw_ignores_upper_bits() {
 
 #[test]
 fn test_remuw_negative_as_unsigned() {
-    let mut state = initialize_test_instruction_state([Rv64MInstruction::Remuw {
+    let mut state = initialize_state([Rv64MInstruction::Remuw {
         rd: EReg::A2,
         rs1: EReg::A0,
         rs2: EReg::A1,
@@ -648,7 +648,7 @@ fn test_remuw_negative_as_unsigned() {
 
 #[test]
 fn test_mulw_divw_combination() {
-    let mut state = initialize_test_instruction_state([
+    let mut state = initialize_state([
         // A2 = 7 * 8 = 56
         Rv64MInstruction::Mulw {
             rd: EReg::A2,
@@ -674,7 +674,7 @@ fn test_mulw_divw_combination() {
 
 #[test]
 fn test_divw_remw_combination() {
-    let mut state = initialize_test_instruction_state([
+    let mut state = initialize_state([
         // A2 = 23 / 5 = 4
         Rv64MInstruction::Divw {
             rd: EReg::A2,
@@ -700,7 +700,7 @@ fn test_divw_remw_combination() {
 
 #[test]
 fn test_rv64m_zero_register() {
-    let mut state = initialize_test_instruction_state([
+    let mut state = initialize_state([
         // Should not modify zero register
         Rv64MInstruction::Mulw {
             rd: EReg::Zero,

@@ -34,39 +34,39 @@ pub enum Rv64Instruction<Reg> {
     Sraw { rd: Reg, rs1: Reg, rs2: Reg },
 
     // I-type
-    Addi { rd: Reg, rs1: Reg, imm: i32 },
-    Slti { rd: Reg, rs1: Reg, imm: i32 },
-    Sltiu { rd: Reg, rs1: Reg, imm: i32 },
-    Xori { rd: Reg, rs1: Reg, imm: i32 },
-    Ori { rd: Reg, rs1: Reg, imm: i32 },
-    Andi { rd: Reg, rs1: Reg, imm: i32 },
-    Slli { rd: Reg, rs1: Reg, shamt: u32 },
-    Srli { rd: Reg, rs1: Reg, shamt: u32 },
-    Srai { rd: Reg, rs1: Reg, shamt: u32 },
+    Addi { rd: Reg, rs1: Reg, imm: i16 },
+    Slti { rd: Reg, rs1: Reg, imm: i16 },
+    Sltiu { rd: Reg, rs1: Reg, imm: i16 },
+    Xori { rd: Reg, rs1: Reg, imm: i16 },
+    Ori { rd: Reg, rs1: Reg, imm: i16 },
+    Andi { rd: Reg, rs1: Reg, imm: i16 },
+    Slli { rd: Reg, rs1: Reg, shamt: u8 },
+    Srli { rd: Reg, rs1: Reg, shamt: u8 },
+    Srai { rd: Reg, rs1: Reg, shamt: u8 },
 
     // RV64 I-type W
-    Addiw { rd: Reg, rs1: Reg, imm: i32 },
-    Slliw { rd: Reg, rs1: Reg, shamt: u32 },
-    Srliw { rd: Reg, rs1: Reg, shamt: u32 },
-    Sraiw { rd: Reg, rs1: Reg, shamt: u32 },
+    Addiw { rd: Reg, rs1: Reg, imm: i16 },
+    Slliw { rd: Reg, rs1: Reg, shamt: u8 },
+    Srliw { rd: Reg, rs1: Reg, shamt: u8 },
+    Sraiw { rd: Reg, rs1: Reg, shamt: u8 },
 
     // Loads (I-type)
-    Lb { rd: Reg, rs1: Reg, imm: i32 },
-    Lh { rd: Reg, rs1: Reg, imm: i32 },
-    Lw { rd: Reg, rs1: Reg, imm: i32 },
-    Ld { rd: Reg, rs1: Reg, imm: i32 },
-    Lbu { rd: Reg, rs1: Reg, imm: i32 },
-    Lhu { rd: Reg, rs1: Reg, imm: i32 },
-    Lwu { rd: Reg, rs1: Reg, imm: i32 },
+    Lb { rd: Reg, rs1: Reg, imm: i16 },
+    Lh { rd: Reg, rs1: Reg, imm: i16 },
+    Lw { rd: Reg, rs1: Reg, imm: i16 },
+    Ld { rd: Reg, rs1: Reg, imm: i16 },
+    Lbu { rd: Reg, rs1: Reg, imm: i16 },
+    Lhu { rd: Reg, rs1: Reg, imm: i16 },
+    Lwu { rd: Reg, rs1: Reg, imm: i16 },
 
     // Jalr (I-type)
-    Jalr { rd: Reg, rs1: Reg, imm: i32 },
+    Jalr { rd: Reg, rs1: Reg, imm: i16 },
 
     // S-type
-    Sb { rs2: Reg, rs1: Reg, imm: i32 },
-    Sh { rs2: Reg, rs1: Reg, imm: i32 },
-    Sw { rs2: Reg, rs1: Reg, imm: i32 },
-    Sd { rs2: Reg, rs1: Reg, imm: i32 },
+    Sb { rs2: Reg, rs1: Reg, imm: i16 },
+    Sh { rs2: Reg, rs1: Reg, imm: i16 },
+    Sw { rs2: Reg, rs1: Reg, imm: i16 },
+    Sd { rs2: Reg, rs1: Reg, imm: i16 },
 
     // B-type
     Beq { rs1: Reg, rs2: Reg, imm: i32 },
@@ -150,7 +150,7 @@ where
             0b0010011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
-                let imm = instruction.cast_signed() >> 20;
+                let imm = (instruction.cast_signed() >> 20) as i16;
                 match funct3 {
                     0b000 => Some(Self::Addi { rd, rs1, imm }),
                     0b010 => Some(Self::Slti { rd, rs1, imm }),
@@ -159,7 +159,7 @@ where
                     0b110 => Some(Self::Ori { rd, rs1, imm }),
                     0b111 => Some(Self::Andi { rd, rs1, imm }),
                     0b001 => {
-                        let shamt = (instruction >> 20) & 0b11_1111;
+                        let shamt = (instruction >> 20) as u8 & 0b11_1111;
                         let funct6 = (instruction >> 26) & 0b11_1111;
                         if funct6 == 0b000000 {
                             Some(Self::Slli { rd, rs1, shamt })
@@ -168,7 +168,7 @@ where
                         }
                     }
                     0b101 => {
-                        let shamt = (instruction >> 20) & 0b11_1111;
+                        let shamt = (instruction >> 20) as u8 & 0b11_1111;
                         let funct6 = (instruction >> 26) & 0b11_1111;
                         match funct6 {
                             0b000000 => Some(Self::Srli { rd, rs1, shamt }),
@@ -183,9 +183,9 @@ where
             0b0011011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
-                let imm = instruction.cast_signed() >> 20;
+                let imm = (instruction.cast_signed() >> 20) as i16;
                 // 5-bit for W shifts
-                let shamt = (instruction >> 20) & 0b1_1111;
+                let shamt = (instruction >> 20) as u8 & 0b1_1111;
                 match funct3 {
                     0b000 => Some(Self::Addiw { rd, rs1, imm }),
                     0b001 => {
@@ -207,7 +207,7 @@ where
             0b0000011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
-                let imm = instruction.cast_signed() >> 20;
+                let imm = (instruction.cast_signed() >> 20) as i16;
                 match funct3 {
                     0b000 => Some(Self::Lb { rd, rs1, imm }),
                     0b001 => Some(Self::Lh { rd, rs1, imm }),
@@ -224,7 +224,7 @@ where
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 if funct3 == 0b000 {
-                    let imm = instruction.cast_signed() >> 20;
+                    let imm = (instruction.cast_signed() >> 20) as i16;
                     Some(Self::Jalr { rd, rs1, imm })
                 } else {
                     None
@@ -238,7 +238,7 @@ where
                 let imm4_0 = ((instruction >> 7) & 0b1_1111).cast_signed();
                 let imm = (imm11_5 << 5) | imm4_0;
                 // Sign extend
-                let imm = (imm << 20) >> 20;
+                let imm = ((imm << 20) >> 20) as i16;
                 match funct3 {
                     0b000 => Some(Self::Sb { rs2, rs1, imm }),
                     0b001 => Some(Self::Sh { rs2, rs1, imm }),
