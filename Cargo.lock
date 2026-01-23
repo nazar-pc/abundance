@@ -749,6 +749,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-riscv-interpreter-compliance-tests"
+version = "0.0.1"
+dependencies = [
+ "ab-riscv-interpreter",
+ "ab-riscv-macros",
+ "ab-riscv-primitives",
+]
+
+[[package]]
 name = "ab-riscv-macros"
 version = "0.0.1"
 dependencies = [

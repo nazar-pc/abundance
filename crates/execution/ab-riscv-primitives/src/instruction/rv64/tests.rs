@@ -1035,25 +1035,44 @@ fn test_jal() {
 // Fence (I-type like, simplified for EM)
 
 #[test]
-fn test_fence() {
-    // FENCE instruction format:
-    // fm(4) | pred(4) | succ(4) | rs1(5) | funct3(3) | rd(5) | opcode(7)
-    // Bits 28-31: fm, Bits 24-27: pred, Bits 20-23: succ
-    let fm = 0u32;
-    let pred = 3u32;
-    let succ = 3u32;
-    let inst = 0b0001111 | (fm << 28) | (pred << 24) | (succ << 20);
+fn test_fence_valid() {
+    // Common full memory fence (fence iorw,iorw): pred=0xf, succ=0xf, fm=0
+    let inst = 0x0ff0_000f_u32;
     let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(
-        decoded,
-        Rv64Instruction::Fence {
-            pred: 3,
-            succ: 3,
-            fm: 0
-        }
-    );
+    assert_eq!(decoded, Rv64Instruction::Fence { pred: 15, succ: 15 });
+
+    // Original test case (custom pred/succ, fm=0 implicit)
+    let inst = 0b0001111_u32 | (3_u32 << 24) | (3_u32 << 20);
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(decoded, Rv64Instruction::Fence { pred: 3, succ: 3 });
 }
 
+#[test]
+fn test_fence_invalid() {
+    // Non-zero fm (reserved, must be 0)
+    // fm=1
+    let inst = 0x10f0_000f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // FENCE.I (funct3=1) — we explicitly reject it
+    let inst = 0x0000_100f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // rd != 0
+    // rd=1 (example)
+    let inst = 0x0ff0_100f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // rs1 != 0
+    // rs1=1 (example)
+    let inst = 0x0ff8_000f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // Wrong funct3 for memory fence (not 0, not 1)
+    // funct3=2 (example)
+    let inst = 0x0ff0_200f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+}
 // System instructions
 
 #[test]
