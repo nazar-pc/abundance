@@ -25,19 +25,19 @@ original guarantees in terms of plot expiration, sector re-plotting, and history
 Before I start with the description of the protocol, let me remind you what are the core properties
 that we wanted the protocol to have:
 
-1.  **Unique Plot IDs:** `plot_id` is unique and stable. This is key for the protocol, as this ID
-    will be used to allocate space into shards.
-2.  **No Bias through `history_size`:** Farmers must not be able to bias the shard allocation for
-    their convenience. They may be able to achieve this by creating sectors with the same sector ID
-    that can be committed to any `history_size`. This can be prevented by limiting the range of
-    history sizes that plot sectors can be committed to. Thus, farmers are not allowed to manipulate
-    shard allocation by assigning to a plot the most convenient sector at each time.
-3.  **Load-Balanced Archiving (New History):** As new history is archived, it gets plotted shortly
-    after by sufficient number of farmers without large re-plotting events.
-4.  **Detect Expiration and Validity:** Plots, sectors and blocks include all the information needed
-    to verify their validity, plot assignment to a shard, sector belonging to the plot, and
-    expiration.
-5.  **No Excessive Re-plotting:** Keep re-plotting burden similar to original Subspace.
+1. **Unique Plot IDs:** `plot_id` is unique and stable. This is key for the protocol, as this ID
+   will be used to allocate space into shards.
+2. **No Bias through `history_size`:** Farmers must not be able to bias the shard allocation for
+   their convenience. They may be able to achieve this by creating sectors with the same sector ID
+   that can be committed to any `history_size`. This can be prevented by limiting the range of
+   history sizes that plot sectors can be committed to. Thus, farmers are not allowed to manipulate
+   shard allocation by assigning to a plot the most convenient sector at each time.
+3. **Load-Balanced Archiving (New History):** As new history is archived, it gets plotted shortly
+   after by sufficient number of farmers without large re-plotting events.
+4. **Detect Expiration and Validity:** Plots, sectors and blocks include all the information needed
+   to verify their validity, plot assignment to a shard, sector belonging to the plot, and
+   expiration.
+5. **No Excessive Re-plotting:** Keep re-plotting burden similar to original Subspace.
 
 ### Committing sectors to history ranges
 
@@ -78,7 +78,7 @@ sector_id = keyed_hash(plot_id, sector_index || committed_history_size)
   can commit to at a a specific point in time is determined by a transformation of the `BASE_RANGE`
   based on the plot's nonce and the current history size. As the history of the chain grows, this is
   expanded accordingly so it can fit new history sizes. The following image belongs to a
-  [simple visualisation tool](./2025-06-30-sector-expiration/range-evolution-visual.html) that an
+  [simple visualisation tool](2025-06-30-sector-expirationange-evolution-visual.html) that an
   LLM has built for me to visualise how the base range and effective range of a plot behaves as the
   history of the chain grows:
 
@@ -186,17 +186,17 @@ To perform sharded verification, clients need:
 
 - From the Solution
 
-  - `farmer_public_key`: The farmer's identity
-  - `plot_nonce`: The nonce chosen when creating the plot
-  - `sector_index`: Which sector within the plot
-  - `sector_history_size`: The history size this sector committed to
-  - `piece_offset`: Which piece within the sector
-  - Standard Subspace proofs (piece inclusion, etc.)
+    - `farmer_public_key`: The farmer's identity
+    - `plot_nonce`: The nonce chosen when creating the plot
+    - `sector_index`: Which sector within the plot
+    - `sector_history_size`: The history size this sector committed to
+    - `piece_offset`: Which piece within the sector
+    - Standard Subspace proofs (piece inclusion, etc.)
 
 - From the Block Header and the network
-  - `current_history_size`: Current blockchain history size
-  - `current_shard_id`: Which shard is performing verification
-  - Protocol constants (BASE_WINDOW_SIZE, NUM_SHARDS, etc.)
+    - `current_history_size`: Current blockchain history size
+    - `current_shard_id`: Which shard is performing verification
+    - Protocol constants (BASE_WINDOW_SIZE, NUM_SHARDS, etc.)
 
 ### A script to tinker with and next steps!
 
