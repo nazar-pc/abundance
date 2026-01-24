@@ -10,17 +10,17 @@ If you have ideas that are not mentioned below, feel free to reach out and share
 
 There may or may not be funding available for these things.
 
-## RISC-V VM
+## High-performance RISC-V VM
 
 > [!NOTE]
 > Mostly engineering
 
-We need a RISC-V VM. The basic requirements are as follows:
+We need a RISC-V VM. There is already a basic interpreter, but more performance is still needed. The basic requirements
+are as follows:
 
-* Supports an ELF shared library as its input format, must be able to run it straight after compiler without any
-  additional processing
-* Able to run RV64E code with popular extensions (probably RV64EMAC to start, adding vector and cryptographic extensions
-  afterward)
+* Able to run RV64E code with popular extensions (current interpreter supports RV64EMBZbc, adding vector and
+  cryptographic extensions afterward, C extension is explicitly not supported directly for simplicity and performance
+  reasons)
 * Runs in a secure minimal sandbox (like seccomp, possibly in a hardware-accelerated VM)
 * Cross-platform (Linux, macOS and Windows) deterministic execution
 * Has low overhead gas metering
