@@ -116,7 +116,7 @@ pin-project = "1.1.10"
 prettyplease = "0.2.37"
 proc-macro2 = "1.0.105"
 prometheus-client = "0.23.1"
-quote = "1.0.43"
+quote = "1.0.44"
 rand = { version = "0.10.0-rc.6", default-features = false }
 rayon = "1.11.0"
 rclite = "0.4.1"
@@ -129,14 +129,14 @@ seq-macro = "0.3.6"
 serde = { version = "1.0.228", default-features = false }
 serde_json = "1.0.149"
 serde-big-array = "0.5.1"
-sha2 = { version = "0.11.0-rc.3", default-features = false }
+sha2 = { version = "0.11.0-rc.4", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "a30bd43db45f2bfe260051f44141e5eaffcbb4b0" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.114"
 tempfile = "3.24.0"
-thiserror = { version = "2.0.17", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
 thread-priority = "3.0.0"
 tokio = { version = "1.49.0", default-features = false }
 tokio-stream = "0.1.18"
