@@ -95,13 +95,13 @@ impl PieceIndex {
         Self(n)
     }
 
-    /// Create piece index from bytes.
+    /// Create a piece index from bytes.
     #[inline]
     pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
         Self(u64::from_le_bytes(bytes))
     }
 
-    /// Convert piece index to bytes.
+    /// Convert a piece index to bytes.
     #[inline]
     pub const fn to_bytes(self) -> [u8; Self::SIZE] {
         self.0.to_le_bytes()
@@ -115,32 +115,16 @@ impl PieceIndex {
 
     /// Position of a piece in a segment
     #[inline]
-    pub const fn position(&self) -> u32 {
-        // Position is statically guaranteed to fit into u32
-        (self.0 % RecordedHistorySegment::NUM_PIECES as u64) as u32
-    }
-
-    /// Is this piece index a source piece?
-    #[inline]
-    pub const fn is_source(&self) -> bool {
-        self.position() < RecordedHistorySegment::NUM_RAW_RECORDS as u32
-    }
-
-    /// Returns the next source piece index.
-    /// Panics if the piece is not a source piece.
-    #[inline]
-    pub const fn next_source_index(&self) -> Self {
-        if self.position() + 1 < RecordedHistorySegment::NUM_RAW_RECORDS as u32 {
-            // Same segment
-            Self(self.0 + 1)
-        } else {
-            // Next segment
-            Self(self.0 + RecordedHistorySegment::NUM_RAW_RECORDS as u64)
+    pub const fn position(&self) -> u8 {
+        const {
+            assert!(RecordedHistorySegment::NUM_PIECES <= usize::from(u8::MAX) + 1);
         }
+        // Position is statically guaranteed to fit into u8 due to above assertion
+        (self.0 % RecordedHistorySegment::NUM_PIECES as u64) as u8
     }
 }
 
-/// Piece offset in sector
+/// Piece offset in a sector
 #[derive(
     Debug,
     Display,
@@ -208,16 +192,16 @@ impl From<PieceOffset> for usize {
 }
 
 impl PieceOffset {
-    /// Piece index 0.
+    /// Piece index 0
     pub const ZERO: PieceOffset = PieceOffset(0);
-    /// Piece index 1.
+    /// Piece index 1
     pub const ONE: PieceOffset = PieceOffset(1);
     /// Size in bytes
     pub const SIZE: usize = size_of::<u16>();
 
-    /// Convert piece offset to bytes.
+    /// Convert piece offset to bytes
     #[inline]
-    pub const fn to_bytes(self) -> [u8; mem::size_of::<u16>()] {
+    pub const fn to_bytes(self) -> [u8; size_of::<u16>()] {
         self.0.to_le_bytes()
     }
 }
