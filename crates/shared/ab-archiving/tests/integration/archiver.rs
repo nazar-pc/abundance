@@ -2,7 +2,7 @@ use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use ab_archiving::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{Piece, Record};
+use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentHeader, SegmentIndex, SegmentRoot,
@@ -163,8 +163,7 @@ fn archiver() {
             .map(|object_mapping| {
                 (
                     Piece::from(
-                        &first_archived_segment.pieces
-                            [object_mapping.piece_index.position() as usize],
+                        &first_archived_segment.pieces[object_mapping.piece_index.position()],
                     ),
                     object_mapping,
                 )
@@ -183,7 +182,7 @@ fn archiver() {
                 position,
                 piece.is_valid(
                     &first_archived_segment.segment_header.segment_root,
-                    position as u32,
+                    PiecePosition::from(position as u8),
                 ),
             )
         })
@@ -248,9 +247,7 @@ fn archiver() {
             iter::repeat(block_1.as_ref()).zip(block_1_block_objects.iter().skip(2));
         let global_objects = object_mapping.into_iter().map(|object_mapping| {
             (
-                Piece::from(
-                    &archived_segments[0].pieces[object_mapping.piece_index.position() as usize],
-                ),
+                Piece::from(&archived_segments[0].pieces[object_mapping.piece_index.position()]),
                 object_mapping,
             )
         });
@@ -306,7 +303,7 @@ fn archiver() {
                     position,
                     piece.is_valid(
                         &archived_segment.segment_header.segment_root,
-                        position as u32,
+                        PiecePosition::from(position as u8),
                     ),
                 )
             })
@@ -374,7 +371,7 @@ fn archiver() {
                     position,
                     piece.is_valid(
                         &archived_segment.segment_header.segment_root,
-                        position as u32,
+                        PiecePosition::from(position as u8),
                     ),
                 )
             })
@@ -588,8 +585,9 @@ fn object_on_the_edge_of_segment() {
 
     // Ensure bytes are mapped correctly
     assert_eq!(
-        archived_segments[1].pieces[0].record().as_flattened()[object_mapping[0].offset as usize..]
-            [..mapped_bytes.len()],
+        archived_segments[1].pieces.as_ref()[0]
+            .record()
+            .as_flattened()[object_mapping[0].offset as usize..][..mapped_bytes.len()],
         mapped_bytes
     );
 }

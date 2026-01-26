@@ -1,6 +1,6 @@
 use ab_archiving::archiver::Archiver;
 use ab_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError};
-use ab_core_primitives::pieces::{FlatPieces, Piece};
+use ab_core_primitives::pieces::{FlatPieces, Piece, PiecePosition};
 use ab_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
@@ -105,7 +105,10 @@ fn piece_reconstruction_works() {
     let reconstructed_pieces = iter
         .map(|(missing_piece_position, _missing_piece)| {
             reconstructor
-                .reconstruct_piece(&maybe_pieces, *missing_piece_position)
+                .reconstruct_piece(
+                    &maybe_pieces,
+                    PiecePosition::from(*missing_piece_position as u8),
+                )
                 .unwrap()
         })
         .collect::<Vec<_>>();
@@ -119,7 +122,6 @@ fn piece_reconstruction_works() {
 
 #[test]
 fn segment_reconstruction_fails() {
-    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
     let reconstructor = PiecesReconstructor::new(erasure_coding.clone());
 
@@ -134,37 +136,15 @@ fn segment_reconstruction_fails() {
             ReconstructorError::NotEnoughShards { num_shards: 1 }
         ));
     }
-
-    let mut archiver = Archiver::new(erasure_coding);
-    // Block that fits into the segment fully
-    let block = get_random_block(&mut rng);
-
-    let archived_segments = archiver
-        .add_block(block, Vec::new())
-        .unwrap()
-        .archived_segments;
-
-    assert_eq!(archived_segments.len(), 1);
-
-    let maybe_pieces = pieces_to_option_of_pieces(&archived_segments.first().unwrap().pieces);
-
-    let result = reconstructor.reconstruct_piece(&maybe_pieces, 4000);
-
-    assert!(result.is_err());
-
-    if let Err(error) = result {
-        assert_eq!(error, ReconstructorError::IncorrectPiecePosition);
-    }
 }
 
 #[test]
 fn piece_reconstruction_fails() {
-    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
     let reconstructor = PiecesReconstructor::new(erasure_coding.clone());
 
     let pieces = vec![None];
-    let result = reconstructor.reconstruct_piece(&pieces, 0);
+    let result = reconstructor.reconstruct_piece(&pieces, PiecePosition::from(0));
 
     assert!(result.is_err());
 
@@ -173,26 +153,5 @@ fn piece_reconstruction_fails() {
             error,
             ReconstructorError::NotEnoughShards { num_shards: 1 }
         ));
-    }
-
-    let mut archiver = Archiver::new(erasure_coding);
-    // Block that fits into the segment fully
-    let block = get_random_block(&mut rng);
-
-    let archived_segments = archiver
-        .add_block(block, Vec::new())
-        .unwrap()
-        .archived_segments;
-
-    assert_eq!(archived_segments.len(), 1);
-
-    let maybe_pieces = pieces_to_option_of_pieces(&archived_segments.first().unwrap().pieces);
-
-    let result = reconstructor.reconstruct_piece(&maybe_pieces, 4000);
-
-    assert!(result.is_err());
-
-    if let Err(error) = result {
-        assert_eq!(error, ReconstructorError::IncorrectPiecePosition);
     }
 }

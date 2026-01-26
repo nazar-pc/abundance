@@ -716,7 +716,7 @@ where
             return Ok(archived_segment
                 .pieces
                 .pieces()
-                .nth(requested_piece_index.position() as usize));
+                .nth(usize::from(requested_piece_index.position())));
         }
 
         Ok(None)

@@ -58,7 +58,7 @@ impl PieceGetter for NewArchivedSegment {
             return Ok(Some(
                 self.pieces
                     .pieces()
-                    .nth(piece_index.position() as usize)
+                    .nth(usize::from(piece_index.position()))
                     .expect("Piece position always exists in a segment; qed"),
             ));
         }

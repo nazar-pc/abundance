@@ -1,4 +1,4 @@
-use ab_core_primitives::pieces::{Piece, Record};
+use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
 use ab_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use ab_merkle_tree::balanced::BalancedMerkleTree;
@@ -15,9 +15,6 @@ pub enum ReconstructorError {
     /// Not enough shards
     #[error("Not enough shards: {num_shards}")]
     NotEnoughShards { num_shards: usize },
-    /// Incorrect piece position provided.
-    #[error("Incorrect piece position provided.")]
-    IncorrectPiecePosition,
 }
 
 /// Piece reconstructor helps to reconstruct missing pieces.
@@ -163,12 +160,8 @@ impl PiecesReconstructor {
     pub fn reconstruct_piece(
         &self,
         segment_pieces: &[Option<Piece>],
-        piece_position: usize,
+        piece_position: PiecePosition,
     ) -> Result<Piece, ReconstructorError> {
-        if piece_position >= ArchivedHistorySegment::NUM_PIECES {
-            return Err(ReconstructorError::IncorrectPiecePosition);
-        }
-
         // TODO: Early exit if position already exists and doesn't need reconstruction
         // TODO: It is now inefficient to recover all shards if only one piece is needed, especially
         //  source piece

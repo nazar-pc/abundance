@@ -48,7 +48,7 @@ where
     let result = tokio::task::spawn_blocking(move || {
         let reconstructor = PiecesReconstructor::new(erasure_coding);
 
-        reconstructor.reconstruct_piece(&segment_pieces, position as usize)
+        reconstructor.reconstruct_piece(&segment_pieces, position)
     })
     .await??;
 
