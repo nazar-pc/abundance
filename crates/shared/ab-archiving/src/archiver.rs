@@ -1,7 +1,7 @@
 use crate::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::Record;
+use ab_core_primitives::pieces::{PiecePosition, Record};
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentHeader, SegmentIndex, SegmentRoot,
@@ -370,10 +370,7 @@ impl Archiver {
         // Add completed segments and their mappings for this block.
         while let Some(mut segment) = self.produce_segment() {
             // Produce any segment mappings that haven't already been produced.
-            object_mapping.extend(Self::produce_object_mappings(
-                self.segment_index,
-                segment.items.iter_mut(),
-            ));
+            object_mapping.extend(Self::produce_object_mappings(segment.items.iter_mut()));
             archived_segments.push(self.produce_archived_segment(segment));
         }
 
@@ -576,7 +573,7 @@ impl Archiver {
     /// Must only be called after all complete segments for a block have been produced. Before
     /// that, the buffer can contain a `BlockContinuation` which spans multiple segments.
     fn produce_next_segment_mappings(&mut self) -> Vec<GlobalObject> {
-        Self::produce_object_mappings(self.segment_index, self.buffer.iter_mut())
+        Self::produce_object_mappings(self.buffer.iter_mut())
     }
 
     /// Produce object mappings for `items` in `segment_index`. Then remove the mappings from those
@@ -584,12 +581,8 @@ impl Archiver {
     ///
     /// This method can be called on a `Segment`’s items, or on the `Archiver`'s internal buffer.
     fn produce_object_mappings<'a>(
-        segment_index: SegmentIndex,
         items: impl Iterator<Item = &'a mut SegmentItem>,
     ) -> Vec<GlobalObject> {
-        let source_piece_indexes =
-            &segment_index.segment_piece_indexes()[..RecordedHistorySegment::NUM_RAW_RECORDS];
-
         let mut corrected_object_mapping = Vec::new();
         let mut base_offset_in_segment = Segment::default().encoded_size();
         for segment_item in items {
@@ -622,7 +615,9 @@ impl Archiver {
                             .expect("Offset within piece should always fit in 32-bit integer; qed");
                         corrected_object_mapping.push(GlobalObject {
                             hash: block_object.hash,
-                            piece_index: source_piece_indexes[offset_in_segment / Record::SIZE],
+                            piece_position: PiecePosition::from(
+                                (offset_in_segment / Record::SIZE) as u8,
+                            ),
                             offset: raw_piece_offset,
                         });
                     }

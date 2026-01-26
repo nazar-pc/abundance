@@ -162,9 +162,7 @@ fn archiver() {
             .take(4)
             .map(|object_mapping| {
                 (
-                    Piece::from(
-                        &first_archived_segment.pieces[object_mapping.piece_index.position()],
-                    ),
+                    Piece::from(&first_archived_segment.pieces[object_mapping.piece_position]),
                     object_mapping,
                 )
             });
@@ -234,26 +232,6 @@ fn archiver() {
 
     // No block mappings should appear in the global object mapping
     assert_eq!(object_mapping.len(), 0);
-    // 1 object fits into the second segment
-    // There are no objects left for the third segment
-    assert_eq!(
-        block_1_outcome.global_objects[2]
-            .piece_index
-            .segment_index(),
-        archived_segments[0].segment_header.segment_index(),
-    );
-    {
-        let block_objects =
-            iter::repeat(block_1.as_ref()).zip(block_1_block_objects.iter().skip(2));
-        let global_objects = object_mapping.into_iter().map(|object_mapping| {
-            (
-                Piece::from(&archived_segments[0].pieces[object_mapping.piece_index.position()]),
-                object_mapping,
-            )
-        });
-
-        compare_block_objects_to_global_objects(block_objects, global_objects);
-    }
 
     // Check archived bytes for block with index `2` in each archived segment
     {
@@ -545,8 +523,8 @@ fn object_on_the_edge_of_segment() {
     second_block[object_mapping.offset as usize..][..mapped_bytes.len()]
         .copy_from_slice(&mapped_bytes);
 
-    // First ensure that any smaller offset will get translated into the first archived segment,
-    // this is a protection against code regressions
+    // First, ensure that any smaller offset will get translated into the first archived segment;
+    // this is protection against code regressions
     {
         let block_2_outcome = archiver
             .clone()
@@ -563,10 +541,6 @@ fn object_on_the_edge_of_segment() {
 
         assert_eq!(archived_segments.len(), 2);
         assert_eq!(object_mapping.len(), 1);
-        assert_eq!(
-            object_mapping[0].piece_index.segment_index(),
-            archived_segments[0].segment_header.segment_index(),
-        );
     }
 
     let block_2_outcome = archiver
@@ -578,10 +552,6 @@ fn object_on_the_edge_of_segment() {
     assert_eq!(archived_segments.len(), 2);
     // Object should fall in the next archived segment
     assert_eq!(object_mapping.len(), 1);
-    assert_eq!(
-        object_mapping[0].piece_index.segment_index(),
-        archived_segments[1].segment_header.segment_index(),
-    );
 
     // Ensure bytes are mapped correctly
     assert_eq!(
