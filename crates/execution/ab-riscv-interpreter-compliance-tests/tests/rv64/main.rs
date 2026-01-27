@@ -280,7 +280,7 @@ fn rv64i() {
                 //
                 // "unimp" => Rv64Instruction::Unimp,
                 _ => {
-                    return None;
+                    panic!("Unknown instruction {instruction_name}");
                 }
             })
         },
@@ -312,7 +312,7 @@ fn rv64m() {
                 "remw" => Rv64MInstruction::Remw { rd, rs1, rs2 },
                 "remuw" => Rv64MInstruction::Remuw { rd, rs1, rs2 },
                 _ => {
-                    return None;
+                    panic!("Unknown instruction {instruction_name}");
                 }
             })
         },
@@ -384,7 +384,7 @@ fn rv64b() {
     //             "bext" => FullRv64BInstruction::Bext { rd, rs1, rs2 },
     //             "bexti" => FullRv64BInstruction::Bexti { rd, rs1, shamt },
     //             _ => {
-    //                 return None;
+    //                 panic!("Unknown instruction {instruction_name}");
     //             }
     //         })
     //     },
