@@ -17,7 +17,7 @@ use ab_riscv_interpreter::rv64::Rv64InterpreterState;
 use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use ed25519_zebra::SigningKey;
+use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::hint::black_box;
 use std::marker::PhantomData;
@@ -235,7 +235,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.throughput(Throughput::Elements(1));
 
         let signing_key = SigningKey::from([1; _]);
-        let public_key = Ed25519PublicKey::from(signing_key.verification_key());
+        let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
         let message = [2; _];
         let signature = Ed25519Signature::from(signing_key.sign(&message));
 

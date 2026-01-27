@@ -2,7 +2,7 @@
 
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_core_primitives::hashes::Blake3Hash;
-use ed25519_zebra::{SigningKey, VerificationKey};
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use parity_scale_codec::{Decode, Encode};
 use rand::TryRng;
 use rand::rngs::{SysError, SysRng};
@@ -96,7 +96,7 @@ impl Identity {
         });
 
         let identity_file_contents = Zeroizing::new(IdentityFileContents {
-            secret_key: signing_key.into(),
+            secret_key: signing_key.to_bytes(),
         });
 
         fs::write(
@@ -109,7 +109,7 @@ impl Identity {
 
     /// Returns the public key of the identity
     pub fn public_key(&self) -> Ed25519PublicKey {
-        Ed25519PublicKey::from(VerificationKey::from(&self.signing_key))
+        Ed25519PublicKey::from(VerifyingKey::from(&self.signing_key))
     }
 
     /// Seed used for deriving shard commitments
@@ -119,7 +119,7 @@ impl Identity {
 
     /// Returns the secret key of the identity
     pub fn secret_key(&self) -> [u8; 32] {
-        self.signing_key.into()
+        self.signing_key.to_bytes()
     }
 
     /// Sign block's pre-seal hash

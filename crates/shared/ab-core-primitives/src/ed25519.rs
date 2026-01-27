@@ -5,7 +5,7 @@ use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, From, Into};
-use ed25519_zebra::{Error, Signature, VerificationKey};
+use ed25519_dalek::{Signature, SignatureError, Verifier, VerifyingKey};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "serde")]
@@ -21,10 +21,10 @@ use serde_big_array::BigArray;
 #[repr(C)]
 pub struct Ed25519PublicKey([u8; Ed25519PublicKey::SIZE]);
 
-impl From<VerificationKey> for Ed25519PublicKey {
+impl From<VerifyingKey> for Ed25519PublicKey {
     #[inline(always)]
-    fn from(verification_key: VerificationKey) -> Self {
-        Ed25519PublicKey(verification_key.into())
+    fn from(verification_key: VerifyingKey) -> Self {
+        Ed25519PublicKey(verification_key.to_bytes())
     }
 }
 
@@ -106,8 +106,10 @@ impl Ed25519PublicKey {
 
     /// Verify Ed25519 signature
     #[inline]
-    pub fn verify(&self, signature: &Ed25519Signature, msg: &[u8]) -> Result<(), Error> {
-        VerificationKey::try_from(self.0)?.verify(&Signature::from_bytes(signature), msg)
+    pub fn verify(&self, signature: &Ed25519Signature, msg: &[u8]) -> Result<(), SignatureError> {
+        // TODO: Switch to RFC8032 / NIST validation criteria instead once
+        //  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
+        VerifyingKey::from_bytes(&self.0)?.verify(msg, &Signature::from_bytes(signature))
     }
 }
 

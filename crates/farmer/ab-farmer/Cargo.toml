@@ -39,7 +39,7 @@ bytesize = { workspace = true }
 clap = { workspace = true, optional = true }
 criterion = { workspace = true, features = ["rayon", "async"], optional = true }
 derive_more = { workspace = true, features = ["full"] }
-ed25519-zebra = { workspace = true }
+ed25519-dalek = { workspace = true }
 event-listener = { workspace = true }
 event-listener-primitives = { workspace = true }
 fs4 = { workspace = true }
