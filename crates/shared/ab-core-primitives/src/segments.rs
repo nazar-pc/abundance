@@ -109,6 +109,100 @@ impl SuperSegmentRoot {
     pub const SIZE: usize = 32;
 }
 
+/// Local segment index of a shard
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+    Mul,
+    MulAssign,
+    Div,
+    DivAssign,
+    TrivialType,
+)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(C)]
+pub struct LocalSegmentIndex(u64);
+
+impl Step for LocalSegmentIndex {
+    #[inline]
+    fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
+        u64::steps_between(&start.0, &end.0)
+    }
+
+    #[inline]
+    fn forward_checked(start: Self, count: usize) -> Option<Self> {
+        u64::forward_checked(start.0, count).map(Self)
+    }
+
+    #[inline]
+    fn backward_checked(start: Self, count: usize) -> Option<Self> {
+        u64::backward_checked(start.0, count).map(Self)
+    }
+}
+
+// TODO: This is a massive hack that is only present temporarily before super segments are really a
+//  thing
+impl From<LocalSegmentIndex> for SegmentIndex {
+    fn from(value: LocalSegmentIndex) -> Self {
+        Self(value.0)
+    }
+}
+
+// TODO: This is a massive hack that is only present temporarily before super segments are really a
+//  thing
+impl From<SegmentIndex> for LocalSegmentIndex {
+    fn from(value: SegmentIndex) -> Self {
+        Self(value.0)
+    }
+}
+
+impl LocalSegmentIndex {
+    /// Local segment index 0
+    pub const ZERO: Self = Self(0);
+    /// Local segment index 1
+    pub const ONE: Self = Self(1);
+
+    /// Create a new instance
+    #[inline]
+    pub const fn new(n: u64) -> Self {
+        Self(n)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+
+    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if underflow occurred
+    #[inline]
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    /// Saturating integer subtraction. Computes `self - rhs`, returning zero if underflow
+    /// occurred
+    #[inline]
+    pub const fn saturating_sub(self, rhs: Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
+    }
+}
+
 /// Segment index
 #[derive(
     Debug,
@@ -157,9 +251,9 @@ impl Step for SegmentIndex {
 
 impl SegmentIndex {
     /// Segment index 0
-    pub const ZERO: SegmentIndex = SegmentIndex(0);
+    pub const ZERO: Self = Self(0);
     /// Segment index 1
-    pub const ONE: SegmentIndex = SegmentIndex(1);
+    pub const ONE: Self = Self(1);
 
     /// Create a new instance
     #[inline]
@@ -459,20 +553,15 @@ impl LastArchivedBlock {
     }
 }
 
-/// Segment header for a specific segment.
-///
-/// Each segment will have corresponding [`SegmentHeader`] included as the first item in the next
-/// segment. Each `SegmentHeader` includes a hash of the previous one, and all together they form a
-/// chain of segment headers that is used for quick and efficient verification that some `Piece`
-/// corresponds to the actual archival history of the blockchain.
+/// Segment header for a specific segment of a shard
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
 pub struct SegmentHeader {
-    /// Segment index
-    pub segment_index: Unaligned<SegmentIndex>,
+    /// Local segment index
+    pub segment_index: Unaligned<LocalSegmentIndex>,
     /// Root of roots of all records in a segment.
     pub segment_root: SegmentRoot,
     /// Hash of the segment header of the previous segment
@@ -494,9 +583,9 @@ impl SegmentHeader {
         )
     }
 
-    /// Get segment index (unwrap `Unaligned`)
+    /// Get local segment index (unwrap `Unaligned`)
     #[inline(always)]
-    pub const fn segment_index(&self) -> SegmentIndex {
+    pub const fn local_segment_index(&self) -> LocalSegmentIndex {
         self.segment_index.as_inner()
     }
 }

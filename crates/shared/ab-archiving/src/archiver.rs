@@ -3,8 +3,8 @@ use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PiecePosition, Record};
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex, SegmentRoot,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
+    RecordedHistorySegment, SegmentHeader, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
@@ -255,7 +255,7 @@ pub struct Archiver {
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
     /// An index of the current segment
-    segment_index: SegmentIndex,
+    segment_index: LocalSegmentIndex,
     /// Hash of the segment header of the previous segment
     prev_segment_header_hash: Blake3Hash,
     /// Last archived block
@@ -268,7 +268,7 @@ impl Archiver {
         Self {
             buffer: VecDeque::default(),
             erasure_coding,
-            segment_index: SegmentIndex::ZERO,
+            segment_index: LocalSegmentIndex::ZERO,
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: None,
         }
@@ -285,7 +285,7 @@ impl Archiver {
     ) -> Result<Self, ArchiverInstantiationError> {
         let mut archiver = Self::new(erasure_coding);
 
-        archiver.segment_index = segment_header.segment_index() + SegmentIndex::ONE;
+        archiver.segment_index = segment_header.local_segment_index() + LocalSegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
         archiver.last_archived_block = Some(segment_header.last_archived_block);
 
@@ -732,7 +732,7 @@ impl Archiver {
         };
 
         // Update state
-        self.segment_index += SegmentIndex::ONE;
+        self.segment_index += LocalSegmentIndex::ONE;
         self.prev_segment_header_hash = segment_header.hash();
 
         // Add segment header to the beginning of the buffer to be the first thing included in the

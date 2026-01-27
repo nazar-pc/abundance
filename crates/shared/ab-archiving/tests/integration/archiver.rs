@@ -4,8 +4,8 @@ use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex, SegmentRoot,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
+    RecordedHistorySegment, SegmentHeader, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
@@ -129,8 +129,8 @@ fn archiver() {
         ArchivedHistorySegment::NUM_PIECES
     );
     assert_eq!(
-        first_archived_segment.segment_header.segment_index(),
-        SegmentIndex::ZERO
+        first_archived_segment.segment_header.local_segment_index(),
+        LocalSegmentIndex::ZERO
     );
     assert_eq!(
         first_archived_segment
@@ -254,7 +254,7 @@ fn archiver() {
     }
 
     // Check that both archived segments have expected content and valid pieces in them
-    let mut expected_segment_index = SegmentIndex::ONE;
+    let mut expected_segment_index = LocalSegmentIndex::ONE;
     let mut previous_segment_header_hash = first_archived_segment.segment_header.hash();
     let last_segment_header = archived_segments.iter().last().unwrap().segment_header;
     for archived_segment in archived_segments {
@@ -263,7 +263,7 @@ fn archiver() {
             ArchivedHistorySegment::NUM_PIECES
         );
         assert_eq!(
-            archived_segment.segment_header.segment_index(),
+            archived_segment.segment_header.local_segment_index(),
             expected_segment_index
         );
         assert_eq!(
@@ -290,7 +290,7 @@ fn archiver() {
             assert!(valid, "Piece at position {position} is valid");
         }
 
-        expected_segment_index += SegmentIndex::ONE;
+        expected_segment_index += LocalSegmentIndex::ONE;
         previous_segment_header_hash = archived_segment.segment_header.hash();
     }
 
@@ -375,7 +375,7 @@ fn invalid_usage() {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: SegmentIndex::ZERO.into(),
+                segment_index: LocalSegmentIndex::ZERO.into(),
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
@@ -403,7 +403,7 @@ fn invalid_usage() {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: SegmentIndex::ZERO.into(),
+                segment_index: LocalSegmentIndex::ZERO.into(),
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
@@ -496,7 +496,7 @@ fn object_on_the_edge_of_segment() {
         offset: RecordedHistorySegment::SIZE as u32
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader {
-                segment_index: SegmentIndex::ZERO.into(),
+                segment_index: LocalSegmentIndex::ZERO.into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {

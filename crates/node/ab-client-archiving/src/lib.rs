@@ -39,7 +39,7 @@ use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
-use ab_core_primitives::segments::{RecordedHistorySegment, SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{LocalSegmentIndex, RecordedHistorySegment, SegmentHeader};
 use ab_core_primitives::shard::RealShardKind;
 use ab_erasure_coding::ErasureCoding;
 use bytesize::ByteSize;
@@ -152,14 +152,14 @@ where
     CI: ChainInfo<Block>,
     COM: Fn(&Block) -> Vec<BlockObject>,
 {
-    let max_segment_index = chain_info.max_segment_index()?;
+    let max_local_segment_index = chain_info.max_local_segment_index()?;
 
-    if max_segment_index == SegmentIndex::ZERO {
+    if max_local_segment_index == LocalSegmentIndex::ZERO {
         // Just genesis, nothing else to check
         return None;
     }
 
-    for segment_header in (SegmentIndex::ZERO..=max_segment_index)
+    for segment_header in (LocalSegmentIndex::ZERO..=max_local_segment_index)
         .rev()
         .filter_map(|segment_index| chain_info.get_segment_header(segment_index))
     {
@@ -613,7 +613,7 @@ where
         info!("Not creating object mappings");
     }
 
-    let maybe_archiver = if chain_info.max_segment_index().is_none() {
+    let maybe_archiver = if chain_info.max_local_segment_index().is_none() {
         let initialize_archiver_fut = initialize_archiver(
             &chain_info,
             consensus_constants.confirmation_depth_k,

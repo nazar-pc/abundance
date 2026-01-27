@@ -74,7 +74,7 @@ use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{LocalSegmentIndex, SegmentHeader};
 use ab_core_primitives::shard::RealShardKind;
 use ab_io_type::trivial_type::TrivialType;
 use async_lock::{
@@ -479,16 +479,16 @@ impl SegmentHeadersCache {
     }
 
     #[inline(always)]
-    fn max_segment_index(&self) -> Option<SegmentIndex> {
+    fn max_local_segment_index(&self) -> Option<LocalSegmentIndex> {
         self.segment_headers_cache
             .last()
             .map(|segment_header| segment_header.segment_index.as_inner())
     }
 
     #[inline(always)]
-    fn get_segment_header(&self, segment_index: SegmentIndex) -> Option<SegmentHeader> {
+    fn get_segment_header(&self, local_segment_index: LocalSegmentIndex) -> Option<SegmentHeader> {
         self.segment_headers_cache
-            .get(u64::from(segment_index) as usize)
+            .get(u64::from(local_segment_index) as usize)
             .copied()
     }
 
@@ -499,9 +499,9 @@ impl SegmentHeadersCache {
     ) -> Result<Vec<SegmentHeader>, PersistSegmentHeadersError> {
         self.segment_headers_cache.reserve(segment_headers.len());
 
-        let mut maybe_last_segment_index = self.max_segment_index();
+        let mut maybe_last_local_segment_index = self.max_local_segment_index();
 
-        if let Some(last_segment_index) = maybe_last_segment_index {
+        if let Some(last_segment_index) = maybe_last_local_segment_index {
             // Skip already stored segment headers
             segment_headers.retain(|segment_header| {
                 segment_header.segment_index.as_inner() > last_segment_index
@@ -511,28 +511,28 @@ impl SegmentHeadersCache {
         // Check all input segment headers to see which ones are not stored yet and verifying that
         // segment indices are monotonically increasing
         for segment_header in segment_headers.iter().copied() {
-            let segment_index = segment_header.segment_index();
-            match maybe_last_segment_index {
-                Some(last_segment_index) => {
-                    if segment_index != last_segment_index + SegmentIndex::ONE {
+            let local_segment_index = segment_header.local_segment_index();
+            match maybe_last_local_segment_index {
+                Some(last_local_segment_index) => {
+                    if local_segment_index != last_local_segment_index + LocalSegmentIndex::ONE {
                         return Err(PersistSegmentHeadersError::MustFollowLastSegmentIndex {
-                            segment_index,
-                            last_segment_index,
+                            local_segment_index,
+                            last_local_segment_index,
                         });
                     }
 
                     self.segment_headers_cache.push(segment_header);
-                    maybe_last_segment_index.replace(segment_index);
+                    maybe_last_local_segment_index.replace(local_segment_index);
                 }
                 None => {
-                    if segment_index != SegmentIndex::ZERO {
+                    if local_segment_index != LocalSegmentIndex::ZERO {
                         return Err(PersistSegmentHeadersError::FirstSegmentIndexZero {
-                            segment_index,
+                            local_segment_index,
                         });
                     }
 
                     self.segment_headers_cache.push(segment_header);
-                    maybe_last_segment_index.replace(segment_index);
+                    maybe_last_local_segment_index.replace(local_segment_index);
                 }
             }
         }
@@ -864,16 +864,16 @@ where
     }
 
     #[inline]
-    fn max_segment_index(&self) -> Option<SegmentIndex> {
+    fn max_local_segment_index(&self) -> Option<LocalSegmentIndex> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
 
-        state.segment_headers_cache.max_segment_index()
+        state.segment_headers_cache.max_local_segment_index()
     }
 
     #[inline]
-    fn get_segment_header(&self, segment_index: SegmentIndex) -> Option<SegmentHeader> {
+    fn get_segment_header(&self, segment_index: LocalSegmentIndex) -> Option<SegmentHeader> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
@@ -889,7 +889,8 @@ where
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
 
-        let Some(last_segment_index) = state.segment_headers_cache.max_segment_index() else {
+        let Some(last_local_segment_index) = state.segment_headers_cache.max_local_segment_index()
+        else {
             // Not initialized
             return Vec::new();
         };
@@ -903,23 +904,23 @@ where
             return vec![
                 state
                     .segment_headers_cache
-                    .get_segment_header(SegmentIndex::ZERO)
+                    .get_segment_header(LocalSegmentIndex::ZERO)
                     .expect("Segment headers are stored in monotonically increasing order; qed"),
             ];
         }
 
-        if last_segment_index == SegmentIndex::ZERO {
+        if last_local_segment_index == LocalSegmentIndex::ZERO {
             // Genesis segment already included in block #1
             return Vec::new();
         }
 
-        let mut current_segment_index = last_segment_index;
+        let mut current_local_segment_index = last_local_segment_index;
         loop {
             // If the current segment index present, and we store monotonically increasing segment
             // headers, then the current segment header exists as well.
             let current_segment_header = state
                 .segment_headers_cache
-                .get_segment_header(current_segment_index)
+                .get_segment_header(current_local_segment_index)
                 .expect("Segment headers are stored in monotonically increasing order; qed");
 
             // The block immediately after the archived segment adding the confirmation depth
@@ -931,15 +932,15 @@ where
 
                 // Check block spanning multiple segments
                 let last_archived_block_number = current_segment_header.last_archived_block.number;
-                let mut segment_index = current_segment_index - SegmentIndex::ONE;
+                let mut local_segment_index = current_local_segment_index - LocalSegmentIndex::ONE;
 
                 while let Some(segment_header) = state
                     .segment_headers_cache
-                    .get_segment_header(segment_index)
+                    .get_segment_header(local_segment_index)
                 {
                     if segment_header.last_archived_block.number == last_archived_block_number {
                         headers_for_block.insert(0, segment_header);
-                        segment_index -= SegmentIndex::ONE;
+                        local_segment_index -= LocalSegmentIndex::ONE;
                     } else {
                         break;
                     }
@@ -951,8 +952,8 @@ where
             // iterate segments further
             if target_block_number > block_number {
                 // no need to check the initial segment
-                if current_segment_index > SegmentIndex::ONE {
-                    current_segment_index -= SegmentIndex::ONE
+                if current_local_segment_index > LocalSegmentIndex::ONE {
+                    current_local_segment_index -= LocalSegmentIndex::ONE
                 } else {
                     break;
                 }
