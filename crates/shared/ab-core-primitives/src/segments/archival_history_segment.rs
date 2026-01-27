@@ -1,6 +1,7 @@
-use crate::pieces::{FlatPieces, Piece};
+use crate::pieces::{FlatPieces, Piece, PieceArray, PiecePosition};
 use crate::segments::RecordedHistorySegment;
 use derive_more::{Deref, DerefMut};
+use std::ops::{Index, IndexMut};
 
 /// Archived history segment after archiving is applied.
 #[derive(Debug, Clone, Eq, PartialEq, Deref, DerefMut)]
@@ -11,6 +12,22 @@ impl Default for ArchivedHistorySegment {
     #[inline]
     fn default() -> Self {
         Self(FlatPieces::new(Self::NUM_PIECES))
+    }
+}
+
+impl Index<PiecePosition> for ArchivedHistorySegment {
+    type Output = PieceArray;
+
+    fn index(&self, index: PiecePosition) -> &Self::Output {
+        // SAFETY: The size of the archived history segment is known and protected invariant
+        unsafe { self.get_unchecked(usize::from(index)) }
+    }
+}
+
+impl IndexMut<PiecePosition> for ArchivedHistorySegment {
+    fn index_mut(&mut self, index: PiecePosition) -> &mut Self::Output {
+        // SAFETY: The size of the archived history segment is known and protected invariant
+        unsafe { self.get_unchecked_mut(usize::from(index)) }
     }
 }
 

@@ -3,8 +3,8 @@ use ab_archiving::reconstructor::{Reconstructor, ReconstructorError};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::pieces::{FlatPieces, Piece};
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentIndex,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
+    RecordedHistorySegment,
 };
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
@@ -112,8 +112,8 @@ fn basic() {
         );
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::ZERO
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::ZERO
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -134,8 +134,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![(BlockNumber::new(2), block_2)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::ZERO
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::ZERO
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -157,8 +157,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::ONE
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::ONE
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -179,8 +179,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::ONE
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::ONE
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -202,8 +202,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::from(2)
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::from(2)
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -226,8 +226,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::from(2)
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::from(2)
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -249,8 +249,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![(BlockNumber::new(3), block_3)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::from(3)
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::from(3)
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -273,8 +273,8 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
-            SegmentIndex::from(3)
+            contents.segment_header.unwrap().local_segment_index(),
+            LocalSegmentIndex::from(3)
         );
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
@@ -439,8 +439,8 @@ fn invalid_usage() {
         assert_eq!(
             result,
             Err(ReconstructorError::IncorrectSegmentOrder {
-                expected_segment_index: SegmentIndex::ONE,
-                actual_segment_index: SegmentIndex::from(2)
+                expected_segment_index: LocalSegmentIndex::ONE,
+                actual_segment_index: LocalSegmentIndex::from(2)
             })
         );
 
@@ -454,8 +454,8 @@ fn invalid_usage() {
         assert_eq!(
             result,
             Err(ReconstructorError::IncorrectSegmentOrder {
-                expected_segment_index: SegmentIndex::from(2),
-                actual_segment_index: SegmentIndex::from(3)
+                expected_segment_index: LocalSegmentIndex::from(2),
+                actual_segment_index: LocalSegmentIndex::from(3)
             })
         );
     }

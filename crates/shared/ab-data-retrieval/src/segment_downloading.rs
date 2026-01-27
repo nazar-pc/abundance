@@ -173,7 +173,7 @@ where
     while !pieces_iter.is_empty() && downloaded_pieces != required_pieces_number {
         let piece_indices = pieces_iter
             .by_ref()
-            .filter(|piece_index| segment_pieces[piece_index.position() as usize].is_none())
+            .filter(|piece_index| segment_pieces[usize::from(piece_index.position())].is_none())
             .take(required_pieces_number - downloaded_pieces)
             .collect();
 
@@ -187,7 +187,7 @@ where
                 Ok(Some(piece)) => {
                     downloaded_pieces += 1;
                     segment_pieces
-                        .get_mut(piece_index.position() as usize)
+                        .get_mut(usize::from(piece_index.position()))
                         .expect("Piece position is by definition within segment; qed")
                         .replace(piece);
 

@@ -9,7 +9,7 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{LocalSegmentIndex, SegmentHeader};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use rclite::Arc;
 use std::io;
@@ -108,20 +108,20 @@ pub enum PersistBlockError {
 pub enum PersistSegmentHeadersError {
     /// Segment index must strictly follow the last segment index, can't store segment header
     #[error(
-        "Segment index {segment_index} must strictly follow last segment index \
-        {last_segment_index}, can't store segment header"
+        "Segment index {local_segment_index} must strictly follow last segment index \
+        {last_local_segment_index}, can't store segment header"
     )]
     MustFollowLastSegmentIndex {
         /// Segment index that was attempted to be inserted
-        segment_index: SegmentIndex,
+        local_segment_index: LocalSegmentIndex,
         /// Last segment index
-        last_segment_index: SegmentIndex,
+        last_local_segment_index: LocalSegmentIndex,
     },
     /// The first segment index must be zero
-    #[error("First segment index must be zero, found {segment_index}")]
+    #[error("First segment index must be zero, found {local_segment_index}")]
     FirstSegmentIndexZero {
         /// Segment index that was attempted to be inserted
-        segment_index: SegmentIndex,
+        local_segment_index: LocalSegmentIndex,
     },
     /// Storage item write error
     #[error("Storage item write error")]
@@ -186,10 +186,10 @@ where
     fn last_segment_header(&self) -> Option<SegmentHeader>;
 
     /// Returns last observed segment index
-    fn max_segment_index(&self) -> Option<SegmentIndex>;
+    fn max_local_segment_index(&self) -> Option<LocalSegmentIndex>;
 
     /// Get a single segment header
-    fn get_segment_header(&self, segment_index: SegmentIndex) -> Option<SegmentHeader>;
+    fn get_segment_header(&self, segment_index: LocalSegmentIndex) -> Option<SegmentHeader>;
 
     /// Get segment headers that are expected to be included at specified block number.
     fn segment_headers_for_block(&self, block_number: BlockNumber) -> Vec<SegmentHeader>;

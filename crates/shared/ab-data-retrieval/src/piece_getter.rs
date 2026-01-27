@@ -2,6 +2,7 @@
 
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_core_primitives::segments::SegmentIndex;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt, stream};
 use std::fmt;
@@ -54,11 +55,13 @@ where
 #[async_trait]
 impl PieceGetter for NewArchivedSegment {
     async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
-        if piece_index.segment_index() == self.segment_header.segment_index() {
+        if piece_index.segment_index()
+            == SegmentIndex::new(self.segment_header.local_segment_index().as_u64())
+        {
             return Ok(Some(
                 self.pieces
                     .pieces()
-                    .nth(piece_index.position() as usize)
+                    .nth(usize::from(piece_index.position()))
                     .expect("Piece position always exists in a segment; qed"),
             ));
         }

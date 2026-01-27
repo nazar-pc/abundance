@@ -62,8 +62,11 @@ impl FlatPieces {
 
     /// Iterate over all pieces.
     ///
-    /// NOTE: Unless [`Self::to_shared`] was called first, iterator may have to allocate each piece
-    /// from scratch, which is rarely a desired behavior.
+    /// NOTE: [`Piece`] returned by iterator is sharing memory with the original [`FlatPieces`]
+    /// allocation, which is cheap, but may result in additional memory usage if the piece is kept
+    /// around for a long time. But it only happens if [`Self::to_shared`] was called first,
+    /// otherwise iterator may have to allocate each piece from scratch, which is rarely a
+    /// desired behavior.
     #[inline]
     pub fn pieces(&self) -> Box<dyn ExactSizeIterator<Item = Piece> + '_> {
         match &self.0 {

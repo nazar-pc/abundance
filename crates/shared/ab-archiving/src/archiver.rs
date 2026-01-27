@@ -1,10 +1,10 @@
 use crate::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::Record;
+use ab_core_primitives::pieces::{PiecePosition, Record};
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex, SegmentRoot,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
+    RecordedHistorySegment, SegmentHeader, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
@@ -255,7 +255,7 @@ pub struct Archiver {
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
     /// An index of the current segment
-    segment_index: SegmentIndex,
+    segment_index: LocalSegmentIndex,
     /// Hash of the segment header of the previous segment
     prev_segment_header_hash: Blake3Hash,
     /// Last archived block
@@ -268,7 +268,7 @@ impl Archiver {
         Self {
             buffer: VecDeque::default(),
             erasure_coding,
-            segment_index: SegmentIndex::ZERO,
+            segment_index: LocalSegmentIndex::ZERO,
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: None,
         }
@@ -285,7 +285,7 @@ impl Archiver {
     ) -> Result<Self, ArchiverInstantiationError> {
         let mut archiver = Self::new(erasure_coding);
 
-        archiver.segment_index = segment_header.segment_index() + SegmentIndex::ONE;
+        archiver.segment_index = segment_header.local_segment_index() + LocalSegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
         archiver.last_archived_block = Some(segment_header.last_archived_block);
 
@@ -370,10 +370,7 @@ impl Archiver {
         // Add completed segments and their mappings for this block.
         while let Some(mut segment) = self.produce_segment() {
             // Produce any segment mappings that haven't already been produced.
-            object_mapping.extend(Self::produce_object_mappings(
-                self.segment_index,
-                segment.items.iter_mut(),
-            ));
+            object_mapping.extend(Self::produce_object_mappings(segment.items.iter_mut()));
             archived_segments.push(self.produce_archived_segment(segment));
         }
 
@@ -576,7 +573,7 @@ impl Archiver {
     /// Must only be called after all complete segments for a block have been produced. Before
     /// that, the buffer can contain a `BlockContinuation` which spans multiple segments.
     fn produce_next_segment_mappings(&mut self) -> Vec<GlobalObject> {
-        Self::produce_object_mappings(self.segment_index, self.buffer.iter_mut())
+        Self::produce_object_mappings(self.buffer.iter_mut())
     }
 
     /// Produce object mappings for `items` in `segment_index`. Then remove the mappings from those
@@ -584,12 +581,8 @@ impl Archiver {
     ///
     /// This method can be called on a `Segment`’s items, or on the `Archiver`'s internal buffer.
     fn produce_object_mappings<'a>(
-        segment_index: SegmentIndex,
         items: impl Iterator<Item = &'a mut SegmentItem>,
     ) -> Vec<GlobalObject> {
-        let source_piece_indexes =
-            &segment_index.segment_piece_indexes()[..RecordedHistorySegment::NUM_RAW_RECORDS];
-
         let mut corrected_object_mapping = Vec::new();
         let mut base_offset_in_segment = Segment::default().encoded_size();
         for segment_item in items {
@@ -622,7 +615,9 @@ impl Archiver {
                             .expect("Offset within piece should always fit in 32-bit integer; qed");
                         corrected_object_mapping.push(GlobalObject {
                             hash: block_object.hash,
-                            piece_index: source_piece_indexes[offset_in_segment / Record::SIZE],
+                            piece_position: PiecePosition::from(
+                                (offset_in_segment / Record::SIZE) as u8,
+                            ),
                             offset: raw_piece_offset,
                         });
                     }
@@ -737,7 +732,7 @@ impl Archiver {
         };
 
         // Update state
-        self.segment_index += SegmentIndex::ONE;
+        self.segment_index += LocalSegmentIndex::ONE;
         self.prev_segment_header_hash = segment_header.hash();
 
         // Add segment header to the beginning of the buffer to be the first thing included in the

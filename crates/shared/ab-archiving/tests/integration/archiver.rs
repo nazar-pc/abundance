@@ -2,10 +2,10 @@ use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use ab_archiving::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{Piece, Record};
+use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex, SegmentRoot,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
+    RecordedHistorySegment, SegmentHeader, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
@@ -129,8 +129,8 @@ fn archiver() {
         ArchivedHistorySegment::NUM_PIECES
     );
     assert_eq!(
-        first_archived_segment.segment_header.segment_index(),
-        SegmentIndex::ZERO
+        first_archived_segment.segment_header.local_segment_index(),
+        LocalSegmentIndex::ZERO
     );
     assert_eq!(
         first_archived_segment
@@ -162,10 +162,7 @@ fn archiver() {
             .take(4)
             .map(|object_mapping| {
                 (
-                    Piece::from(
-                        &first_archived_segment.pieces
-                            [object_mapping.piece_index.position() as usize],
-                    ),
+                    Piece::from(&first_archived_segment.pieces[object_mapping.piece_position]),
                     object_mapping,
                 )
             });
@@ -183,7 +180,7 @@ fn archiver() {
                 position,
                 piece.is_valid(
                     &first_archived_segment.segment_header.segment_root,
-                    position as u32,
+                    PiecePosition::from(position as u8),
                 ),
             )
         })
@@ -235,28 +232,6 @@ fn archiver() {
 
     // No block mappings should appear in the global object mapping
     assert_eq!(object_mapping.len(), 0);
-    // 1 object fits into the second segment
-    // There are no objects left for the third segment
-    assert_eq!(
-        block_1_outcome.global_objects[2]
-            .piece_index
-            .segment_index(),
-        archived_segments[0].segment_header.segment_index(),
-    );
-    {
-        let block_objects =
-            iter::repeat(block_1.as_ref()).zip(block_1_block_objects.iter().skip(2));
-        let global_objects = object_mapping.into_iter().map(|object_mapping| {
-            (
-                Piece::from(
-                    &archived_segments[0].pieces[object_mapping.piece_index.position() as usize],
-                ),
-                object_mapping,
-            )
-        });
-
-        compare_block_objects_to_global_objects(block_objects, global_objects);
-    }
 
     // Check archived bytes for block with index `2` in each archived segment
     {
@@ -279,7 +254,7 @@ fn archiver() {
     }
 
     // Check that both archived segments have expected content and valid pieces in them
-    let mut expected_segment_index = SegmentIndex::ONE;
+    let mut expected_segment_index = LocalSegmentIndex::ONE;
     let mut previous_segment_header_hash = first_archived_segment.segment_header.hash();
     let last_segment_header = archived_segments.iter().last().unwrap().segment_header;
     for archived_segment in archived_segments {
@@ -288,7 +263,7 @@ fn archiver() {
             ArchivedHistorySegment::NUM_PIECES
         );
         assert_eq!(
-            archived_segment.segment_header.segment_index(),
+            archived_segment.segment_header.local_segment_index(),
             expected_segment_index
         );
         assert_eq!(
@@ -306,7 +281,7 @@ fn archiver() {
                     position,
                     piece.is_valid(
                         &archived_segment.segment_header.segment_root,
-                        position as u32,
+                        PiecePosition::from(position as u8),
                     ),
                 )
             })
@@ -315,7 +290,7 @@ fn archiver() {
             assert!(valid, "Piece at position {position} is valid");
         }
 
-        expected_segment_index += SegmentIndex::ONE;
+        expected_segment_index += LocalSegmentIndex::ONE;
         previous_segment_header_hash = archived_segment.segment_header.hash();
     }
 
@@ -374,7 +349,7 @@ fn archiver() {
                     position,
                     piece.is_valid(
                         &archived_segment.segment_header.segment_root,
-                        position as u32,
+                        PiecePosition::from(position as u8),
                     ),
                 )
             })
@@ -400,7 +375,7 @@ fn invalid_usage() {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: SegmentIndex::ZERO.into(),
+                segment_index: LocalSegmentIndex::ZERO.into(),
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
@@ -428,7 +403,7 @@ fn invalid_usage() {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: SegmentIndex::ZERO.into(),
+                segment_index: LocalSegmentIndex::ZERO.into(),
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
@@ -521,7 +496,7 @@ fn object_on_the_edge_of_segment() {
         offset: RecordedHistorySegment::SIZE as u32
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader {
-                segment_index: SegmentIndex::ZERO.into(),
+                segment_index: LocalSegmentIndex::ZERO.into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {
@@ -548,8 +523,8 @@ fn object_on_the_edge_of_segment() {
     second_block[object_mapping.offset as usize..][..mapped_bytes.len()]
         .copy_from_slice(&mapped_bytes);
 
-    // First ensure that any smaller offset will get translated into the first archived segment,
-    // this is a protection against code regressions
+    // First, ensure that any smaller offset will get translated into the first archived segment;
+    // this is protection against code regressions
     {
         let block_2_outcome = archiver
             .clone()
@@ -566,10 +541,6 @@ fn object_on_the_edge_of_segment() {
 
         assert_eq!(archived_segments.len(), 2);
         assert_eq!(object_mapping.len(), 1);
-        assert_eq!(
-            object_mapping[0].piece_index.segment_index(),
-            archived_segments[0].segment_header.segment_index(),
-        );
     }
 
     let block_2_outcome = archiver
@@ -581,15 +552,12 @@ fn object_on_the_edge_of_segment() {
     assert_eq!(archived_segments.len(), 2);
     // Object should fall in the next archived segment
     assert_eq!(object_mapping.len(), 1);
-    assert_eq!(
-        object_mapping[0].piece_index.segment_index(),
-        archived_segments[1].segment_header.segment_index(),
-    );
 
     // Ensure bytes are mapped correctly
     assert_eq!(
-        archived_segments[1].pieces[0].record().as_flattened()[object_mapping[0].offset as usize..]
-            [..mapped_bytes.len()],
+        archived_segments[1].pieces.as_ref()[0]
+            .record()
+            .as_flattened()[object_mapping[0].offset as usize..][..mapped_bytes.len()],
         mapped_bytes
     );
 }

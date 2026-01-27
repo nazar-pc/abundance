@@ -14,7 +14,7 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
-use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{HistorySize, LocalSegmentIndex, SegmentHeader, SegmentIndex};
 use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
@@ -444,7 +444,8 @@ where
             acknowledgement_sender,
         } = archived_segment_notification;
 
-        let segment_index = archived_segment.segment_header.segment_index();
+        let segment_index =
+            SegmentIndex::from(archived_segment.segment_header.local_segment_index());
 
         // TODO: Combine `archived_segment_header_subscriptions` and
         //  `archived_segment_acknowledgement_senders` under the same lock to avoid potential
@@ -549,12 +550,12 @@ where
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
         let last_segment_index = self
             .chain_info
-            .max_segment_index()
-            .unwrap_or(SegmentIndex::ZERO);
+            .max_local_segment_index()
+            .unwrap_or(LocalSegmentIndex::ZERO);
 
         let consensus_constants = &self.consensus_constants;
         let protocol_info = FarmerProtocolInfo {
-            history_size: HistorySize::from(last_segment_index),
+            history_size: HistorySize::from(SegmentIndex::from(last_segment_index)),
             max_pieces_in_sector: self.max_pieces_in_sector,
             recent_segments: consensus_constants.recent_segments,
             recent_history_fraction: consensus_constants.recent_history_fraction,
@@ -711,12 +712,13 @@ where
             }
         };
 
-        if requested_piece_index.segment_index() == archived_segment.segment_header.segment_index()
+        if requested_piece_index.segment_index()
+            == SegmentIndex::from(archived_segment.segment_header.local_segment_index())
         {
             return Ok(archived_segment
                 .pieces
                 .pieces()
-                .nth(requested_piece_index.position() as usize));
+                .nth(usize::from(requested_piece_index.position())));
         }
 
         Ok(None)
@@ -739,7 +741,7 @@ where
 
         Ok(segment_indices
             .into_iter()
-            .map(|segment_index| self.chain_info.get_segment_header(segment_index))
+            .map(|segment_index| self.chain_info.get_segment_header(segment_index.into()))
             .collect())
     }
 
@@ -757,10 +759,10 @@ where
 
         let last_segment_index = self
             .chain_info
-            .max_segment_index()
-            .unwrap_or(SegmentIndex::ZERO);
+            .max_local_segment_index()
+            .unwrap_or(LocalSegmentIndex::ZERO);
 
-        let mut last_segment_headers = (SegmentIndex::ZERO..=last_segment_index)
+        let mut last_segment_headers = (LocalSegmentIndex::ZERO..=last_segment_index)
             .rev()
             .take(limit as usize)
             .map(|segment_index| self.chain_info.get_segment_header(segment_index))

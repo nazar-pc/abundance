@@ -2,7 +2,8 @@ use crate::archiver::{Segment, SegmentItem};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::pieces::Piece;
 use ab_core_primitives::segments::{
-    ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment, SegmentHeader, SegmentIndex,
+    ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex, RecordedHistorySegment,
+    SegmentHeader,
 };
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use alloc::vec::Vec;
@@ -27,8 +28,8 @@ pub enum ReconstructorError {
         {actual_segment_index}"
     )]
     IncorrectSegmentOrder {
-        expected_segment_index: SegmentIndex,
-        actual_segment_index: SegmentIndex,
+        expected_segment_index: LocalSegmentIndex,
+        actual_segment_index: LocalSegmentIndex,
     },
 }
 
@@ -47,8 +48,8 @@ pub struct ReconstructedContents {
 pub struct Reconstructor {
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
-    /// Index of last segment added to reconstructor
-    last_segment_index: Option<SegmentIndex>,
+    /// Index of the last segment added to reconstructor
+    last_segment_index: Option<LocalSegmentIndex>,
     /// Partially reconstructed block waiting for more data
     partial_block: Option<Vec<u8>>,
 }
@@ -181,19 +182,19 @@ impl Reconstructor {
                     partial_block.extend_from_slice(&bytes);
                 }
                 SegmentItem::ParentSegmentHeader(segment_header) => {
-                    let segment_index = segment_header.segment_index();
+                    let segment_index = segment_header.local_segment_index();
 
                     if let Some(last_segment_index) = self.last_segment_index
                         && last_segment_index != segment_index
                     {
                         return Err(ReconstructorError::IncorrectSegmentOrder {
-                            expected_segment_index: last_segment_index + SegmentIndex::ONE,
-                            actual_segment_index: segment_index + SegmentIndex::ONE,
+                            expected_segment_index: last_segment_index + LocalSegmentIndex::ONE,
+                            actual_segment_index: segment_index + LocalSegmentIndex::ONE,
                         });
                     }
 
                     self.last_segment_index
-                        .replace(segment_index + SegmentIndex::ONE);
+                        .replace(segment_index + LocalSegmentIndex::ONE);
 
                     let LastArchivedBlock {
                         number,
@@ -230,7 +231,7 @@ impl Reconstructor {
         }
 
         if self.last_segment_index.is_none() {
-            self.last_segment_index.replace(SegmentIndex::ZERO);
+            self.last_segment_index.replace(LocalSegmentIndex::ZERO);
         }
 
         Ok(reconstructed_contents)

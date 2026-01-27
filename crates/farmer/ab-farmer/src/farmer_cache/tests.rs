@@ -3,7 +3,9 @@ use crate::farmer_cache::{FarmerCache, decode_piece_index_from_record_key};
 use crate::node_client::NodeClient;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{
+    HistorySize, LastArchivedBlock, LocalSegmentIndex, SegmentHeader, SegmentIndex,
+};
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_rpc_primitives::{
@@ -295,7 +297,7 @@ async fn basic() {
         // finished
         {
             let segment_header = SegmentHeader {
-                segment_index: SegmentIndex::ONE.into(),
+                segment_index: LocalSegmentIndex::ONE.into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: [0; 32].into(),
                 last_archived_block: LastArchivedBlock {
@@ -355,7 +357,7 @@ async fn basic() {
         // pieces for it to store)
         for segment_index in [2, 3] {
             let segment_header = SegmentHeader {
-                segment_index: SegmentIndex::from(segment_index).into(),
+                segment_index: LocalSegmentIndex::from(segment_index).into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: [0; 32].into(),
                 last_archived_block: LastArchivedBlock {
