@@ -390,3 +390,32 @@ fn rv64b() {
     //     },
     // );
 }
+
+// TODO: Zknh extension uses completely different pattern in assembly files that is not currently
+// supported #[cfg_attr(miri, ignore)]
+// #[test]
+// fn rv64zk() {
+//     run_tests(
+//         &Path::new(RISCV_ARCH_TEST_REPO_PATH).join("riscv-test-suite/rv64i_m/K/src"),
+//         |instruction_name, rd, rs1, _| {
+//             let rd = rd.into_reg();
+//             let rs1 = rs1.into_reg();
+//
+//             Some(match instruction_name {
+//                 // Zknh
+//                 "sha256sig0" => Rv64ZknhInstruction::Sha256Sig0 { rd, rs1 },
+//                 "sha256sig1" => Rv64ZknhInstruction::Sha256Sig1 { rd, rs1 },
+//                 "sha256sum0" => Rv64ZknhInstruction::Sha256Sum0 { rd, rs1 },
+//                 "sha256sum1" => Rv64ZknhInstruction::Sha256Sum1 { rd, rs1 },
+//                 "sha512sig0" => Rv64ZknhInstruction::Sha512Sig0 { rd, rs1 },
+//                 "sha512sig1" => Rv64ZknhInstruction::Sha512Sig1 { rd, rs1 },
+//                 "sha512sum0" => Rv64ZknhInstruction::Sha512Sum0 { rd, rs1 },
+//                 "sha512sum1" => Rv64ZknhInstruction::Sha512Sum1 { rd, rs1 },
+//                 _ => {
+//                     // Other instructions are not supported yet
+//                     return None;
+//                 }
+//             })
+//         },
+//     );
+// }
