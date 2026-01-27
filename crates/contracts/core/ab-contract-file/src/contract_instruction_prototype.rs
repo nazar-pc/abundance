@@ -1,3 +1,4 @@
+#[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 use ab_riscv_interpreter::rv64::b::zbc::clmul_internal;
 use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use ab_riscv_interpreter::{ExecutableInstruction, ExecutionError, ProgramCounter, VirtualMemory};

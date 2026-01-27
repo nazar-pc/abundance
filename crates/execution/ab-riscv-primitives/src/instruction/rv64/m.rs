@@ -1,7 +1,8 @@
-//! M extension instructions for RISC-V RV64 base ISA
+//! M extension
 
 #[cfg(test)]
 mod tests;
+pub mod zmmul;
 
 use crate::instruction::Instruction;
 use crate::registers::Register;

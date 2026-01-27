@@ -2,6 +2,7 @@
 
 #[cfg(test)]
 mod tests;
+pub mod zmmul;
 
 use crate::ExecutionError;
 use crate::rv64::{ExecutableInstruction, Rv64InterpreterState};
