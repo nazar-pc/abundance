@@ -34,7 +34,7 @@ ab-riscv-interpreter = { workspace = true }
 ab-riscv-primitives = { workspace = true }
 
 [dev-dependencies]
-ed25519-zebra = { workspace = true }
+ed25519-dalek = { workspace = true }
 criterion = { workspace = true }
 
 [build-dependencies]

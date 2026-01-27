@@ -3,7 +3,7 @@ use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_c
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Match, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use futures::executor::block_on;
 use std::mem::MaybeUninit;
 use std::slice;

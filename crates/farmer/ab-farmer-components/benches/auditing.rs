@@ -21,7 +21,7 @@ use ab_farmer_components::shard_commitment::{
 use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
 use std::collections::HashSet;

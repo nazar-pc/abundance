@@ -44,7 +44,7 @@ use ab_core_primitives::shard::RealShardKind;
 use ab_erasure_coding::ErasureCoding;
 use bytesize::ByteSize;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use futures::channel::mpsc;
 use futures::prelude::*;
 use std::num::NonZeroU64;

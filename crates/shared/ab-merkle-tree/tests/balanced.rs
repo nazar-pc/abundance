@@ -8,7 +8,7 @@ use ab_merkle_tree::balanced::{
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use std::mem::MaybeUninit;
 
 #[test]

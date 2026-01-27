@@ -6,7 +6,7 @@ use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::hash_pair;
 use ab_merkle_tree::sparse::{Leaf, SparseMerkleTree};
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use std::num::NonZeroU128;
 
 const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];

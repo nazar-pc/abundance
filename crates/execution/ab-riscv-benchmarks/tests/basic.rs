@@ -16,7 +16,7 @@ use ab_riscv_interpreter::BasicInstructionFetcher;
 use ab_riscv_interpreter::rv64::Rv64InterpreterState;
 use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::Registers;
-use ed25519_zebra::SigningKey;
+use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -187,7 +187,7 @@ fn blake3_hash_chunk_eager() {
 #[test]
 fn ed25519_verify_valid_lazy() {
     let signing_key = SigningKey::from([1; _]);
-    let public_key = Ed25519PublicKey::from(signing_key.verification_key());
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
     let message = [2; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
@@ -209,7 +209,7 @@ fn ed25519_verify_valid_lazy() {
 #[test]
 fn ed25519_verify_invalid_lazy() {
     let signing_key = SigningKey::from([1; _]);
-    let public_key = Ed25519PublicKey::from(signing_key.verification_key());
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
     let message = [2; OUT_LEN];
     let other_message = [3; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
@@ -232,7 +232,7 @@ fn ed25519_verify_invalid_lazy() {
 #[test]
 fn ed25519_verify_valid_eager() {
     let signing_key = SigningKey::from([1; _]);
-    let public_key = Ed25519PublicKey::from(signing_key.verification_key());
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
     let message = [2; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
@@ -254,7 +254,7 @@ fn ed25519_verify_valid_eager() {
 #[test]
 fn ed25519_verify_invalid_eager() {
     let signing_key = SigningKey::from([1; _]);
-    let public_key = Ed25519PublicKey::from(signing_key.verification_key());
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
     let message = [2; OUT_LEN];
     let other_message = [3; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));

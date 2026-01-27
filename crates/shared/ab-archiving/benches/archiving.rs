@@ -2,7 +2,7 @@ use ab_archiving::archiver::Archiver;
 use ab_core_primitives::segments::RecordedHistorySegment;
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
