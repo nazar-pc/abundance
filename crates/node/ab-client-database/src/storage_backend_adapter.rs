@@ -15,7 +15,7 @@ use enum_map::{EnumMap, enum_map};
 use futures::FutureExt;
 use futures::channel::oneshot;
 use page_group_header::StorageItemPageGroupHeader;
-use rand::TryRngCore;
+use rand::TryRng;
 use rand::rngs::SysRng;
 use replace_with::replace_with_or_abort_and_return;
 use std::cmp::Reverse;

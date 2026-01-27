@@ -4,7 +4,7 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_core_primitives::hashes::Blake3Hash;
 use ed25519_zebra::{SigningKey, VerificationKey};
 use parity_scale_codec::{Decode, Encode};
-use rand::TryRngCore;
+use rand::TryRng;
 use rand::rngs::{SysError, SysRng};
 use std::path::Path;
 use std::{fmt, fs, io};

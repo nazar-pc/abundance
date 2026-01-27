@@ -4,7 +4,7 @@ use ab_core_primitives::pieces::{FlatPieces, Piece};
 use ab_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

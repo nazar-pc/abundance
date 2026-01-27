@@ -72,7 +72,7 @@ bytes = { version = "1.11.0", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "70160693564611ca85e17a3c441da93ee642d29a", default-features = false }
 cargo_metadata = { version = "0.23.1" }
-chacha20 = { version = "0.10.0-rc.6", default-features = false }
+chacha20 = { version = "0.10.0-rc.9", default-features = false }
 clap = { version = "4.5.54", features = ["derive"] }
 const_format = "0.2.35"
 core_affinity = "0.8.3"
@@ -114,10 +114,10 @@ parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
 pin-project = "1.1.10"
 prettyplease = "0.2.37"
-proc-macro2 = "1.0.105"
+proc-macro2 = "1.0.106"
 prometheus-client = "0.23.1"
 quote = "1.0.44"
-rand = { version = "0.10.0-rc.6", default-features = false }
+rand = { version = "0.10.0-rc.8", default-features = false }
 rayon = "1.11.0"
 rclite = "0.4.1"
 reed-solomon-simd = { version = "3.1.0", default-features = false }

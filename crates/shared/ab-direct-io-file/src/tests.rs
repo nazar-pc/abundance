@@ -1,6 +1,6 @@
 use crate::{DirectIoFile, MAX_READ_SIZE};
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use std::fs;
 use std::fs::OpenOptions;
 use tempfile::tempdir;

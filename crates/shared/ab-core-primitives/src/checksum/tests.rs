@@ -1,7 +1,7 @@
 use super::Blake3Checksummed;
 use crate::hashes::Blake3Hash;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use parity_scale_codec::{Decode, Encode};
 
 #[test]

@@ -1,7 +1,7 @@
 use ab_core_primitives::pot::PotSeed;
 use ab_proof_of_time::{prove, verify};
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use core::num::NonZeroU32;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;

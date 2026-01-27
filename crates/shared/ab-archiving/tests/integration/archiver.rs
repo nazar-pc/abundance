@@ -9,7 +9,7 @@ use ab_core_primitives::segments::{
 };
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

@@ -7,7 +7,7 @@ use crate::shader::find_matches_and_compute_fn::cpu_tests::find_matches_and_comp
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use futures::executor::block_on;
 use std::mem::MaybeUninit;
 use std::slice;

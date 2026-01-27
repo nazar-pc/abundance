@@ -3,7 +3,7 @@ use crate::shader::constants::K;
 use crate::shader::types::{Metadata, Y};
 use crate::shader::u32n::U32N;
 use chacha20::ChaCha8Rng;
-use chacha20::rand_core::{RngCore, SeedableRng};
+use chacha20::rand_core::{Rng, SeedableRng};
 use std::array;
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
