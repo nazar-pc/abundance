@@ -104,7 +104,7 @@ jobs:
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
@@ -247,7 +247,7 @@ jobs:
           # - os: ubuntu-24.04
           #   miri: true
           #   type: guest-feature
-          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64embzbc-unknown-none-abundance.json"
+          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -272,7 +272,7 @@ jobs:
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
@@ -497,7 +497,7 @@ jobs:
           # TODO: Tests will need custom allocator to work under this target
           # - os: ubuntu-24.04
           #   type: guest-feature
-          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64embzbc-unknown-none-abundance.json"
+          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -515,7 +515,7 @@ jobs:
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu

@@ -6,9 +6,9 @@ use std::fs::{File, create_dir_all};
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
-pub(crate) const TARGET_SPECIFICATION_NAME: &str = "riscv64embzbc-unknown-none-abundance";
-const TARGET_SPECIFICATION_FILE_NAME: &str = "riscv64embzbc-unknown-none-abundance.json";
-const TARGET_SPECIFICATION: &str = include_str!("riscv64embzbc-unknown-none-abundance.json");
+pub(crate) const TARGET_SPECIFICATION_NAME: &str = "riscv64-unknown-none-abundance";
+const TARGET_SPECIFICATION_FILE_NAME: &str = "riscv64-unknown-none-abundance.json";
+const TARGET_SPECIFICATION: &str = include_str!("riscv64-unknown-none-abundance.json");
 
 /// Target specification for contracts
 #[derive(Debug)]
