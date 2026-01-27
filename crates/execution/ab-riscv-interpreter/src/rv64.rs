@@ -6,6 +6,7 @@ pub mod m;
 mod test_utils;
 #[cfg(test)]
 mod tests;
+pub mod zk;
 
 use crate::{
     ExecutableInstruction, ExecutionError, ProgramCounter, ProgramCounterError, VirtualMemory,

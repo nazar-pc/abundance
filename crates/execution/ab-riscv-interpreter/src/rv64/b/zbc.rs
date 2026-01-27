@@ -30,10 +30,10 @@ where
                 let a = state.regs.read(rs1);
                 let b = state.regs.read(rs2);
 
-                #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zbc"))]
+                #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zbkc"))]
                 let value = core::arch::riscv64::clmul(a as usize, b as usize) as u64;
 
-                #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbc")))]
+                #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbkc")))]
                 let value = {
                     let result = clmul_internal(a, b);
                     result as u64
@@ -45,10 +45,10 @@ where
                 let a = state.regs.read(rs1);
                 let b = state.regs.read(rs2);
 
-                #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zbc"))]
+                #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zbkc"))]
                 let value = core::arch::riscv64::clmulh(a as usize, b as usize) as u64;
 
-                #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbc")))]
+                #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbkc")))]
                 let value = {
                     let result = clmul_internal(a, b);
                     (result >> 64) as u64
@@ -77,7 +77,9 @@ where
     }
 }
 
-/// Carryless multiplication helper, only useful for importing when inheriting instructions
+/// Carryless multiplication helper, only useful for importing when inheriting instructions.
+///
+/// NOTE: This function is conditionally-compiled, make sure to copy the same conditions downstream.
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 #[inline(always)]
 pub fn clmul_internal(a: u64, b: u64) -> u128 {
