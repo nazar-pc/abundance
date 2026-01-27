@@ -10,6 +10,7 @@ use ab_riscv_primitives::instruction::rv64::b::zbb::Rv64ZbbInstruction;
 use ab_riscv_primitives::instruction::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instruction::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
+use ab_riscv_primitives::instruction::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
 use ab_riscv_primitives::registers::{EReg, Register};
 use core::fmt;
 use core::ops::ControlFlow;
@@ -117,6 +118,7 @@ where
         Rv64MInstruction,
         Rv64BInstruction,
         Rv64ZbcInstruction,
+        Rv64ZknhInstruction,
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
