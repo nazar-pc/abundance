@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
-use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_str, parse2};
+use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str, parse2};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
 
@@ -211,6 +211,11 @@ pub(super) fn process_execution_impl(
         // Only remove after successful processing, so that the function can be called repeatedly
         // with the same input if the implementation is still pending
         item_impl.attrs.remove(attribute_index);
+        // Comments will be stripped, this will suppress some of the lints that are caused by it
+        item_impl.attrs.extend([
+            parse_quote! { #[expect(clippy::allow_attributes, reason = "clippy::undocumented_unsafe_blocks")]},
+            parse_quote! { #[allow(clippy::undocumented_unsafe_blocks)]},
+        ]);
 
         output_processed_enum_execution_impl(enum_name, item_impl, out_dir, state)?
     };
