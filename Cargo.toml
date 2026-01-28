@@ -62,7 +62,7 @@ aes = "0.9.0-rc.2"
 anyhow = { version = "1.0.100", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
-async-nats = { version = "0.45.0", default-features = false, features = ["ring"] }
+async-nats = { version = "0.46.0", default-features = false, features = ["ring"] }
 async-trait = "0.1.89"
 # TODO: Migrate to maintained backon
 backoff = "0.4.0"
@@ -73,7 +73,7 @@ bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "70160693564611ca85e17a3c441da93ee642d29a", default-features = false }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0-rc.9", default-features = false }
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.55", features = ["derive"] }
 const_format = "0.2.35"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
@@ -129,7 +129,7 @@ serde_json = "1.0.149"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.4", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "a30bd43db45f2bfe260051f44141e5eaffcbb4b0" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "7ad4c4dd3ec2a4a87c47b036469e2c6f4081242a" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.114"
