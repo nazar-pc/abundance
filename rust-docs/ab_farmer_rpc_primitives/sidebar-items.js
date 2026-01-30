@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_SEGMENT_HEADERS_PER_REQUEST","SHARD_MEMBERSHIP_EXPIRATION"],"struct":["BlockSealInfo","BlockSealResponse","FarmerAppInfo","FarmerShardMembershipInfo","SlotInfo","SolutionResponse"]};

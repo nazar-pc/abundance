@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["ab_core_primitives",[["impl&lt;'a&gt; Yokeable&lt;'a&gt; for <a class=\"struct\" href=\"ab_core_primitives/block/body/struct.BeaconChainBody.html\" title=\"struct ab_core_primitives::block::body::BeaconChainBody\">BeaconChainBody</a>&lt;'static&gt;",0],["impl&lt;'a&gt; Yokeable&lt;'a&gt; for <a class=\"struct\" href=\"ab_core_primitives/block/body/struct.IntermediateShardBody.html\" title=\"struct ab_core_primitives::block::body::IntermediateShardBody\">IntermediateShardBody</a>&lt;'static&gt;",0],["impl&lt;'a&gt; Yokeable&lt;'a&gt; for <a class=\"struct\" href=\"ab_core_primitives/block/body/struct.LeafShardBody.html\" title=\"struct ab_core_primitives::block::body::LeafShardBody\">LeafShardBody</a>&lt;'static&gt;",0],["impl&lt;'a&gt; Yokeable&lt;'a&gt; for <a class=\"struct\" href=\"ab_core_primitives/block/header/struct.BeaconChainHeader.html\" title=\"struct ab_core_primitives::block::header::BeaconChainHeader\">BeaconChainHeader</a>&lt;'static&gt;",0],["impl&lt;'a&gt; Yokeable&lt;'a&gt; for <a class=\"struct\" href=\"ab_core_primitives/block/header/struct.IntermediateShardHeader.html\" title=\"struct ab_core_primitives::block::header::IntermediateShardHeader\">IntermediateShardHeader</a>&lt;'static&gt;",0],["impl&lt;'a&gt; Yokeable&lt;'a&gt; for <a class=\"struct\" href=\"ab_core_primitives/block/header/struct.LeafShardHeader.html\" title=\"struct ab_core_primitives::block::header::LeafShardHeader\">LeafShardHeader</a>&lt;'static&gt;",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1470]}
