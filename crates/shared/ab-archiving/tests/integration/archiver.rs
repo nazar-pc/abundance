@@ -13,10 +13,9 @@ use chacha20::rand_core::{Rng, SeedableRng};
 use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use std::assert_matches::assert_matches;
 use std::io::Write;
-use std::iter;
 use std::num::NonZeroU32;
+use std::{assert_matches, iter};
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();

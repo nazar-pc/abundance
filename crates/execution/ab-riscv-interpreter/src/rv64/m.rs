@@ -65,11 +65,7 @@ where
             Self::Divu { rd, rs1, rs2 } => {
                 let dividend = state.regs.read(rs1);
                 let divisor = state.regs.read(rs2);
-                let value = if divisor == 0 {
-                    u64::MAX
-                } else {
-                    dividend / divisor
-                };
+                let value = dividend.checked_div(divisor).unwrap_or(u64::MAX);
                 state.regs.write(rd, value);
             }
             Self::Rem { rd, rs1, rs2 } => {
@@ -106,20 +102,18 @@ where
                 let value = if divisor == 0 {
                     -1i64
                 } else if dividend == i32::MIN && divisor == -1 {
-                    i32::MIN as i64
+                    i64::from(i32::MIN)
                 } else {
-                    (dividend / divisor) as i64
+                    i64::from(dividend / divisor)
                 };
                 state.regs.write(rd, value.cast_unsigned());
             }
             Self::Divuw { rd, rs1, rs2 } => {
                 let dividend = state.regs.read(rs1) as u32;
                 let divisor = state.regs.read(rs2) as u32;
-                let value = if divisor == 0 {
-                    u64::MAX
-                } else {
-                    ((dividend / divisor).cast_signed() as i64).cast_unsigned()
-                };
+                let value = dividend.checked_div(divisor).map_or(u64::MAX, |value| {
+                    i64::from(value.cast_signed()).cast_unsigned()
+                });
                 state.regs.write(rd, value);
             }
             Self::Remw { rd, rs1, rs2 } => {

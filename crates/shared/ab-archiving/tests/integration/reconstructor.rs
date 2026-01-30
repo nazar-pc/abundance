@@ -9,9 +9,8 @@ use ab_core_primitives::segments::{
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::assert_matches::assert_matches;
-use std::iter;
 use std::num::NonZeroU32;
+use std::{assert_matches, iter};
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()
