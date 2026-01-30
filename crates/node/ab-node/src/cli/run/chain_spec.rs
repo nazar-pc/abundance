@@ -40,9 +40,9 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     shard_rotation_delay: BlockNumber::new(18),
 };
 
-const _: () = {
+const {
     assert!(CONSENSUS_CONSTANTS.shard_rotation_interval.as_u64() > 0);
-};
+}
 
 // TODO: Placeholder data structure, should probably be replaced with something else
 pub(super) struct ChainSpec {

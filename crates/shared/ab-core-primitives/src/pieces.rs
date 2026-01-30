@@ -120,10 +120,10 @@ impl PieceIndex {
     }
 }
 
-const _: () = {
+const {
     // Assert that `u8` represents `PiecePosition` perfectly
     assert!(RecordedHistorySegment::NUM_PIECES == usize::from(u8::MAX) + 1);
-};
+}
 
 /// Piece position in a segment
 #[derive(

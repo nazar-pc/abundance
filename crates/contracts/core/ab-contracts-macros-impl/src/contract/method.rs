@@ -676,13 +676,13 @@ impl MethodDetails {
                 original_fn_args.push(quote! {&mut *{
                     // Ensure the state type implements `IoType`, which is required for crossing the
                     // host/guest boundary
-                    const _: () = {
+                    const {
                         const fn assert_impl_io_type<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoType,
                         {}
                         assert_impl_io_type::<#self_type>();
-                    };
+                    }
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.self_ptr,
@@ -694,13 +694,13 @@ impl MethodDetails {
                 original_fn_args.push(quote! {&*{
                     // Ensure the state type implements `IoType`, which is required for crossing the
                     // host/guest boundary
-                    const _: () = {
+                    const {
                         const fn assert_impl_io_type<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoType,
                         {}
                         assert_impl_io_type::<#self_type>();
-                    };
+                    }
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.self_ptr,
@@ -763,13 +763,13 @@ impl MethodDetails {
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing the host/guest boundary
-                    const _: () = {
+                    const {
                         const fn assert_impl_io_type_optional<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
-                    };
+                    }
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
@@ -782,13 +782,13 @@ impl MethodDetails {
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing the host/guest boundary
-                    const _: () = {
+                    const {
                         const fn assert_impl_io_type_optional<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
-                    };
+                    }
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
@@ -834,13 +834,13 @@ impl MethodDetails {
                     // handling of slot that might be removed or not present and implies
                     // implementation of `IoType`, which is required for crossing the host/guest
                     // boundary
-                    const _: () = {
+                    const {
                         const fn assert_impl_io_type_optional<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
-                    };
+                    }
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
@@ -854,13 +854,13 @@ impl MethodDetails {
                     // handling of slot that might be removed or not present and implies
                     // implementation of `IoType`, which is required for crossing the host/guest
                     // boundary
-                    const _: () = {
+                    const {
                         const fn assert_impl_io_type_optional<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
-                    };
+                    }
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
@@ -909,13 +909,13 @@ impl MethodDetails {
             original_fn_args.push(quote! {&*{
                 // Ensure the input type implements `IoType`, which is required for crossing the
                 // host/guest boundary
-                const _: () = {
+                const {
                     const fn assert_impl_io_type<T>()
                     where
                         T: ::ab_contracts_macros::__private::IoType,
                     {}
                     assert_impl_io_type::<#type_name>();
-                };
+                }
 
                 <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                     &args.#ptr_field,
@@ -948,13 +948,13 @@ impl MethodDetails {
             original_fn_args.push(quote! {&mut *{
                 // Ensure the output type implements `IoType`, which is required for crossing the
                 // host/guest boundary
-                const _: () = {
+                const {
                     const fn assert_impl_io_type<T>()
                     where
                         T: ::ab_contracts_macros::__private::IoType,
                     {}
                     assert_impl_io_type::<#type_name>();
-                };
+                }
 
                 <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                     &mut args.#ptr_field,
@@ -980,13 +980,13 @@ impl MethodDetails {
                     // crossing host/guest boundary, but also `TrivialType` and result handling is
                     // trivial without the need to worry about size and capacity.
                     // `#[output]` must be used for a variable size result.
-                    const _: () = {
+                    const {
                         const fn assert_impl_trivial_type<T>()
                         where
                             T: ::ab_contracts_macros::__private::IoType,
                         {}
                         assert_impl_trivial_type::<#return_type>();
-                    };
+                    }
 
                     debug_assert!(
                         args.ok_result_ptr.is_aligned(),
@@ -1612,13 +1612,13 @@ impl MethodDetails {
                 // crossing host/guest boundary, but also `TrivialType` and result handling is
                 // trivial without the need to worry about size and capacity.
                 // `#[output]` must be used for a variable size result.
-                const _: () = {
+                const {
                     const fn assert_impl_trivial_type<T>()
                     where
                         T: ::ab_contracts_macros::__private::IoType,
                     {}
                     assert_impl_trivial_type::<#return_type>();
-                };
+                }
 
                 let mut ok_result = ::core::mem::MaybeUninit::uninit();
             });

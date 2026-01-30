@@ -62,10 +62,10 @@ const REDUCED_MATCHES_COUNT: usize = 288;
 #[cfg(feature = "parallel")]
 const CACHE_LINE_SIZE: usize = 64;
 
-const _: () = {
+const {
     debug_assert!(REDUCED_BUCKET_SIZE <= MAX_BUCKET_SIZE);
     debug_assert!(REDUCED_MATCHES_COUNT <= MAX_BUCKET_SIZE);
-};
+}
 
 /// Compute the size of `y` in bits
 pub(super) const fn y_size_bits(k: u8) -> usize {

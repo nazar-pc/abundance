@@ -3,6 +3,7 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
+    const_block_items,
     const_convert,
     const_trait_impl,
     exact_size_is_empty,

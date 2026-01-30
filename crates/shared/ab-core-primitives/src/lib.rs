@@ -3,6 +3,7 @@
 #![cfg_attr(any(target_os = "none", target_os = "unknown"), no_std)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
+    const_block_items,
     const_cmp,
     const_convert,
     const_trait_impl,
@@ -37,9 +38,9 @@ pub mod transaction;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-const _: () = {
+const {
     assert!(
         size_of::<usize>() >= size_of::<u32>(),
         "Must be at least 32-bit platform"
     );
-};
+}

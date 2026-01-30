@@ -57,9 +57,9 @@ where
     //  succeed.
     #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
     #[expect(clippy::eq_op, reason = "Intentional documentation")]
-    const _: () = {
+    const {
         assert!(u32::MAX == 4294967295);
-    };
+    }
     // TODO: Keyed hash
     let root = UnbalancedMerkleTree::compute_root_only::<4294967295, _, _>(
         segment_roots.into_iter().map(|segment_root| {

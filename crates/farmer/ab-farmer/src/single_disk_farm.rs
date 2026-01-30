@@ -79,7 +79,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
-use std::{fmt, fs, io, mem};
+use std::{fmt, fs, io};
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
@@ -88,9 +88,9 @@ use tracing::{Instrument, Span, error, info, trace, warn};
 
 // Refuse to compile on non-64-bit platforms, offsets may fail on those when converting from u64 to
 // usize depending on chain parameters
-const _: () = {
-    assert!(mem::size_of::<usize>() >= mem::size_of::<u64>());
-};
+const {
+    assert!(size_of::<usize>() >= size_of::<u64>());
+}
 
 /// Reserve 1M of space for plot metadata (for potential future expansion)
 const RESERVED_PLOT_METADATA: u64 = 1024 * 1024;

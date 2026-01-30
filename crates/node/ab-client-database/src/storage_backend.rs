@@ -8,9 +8,9 @@ use std::{fmt, io, mem};
 #[repr(C, align(4096))]
 pub struct AlignedPage([u8; AlignedPage::SIZE]);
 
-const _: () = {
+const {
     assert!(align_of::<AlignedPage>() == AlignedPage::SIZE);
-};
+}
 
 impl Default for AlignedPage {
     #[inline(always)]

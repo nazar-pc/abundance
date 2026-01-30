@@ -17,9 +17,9 @@ struct SystemContractStatePrefix {
     padding: [u8; 4],
 }
 
-const _: () = {
+const {
     assert!(align_of::<SystemContractStatePrefix>() == align_of::<u64>());
-};
+}
 
 #[derive(Debug)]
 pub(crate) struct StorageItemBlockBlock {

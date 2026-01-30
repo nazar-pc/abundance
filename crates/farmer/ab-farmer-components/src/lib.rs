@@ -4,6 +4,7 @@
 //! necessary.
 
 #![feature(
+    const_block_items,
     const_trait_impl,
     exact_size_is_empty,
     int_roundings,
@@ -270,9 +271,9 @@ where
 
 // Refuse to compile on non-64-bit platforms, offsets may fail on those when converting from u64 to
 // usize depending on chain parameters
-const _: () = {
+const {
     assert!(size_of::<usize>() >= size_of::<u64>());
-};
+}
 
 /// Information about the protocol necessary for farmer operation
 #[derive(Debug, Copy, Clone, Encode, Decode, Serialize, Deserialize)]

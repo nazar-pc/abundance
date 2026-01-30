@@ -97,12 +97,12 @@ unsafe impl TrivialType for Address {
 }
 
 // Ensure this never mismatches with code in `ab-io-type` despite being in a different crate
-const _: () = {
+const {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Address::METADATA)
         .expect("Statically correct metadata; qed");
     assert!(size_of::<Address>() == type_details.recommended_capacity as usize);
     assert!(align_of::<Address>() == type_details.alignment.get() as usize);
-};
+}
 
 impl fmt::Debug for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

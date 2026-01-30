@@ -1,5 +1,6 @@
 //! Client API
 
+#![feature(const_block_items)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
@@ -19,9 +20,9 @@ use std::sync::Arc as StdArc;
 //  code to compile. Constant 4294967295 is hardcoded here and below for compilation to succeed.
 #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
 #[expect(clippy::eq_op, reason = "Intentional documentation")]
-const _: () = {
+const {
     assert!(u32::MAX == 4294967295);
-};
+}
 
 // TODO: Make this a `#[transparent]` struct to improve usability (avoiding the need for
 //  `generic_const_exprs` feature in downstream crates)?

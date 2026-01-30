@@ -105,11 +105,11 @@ pub const fn merkle_mountain_range_bytes_size(max_n: u64) -> usize {
     size_of::<u64>() + OUT_LEN * (max_n.ilog2() as usize + 1)
 }
 
-const _: () = {
+const {
     assert!(size_of::<MerkleMountainRangeBytes<2>>() == merkle_mountain_range_bytes_size(2));
     assert!(size_of::<MerkleMountainRange<2>>() == merkle_mountain_range_bytes_size(2));
     assert!(align_of::<MerkleMountainRangeBytes<2>>() == align_of::<MerkleMountainRange<2>>());
-};
+}
 
 /// Merkle Mountain Range variant that has pre-hashed leaves with arbitrary number of elements.
 ///

@@ -127,9 +127,9 @@ impl SectorSlotChallenge {
     pub fn s_bucket_audit_index(&self) -> SBucket {
         // As long as number of s-buckets is 2^16, we can pick first two bytes instead of actually
         // calculating `U256::from_le_bytes(self.0) % Record::NUM_S_BUCKETS)`
-        const _: () = const {
+        const {
             assert!(Record::NUM_S_BUCKETS == 1 << u16::BITS as usize);
-        };
+        }
         SBucket::from(u16::from_le_bytes([self.0[0], self.0[1]]))
     }
 }

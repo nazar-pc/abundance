@@ -7,6 +7,8 @@
 //! <https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering#alignment-and-file-access-requirements>
 //! <https://man7.org/linux/man-pages/man2/open.2.html>
 
+#![feature(const_block_items)]
+
 // TODO: Windows shims are incomplete under Miri: https://github.com/rust-lang/miri/issues/3482
 #[cfg(all(test, not(all(miri, windows))))]
 mod tests;
@@ -22,9 +24,9 @@ pub const DISK_PAGE_SIZE: usize = 4096;
 /// Restrict how much data to read from the disk in a single call to avoid very large memory usage
 const MAX_READ_SIZE: usize = 1024 * 1024;
 
-const _: () = {
+const {
     assert!(MAX_READ_SIZE.is_multiple_of(AlignedPage::SIZE));
-};
+}
 
 /// A wrapper data structure with 4096 bytes alignment, which is the most common alignment for
 /// direct I/O operations.
@@ -32,9 +34,9 @@ const _: () = {
 #[repr(C, align(4096))]
 pub struct AlignedPage([u8; AlignedPage::SIZE]);
 
-const _: () = {
+const {
     assert!(align_of::<AlignedPage>() == AlignedPage::SIZE);
-};
+}
 
 impl Default for AlignedPage {
     #[inline(always)]

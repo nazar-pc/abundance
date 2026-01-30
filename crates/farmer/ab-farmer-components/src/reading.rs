@@ -90,9 +90,9 @@ impl ReadingError {
 
 // TODO: Workaround for https://github.com/rust-lang/rust/issues/144690 that gets triggered on
 //  `s_bucket_offsets` argument below
-const _: () = {
+const {
     assert!(65536 == Record::NUM_S_BUCKETS);
-};
+}
 /// Read sector record chunks, only plotted s-buckets are returned (in decoded form).
 ///
 /// NOTE: This is an async function, but it also does CPU-intensive operation internally, while it

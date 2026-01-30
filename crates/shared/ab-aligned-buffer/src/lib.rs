@@ -1,4 +1,9 @@
-#![feature(box_vec_non_null, pointer_is_aligned_to, ptr_as_ref_unchecked)]
+#![feature(
+    const_block_items,
+    box_vec_non_null,
+    pointer_is_aligned_to,
+    ptr_as_ref_unchecked
+)]
 #![no_std]
 
 #[cfg(test)]
@@ -18,7 +23,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
-const _: () = {
+const {
     assert!(
         align_of::<u128>() == size_of::<u128>(),
         "Size and alignment are both 16 bytes"
@@ -29,17 +34,17 @@ const _: () = {
     );
     assert!(size_of::<u128>() >= size_of::<AtomicU32>());
     assert!(align_of::<u128>() >= align_of::<AtomicU32>());
-};
+}
 
 #[repr(C, align(16))]
 struct ConstInnerBuffer {
     strong_count: AtomicU32,
 }
 
-const _: () = {
+const {
     assert!(align_of::<ConstInnerBuffer>() == align_of::<u128>());
     assert!(size_of::<ConstInnerBuffer>() == size_of::<u128>());
-};
+}
 
 static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
     inner: InnerBuffer {
