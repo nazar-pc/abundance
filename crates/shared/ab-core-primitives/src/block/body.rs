@@ -838,12 +838,6 @@ impl<'a> IntermediateShardBody<'a> {
         &self.leaf_shard_blocks
     }
 
-    /// Proof for segment roots included in the body
-    #[inline]
-    pub fn segment_roots_proof(&self) -> [u8; 32] {
-        *self.leaf_shard_blocks.headers_root()
-    }
-
     /// Create an owned version of this body
     #[cfg(feature = "alloc")]
     #[inline(always)]
@@ -1087,12 +1081,6 @@ impl<'a> LeafShardBody<'a> {
     #[inline(always)]
     pub fn transactions(&self) -> &Transactions<'a> {
         &self.transactions
-    }
-
-    /// Proof for segment roots included in the body
-    #[inline]
-    pub fn segment_roots_proof(&self) -> [u8; 32] {
-        *self.transactions.root()
     }
 
     /// Create an owned version of this body
