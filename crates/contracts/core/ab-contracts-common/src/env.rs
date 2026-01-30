@@ -49,7 +49,7 @@ pub struct PreparedMethod<'a> {
 #[cfg(feature = "guest")]
 unsafe extern "C" {
     /// Host-level API
-    fn __ab_host_call_import(method: *const PreparedMethod<'_>) -> crate::ExitCode;
+    fn __ab_host_call_import(method: &PreparedMethod<'_>) -> crate::ExitCode;
 }
 
 /// Internal wrapper around [`__ab_host_call_import()`] that will always have a single copy (never
@@ -106,6 +106,7 @@ pub struct Env<'a> {
     state: EnvState,
     #[cfg(feature = "executor")]
     executor_context: &'a mut dyn ExecutorContext,
+    #[cfg(not(feature = "executor"))]
     phantom_data: PhantomData<&'a ()>,
 }
 
@@ -124,7 +125,6 @@ impl<'a> Env<'a> {
         Self {
             state,
             executor_context,
-            phantom_data: PhantomData,
         }
     }
 

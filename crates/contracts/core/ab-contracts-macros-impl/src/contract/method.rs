@@ -713,26 +713,15 @@ impl MethodDetails {
 
         // Optional environment argument
         if let Some(env) = &self.env {
-            let ptr_field = format_ident!("{}_ptr", env.arg_name);
-            let assert_msg = format!("`{ptr_field}` pointer is misaligned");
+            let env_field = &env.arg_name;
             let mutability = env.mutability;
 
             internal_args_pointers.push(quote! {
                 // Use `Env` to check if the method argument had the correct type at compile time
-                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env<'internal_args>>,
+                pub #env_field: &'internal_args #mutability ::ab_contracts_macros::__private::Env<'internal_args>,
             });
 
-            if mutability.is_some() {
-                original_fn_args.push(quote! {{
-                    debug_assert!(args.#ptr_field.is_aligned(), #assert_msg);
-                    args.#ptr_field.as_mut()
-                }});
-            } else {
-                original_fn_args.push(quote! {{
-                    debug_assert!(args.#ptr_field.is_aligned(), #assert_msg);
-                    args.#ptr_field.as_ref()
-                }});
-            }
+            original_fn_args.push(quote! { args.#env_field });
         }
 
         // Optional tmp argument
@@ -805,7 +794,7 @@ impl MethodDetails {
         for slot in &self.slots {
             let type_name = &slot.type_name;
             let mutability = slot.mutability;
-            let address_ptr_field = format_ident!("{}_address_ptr", slot.arg_name);
+            let address_field = format_ident!("{}_address", slot.arg_name);
             let ptr_field = format_ident!("{}_ptr", slot.arg_name);
             let size_field = format_ident!("{}_size", slot.arg_name);
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
@@ -815,7 +804,7 @@ impl MethodDetails {
             internal_args_pointers.push(quote! {
                 // Use `Address` to check if the method argument had the correct type at compile
                 // time
-                pub #address_ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
+                pub #address_field: &'internal_args ::ab_contracts_macros::__private::Address,
                 pub #ptr_field: ::core::ptr::NonNull<
                     <
                         // Make sure the `#[slot]` type matches the expected type
@@ -873,11 +862,7 @@ impl MethodDetails {
             if slot.with_address_arg {
                 original_fn_args.push(quote! {
                     (
-                        &<::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                            &args.#address_ptr_field,
-                            &<::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                            <::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                        ),
+                        args.#address_field,
                         #arg_extraction,
                     )
                 });
@@ -972,7 +957,7 @@ impl MethodDetails {
             // No special handling of the return type is needed for a unit return type
             if !self.return_type.unit_return_type() {
                 internal_args_pointers.push(quote! {
-                    pub ok_result_ptr: ::core::ptr::NonNull<#return_type>,
+                    pub ok_result: &'internal_args mut ::core::mem::MaybeUninit<#return_type>,
                 });
 
                 preparation.push(quote! {
@@ -987,11 +972,6 @@ impl MethodDetails {
                         {}
                         assert_impl_trivial_type::<#return_type>();
                     }
-
-                    debug_assert!(
-                        args.ok_result_ptr.is_aligned(),
-                        "`ok_result_ptr` pointer is misaligned"
-                    );
                 });
             }
             let args_struct_doc = format!(
@@ -1024,7 +1004,7 @@ impl MethodDetails {
                 }
                 MethodReturnType::Regular(_) => {
                     quote! {
-                        args.ok_result_ptr.write(#result_var_name);
+                        args.ok_result.write(#result_var_name);
                         // Return exit code
                         ::ab_contracts_macros::__private::ExitCode::ok()
                     }
@@ -1043,7 +1023,7 @@ impl MethodDetails {
                         // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
-                                args.ok_result_ptr.write(result);
+                                args.ok_result.write(result);
                                 // Return exit code
                                 ::ab_contracts_macros::__private::ExitCode::ok()
                             }
@@ -1068,35 +1048,29 @@ impl MethodDetails {
                 ///
                 /// # Safety
                 ///
-                /// Caller must ensure the provided pointer corresponds to expected ABI.
+                /// Caller must ensure the provided pointer corresponds to the expected ABI.
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
                 pub unsafe extern "C" fn #ffi_fn_name(
-                    mut args: ::core::ptr::NonNull<InternalArgs<'_>>,
+                    args: &mut InternalArgs<'_>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
-                    // SAFETY: Must be upheld by the caller (executor)
-                    unsafe {
-                        debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
-                        let args = args.as_mut();
+                    #( #preparation )*
 
-                        #( #preparation )*
+                    // Call inner function via normal Rust API
+                    #[allow(
+                        unused_variables,
+                        reason = "Sometimes result is `()`"
+                    )]
+                    #[allow(
+                        clippy::let_unit_value,
+                        reason = "Sometimes result is `()`"
+                    )]
+                    let #result_var_name = #full_struct_name::#original_method_name(
+                        #( #original_fn_args, )*
+                    );
 
-                        // Call inner function via normal Rust API
-                        #[allow(
-                            unused_variables,
-                            reason = "Sometimes result is `()`"
-                        )]
-                        #[allow(
-                            clippy::let_unit_value,
-                            reason = "Sometimes result is `()`"
-                        )]
-                        let #result_var_name = #full_struct_name::#original_method_name(
-                            #( #original_fn_args, )*
-                        );
-
-                        #result_handling
-                    }
+                    #result_handling
                 }
             }
         };
@@ -1112,11 +1086,16 @@ impl MethodDetails {
                     use super::*;
 
                     unsafe extern "C" fn #adapter_ffi_fn_name(
-                        ptr: ::core::ptr::NonNull<::core::ffi::c_void>,
+                        args_ptr: ::core::ptr::NonNull<::core::ffi::c_void>,
                     ) -> ::ab_contracts_macros::__private::ExitCode {
                         // SAFETY: Caller must ensure correct ABI of the void pointer, little can be
                         // done here
-                        unsafe { #ffi_fn_name(ptr.cast::<InternalArgs<'_>>()) }
+                        unsafe {
+                            let mut args = args_ptr.cast::<InternalArgs<'_>>();
+                            debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
+                            let args = args.as_mut();
+                            #ffi_fn_name(args)
+                        }
                     }
 
                     pub const METHOD_FN_POINTER: ::ab_contracts_macros::__private::NativeExecutorContactMethod =
@@ -1163,7 +1142,7 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                #arg_name: &'a ::ab_contracts_macros::__private::Address,
+                #arg_name: &'external_args ::ab_contracts_macros::__private::Address,
             });
             method_args_fields.push(quote! {
                 #ptr_field: ::core::ptr::NonNull::from_ref(#arg_name),
@@ -1191,7 +1170,7 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                #arg_name: &'a #type_name,
+                #arg_name: &'external_args #type_name,
             });
             method_args_fields.push(quote! {
                 // SAFETY: This pointer is used as input to FFI call, and underlying data
@@ -1236,7 +1215,7 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                #arg_name: &'a mut #type_name,
+                #arg_name: &'external_args mut #type_name,
             });
             method_args_fields.push(quote! {
                 // SAFETY: This pointer is used as input to FFI call, and underlying data will only
@@ -1259,17 +1238,14 @@ impl MethodDetails {
             let return_type = &self.return_type.return_type();
 
             external_args_fields.push(quote! {
-                pub ok_result_ptr: ::core::ptr::NonNull<#return_type>,
+                pub ok_result: &'external_args mut ::core::mem::MaybeUninit<#return_type>,
             });
 
             method_args.push(quote! {
-                ok_result: &'a mut ::core::mem::MaybeUninit<#return_type>,
+                ok_result: &'external_args mut ::core::mem::MaybeUninit<#return_type>,
             });
             method_args_fields.push(quote! {
-                // SAFETY: Pointer created from an allocated struct
-                ok_result_ptr: unsafe {
-                    ::core::ptr::NonNull::new_unchecked(ok_result.as_mut_ptr())
-                },
+                ok_result,
             });
         }
         let args_struct_doc = format!(
@@ -1284,9 +1260,9 @@ impl MethodDetails {
             #[doc = #args_struct_doc]
             #[derive(::core::fmt::Debug)]
             #[repr(C)]
-            pub struct #args_struct_name<'a> {
+            pub struct #args_struct_name<'external_args> {
                 #( #external_args_fields )*
-                lifetime: ::core::marker::PhantomData<&'a ()>,
+                lifetime: ::core::marker::PhantomData<&'external_args ()>,
             }
 
             #[automatically_derived]
@@ -1297,7 +1273,7 @@ impl MethodDetails {
                 const METADATA: &'static [::core::primitive::u8] = METADATA;
             }
 
-            impl<'a> #args_struct_name<'a> {
+            impl<'external_args> #args_struct_name<'external_args> {
                 /// Create a new instance.
                 ///
                 /// NOTE: Make sure to query updated sizes of arguments after calling the contract.
