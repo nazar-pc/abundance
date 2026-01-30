@@ -152,12 +152,12 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
 
             if num_own_segment_roots + num_child_segment_roots > 0 {
+                // TODO: Verify this proof against segment roots
                 let _segment_roots_proof = remainder.split_off(..SegmentRoot::SIZE)?;
+                let _segment_roots = remainder.split_off(
+                    ..(num_own_segment_roots + num_child_segment_roots) * SegmentRoot::SIZE,
+                )?;
             }
-
-            let _segment_roots = remainder.split_off(
-                ..(num_own_segment_roots + num_child_segment_roots) * SegmentRoot::SIZE,
-            )?;
         }
 
         Some((
@@ -585,11 +585,11 @@ impl<'a> LeafShardBlocksInfo<'a> {
             remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
 
             if num_own_segment_roots > 0 {
+                // TODO: Verify this proof against segment roots
                 let _segment_roots_proof = remainder.split_off(..SegmentRoot::SIZE)?;
+                let _own_segment_roots =
+                    remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             }
-
-            let _own_segment_roots =
-                remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
         }
 
         Some((
