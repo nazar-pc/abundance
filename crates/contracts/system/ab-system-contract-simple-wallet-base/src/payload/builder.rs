@@ -25,10 +25,10 @@ use core::num::NonZeroU8;
 use core::ptr::NonNull;
 use core::{ptr, slice};
 
-const _: () = {
+const {
     // Make sure bit flags for all arguments will fit into a single u8 below
     assert!(MAX_TOTAL_METHOD_ARGS as u32 == u8::BITS);
-};
+}
 
 /// Read from an external arguments pointer and move it forward.
 ///

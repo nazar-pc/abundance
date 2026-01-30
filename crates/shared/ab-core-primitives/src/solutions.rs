@@ -247,11 +247,11 @@ impl SolutionRange {
 }
 
 // Quick test to ensure the functions above are the inverse of each other
-const _: () = {
+const {
     assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
     assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
     assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
-};
+}
 
 /// Proof for chunk contained within a record.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]

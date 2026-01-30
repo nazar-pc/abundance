@@ -128,8 +128,10 @@ const ROUND_CONSTS: [u32; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
 fn expand_key(key: &[u8; 16]) -> [uint8x16_t; NUM_ROUND_KEYS] {
     let mut expanded_keys = [uint8x16_t::from(u8x16::default()); NUM_ROUND_KEYS];
 
-    // Sanity check, as this is required in order for the subsequent conversion to be sound.
-    const _: () = assert!(align_of::<uint8x16_t>() >= align_of::<u32>());
+    // Sanity check, as this is required in order for the further conversion to be sound
+    const {
+        assert!(align_of::<uint8x16_t>() >= align_of::<u32>());
+    }
     // SAFETY: Size and alignment are the same
     let columns = unsafe {
         slice::from_raw_parts_mut(

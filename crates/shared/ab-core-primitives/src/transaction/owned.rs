@@ -86,13 +86,13 @@ impl OwnedTransaction {
         seal: &[u8],
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedTransactionError> {
-        const _: () = {
+        const {
             // Writing `OwnedTransactionLengths` after `TransactionHeader` must be aligned
             assert!(
                 size_of::<TransactionHeader>()
                     .is_multiple_of(align_of::<SerializedTransactionLengths>())
             );
-        };
+        }
 
         let transaction_lengths = SerializedTransactionLengths {
             read_slots: read_slots
@@ -120,14 +120,14 @@ impl OwnedTransaction {
             unreachable!("Always fits into `u32`");
         };
 
-        const _: () = {
+        const {
             // Writing `TransactionSlot` after `OwnedTransactionLengths` and `TransactionHeader`
             // must be aligned
             assert!(
                 (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
                     .is_multiple_of(align_of::<TransactionSlot>())
             );
-        };
+        }
         if transaction_lengths.read_slots > 0 {
             // SAFETY: `TransactionSlot` implements `TrivialType` and is safe to copy as bytes
             if !buffer.append(unsafe {
@@ -145,7 +145,7 @@ impl OwnedTransaction {
             }
         }
 
-        const _: () = {
+        const {
             // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
             // `TransactionSlot` must be aligned to `u128`
             assert!(
@@ -158,7 +158,7 @@ impl OwnedTransaction {
                     + size_of::<TransactionSlot>())
                 .is_multiple_of(align_of::<u128>())
             );
-        };
+        }
         if transaction_lengths.payload > 0 {
             if !transaction_lengths.payload.is_multiple_of(u128::SIZE) {
                 return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
@@ -172,7 +172,7 @@ impl OwnedTransaction {
             }
         }
 
-        const _: () = {
+        const {
             // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
             // `TransactionSlot` must be aligned to `u128`
             assert!(
@@ -185,7 +185,7 @@ impl OwnedTransaction {
                     + size_of::<TransactionSlot>())
                 .is_multiple_of(align_of::<u128>())
             );
-        };
+        }
         if transaction_lengths.seal > 0 && !buffer.append(seal) {
             return Err(OwnedTransactionError::TransactionTooLarge);
         }

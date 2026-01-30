@@ -1,6 +1,7 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
     cast_maybe_uninit,
+    const_block_items,
     const_convert,
     const_index,
     const_split_off_first_last,
@@ -30,7 +31,7 @@ use core::ptr::NonNull;
 /// `u128`)
 pub const MAX_ALIGNMENT: u8 = 16;
 
-const _: () = {
+const {
     assert!(
         size_of::<usize>() >= size_of::<u32>(),
         "At least 32-bit platform required"
@@ -62,7 +63,7 @@ const _: () = {
     assert!(align_of::<i32>() == 4, "Unsupported alignment of `i32`");
     assert!(align_of::<i64>() == 8, "Unsupported alignment of `i64`");
     assert!(align_of::<i128>() == 16, "Unsupported alignment of `i128`");
-};
+}
 
 struct DerefWrapper<T>(T);
 

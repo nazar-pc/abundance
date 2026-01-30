@@ -45,6 +45,7 @@
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
 #![feature(
+    const_block_items,
     default_field_values,
     get_mut_unchecked,
     iter_collect_into,
