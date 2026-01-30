@@ -63,8 +63,8 @@ where
     // TODO: Keyed hash
     let root = UnbalancedMerkleTree::compute_root_only::<4294967295, _, _>(
         segment_roots.into_iter().map(|segment_root| {
-            // Hash the root again so we can prove it, otherwise segments root is indistinguishable
-            // from individual segment roots and can be used to confuse verifier
+            // Hash the root again so we can prove it, otherwise root of segments is
+            // indistinguishable from individual segment roots and can be used to confuse verifier
             single_block_hash(segment_root.as_ref())
                 .expect("Less than a single block worth of bytes; qed")
         }),
@@ -76,7 +76,7 @@ where
 /// Information about intermediate shard block
 #[derive(Debug, Clone)]
 pub struct IntermediateShardBlockInfo<'a> {
-    /// Block header that corresponds to an intermediate shard
+    /// A block header that corresponds to an intermediate shard
     pub header: IntermediateShardHeader<'a>,
     /// Segment roots proof if there are segment roots in the corresponding block
     pub segment_roots_proof: Option<&'a [u8; 32]>,
@@ -125,10 +125,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         // * for each block:
         //   * number of own segment roots: u8
         //   * number of child segment roots: u16 as unaligned little-endian bytes
-        // * padding to 8-bytes boundary (if needed)
+        // * padding to 8-bytes boundary with zeroes
         // * for each block:
-        //   * block header: IntermediateShardBlockHeader
-        //   * padding to 8-bytes boundary (if needed)
+        //   * block header: IntermediateShardHeader
+        //   * padding to 8-bytes boundary with zeroes
         //   * segment roots proof (if there is at least one segment root)
         //   * concatenated own segment roots
         //   * concatenated child segment roots
@@ -260,9 +260,9 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         self.num_blocks == 0
     }
 
-    /// Compute the segments root of the intermediate shard blocks info.
+    /// Compute the root of segments of the intermediate shard blocks info.
     ///
-    /// Returns default value for an empty collection of segment roots.
+    /// Returns the default value for an empty collection of segment roots.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
         compute_segments_root(
@@ -277,15 +277,15 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         )
     }
 
-    /// Compute the headers root of the intermediate shard blocks info.
+    /// Compute the root of headers of the intermediate shard blocks info.
     ///
-    /// Returns default value for an empty collection of shard blocks.
+    /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
         let root = UnbalancedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
             // TODO: Keyed hash
             self.iter().map(|shard_block_info| {
-                // Hash the root again so we can prove it, otherwise headers root is
+                // Hash the root again so we can prove it, otherwise the root of headers is
                 // indistinguishable from individual block roots and can be used to confuse
                 // verifier
                 single_block_hash(shard_block_info.header.root().as_ref())
@@ -299,7 +299,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
     /// Compute the root of the intermediate shard blocks info.
     ///
-    /// Returns default value for an empty collection of shard blocks.
+    /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         let root = UnbalancedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
@@ -320,8 +320,8 @@ pub struct BeaconChainBody<'a> {
     own_segment_roots: &'a [SegmentRoot],
     /// Intermediate shard blocks
     intermediate_shard_blocks: IntermediateShardBlocksInfo<'a>,
-    /// Proof of time checkpoints from after future proof of time of the parent block to current
-    /// block's future proof of time (inclusive)
+    /// Proof of time checkpoints from after future proof of time of the parent block to the
+    /// current block's future proof of time (inclusive)
     pot_checkpoints: &'a [PotCheckpoints],
 }
 
@@ -508,7 +508,7 @@ impl<'a> BeaconChainBody<'a> {
         &self.intermediate_shard_blocks
     }
 
-    /// Proof of time checkpoints from after future proof of time of the parent block to current
+    /// Proof of time checkpoints from after future proof of time of the parent block to the current
     /// block's future proof of time (inclusive)
     #[inline(always)]
     pub fn pot_checkpoints(&self) -> &'a [PotCheckpoints] {
@@ -530,10 +530,10 @@ impl<'a> BeaconChainBody<'a> {
     }
 }
 
-/// Information about leaf shard block
+/// Information about leaf shard block container inside intermediate shard block body
 #[derive(Debug, Clone)]
 pub struct LeafShardBlockInfo<'a> {
-    /// Block header that corresponds to an intermediate shard
+    /// A block header that corresponds to an intermediate shard
     pub header: LeafShardHeader<'a>,
     /// Segment roots proof if there are segment roots in the corresponding block
     pub segment_roots_proof: Option<&'a [u8; 32]>,
@@ -560,10 +560,10 @@ impl<'a> LeafShardBlocksInfo<'a> {
         // * number of blocks: u16 as unaligned little-endian bytes
         // * for each block:
         //   * number of own segment roots: u8
-        // * padding to 8-bytes boundary (if needed)
+        // * padding to 8-bytes boundary with zeroes
         // * for each block:
-        //   * block header
-        //   * padding to 8-bytes boundary (if needed)
+        //   * block header: LeafShardHeader
+        //   * padding to 8-bytes boundary with zeroes
         //   * segment roots proof (if there is at least one segment root)
         //   * concatenated own segment roots
 
@@ -673,9 +673,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
         self.num_blocks == 0
     }
 
-    /// Compute the segments root of the leaf shard blocks info.
+    /// Compute the root of segments of the leaf shard blocks info.
     ///
-    /// Returns default value for an empty collection of segment roots.
+    /// Returns the default value for an empty collection of segment roots.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
         compute_segments_root(
@@ -684,14 +684,14 @@ impl<'a> LeafShardBlocksInfo<'a> {
         )
     }
 
-    /// Compute the headers root of the leaf shard blocks info.
+    /// Compute the root of headers of the leaf shard blocks info.
     ///
-    /// Returns default value for an empty collection of shard blocks.
+    /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
         let root = UnbalancedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
             self.iter().map(|shard_block_info| {
-                // Hash the root again so we can prove it, otherwise headers root is
+                // Hash the root again so we can prove it, otherwise root of headers is
                 // indistinguishable from individual block roots and can be used to confuse
                 // verifier
                 single_block_hash(shard_block_info.header.root().as_ref())
@@ -880,10 +880,10 @@ impl<'a> Transactions<'a> {
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // The layout here is as follows:
         // * number of transactions: u32 as unaligned little-endian bytes
-        // * padding to 16-bytes boundary (if needed)
+        // * padding to 16-bytes boundary with zeroes
         // * for each transaction
         //   * transaction: Transaction
-        //   * padding to 16-bytes boundary (if needed)
+        //   * padding to 16-bytes boundary with zeroes
 
         let num_transactions = bytes.split_off(..size_of::<u32>())?;
         let num_transactions = u32::from_le_bytes([
@@ -939,14 +939,14 @@ impl<'a> Transactions<'a> {
         self.num_transactions == 0
     }
 
-    /// Compute the root of the leaf shard blocks info.
+    /// Compute the root of transactions.
     ///
-    /// Returns default value for an empty collection of shard blocks.
+    /// Returns the default value for an empty collection of transactions.
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         let root = UnbalancedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
             self.iter().map(|transaction| {
-                // Hash the hash again so we can prove it, otherwise transactions root is
+                // Hash the hash again so we can prove it, otherwise root of transactions is
                 // indistinguishable from individual transaction roots and can be used to
                 // confuse verifier
                 single_block_hash(transaction.hash().as_ref())
@@ -1125,7 +1125,7 @@ pub enum BlockBody<'a> {
 }
 
 impl<'a> BlockBody<'a> {
-    /// Try to create a new instance from provided bytes for provided shard index.
+    /// Try to create a new instance from provided bytes for the provided shard index.
     ///
     /// `bytes` do not need to be aligned.
     ///
