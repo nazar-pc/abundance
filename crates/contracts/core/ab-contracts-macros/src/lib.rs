@@ -126,7 +126,7 @@ pub mod __private;
 /// ```ignore
 /// #[cfg_attr(feature = "guest", unsafe(no_mangle))]
 /// pub unsafe extern "C" fn {prefix}_{method}(
-///     args: NonNull<InternalArgs>,
+///     args: &mut InternalArgs,
 /// ) -> ExitCode {
 ///     // ...
 /// }
@@ -147,7 +147,7 @@ pub mod __private;
 /// // Will generate this
 /// #[cfg_attr(feature = "guest", unsafe(no_mangle))]
 /// pub unsafe extern "C" fn example_hello(
-///     args: NonNull<InternalArgs>,
+///     args: &mut InternalArgs,
 /// ) -> ExitCode {
 ///     // ...
 /// }
@@ -165,7 +165,7 @@ pub mod __private;
 /// // Will generate this
 /// #[cfg_attr(feature = "guest", unsafe(no_mangle))]
 /// pub unsafe extern "C" fn fungible_balance(
-///     args: NonNull<InternalArgs>,
+///     args: &mut InternalArgs,
 /// ) -> ExitCode {
 ///     // ...
 /// }
@@ -191,7 +191,7 @@ pub mod __private;
 /// read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     pub state_ptr: NonNull<<StructName as IoType>::PointerType>,
 ///     pub state_size: u32,
 ///     pub state_capacity: u32,
@@ -207,7 +207,7 @@ pub mod __private;
 /// and `state_size` can be written to, while `state_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     pub state_ptr: NonNull<<StructName as IoType>::PointerType>,
 ///     pub state_size: u32,
 ///     pub state_capacity: u32,
@@ -227,26 +227,26 @@ pub mod __private;
 ///
 /// `#[env] env: &Env` is for accessing an ephemeral environment with method calls restricted
 /// to `#[view]`. Since this is a system-provided data structure with a known layout, only
-/// read-only pointer field is generated:
+/// read-only field is generated:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub env_ptr: NonNull<Env<'internal_args>>,
+///     pub env: &'internal_args Env<'internal_args>,
 ///     // ...
 /// }
 /// ```
 ///
 /// ### `#[env] env: &mut Env`
 ///
-/// `#[env] env: &Env` is for accessing ephemeral environment without method calls
+/// `#[env] env: &mut Env` is for accessing ephemeral environment without method calls
 /// restrictions. Since this is a system-provided data structure with a known layout, only
-/// read-write pointer field is generated:
+/// read-write field is generated:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub env_ptr: NonNull<Env<'internal_args>>,
+///     pub env_ptr: &'internal_args mut Env<'internal_args>,
 ///     // ...
 /// }
 /// ```
@@ -257,7 +257,7 @@ pub mod __private;
 /// generates two fields, both of which are read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
 ///     pub tmp_ptr: NonNull<
 ///         <
@@ -278,7 +278,7 @@ pub mod __private;
 /// read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
 ///     pub tmp_ptr: NonNull<
 ///         <
@@ -306,9 +306,9 @@ pub mod __private;
 /// fields, all of which are read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub slot_address_ptr: NonNull<Address>,
+///     pub slot_address: &'internal_args Address,
 ///     pub slot_ptr: NonNull<
 ///         <
 ///             <StructName as Contract>::Slot as IoType
@@ -326,13 +326,13 @@ pub mod __private;
 ///
 /// `#[slot] slot: &mut MaybeData<Slot>` and its variant with explicit address argument are for
 /// accessing slot data (that corresponds to optional `address` argument) and generates four
-/// fields, `slot_ptr` and `slot_size` can be written to, while `slot_address_ptr` and
+/// fields, `slot_ptr` and `slot_size` can be written to, while `slot_address` and
 /// `slot_capacity` are read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub slot_address_ptr: NonNull<Address>,
+///     pub slot_address: &'internal_args Address,
 ///     pub slot_ptr: NonNull<
 ///         <
 ///             <StructName as Contract>::Slot as IoType
@@ -360,7 +360,7 @@ pub mod __private;
 /// fields, both of which are read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
 ///     pub input_ptr: NonNull<<InputValue as IoType>::PointerType>,
 ///     pub input_size: u32,
@@ -376,7 +376,7 @@ pub mod __private;
 /// be written to, while `output_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
 ///     pub output_ptr: NonNull<<OutputValue as IoType>::PointerType>,
 ///     pub output_size: u32,
@@ -404,9 +404,9 @@ pub mod __private;
 /// hence they don't need size and capacity as separate fields:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub ok_result_ptr: NonNull<ReturnValue>,
+///     pub ok_result: &'internal_args mut MaybeUninit<ReturnValue>,
 /// }
 /// ```
 ///
@@ -430,7 +430,7 @@ pub mod __private;
 /// }
 ///
 /// #[repr(C)]
-/// pub struct ExampleHelloArgs {
+/// pub struct ExampleHelloArgs<'external_args> {
 ///     // ...
 /// }
 ///
@@ -439,7 +439,7 @@ pub mod __private;
 ///     // ...
 /// }
 ///
-/// impl ExternalArgs {
+/// impl ExternalArgs<'external_args> {
 ///     pub fn new(
 ///         // ...
 ///     ) -> Self {
@@ -465,7 +465,7 @@ pub mod __private;
 /// pointer:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct ExternalArgs {
+/// pub struct ExternalArgs<'external_args> {
 ///     // ...
 ///     pub slot_ptr: NonNull<Address>,
 ///     // ...
@@ -478,7 +478,7 @@ pub mod __private;
 /// a pointer to data, and size + capacity:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct ExternalArgs {
+/// pub struct ExternalArgs<'external_args> {
 ///     // ...
 ///     pub input_ptr: NonNull<<InputValue as IoType>::PointerType>,
 ///     pub input_size: u32,
@@ -493,7 +493,7 @@ pub mod __private;
 /// and `output_size` can be written to, while `output_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct ExternalArgs {
+/// pub struct ExternalArgs<'external_args> {
 ///     // ...
 ///     pub output_ptr: NonNull<<OutputValue as IoType>::PointerType>,
 ///     pub output_size: u32,
@@ -506,9 +506,9 @@ pub mod __private;
 /// don't need separate size and capacity fields:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct ExternalArgs {
+/// pub struct ExternalArgs<'external_args> {
 ///     // ...
-///     pub ok_result_ptr: NonNull<ReturnValue>,
+///     pub ok_result: &'external_args mut MaybeUninit<ReturnValue>,
 /// }
 /// ```
 ///
