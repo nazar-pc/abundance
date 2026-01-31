@@ -8,7 +8,7 @@ use crate::block::header::owned::{
     OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
 };
 use crate::pot::PotCheckpoints;
-use crate::segments::SegmentRoot;
+use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
@@ -256,13 +256,13 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
 
 impl OwnedBeaconChainBody {
     /// Create a new instance
-    pub fn new<'a, OSR, ISB>(
-        own_segment_roots: OSR,
+    pub fn new<'a, OS, ISB>(
+        own_segments: OS,
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
     ) -> Result<Self, OwnedBeaconChainBodyError>
     where
-        OSR: TrustedLen<Item = SegmentRoot>,
+        OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
     {
         let num_pot_checkpoints = pot_checkpoints.len();
@@ -271,7 +271,7 @@ impl OwnedBeaconChainBody {
                 actual: num_pot_checkpoints,
             }
         })?;
-        let num_own_segment_roots = own_segment_roots.size_hint().0;
+        let num_own_segment_roots = own_segments.size_hint().0;
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {
             OwnedBeaconChainBodyError::TooManyOwnSegmentRoots {
                 actual: num_own_segment_roots,
@@ -285,6 +285,7 @@ impl OwnedBeaconChainBody {
         let mut buffer = OwnedAlignedBuffer::with_capacity(
             u32::SIZE
                 + u8::SIZE
+                + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
                 + u16::SIZE
                 // This is only an estimate to get in the ballpark where reallocation should not be
@@ -299,7 +300,13 @@ impl OwnedBeaconChainBody {
         let true = buffer.append(&[num_own_segment_roots]) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
-        for own_segment_root in own_segment_roots {
+        let mut own_segments = own_segments.peekable();
+        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            let true = buffer.append(first_local_segment_index.as_bytes()) else {
+                unreachable!("Checked size above; qed");
+            };
+        }
+        for (_segment_index, own_segment_root) in own_segments {
             let true = buffer.append(own_segment_root.as_ref()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -487,15 +494,15 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
 
 impl OwnedIntermediateShardBody {
     /// Create a new instance
-    pub fn new<'a, OSR, LSB>(
-        own_segment_roots: OSR,
+    pub fn new<'a, OS, LSB>(
+        own_segments: OS,
         leaf_shard_blocks: LSB,
     ) -> Result<Self, OwnedIntermediateShardBodyError>
     where
-        OSR: TrustedLen<Item = SegmentRoot>,
+        OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
-        let num_own_segment_roots = own_segment_roots.size_hint().0;
+        let num_own_segment_roots = own_segments.size_hint().0;
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {
             OwnedIntermediateShardBodyError::TooManyOwnSegmentRoots {
                 actual: num_own_segment_roots,
@@ -508,6 +515,7 @@ impl OwnedIntermediateShardBody {
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
             u8::SIZE
+                + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
                 // This is only an estimate to get in the ballpark where reallocation should not be
                 // necessary
@@ -517,7 +525,13 @@ impl OwnedIntermediateShardBody {
         let true = buffer.append(&[num_own_segment_roots]) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
-        for own_segment_root in own_segment_roots {
+        let mut own_segments = own_segments.peekable();
+        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            let true = buffer.append(first_local_segment_index.as_bytes()) else {
+                unreachable!("Checked size above; qed");
+            };
+        }
+        for (_segment_index, own_segment_root) in own_segments {
             let true = buffer.append(own_segment_root.as_ref()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -691,13 +705,13 @@ impl GenericOwnedBlockBody for OwnedLeafShardBody {
 
 impl OwnedLeafShardBody {
     /// Initialize building of [`OwnedLeafShardBody`]
-    pub fn init<OSR>(
-        own_segment_roots: OSR,
+    pub fn init<OS>(
+        own_segments: OS,
     ) -> Result<OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBodyError>
     where
-        OSR: TrustedLen<Item = SegmentRoot>,
+        OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
     {
-        let num_own_segment_roots = own_segment_roots.size_hint().0;
+        let num_own_segment_roots = own_segments.size_hint().0;
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {
             OwnedLeafShardBodyError::TooManyOwnSegmentRoots {
                 actual: num_own_segment_roots,
@@ -705,13 +719,25 @@ impl OwnedLeafShardBody {
         })?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
-            u8::SIZE + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32,
+            u8::SIZE
+                + if num_own_segment_roots > 0 {
+                    LocalSegmentIndex::SIZE
+                } else {
+                    0
+                }
+                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32,
         );
 
         let true = buffer.append(&[num_own_segment_roots]) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
-        for own_segment_root in own_segment_roots {
+        let mut own_segments = own_segments.peekable();
+        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            let true = buffer.append(first_local_segment_index.as_bytes()) else {
+                unreachable!("Checked size above; qed");
+            };
+        }
+        for (_segment_index, own_segment_root) in own_segments {
             let true = buffer.append(own_segment_root.as_ref()) else {
                 unreachable!("Checked size above; qed");
             };
