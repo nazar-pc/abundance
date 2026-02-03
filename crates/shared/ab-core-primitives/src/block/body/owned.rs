@@ -550,9 +550,9 @@ impl OwnedIntermediateShardBody {
             let true = align_to_8_with_padding(&mut buffer) else {
                 unreachable!("Checked size above; qed");
             };
-            for leaf_shard_block in leaf_shard_blocks.clone() {
-                if !leaf_shard_block.own_segment_roots.is_empty() {
-                    let num_own_segment_roots = leaf_shard_block.own_segment_roots.len();
+            for leaf_shard_block in leaf_shard_blocks {
+                if let Some(segments) = &leaf_shard_block.segments {
+                    let num_own_segment_roots = segments.own_segments.segment_roots.len();
                     let num_own_segment_roots =
                         u8::try_from(num_own_segment_roots).map_err(|_error| {
                             OwnedIntermediateShardBodyError::TooManyLeafShardOwnSegmentRoots {
@@ -573,14 +573,18 @@ impl OwnedIntermediateShardBody {
                 let true = align_to_8_with_padding(&mut buffer) else {
                     unreachable!("Checked size above; qed");
                 };
-                if let Some(segment_roots_proof) = leaf_shard_block.segment_roots_proof {
-                    let true = buffer.append(segment_roots_proof) else {
+
+                if let Some(segments) = &leaf_shard_block.segments {
+                    let true =
+                        buffer.append(segments.own_segments.first_local_segment_index.as_bytes())
+                    else {
                         unreachable!("Checked size above; qed");
                     };
-                }
-                if !leaf_shard_block.own_segment_roots.is_empty() {
+                    let true = buffer.append(segments.segment_roots_proof) else {
+                        unreachable!("Checked size above; qed");
+                    };
                     let true = buffer.append(
-                        SegmentRoot::repr_from_slice(leaf_shard_block.own_segment_roots)
+                        SegmentRoot::repr_from_slice(segments.own_segments.segment_roots)
                             .as_flattened(),
                     ) else {
                         unreachable!("Checked size above; qed");
