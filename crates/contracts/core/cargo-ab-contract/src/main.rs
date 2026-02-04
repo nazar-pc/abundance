@@ -8,7 +8,6 @@ use clap::Parser;
 use std::env;
 use std::fs::{read, write};
 use std::path::PathBuf;
-use std::process::Command;
 
 /// Cargo extension for working with Abundance contracts
 #[derive(Debug, Parser)]
@@ -94,20 +93,6 @@ pub fn main() -> anyhow::Result<()> {
                 target_specification_path: target_specification.path(),
                 target_dir: None,
             })?;
-
-            let mut command_builder = Command::new("cargo");
-            command_builder.args([
-                "rustc",
-                "-Z",
-                "build-std=core",
-                "--crate-type",
-                "cdylib",
-                "--target",
-                target_specification
-                    .path()
-                    .to_str()
-                    .context("Path to target specification file is not valid UTF-8")?,
-            ]);
 
             let contract_path = cdylib_path.with_extension("");
 

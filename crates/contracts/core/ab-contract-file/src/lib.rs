@@ -1,7 +1,6 @@
 //! Utilities for working with contract files
 
 #![feature(
-    bigint_helper_methods,
     const_option_ops,
     const_trait_impl,
     maybe_uninit_as_bytes,
@@ -9,7 +8,8 @@
     trusted_len,
     const_try,
     const_try_residual,
-    try_blocks
+    try_blocks,
+    widening_mul
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for

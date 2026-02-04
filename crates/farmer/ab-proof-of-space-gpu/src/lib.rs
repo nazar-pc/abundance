@@ -4,13 +4,8 @@
 //! structures used (`ab-proof-of-space` also supports `K=25`, but this crate doesn't for now).
 
 #![cfg_attr(target_arch = "spirv", no_std)]
-#![feature(
-    bigint_helper_methods,
-    generic_const_exprs,
-    ptr_as_ref_unchecked,
-    step_trait,
-    uint_bit_width
-)]
+#![feature(generic_const_exprs, step_trait, uint_bit_width)]
+#![cfg_attr(target_arch = "spirv", feature(bigint_helper_methods))]
 #![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(

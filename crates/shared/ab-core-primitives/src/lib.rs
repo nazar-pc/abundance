@@ -9,7 +9,6 @@
     const_trait_impl,
     const_try,
     portable_simd,
-    ptr_as_ref_unchecked,
     step_trait,
     trusted_len
 )]

@@ -1,9 +1,4 @@
-#![feature(
-    const_block_items,
-    box_vec_non_null,
-    pointer_is_aligned_to,
-    ptr_as_ref_unchecked
-)]
+#![feature(const_block_items, box_vec_non_null, pointer_is_aligned_to)]
 #![no_std]
 
 #[cfg(test)]
