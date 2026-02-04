@@ -263,7 +263,7 @@ impl OwnedBeaconChainBody {
     ) -> Result<Self, OwnedBeaconChainBodyError>
     where
         OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
-        ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
+        ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + 'a,
     {
         let num_pot_checkpoints = pot_checkpoints.len();
         let num_pot_checkpoints = u32::try_from(num_pot_checkpoints).map_err(|_error| {
@@ -326,7 +326,7 @@ impl OwnedBeaconChainBody {
             let true = align_to_8_with_padding(&mut buffer) else {
                 unreachable!("Checked size above; qed");
             };
-            for intermediate_shard_block in intermediate_shard_blocks.clone() {
+            for intermediate_shard_block in intermediate_shard_blocks {
                 if !intermediate_shard_block.own_segment_roots.is_empty()
                     || !intermediate_shard_block.child_segment_roots.is_empty()
                 {
@@ -500,7 +500,7 @@ impl OwnedIntermediateShardBody {
     ) -> Result<Self, OwnedIntermediateShardBodyError>
     where
         OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
-        LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
+        LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + 'a,
     {
         let num_own_segment_roots = own_segments.size_hint().0;
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {

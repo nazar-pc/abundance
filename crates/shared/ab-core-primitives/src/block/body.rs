@@ -226,8 +226,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     #[inline]
     pub fn iter(
         &self,
-    ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + Clone + 'a
-    {
+    ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + 'a {
         // SAFETY: Checked in constructor
         let (mut counts, mut remainder) = unsafe {
             self.bytes
@@ -859,9 +858,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
     /// Iterator over leaf shard blocks in a collection
     #[inline]
-    pub fn iter(
-        &self,
-    ) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + Clone + 'a {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + 'a {
         // SAFETY: Checked in constructor
         let (mut counts, mut remainder) = unsafe {
             self.bytes
@@ -1236,7 +1233,7 @@ impl<'a> Transactions<'a> {
 
     /// Iterator over transactions in a collection
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + Clone + 'a {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + 'a {
         let mut remainder = self.bytes;
 
         (0..self.num_transactions).map(move |_| {
