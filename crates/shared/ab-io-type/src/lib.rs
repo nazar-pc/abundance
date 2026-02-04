@@ -8,7 +8,6 @@
     const_trait_impl,
     const_try,
     generic_const_exprs,
-    ptr_as_ref_unchecked,
     ptr_as_uninit
 )]
 #![no_std]

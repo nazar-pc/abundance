@@ -44,10 +44,10 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         .env("RUSTFLAGS", "--cfg sha2_backend=\"riscv-zknh-compact\"")
         .args([
             "rustc",
-            "-Z",
-            "build-std=core",
+            "-Zbuild-std=core",
             "--crate-type",
             "cdylib",
+            "-Zjson-target-spec",
             "--target",
             target_specification_path
                 .to_str()

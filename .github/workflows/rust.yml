@@ -86,7 +86,7 @@ jobs:
     env:
       command: >-
         cargo -Zgitoxide -Zgit clippy
-        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
+        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
     # Gives the slow cargo test jobs a head start
     needs: cargo-test-slow-head-start
 
@@ -256,7 +256,7 @@ jobs:
     env:
       command: >-
         ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
-        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
+        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps: &test-steps
       - name: Checkout
@@ -466,7 +466,7 @@ jobs:
     env:
       command: >-
         ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
-        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
+        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps: *test-steps
 
@@ -504,7 +504,7 @@ jobs:
     env:
       command: >-
         cargo -Zgitoxide -Zgit build
-        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
+        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps:
       - name: Checkout

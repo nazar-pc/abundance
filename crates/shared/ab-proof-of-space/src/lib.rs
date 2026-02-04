@@ -13,7 +13,6 @@
     iter_array_chunks,
     maybe_uninit_fill,
     portable_simd,
-    ptr_as_ref_unchecked,
     ptr_as_uninit,
     step_trait,
     sync_unsafe_cell
