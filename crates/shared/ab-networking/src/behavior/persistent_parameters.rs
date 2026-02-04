@@ -221,7 +221,7 @@ pub(crate) struct StubNetworkingParametersManager;
 
 impl StubNetworkingParametersManager {
     /// Returns an instance of `StubNetworkingParametersManager` as the `Box` reference.
-    pub fn boxed(self) -> Box<dyn KnownPeersRegistry> {
+    pub(crate) fn boxed(self) -> Box<dyn KnownPeersRegistry> {
         Box::new(self)
     }
 }

@@ -41,7 +41,7 @@ use wgpu::{
 
 /// Proof creation error
 #[derive(Debug, thiserror::Error)]
-pub enum RecordEncodingError {
+enum RecordEncodingError {
     /// Too many records
     #[error("Too many records: {0}")]
     TooManyRecords(usize),
