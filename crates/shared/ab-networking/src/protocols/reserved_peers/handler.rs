@@ -17,14 +17,14 @@ use void::Void;
 ///
 /// This behavior ensures that connections to reserved peers are maintained persistently,
 /// while connections to non-reserved peers are allowed to close.
-pub struct Handler {
+pub(crate) struct Handler {
     /// A boolean flag indicating whether the handler is currently connected to a reserved peer.
     connected_to_reserved_peer: bool,
 }
 
 impl Handler {
     /// Builds a new [`Handler`].
-    pub fn new(connected_to_reserved_peer: bool) -> Self {
+    pub(crate) fn new(connected_to_reserved_peer: bool) -> Self {
         Handler {
             connected_to_reserved_peer,
         }

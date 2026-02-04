@@ -22,7 +22,7 @@ mod private {
 
     // Needs to be public to appear in `impl Deref for ImportingBlockEntry`
     #[derive(Debug)]
-    pub struct ImportingBlockEntryInner<BlockHeader> {
+    pub(crate) struct ImportingBlockEntryInner<BlockHeader> {
         pub(super) block_root: BlockRoot,
         pub(super) header: BlockHeader,
         pub(super) mmr: Arc<BlockMerkleMountainRange>,

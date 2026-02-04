@@ -1,3 +1,5 @@
+#![expect(unreachable_pub, reason = "Macro requirements and generated code")]
+
 use crate::payload::builder::TransactionPayloadBuilder;
 use crate::payload::builder::tests::ffi::set::DemoContractSetArgs;
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};

@@ -51,7 +51,7 @@ use crate::utils::strip_peer_id;
 /// in its `reserved peers set`, regular connection attempts will occur, but these connections will
 /// be dismissed on the other side due to the `KeepAlive` policy.
 #[derive(Debug)]
-pub struct Behaviour {
+pub(crate) struct Behaviour {
     /// Protocol configuration.
     config: Config,
     /// A mapping from `PeerId` to `ReservedPeerState`, where each `ReservedPeerState`
@@ -65,7 +65,7 @@ pub struct Behaviour {
 
 /// Reserved peers protocol configuration.
 #[derive(Debug, Clone)]
-pub struct Config {
+pub(crate) struct Config {
     /// Predefined set of reserved peers with addresses.
     pub reserved_peers: Vec<Multiaddr>,
     /// Interval between new dialing attempts.
@@ -74,7 +74,7 @@ pub struct Config {
 
 /// Reserved peer connection status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConnectionStatus {
+pub(crate) enum ConnectionStatus {
     /// Reserved peer is not connected.
     NotConnected,
     /// Reserved peer dialing is in progress.
@@ -95,11 +95,11 @@ struct ReservedPeerState {
 /// Initially the "reserved peers behaviour" doesn't produce events. However, we could pass
 /// reserved peer state changes to the swarm using this struct in the future.
 #[derive(Debug, Clone)]
-pub struct Event;
+pub(crate) struct Event;
 
 impl Behaviour {
     /// Creates a new `Behaviour` with a predefined set of reserved peers.
-    pub fn new(config: Config) -> Self {
+    pub(crate) fn new(config: Config) -> Self {
         debug!(
             reserved_peers=?config.reserved_peers,
             "Reserved peers protocol initialization...."
