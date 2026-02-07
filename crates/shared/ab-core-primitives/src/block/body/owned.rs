@@ -206,6 +206,18 @@ pub enum OwnedBeaconChainBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Too many leaf shard blocks with segments
+    #[error("Too many leaf shard blocks with segments: {actual}")]
+    TooManyLeafShardBlocksWithSegments {
+        /// Actual number of shard blocks with segments
+        actual: usize,
+    },
+    /// Too many leaf shard block segments
+    #[error("Too many leaf shard block segments: {actual}")]
+    TooManyLeafShardBlockSegments {
+        /// Actual number of shard block segments
+        actual: usize,
+    },
     /// Too many intermediate shard child segment roots
     #[error("Too many intermediate shard child segment roots: {actual}")]
     TooManyIntermediateShardChildSegmentRoots {
@@ -263,6 +275,8 @@ impl OwnedBeaconChainBody {
     ) -> Result<Self, OwnedBeaconChainBodyError>
     where
         OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
+        // TODO: This is probably the wrong type to use here, especially because it doesn't have a
+        //  public constructor right now
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + 'a,
     {
         let num_pot_checkpoints = pot_checkpoints.len();
@@ -318,8 +332,9 @@ impl OwnedBeaconChainBody {
             };
             let mut segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
-                // Placeholder values for the number of own and child segment roots
-                let true = buffer.append(&[0, 0, 0]) else {
+                // Placeholder values for the number of own segment roots and number of leaf shard
+                // blocks with segments
+                let true = buffer.append(&[0, 0]) else {
                     unreachable!("Checked size above; qed");
                 };
             }
@@ -327,32 +342,31 @@ impl OwnedBeaconChainBody {
                 unreachable!("Checked size above; qed");
             };
             for intermediate_shard_block in intermediate_shard_blocks {
-                if !intermediate_shard_block.own_segment_roots.is_empty()
-                    || !intermediate_shard_block.child_segment_roots.is_empty()
-                {
-                    let num_own_segment_roots = intermediate_shard_block.own_segment_roots.len();
-                    let num_own_segment_roots =
-                        u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedBeaconChainBodyError::TooManyIntermediateShardOwnSegmentRoots {
-                                actual: num_own_segment_roots,
-                            }
-                        })?;
-                    let num_child_segment_roots =
-                        intermediate_shard_block.child_segment_roots.len();
-                    let num_child_segment_roots =
-                        u16::try_from(num_child_segment_roots).map_err(|_error| {
-                            OwnedBeaconChainBodyError::TooManyIntermediateShardChildSegmentRoots {
-                                actual: num_child_segment_roots,
-                            }
-                        })?;
-                    let num_child_segment_roots = num_child_segment_roots.to_le_bytes();
-                    buffer.as_mut_slice()[segments_roots_num_cursor..][..3].copy_from_slice(&[
-                        num_own_segment_roots,
-                        num_child_segment_roots[0],
-                        num_child_segment_roots[1],
-                    ]);
-                }
-                segments_roots_num_cursor += 3;
+                let num_own_segment_roots = intermediate_shard_block
+                    .own_segments
+                    .as_ref()
+                    .map(|own_segments| own_segments.segment_roots.len())
+                    .unwrap_or_default();
+                let num_own_segment_roots =
+                    u8::try_from(num_own_segment_roots).map_err(|_error| {
+                        OwnedBeaconChainBodyError::TooManyIntermediateShardOwnSegmentRoots {
+                            actual: num_own_segment_roots,
+                        }
+                    })?;
+                let num_leaf_shard_blocks_with_segments = intermediate_shard_block
+                    .leaf_shards_segments()
+                    .size_hint()
+                    .0;
+                let num_leaf_shard_blocks_with_segments =
+                    u8::try_from(num_leaf_shard_blocks_with_segments).map_err(|_error| {
+                        OwnedBeaconChainBodyError::TooManyLeafShardBlocksWithSegments {
+                            actual: num_leaf_shard_blocks_with_segments,
+                        }
+                    })?;
+
+                buffer.as_mut_slice()[segments_roots_num_cursor..][..2]
+                    .copy_from_slice(&[num_own_segment_roots, num_leaf_shard_blocks_with_segments]);
+                segments_roots_num_cursor += 2;
 
                 OwnedIntermediateShardHeader::from_parts_into(
                     intermediate_shard_block.header.prefix,
@@ -362,28 +376,52 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.child_shard_blocks(),
                     &mut buffer,
                 )?;
+
+                if let Some(segments_proof) = &intermediate_shard_block.segments_proof
+                    && !buffer.append(*segments_proof)
+                {
+                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                }
+
+                if let Some(own_segments) = &intermediate_shard_block.own_segments {
+                    if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
+                    if !buffer.append(
+                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
+                    ) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
+                }
+
+                for (_shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments()
+                {
+                    let num_own_segment_roots = own_segments.segment_roots.len();
+                    let num_own_segment_roots =
+                        u8::try_from(num_own_segment_roots).map_err(|_error| {
+                            OwnedBeaconChainBodyError::TooManyLeafShardBlockSegments {
+                                actual: num_own_segment_roots,
+                            }
+                        })?;
+                    if !buffer.append(&[num_own_segment_roots]) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
+                }
+                for (shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments() {
+                    if !buffer.append(shard_index.as_bytes()) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
+                    if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
+                    if !buffer.append(
+                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
+                    ) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
+                }
+
                 if !align_to_8_with_padding(&mut buffer) {
-                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                }
-                if let Some(segment_roots_proof) = intermediate_shard_block.segment_roots_proof
-                    && !buffer.append(segment_roots_proof)
-                {
-                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                }
-                if !intermediate_shard_block.own_segment_roots.is_empty()
-                    && !buffer.append(
-                        SegmentRoot::repr_from_slice(intermediate_shard_block.own_segment_roots)
-                            .as_flattened(),
-                    )
-                {
-                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                }
-                if !intermediate_shard_block.child_segment_roots.is_empty()
-                    && !buffer.append(
-                        SegmentRoot::repr_from_slice(intermediate_shard_block.child_segment_roots)
-                            .as_flattened(),
-                    )
-                {
                     return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                 }
             }
