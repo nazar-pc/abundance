@@ -19,7 +19,7 @@ use crate::block::header::{
 use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
-use crate::segments::SegmentRoot;
+use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use alloc::vec::Vec;
@@ -108,18 +108,18 @@ impl GenericOwnedBlock for OwnedBeaconChainBlock {
 
 impl OwnedBeaconChainBlock {
     /// Initialize building of [`OwnedBeaconChainBlock`]
-    pub fn init<'a, OSR, ISB>(
-        own_segment_roots: OSR,
+    pub fn init<'a, OS, ISB>(
+        own_segments: OS,
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
     ) -> Result<OwnedBeaconChainBlockBuilder, OwnedBeaconChainBodyError>
     where
-        OSR: TrustedLen<Item = SegmentRoot>,
+        OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedBeaconChainBlockBuilder {
             body: OwnedBeaconChainBody::new(
-                own_segment_roots,
+                own_segments,
                 intermediate_shard_blocks,
                 pot_checkpoints,
             )?,
@@ -272,16 +272,16 @@ impl GenericOwnedBlock for OwnedIntermediateShardBlock {
 
 impl OwnedIntermediateShardBlock {
     /// Initialize building of [`OwnedIntermediateShardBlock`]
-    pub fn init<'a, OSR, LSB>(
-        own_segment_roots: OSR,
+    pub fn init<'a, OS, LSB>(
+        own_segments: OS,
         leaf_shard_blocks: LSB,
     ) -> Result<OwnedIntermediateShardBlockBuilder, OwnedIntermediateShardBodyError>
     where
-        OSR: TrustedLen<Item = SegmentRoot>,
+        OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedIntermediateShardBlockBuilder {
-            body: OwnedIntermediateShardBody::new(own_segment_roots, leaf_shard_blocks)?,
+            body: OwnedIntermediateShardBody::new(own_segments, leaf_shard_blocks)?,
         })
     }
 
@@ -420,14 +420,12 @@ impl GenericOwnedBlock for OwnedLeafShardBlock {
 
 impl OwnedLeafShardBlock {
     /// Initialize building of [`OwnedLeafShardBlock`]
-    pub fn init<OSR>(
-        own_segment_roots: OSR,
-    ) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBodyError>
+    pub fn init<OS>(own_segments: OS) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBodyError>
     where
-        OSR: TrustedLen<Item = SegmentRoot>,
+        OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
     {
         Ok(OwnedLeafShardBlockBuilder {
-            body_builder: OwnedLeafShardBody::init(own_segment_roots)?,
+            body_builder: OwnedLeafShardBody::init(own_segments)?,
         })
     }
 

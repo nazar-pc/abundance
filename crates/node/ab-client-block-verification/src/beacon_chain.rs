@@ -8,7 +8,7 @@ use ab_client_consensus_common::consensus_parameters::{
 };
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
-use ab_core_primitives::block::body::{BeaconChainBody, IntermediateShardBlocksInfo};
+use ab_core_primitives::block::body::{BeaconChainBody, IntermediateShardBlocksInfo, OwnSegments};
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusParameters, BlockHeaderPrefix,
     OwnedBlockHeaderConsensusParameters,
@@ -17,7 +17,6 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
-use ab_core_primitives::segments::SegmentRoot;
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use ab_proof_of_space::Table;
@@ -421,21 +420,38 @@ where
     fn check_body(
         &self,
         block_number: BlockNumber,
-        own_segment_roots: &[SegmentRoot],
+        own_segments: Option<OwnSegments<'_>>,
         _intermediate_shard_blocks: &IntermediateShardBlocksInfo<'_>,
     ) -> Result<(), BlockVerificationError> {
         let expected_segment_headers = self.chain_info.segment_headers_for_block(block_number);
+        let expected_first_local_segment_index = expected_segment_headers
+            .first()
+            .map(|segment_header| segment_header.segment_index.as_inner());
+        let correct_first_local_segment_index = expected_first_local_segment_index
+            == own_segments
+                .as_ref()
+                .map(|own_segments| own_segments.first_local_segment_index);
         let correct_segment_roots = expected_segment_headers
             .iter()
             .map(|segment_header| &segment_header.segment_root)
-            .eq(own_segment_roots);
-        if !correct_segment_roots {
-            return Err(BlockVerificationError::InvalidOwnSegmentRoots {
-                expected: expected_segment_headers
+            .eq(own_segments
+                .as_ref()
+                .map(|own_segments| own_segments.segment_roots)
+                .unwrap_or_default());
+        if !(correct_first_local_segment_index && correct_segment_roots) {
+            return Err(BlockVerificationError::InvalidOwnSegments {
+                expected_first_local_segment_index,
+                expected_segment_roots: expected_segment_headers
                     .iter()
                     .map(|segment_header| segment_header.segment_root)
                     .collect(),
-                actual: own_segment_roots.to_vec(),
+                actual_first_local_segment_index: own_segments
+                    .as_ref()
+                    .map(|own_segments| own_segments.first_local_segment_index),
+                actual_segment_roots: own_segments
+                    .as_ref()
+                    .map(|own_segments| own_segments.segment_roots.to_vec())
+                    .unwrap_or_default(),
             });
         }
 
@@ -568,7 +584,7 @@ where
 
         self.check_body(
             block_number,
-            body.own_segment_roots(),
+            body.own_segments(),
             body.intermediate_shard_blocks(),
         )?;
 

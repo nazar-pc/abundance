@@ -9,7 +9,7 @@ use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::segments::SegmentRoot;
+use ab_core_primitives::segments::{LocalSegmentIndex, SegmentRoot};
 
 type GenericHeader<'a, Block> =
     <<Block as GenericOwnedBlock>::Header as GenericOwnedBlockHeader>::Header<'a>;
@@ -31,13 +31,17 @@ pub enum BlockVerificationError {
     /// Invalid seal
     #[error("Invalid seal")]
     InvalidSeal,
-    /// Invalid own segment roots
-    #[error("Invalid own segment roots")]
-    InvalidOwnSegmentRoots {
+    /// Invalid own segments
+    #[error("Invalid own segments")]
+    InvalidOwnSegments {
+        /// Expected first local segment index (correct)
+        expected_first_local_segment_index: Option<LocalSegmentIndex>,
         /// Expected segment roots (correct)
-        expected: Vec<SegmentRoot>,
+        expected_segment_roots: Vec<SegmentRoot>,
+        /// Actual first local segment index (invalid)
+        actual_first_local_segment_index: Option<LocalSegmentIndex>,
         /// Actual segment roots (invalid)
-        actual: Vec<SegmentRoot>,
+        actual_segment_roots: Vec<SegmentRoot>,
     },
     /// Shard membership entropy source error
     #[error("Shard membership entropy source error: {error}")]
