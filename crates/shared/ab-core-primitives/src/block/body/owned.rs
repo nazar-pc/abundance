@@ -267,6 +267,7 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
 }
 
 impl OwnedBeaconChainBody {
+    // TODO: Verify order of headers and segments?
     /// Create a new instance
     pub fn new<'a, OS, ISB>(
         own_segments: OS,
@@ -531,6 +532,7 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
 }
 
 impl OwnedIntermediateShardBody {
+    // TODO: Verify order of headers and segments?
     /// Create a new instance
     pub fn new<'a, OS, LSB>(
         own_segments: OS,
@@ -746,6 +748,7 @@ impl GenericOwnedBlockBody for OwnedLeafShardBody {
 }
 
 impl OwnedLeafShardBody {
+    // TODO: Verify order of segments?
     /// Initialize building of [`OwnedLeafShardBody`]
     pub fn init<OS>(
         own_segments: OS,
