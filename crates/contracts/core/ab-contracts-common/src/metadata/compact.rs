@@ -31,7 +31,8 @@ const fn compact_metadata_inner<'i, 'o>(
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     let contract_metadata_kind_input = *input.split_off_first()?;
     let contract_metadata_kind_output = output.split_off_first_mut()?;
-    let contract_metadata_kind = ContractMetadataKind::try_from_u8(contract_metadata_kind_input)?;
+    let contract_metadata_kind =
+        ContractMetadataKind::try_from(contract_metadata_kind_input).ok()?;
 
     match contract_metadata_kind {
         ContractMetadataKind::Contract => {
@@ -151,7 +152,8 @@ const fn compact_method_argument<'i, 'o>(
     for_external_args: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     let contract_metadata_kind_input = *input.split_off_first()?;
-    let contract_metadata_kind = ContractMetadataKind::try_from_u8(contract_metadata_kind_input)?;
+    let contract_metadata_kind =
+        ContractMetadataKind::try_from(contract_metadata_kind_input).ok()?;
 
     match contract_metadata_kind {
         ContractMetadataKind::Contract

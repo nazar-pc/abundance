@@ -66,8 +66,6 @@ impl SlotDuration {
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -100,6 +98,20 @@ impl Step for SlotNumber {
     }
 }
 
+impl const From<u64> for SlotNumber {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<SlotNumber> for u64 {
+    #[inline(always)]
+    fn from(value: SlotNumber) -> Self {
+        value.0
+    }
+}
+
 impl From<SlotNumber> for u128 {
     #[inline(always)]
     fn from(original: SlotNumber) -> Self {
@@ -116,18 +128,6 @@ impl SlotNumber {
     pub const ONE: Self = Self(1);
     /// Max slot
     pub const MAX: Self = Self(u64::MAX);
-
-    /// Create a new instance
-    #[inline(always)]
-    pub const fn new(n: u64) -> Self {
-        Self(n)
-    }
-
-    /// Get internal representation
-    #[inline(always)]
-    pub const fn as_u64(self) -> u64 {
-        self.0
-    }
 
     /// Create slot number from bytes
     #[inline(always)]

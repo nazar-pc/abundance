@@ -50,17 +50,15 @@ pub enum TransactionMethodContext {
     Wallet,
 }
 
-impl TransactionMethodContext {
-    // TODO: Implement `TryFrom` once it is available in const environment
-    /// Try to create an instance from its `u8` representation
+impl const TryFrom<u8> for TransactionMethodContext {
+    type Error = ();
+
     #[inline(always)]
-    pub const fn try_from_u8(n: u8) -> Option<Self> {
-        Some(match n {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
             0 => Self::Null,
             1 => Self::Wallet,
-            _ => {
-                return None;
-            }
+            _ => return Err(()),
         })
     }
 }

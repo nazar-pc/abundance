@@ -104,6 +104,6 @@ fn check_repr() {
 
     for (kind, repr_byte) in known_variants {
         assert_eq!(kind as u8, repr_byte);
-        assert_eq!(IoTypeMetadataKind::try_from_u8(repr_byte), Some(kind));
+        assert_eq!(IoTypeMetadataKind::try_from(repr_byte), Ok(kind));
     }
 }

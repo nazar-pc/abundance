@@ -6,7 +6,7 @@ pub(super) const fn compact_metadata<'i, 'o>(
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     let io_type_metadata_kind_input = *input.split_off_first()?;
     let io_type_metadata_kind_output = output.split_off_first_mut()?;
-    let io_type_metadata_kind = IoTypeMetadataKind::try_from_u8(io_type_metadata_kind_input)?;
+    let io_type_metadata_kind = IoTypeMetadataKind::try_from(io_type_metadata_kind_input).ok()?;
 
     match io_type_metadata_kind {
         IoTypeMetadataKind::Unit

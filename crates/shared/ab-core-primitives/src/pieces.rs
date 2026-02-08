@@ -48,8 +48,6 @@ use serde_big_array::BigArray;
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -81,6 +79,20 @@ impl Step for PieceIndex {
     }
 }
 
+impl const From<u64> for PieceIndex {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<PieceIndex> for u64 {
+    #[inline(always)]
+    fn from(value: PieceIndex) -> Self {
+        value.0
+    }
+}
+
 impl PieceIndex {
     /// Size in bytes.
     pub const SIZE: usize = size_of::<u64>();
@@ -88,12 +100,6 @@ impl PieceIndex {
     pub const ZERO: PieceIndex = PieceIndex(0);
     /// Piece index 1.
     pub const ONE: PieceIndex = PieceIndex(1);
-
-    /// Create a new instance
-    #[inline]
-    pub const fn new(n: u64) -> Self {
-        Self(n)
-    }
 
     /// Create a piece index from bytes.
     #[inline]
@@ -110,7 +116,7 @@ impl PieceIndex {
     /// Segment index piece index corresponds to
     #[inline]
     pub const fn segment_index(&self) -> SegmentIndex {
-        SegmentIndex::new(self.0 / RecordedHistorySegment::NUM_PIECES as u64)
+        SegmentIndex::from(self.0 / RecordedHistorySegment::NUM_PIECES as u64)
     }
 
     /// Position of a piece in a segment

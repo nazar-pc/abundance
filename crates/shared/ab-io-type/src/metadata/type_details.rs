@@ -3,7 +3,7 @@ use core::num::NonZeroU8;
 
 #[inline(always)]
 pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
-    let kind = IoTypeMetadataKind::try_from_u8(*metadata.split_off_first()?)?;
+    let kind = IoTypeMetadataKind::try_from(*metadata.split_off_first()?).ok()?;
 
     match kind {
         IoTypeMetadataKind::Unit => Some((
@@ -371,11 +371,7 @@ const fn enum_capacity(
         variant_count -= 1;
     }
 
-    // `.unwrap_or_default()` is not const
-    let enum_capacity = match enum_capacity {
-        Some(enum_capacity) => enum_capacity,
-        None => 0,
-    };
+    let enum_capacity = enum_capacity.unwrap_or_default();
 
     Some((
         IoTypeDetails {

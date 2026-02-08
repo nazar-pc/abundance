@@ -569,7 +569,7 @@ where
             farming_timeout: consensus_constants
                 .slot_duration
                 .as_duration()
-                .mul_f64(consensus_constants.block_authoring_delay.as_u64() as f64),
+                .mul_f64(u64::from(consensus_constants.block_authoring_delay) as f64),
             protocol_info,
         };
 

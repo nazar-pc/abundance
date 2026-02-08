@@ -29,20 +29,20 @@ const {
 
 impl fmt::Debug for Balance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Balance").field(&self.as_u128()).finish()
+        f.debug_tuple("Balance").field(&u128::from(self)).finish()
     }
 }
 
 impl fmt::Display for Balance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_u128().fmt(f)
+        u128::from(self).fmt(f)
     }
 }
 
 impl Ord for Balance {
     #[inline(always)]
     fn cmp(&self, other: &Balance) -> Ordering {
-        self.as_u128().cmp(&other.as_u128())
+        u128::from(self).cmp(&u128::from(other))
     }
 }
 
@@ -59,7 +59,7 @@ impl Add for Balance {
     #[inline(always)]
     #[track_caller]
     fn add(self, rhs: Balance) -> Balance {
-        Self::new(self.as_u128().add(rhs.as_u128()))
+        Self::from(u128::from(self).add(u128::from(rhs)))
     }
 }
 
@@ -77,7 +77,7 @@ impl Sub for Balance {
     #[inline(always)]
     #[track_caller]
     fn sub(self, rhs: Balance) -> Balance {
-        Self::new(self.as_u128().sub(rhs.as_u128()))
+        Self::from(u128::from(self).sub(u128::from(rhs)))
     }
 }
 
@@ -98,7 +98,7 @@ where
     #[inline(always)]
     #[track_caller]
     fn mul(self, rhs: Rhs) -> Balance {
-        Self::new(<u128 as Mul<Rhs>>::mul(self.as_u128(), rhs))
+        Self::from(<u128 as Mul<Rhs>>::mul(u128::from(self), rhs))
     }
 }
 
@@ -122,7 +122,7 @@ where
     #[inline(always)]
     #[track_caller]
     fn div(self, rhs: Rhs) -> Balance {
-        Self::new(<u128 as Div<Rhs>>::div(self.as_u128(), rhs))
+        Self::from(<u128 as Div<Rhs>>::div(u128::from(self), rhs))
     }
 }
 
@@ -137,41 +137,36 @@ where
     }
 }
 
-impl From<u128> for Balance {
+impl const From<u128> for Balance {
     #[inline(always)]
     fn from(value: u128) -> Self {
-        Self::new(value)
+        let mut result = MaybeUninit::<Self>::uninit();
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe {
+            result.as_mut_ptr().cast::<u128>().write_unaligned(value);
+            result.assume_init()
+        }
     }
 }
 
-impl From<Balance> for u128 {
+impl const From<&Balance> for u128 {
+    #[inline(always)]
+    fn from(value: &Balance) -> Self {
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe { ptr::from_ref(value).cast::<u128>().read_unaligned() }
+    }
+}
+
+impl const From<Balance> for u128 {
     #[inline(always)]
     fn from(value: Balance) -> Self {
-        value.as_u128()
+        Self::from(&value)
     }
 }
 
 impl Balance {
     /// Minimum balance
-    pub const MIN: Self = Self::new(0);
+    pub const MIN: Self = Self::from(0);
     /// Maximum balance
-    pub const MAX: Self = Self::new(u128::MAX);
-
-    /// Create a value from `u128`
-    #[inline(always)]
-    pub const fn new(n: u128) -> Self {
-        let mut result = MaybeUninit::<Self>::uninit();
-        // SAFETY: correct size, valid pointer, and all bits are valid
-        unsafe {
-            result.as_mut_ptr().cast::<u128>().write_unaligned(n);
-            result.assume_init()
-        }
-    }
-
-    /// Turn value into `u128`
-    #[inline(always)]
-    pub const fn as_u128(self) -> u128 {
-        // SAFETY: correct size, valid pointer, and all bits are valid
-        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
-    }
+    pub const MAX: Self = Self::from(u128::MAX);
 }

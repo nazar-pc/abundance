@@ -34,7 +34,7 @@ fn basic() {
 
     let public_key_hash = Blake3Hash::from([1; _]);
     let shard_commitments_root = &ShardCommitmentHash::default();
-    let sector_index = SectorIndex::new(1);
+    let sector_index = SectorIndex::from(1);
     let history_size = HistorySize::ONE;
     let sector_id = SectorId::new(
         &public_key_hash,

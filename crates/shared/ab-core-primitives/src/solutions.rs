@@ -77,7 +77,7 @@ impl SolutionDistance {
 
     /// Check if solution distance is within the provided solution range
     pub const fn is_within(self, solution_range: SolutionRange) -> bool {
-        self.0 <= solution_range.as_u64() / 2
+        self.0 <= u64::from(solution_range) / 2
     }
 }
 
@@ -93,8 +93,6 @@ impl SolutionDistance {
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -106,6 +104,20 @@ impl SolutionDistance {
 #[repr(C)]
 pub struct SolutionRange(u64);
 
+impl const From<u64> for SolutionRange {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<SolutionRange> for u64 {
+    #[inline(always)]
+    fn from(value: SolutionRange) -> Self {
+        value.0
+    }
+}
+
 impl SolutionRange {
     /// Size in bytes
     pub const SIZE: usize = size_of::<u64>();
@@ -113,20 +125,6 @@ impl SolutionRange {
     pub const MIN: Self = Self(u64::MIN);
     /// Maximum value
     pub const MAX: Self = Self(u64::MAX);
-
-    // TODO: Remove once `From` is stable
-    /// Create a new instance
-    #[inline(always)]
-    pub const fn new(n: u64) -> Self {
-        Self(n)
-    }
-
-    // TODO: Remove once `From` is stable
-    /// Get internal representation
-    #[inline(always)]
-    pub const fn as_u64(self) -> u64 {
-        self.0
-    }
 
     /// Create a new instance from bytes
     #[inline(always)]

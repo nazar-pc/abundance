@@ -64,7 +64,7 @@ const ACKNOWLEDGEMENT_TIMEOUT: Duration = Duration::from_mins(2);
 // /// Ideally, we'd decouple pruning from finalization, but it may require invasive changes in
 // /// Substrate and is not worth it right now.
 // /// https://github.com/paritytech/substrate/discussions/14359
-// const FINALIZATION_DEPTH_IN_SEGMENTS: SegmentIndex = SegmentIndex::new(5);
+// const FINALIZATION_DEPTH_IN_SEGMENTS: SegmentIndex = SegmentIndex::from(5);
 
 /// Notification with a new archived segment that was just archived
 #[derive(Debug)]
@@ -115,7 +115,7 @@ impl CreateObjectMappings {
     /// If there is no fixed block number, or mappings are disabled, returns None.
     fn block(&self) -> Option<BlockNumber> {
         match self {
-            CreateObjectMappings::Block(block) => Some(BlockNumber::new(block.get())),
+            CreateObjectMappings::Block(block) => Some(BlockNumber::from(block.get())),
             CreateObjectMappings::Yes => None,
             CreateObjectMappings::No => None,
         }

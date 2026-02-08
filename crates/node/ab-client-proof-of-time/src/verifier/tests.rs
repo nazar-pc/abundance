@@ -36,7 +36,7 @@ fn test_basic() {
             slot_iterations,
             seed: genesis_seed,
         },
-        SlotNumber::new(2),
+        SlotNumber::from(2),
         checkpoints_1.output(),
         None
     ));
@@ -68,7 +68,7 @@ fn test_basic() {
     // Expected to be valid
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations,
             seed: seed_1,
         },
@@ -82,7 +82,7 @@ fn test_basic() {
             slot_iterations,
             seed: genesis_seed,
         },
-        SlotNumber::new(2),
+        SlotNumber::from(2),
         checkpoints_2.output(),
         None
     ));
@@ -95,7 +95,7 @@ fn test_basic() {
             slot_iterations,
             seed: seed_1,
         },
-        SlotNumber::new(2),
+        SlotNumber::from(2),
         checkpoints_2.output(),
         None
     ));
@@ -106,7 +106,7 @@ fn test_basic() {
             slot_iterations,
             seed: seed_1,
         },
-        SlotNumber::new(2),
+        SlotNumber::from(2),
         checkpoints_2.output(),
         None
     ));
@@ -120,7 +120,7 @@ fn test_basic() {
                     .unwrap(),
                 seed: genesis_seed,
             },
-            SlotNumber::new(2),
+            SlotNumber::from(2),
             checkpoints_2.output(),
             None
         )
@@ -154,7 +154,7 @@ fn parameters_change() {
         SlotNumber::ONE,
         checkpoints_1.output(),
         Some(PotParametersChange {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -166,10 +166,10 @@ fn parameters_change() {
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        SlotNumber::new(3),
+        SlotNumber::from(3),
         checkpoints_3.output(),
         Some(PotParametersChange {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -181,10 +181,10 @@ fn parameters_change() {
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        SlotNumber::new(2),
+        SlotNumber::from(2),
         checkpoints_2.output(),
         Some(PotParametersChange {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -192,14 +192,14 @@ fn parameters_change() {
     // Not changing parameters because changes apply to the very first slot that is verified
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_2,
             seed: checkpoints_1.output().seed_with_entropy(&entropy),
         },
-        SlotNumber::new(2),
+        SlotNumber::from(2),
         checkpoints_3.output(),
         Some(PotParametersChange {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -212,21 +212,21 @@ fn parameters_change() {
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        SlotNumber::new(3),
+        SlotNumber::from(3),
         checkpoints_3.output(),
         None
     ));
     // Invalid slot
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        SlotNumber::new(3),
+        SlotNumber::from(3),
         checkpoints_3.output(),
         Some(PotParametersChange {
-            slot: SlotNumber::new(2),
+            slot: SlotNumber::from(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })

@@ -127,7 +127,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
     ) -> Option<Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>>> {
         // Decode method kind
         let metadata_kind = *self.metadata.split_off_first()?;
-        let Some(metadata_kind) = ContractMetadataKind::try_from_u8(metadata_kind) else {
+        let Ok(metadata_kind) = ContractMetadataKind::try_from(metadata_kind) else {
             return Some(Err(MetadataDecodingError::InvalidFirstMetadataByte {
                 byte: metadata_kind,
             }));
@@ -411,11 +411,11 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
         let metadata_kind = *metadata
             .split_off_first()
             .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
-        let metadata_kind = ContractMetadataKind::try_from_u8(metadata_kind).ok_or(
+        let metadata_kind = ContractMetadataKind::try_from(metadata_kind).map_err(|()| {
             MetadataDecodingError::InvalidFirstMetadataByte {
                 byte: metadata_kind,
-            },
-        )?;
+            }
+        })?;
 
         let method_kind = match metadata_kind {
             ContractMetadataKind::Init => MethodKind::Init,
@@ -598,11 +598,11 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             .metadata
             .split_off_first()
             .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
-        let metadata_kind = ContractMetadataKind::try_from_u8(metadata_kind).ok_or(
+        let metadata_kind = ContractMetadataKind::try_from(metadata_kind).map_err(|()| {
             MetadataDecodingError::InvalidFirstMetadataByte {
                 byte: metadata_kind,
-            },
-        )?;
+            }
+        })?;
 
         let argument_kind = match metadata_kind {
             ContractMetadataKind::EnvRo => ArgumentKind::EnvRo,

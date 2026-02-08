@@ -387,7 +387,7 @@ where
             };
 
             let mut checkpoints =
-                Vec::with_capacity((future_slot - parent_future_slot).as_u64() as usize);
+                Vec::with_capacity(u64::from(future_slot - parent_future_slot) as usize);
 
             for slot in parent_future_slot + SlotNumber::ONE..=future_slot {
                 let maybe_slot_checkpoints = self.pot_verifier.get_checkpoints(

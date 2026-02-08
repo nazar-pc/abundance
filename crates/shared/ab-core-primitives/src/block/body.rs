@@ -888,7 +888,7 @@ impl<'a> BeaconChainBody<'a> {
                 own_segments.segment_roots.iter().copied().enumerate().map(
                     |(index, segment_root)| {
                         (
-                            first_local_segment_index + LocalSegmentIndex::new(index as u64),
+                            first_local_segment_index + LocalSegmentIndex::from(index as u64),
                             segment_root,
                         )
                     },
@@ -1456,7 +1456,7 @@ impl<'a> IntermediateShardBody<'a> {
                 own_segments.segment_roots.iter().copied().enumerate().map(
                     |(index, segment_root)| {
                         (
-                            first_local_segment_index + LocalSegmentIndex::new(index as u64),
+                            first_local_segment_index + LocalSegmentIndex::from(index as u64),
                             segment_root,
                         )
                     },
@@ -1754,7 +1754,7 @@ impl<'a> LeafShardBody<'a> {
             OwnedLeafShardBody::init(own_segments.segment_roots.iter().copied().enumerate().map(
                 |(index, segment_root)| {
                     (
-                        first_local_segment_index + LocalSegmentIndex::new(index as u64),
+                        first_local_segment_index + LocalSegmentIndex::from(index as u64),
                         segment_root,
                     )
                 },

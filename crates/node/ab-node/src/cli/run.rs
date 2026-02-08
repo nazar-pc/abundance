@@ -64,7 +64,7 @@ struct ChainSyncStatusPlaceholder {}
 impl ChainSyncStatus for ChainSyncStatusPlaceholder {
     #[inline(always)]
     fn target_block_number(&self) -> BlockNumber {
-        BlockNumber::new(0)
+        BlockNumber::from(0)
     }
 
     #[inline(always)]

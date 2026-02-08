@@ -152,7 +152,7 @@ where
         let Some(diff) = sync_target_block_number.checked_sub(block_number) else {
             return true;
         };
-        let diff = diff.as_u64();
+        let diff = u64::from(diff);
 
         let sample_size = match diff {
             ..=1_581 => {
@@ -302,9 +302,9 @@ where
         // empty from the check above.
         //
         // The first block after genesis is a special case and is handled separately here.
-        if !(slots_between_blocks.as_u64() == checkpoints.len() as u64
+        if !(u64::from(slots_between_blocks) == checkpoints.len() as u64
             || (parent_slot == SlotNumber::ZERO
-                && future_slot.as_u64() == checkpoints.len() as u64))
+                && u64::from(future_slot) == checkpoints.len() as u64))
         {
             return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
         }

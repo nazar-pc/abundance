@@ -166,9 +166,8 @@ where
         });
     }
 
-    let next_solution_range = if block_number
-        .as_u64()
-        .is_multiple_of(retarget_interval.as_u64())
+    let next_solution_range = if u64::from(block_number)
+        .is_multiple_of(u64::from(retarget_interval))
         && block_number > retarget_interval
     {
         let interval_start_block = block_number.saturating_sub(retarget_interval);
@@ -229,13 +228,13 @@ where
         // Retain previous PoT parameters change if it applies after the block's slot
         Some(change)
     } else {
-        let lookback_in_blocks = BlockNumber::new(
-            pot_entropy_injection_interval.as_u64()
+        let lookback_in_blocks = BlockNumber::from(
+            u64::from(pot_entropy_injection_interval)
                 * u64::from(pot_entropy_injection_lookback_depth),
         );
-        let last_entropy_injection_block_number = BlockNumber::new(
-            block_number.as_u64() / pot_entropy_injection_interval.as_u64()
-                * pot_entropy_injection_interval.as_u64(),
+        let last_entropy_injection_block_number = BlockNumber::from(
+            u64::from(block_number) / u64::from(pot_entropy_injection_interval)
+                * u64::from(pot_entropy_injection_interval),
         );
         let maybe_entropy_source_block_number =
             last_entropy_injection_block_number.checked_sub(lookback_in_blocks);
@@ -329,10 +328,10 @@ pub fn shard_membership_entropy_source<BCI>(
 where
     BCI: ShardMembershipEntropySourceChainInfo,
 {
-    let entropy_source_block_number = BlockNumber::new(
-        block_number.saturating_sub(shard_rotation_delay).as_u64()
-            / shard_rotation_interval.as_u64()
-            * shard_rotation_interval.as_u64(),
+    let entropy_source_block_number = BlockNumber::from(
+        u64::from(block_number.saturating_sub(shard_rotation_delay))
+            / u64::from(shard_rotation_interval)
+            * u64::from(shard_rotation_interval),
     );
 
     let proof_of_time = beacon_chain_info

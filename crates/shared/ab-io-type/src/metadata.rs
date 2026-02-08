@@ -402,12 +402,12 @@ pub enum IoTypeMetadataKind {
     Balance,
 }
 
-impl IoTypeMetadataKind {
-    // TODO: Implement `TryFrom` once it is available in const environment
-    /// Try to create an instance from its `u8` representation
+impl const TryFrom<u8> for IoTypeMetadataKind {
+    type Error = ();
+
     #[inline]
-    pub const fn try_from_u8(byte: u8) -> Option<Self> {
-        Some(match byte {
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        Ok(match byte {
             0 => Self::Unit,
             1 => Self::Bool,
             2 => Self::U8,
@@ -506,11 +506,13 @@ impl IoTypeMetadataKind {
             128 => Self::Address,
             129 => Self::Balance,
             _ => {
-                return None;
+                return Err(());
             }
         })
     }
+}
 
+impl IoTypeMetadataKind {
     // TODO: Create wrapper type for metadata bytes and move this method there
     /// Produce compact metadata.
     ///

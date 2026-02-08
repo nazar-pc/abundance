@@ -2,7 +2,7 @@ use crate::metadata::IoTypeMetadataKind;
 
 #[inline(always)]
 pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
-    let kind = IoTypeMetadataKind::try_from_u8(*metadata.split_off_first()?)?;
+    let kind = IoTypeMetadataKind::try_from(*metadata.split_off_first()?).ok()?;
 
     Some(match kind {
         IoTypeMetadataKind::Unit => b"()",
