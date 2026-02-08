@@ -121,8 +121,6 @@ impl SuperSegmentRoot {
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -171,23 +169,25 @@ impl From<SegmentIndex> for LocalSegmentIndex {
     }
 }
 
+impl const From<u64> for LocalSegmentIndex {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<LocalSegmentIndex> for u64 {
+    #[inline(always)]
+    fn from(value: LocalSegmentIndex) -> Self {
+        value.0
+    }
+}
+
 impl LocalSegmentIndex {
     /// Local segment index 0
     pub const ZERO: Self = Self(0);
     /// Local segment index 1
     pub const ONE: Self = Self(1);
-
-    /// Create a new instance
-    #[inline]
-    pub const fn new(n: u64) -> Self {
-        Self(n)
-    }
-
-    /// Get internal representation
-    #[inline(always)]
-    pub const fn as_u64(self) -> u64 {
-        self.0
-    }
 
     /// Checked integer subtraction. Computes `self - rhs`, returning `None` if underflow occurred
     #[inline]
@@ -215,8 +215,6 @@ impl LocalSegmentIndex {
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -249,34 +247,36 @@ impl Step for SegmentIndex {
     }
 }
 
+impl const From<u64> for SegmentIndex {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<SegmentIndex> for u64 {
+    #[inline(always)]
+    fn from(value: SegmentIndex) -> Self {
+        value.0
+    }
+}
+
 impl SegmentIndex {
     /// Segment index 0
     pub const ZERO: Self = Self(0);
     /// Segment index 1
     pub const ONE: Self = Self(1);
 
-    /// Create a new instance
-    #[inline]
-    pub const fn new(n: u64) -> Self {
-        Self(n)
-    }
-
-    /// Get internal representation
-    #[inline(always)]
-    pub const fn as_u64(self) -> u64 {
-        self.0
-    }
-
     /// Get the first piece index in this segment
     #[inline]
     pub const fn first_piece_index(&self) -> PieceIndex {
-        PieceIndex::new(self.0 * RecordedHistorySegment::NUM_PIECES as u64)
+        PieceIndex::from(self.0 * RecordedHistorySegment::NUM_PIECES as u64)
     }
 
     /// Get the last piece index in this segment
     #[inline]
     pub const fn last_piece_index(&self) -> PieceIndex {
-        PieceIndex::new((self.0 + 1) * RecordedHistorySegment::NUM_PIECES as u64 - 1)
+        PieceIndex::from((self.0 + 1) * RecordedHistorySegment::NUM_PIECES as u64 - 1)
     }
 
     /// List of piece indexes that belong to this segment
@@ -431,7 +431,7 @@ impl HistorySize {
     /// Create a new instance
     #[inline(always)]
     pub const fn new(value: NonZeroU64) -> Self {
-        Self(SegmentIndex::new(value.get() - 1))
+        Self(SegmentIndex::from(value.get() - 1))
     }
 
     /// Get internal representation
@@ -441,15 +441,14 @@ impl HistorySize {
 
     /// Get internal representation
     pub const fn as_non_zero_u64(&self) -> NonZeroU64 {
-        NonZeroU64::new(self.0.as_u64().saturating_add(1)).expect("Not zero; qed")
+        NonZeroU64::new(u64::from(self.0).saturating_add(1)).expect("Not zero; qed")
     }
 
     /// Size of blockchain history in pieces
     #[inline(always)]
     pub const fn in_pieces(&self) -> NonZeroU64 {
         NonZeroU64::new(
-            self.0
-                .as_u64()
+            u64::from(self.0)
                 .saturating_add(1)
                 .saturating_mul(RecordedHistorySegment::NUM_PIECES as u64),
         )

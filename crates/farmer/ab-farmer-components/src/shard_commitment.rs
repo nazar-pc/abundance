@@ -1,11 +1,12 @@
 //! Utilities related to shard commitments
 
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::segments::HistorySize;
+use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::{
     ShardCommitmentHash, ShardMembershipEntropy, SolutionShardCommitment,
 };
+use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use blake3::Hasher;
 use parking_lot::RwLock;
@@ -71,7 +72,7 @@ pub fn derive_shard_commitments_root(
 ) -> ShardCommitmentHash {
     let mut stream = {
         let mut hasher = Hasher::new_keyed(shard_commitments_seed);
-        hasher.update(&history_size.as_u64().to_le_bytes());
+        hasher.update(SegmentIndex::from(history_size).as_bytes());
         hasher.finalize_xof()
     };
 
@@ -109,7 +110,7 @@ pub fn derive_solution_shard_commitment(
 ) -> SolutionShardCommitment {
     let mut stream = {
         let mut hasher = Hasher::new_keyed(shard_commitments_seed);
-        hasher.update(&history_size.as_u64().to_le_bytes());
+        hasher.update(SegmentIndex::from(history_size).as_bytes());
         hasher.finalize_xof()
     };
 

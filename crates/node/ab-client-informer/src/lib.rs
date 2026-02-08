@@ -18,23 +18,13 @@ where
         RealShardKind::IntermediateShard => {
             format!(
                 "Intermediate[{}]",
-                chain_info
-                    .best_header()
-                    .header()
-                    .prefix
-                    .shard_index
-                    .as_u32()
+                u32::from(chain_info.best_header().header().prefix.shard_index)
             )
         }
         RealShardKind::LeafShard => {
             format!(
                 "Leaf[{}]",
-                chain_info
-                    .best_header()
-                    .header()
-                    .prefix
-                    .shard_index
-                    .as_u32()
+                u32::from(chain_info.best_header().header().prefix.shard_index)
             )
         }
     };

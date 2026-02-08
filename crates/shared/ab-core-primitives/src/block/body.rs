@@ -481,7 +481,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let segments_proof = intermediate_shard_block.segments_proof.unwrap_or(&[0; _]);
 
             // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
-            //  the code to compile. Constant 4294967295 is hardcoded here and below for compilation
+            //  the code to compile. Constant 65535 is hardcoded here and below for compilation
             // to  succeed.
             #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
             #[expect(clippy::eq_op, reason = "Intentional documentation")]
@@ -888,7 +888,7 @@ impl<'a> BeaconChainBody<'a> {
                 own_segments.segment_roots.iter().copied().enumerate().map(
                     |(index, segment_root)| {
                         (
-                            first_local_segment_index + LocalSegmentIndex::new(index as u64),
+                            first_local_segment_index + LocalSegmentIndex::from(index as u64),
                             segment_root,
                         )
                     },
@@ -1456,7 +1456,7 @@ impl<'a> IntermediateShardBody<'a> {
                 own_segments.segment_roots.iter().copied().enumerate().map(
                     |(index, segment_root)| {
                         (
-                            first_local_segment_index + LocalSegmentIndex::new(index as u64),
+                            first_local_segment_index + LocalSegmentIndex::from(index as u64),
                             segment_root,
                         )
                     },
@@ -1754,7 +1754,7 @@ impl<'a> LeafShardBody<'a> {
             OwnedLeafShardBody::init(own_segments.segment_roots.iter().copied().enumerate().map(
                 |(index, segment_root)| {
                     (
-                        first_local_segment_index + LocalSegmentIndex::new(index as u64),
+                        first_local_segment_index + LocalSegmentIndex::from(index as u64),
                         segment_root,
                     )
                 },

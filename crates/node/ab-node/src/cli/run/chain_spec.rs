@@ -13,14 +13,14 @@ use ab_core_primitives::solutions::{Solution, SolutionRange};
 use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 
 const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
-    confirmation_depth_k: BlockNumber::new(100),
-    block_authoring_delay: SlotNumber::new(4),
+    confirmation_depth_k: BlockNumber::from(100),
+    block_authoring_delay: SlotNumber::from(4),
     pot: PotConsensusConstants {
-        entropy_injection_interval: BlockNumber::new(50),
+        entropy_injection_interval: BlockNumber::from(50),
         entropy_injection_lookback_depth: 2,
-        entropy_injection_delay: SlotNumber::new(15),
+        entropy_injection_delay: SlotNumber::from(15),
     },
-    retarget_interval: BlockNumber::new(180),
+    retarget_interval: BlockNumber::from(180),
     slot_probability: (1, 10),
     slot_duration: SlotDuration::from_millis(1000),
     recent_segments: HistorySize::new(NonZeroU64::new(5).expect("Not zero; qed")),
@@ -33,15 +33,15 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     // TODO: Should shard rotation be measured in beacon chain blocks instead of slots? See original
     //  PR description for details: https://github.com/nazar-pc/abundance/pull/476
     // TODO: Reduced values just for testing to hit potential bugs sooner
-    // shard_rotation_interval: BlockNumber::new(360),
-    shard_rotation_interval: BlockNumber::new(36),
+    // shard_rotation_interval: BlockNumber::from(360),
+    shard_rotation_interval: BlockNumber::from(36),
     // TODO: Reduced values just for testing to hit potential bugs sooner
-    // shard_rotation_delay: BlockNumber::new(180),
-    shard_rotation_delay: BlockNumber::new(18),
+    // shard_rotation_delay: BlockNumber::from(180),
+    shard_rotation_delay: BlockNumber::from(18),
 };
 
 const {
-    assert!(CONSENSUS_CONSTANTS.shard_rotation_interval.as_u64() > 0);
+    assert!(u64::from(CONSENSUS_CONSTANTS.shard_rotation_interval) > 0);
 }
 
 // TODO: Placeholder data structure, should probably be replaced with something else

@@ -56,7 +56,7 @@ where
 impl PieceGetter for NewArchivedSegment {
     async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
         if piece_index.segment_index()
-            == SegmentIndex::new(self.segment_header.local_segment_index().as_u64())
+            == SegmentIndex::from(self.segment_header.local_segment_index())
         {
             return Ok(Some(
                 self.pieces

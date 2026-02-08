@@ -222,7 +222,7 @@ impl TransactionPool {
     pub fn add_best_block(&mut self, block_number: BlockNumber, block_root: BlockRoot) {
         // Clean up old blocks or blocks that are at the same or higher block number
         let allowed_blocks =
-            block_number.saturating_sub(BlockNumber::new(self.pruning_depth.get()))..block_number;
+            block_number.saturating_sub(BlockNumber::from(self.pruning_depth.get()))..block_number;
         self.by_block_number
             .retain(|existing_block_number, existing_block_root| {
                 if allowed_blocks.contains(existing_block_number) {

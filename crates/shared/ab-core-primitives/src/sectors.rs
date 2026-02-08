@@ -15,9 +15,7 @@ use core::hash::Hash;
 use core::iter::Step;
 use core::num::{NonZeroU64, TryFromIntError};
 use core::simd::Simd;
-use derive_more::{
-    Add, AddAssign, Deref, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub, SubAssign,
-};
+use derive_more::{Add, AddAssign, Deref, Display, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "serde")]
@@ -35,8 +33,6 @@ use serde::{Deserialize, Serialize};
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -69,21 +65,35 @@ impl Step for SectorIndex {
     }
 }
 
-impl From<SectorIndex> for u32 {
+impl const From<u16> for SectorIndex {
+    #[inline(always)]
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<SectorIndex> for u16 {
+    #[inline(always)]
+    fn from(value: SectorIndex) -> Self {
+        value.0
+    }
+}
+
+impl const From<SectorIndex> for u32 {
     #[inline(always)]
     fn from(original: SectorIndex) -> Self {
         u32::from(original.0)
     }
 }
 
-impl From<SectorIndex> for u64 {
+impl const From<SectorIndex> for u64 {
     #[inline(always)]
     fn from(original: SectorIndex) -> Self {
         u64::from(original.0)
     }
 }
 
-impl From<SectorIndex> for usize {
+impl const From<SectorIndex> for usize {
     #[inline(always)]
     fn from(original: SectorIndex) -> Self {
         usize::from(original.0)
@@ -97,12 +107,6 @@ impl SectorIndex {
     pub const ZERO: Self = Self(0);
     /// Max sector index
     pub const MAX: Self = Self(u16::MAX);
-
-    /// Create a new instance
-    #[inline(always)]
-    pub const fn new(n: u16) -> Self {
-        Self(n)
-    }
 
     /// Create sector index from bytes.
     #[inline(always)]
@@ -287,8 +291,6 @@ impl SectorId {
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -317,6 +319,20 @@ impl Step for SBucket {
     #[inline]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u16::backward_checked(start.0, count).map(Self)
+    }
+}
+
+impl const From<u16> for SBucket {
+    #[inline(always)]
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<SBucket> for u16 {
+    #[inline(always)]
+    fn from(value: SBucket) -> Self {
+        value.0
     }
 }
 

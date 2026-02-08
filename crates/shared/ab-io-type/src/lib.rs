@@ -4,6 +4,8 @@
     const_block_items,
     const_convert,
     const_index,
+    const_option_ops,
+    const_result_trait_fn,
     const_split_off_first_last,
     const_trait_impl,
     const_try,

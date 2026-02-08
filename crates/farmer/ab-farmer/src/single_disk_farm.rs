@@ -959,8 +959,8 @@ impl SingleDiskFarm {
         let sectors_being_modified = Arc::<AsyncRwLock<HashSet<SectorIndex>>>::default();
         let (sectors_to_plot_sender, sectors_to_plot_receiver) = mpsc::channel(1);
         // Some sectors may already be plotted, skip them
-        let sectors_indices_left_to_plot = SectorIndex::new(metadata_header.plotted_sector_count)
-            ..SectorIndex::new(target_sector_count);
+        let sectors_indices_left_to_plot = SectorIndex::from(metadata_header.plotted_sector_count)
+            ..SectorIndex::from(target_sector_count);
 
         let farming_thread_pool = ThreadPoolBuilder::new()
             .thread_name(move |thread_index| format!("farming-{farm_index}.{thread_index}"))
@@ -1418,7 +1418,7 @@ impl SingleDiskFarm {
 
             let mut sector_metadata_bytes = vec![0; sector_metadata_size];
             for sector_index in
-                SectorIndex::ZERO..SectorIndex::new(metadata_header.plotted_sector_count)
+                SectorIndex::ZERO..SectorIndex::from(metadata_header.plotted_sector_count)
             {
                 let sector_offset =
                     RESERVED_PLOT_METADATA + sector_metadata_size as u64 * u64::from(sector_index);
@@ -1997,7 +1997,7 @@ impl SingleDiskFarm {
             info!("Checking sectors and corresponding metadata");
             (0..metadata_header.plotted_sector_count)
                 .into_par_iter()
-                .map(SectorIndex::new)
+                .map(SectorIndex::from)
                 .map_init(
                     || vec![0u8; Record::SIZE],
                     |scratch_buffer, sector_index| {

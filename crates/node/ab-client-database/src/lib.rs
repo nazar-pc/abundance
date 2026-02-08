@@ -46,6 +46,8 @@
 #![feature(generic_const_exprs)]
 #![feature(
     const_block_items,
+    const_convert,
+    const_trait_impl,
     default_field_values,
     get_mut_unchecked,
     iter_collect_into,
@@ -177,7 +179,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// also increases the chance of recent blocks not being retained on disk in case of a crash.
     ///
     /// The recommended value is 3 blocks.
-    pub soft_confirmation_depth: BlockNumber = BlockNumber::new(3),
+    pub soft_confirmation_depth: BlockNumber = BlockNumber::from(3),
     /// Defines how many fork tips should be maintained in total.
     ///
     /// As natural forks occur, there may be more than one tip in existence, with only one of them
@@ -199,7 +201,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// A larger value results in higher memory usage and higher complexity of pruning algorithms.
     ///
     /// The recommended value is 5 blocks.
-    pub max_fork_tip_distance: BlockNumber = BlockNumber::new(5),
+    pub max_fork_tip_distance: BlockNumber = BlockNumber::from(5),
     /// Genesis block builder is responsible to create genesis block and corresponding state for
     /// bootstrapping purposes.
     pub genesis_block_builder: GBB,
@@ -690,7 +692,7 @@ where
         let best_number = state.best_tip().number;
 
         let ancestor_block_offset =
-            best_number.checked_sub(ancestor_block_number)?.as_u64() as usize;
+            u64::from(best_number.checked_sub(ancestor_block_number)?) as usize;
         let ancestor_block_candidates = state.data.blocks.get(ancestor_block_offset)?;
 
         let descendant_block_number = *state.data.block_roots.get(descendant_block_root)?;
@@ -698,7 +700,7 @@ where
             return None;
         }
         let descendant_block_offset =
-            best_number.checked_sub(descendant_block_number)?.as_u64() as usize;
+            u64::from(best_number.checked_sub(descendant_block_number)?) as usize;
 
         // Range of blocks where the first item is expected to contain a descendant
         let mut blocks_range_iter = state
@@ -754,7 +756,7 @@ where
         let best_number = state.best_tip().number;
 
         let block_number = *state.data.block_roots.get(block_root)?;
-        let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
+        let block_offset = u64::from(best_number.checked_sub(block_number)?) as usize;
         let block_candidates = state.data.blocks.get(block_offset)?;
 
         block_candidates.iter().find_map(|block| {
@@ -776,7 +778,7 @@ where
         let best_number = state.best_tip().number;
 
         let block_number = *state.data.block_roots.get(block_root)?;
-        let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
+        let block_offset = u64::from(best_number.checked_sub(block_number)?) as usize;
         let block_candidates = state.data.blocks.get(block_offset)?;
 
         block_candidates.iter().find_map(|block| {
@@ -801,10 +803,11 @@ where
             .block_roots
             .get(block_root)
             .ok_or(ReadBlockError::UnknownBlockRoot)?;
-        let block_offset = best_number
-            .checked_sub(block_number)
-            .expect("Known block roots always have valid block offset; qed")
-            .as_u64() as usize;
+        let block_offset = u64::from(
+            best_number
+                .checked_sub(block_number)
+                .expect("Known block roots always have valid block offset; qed"),
+        ) as usize;
         let block_candidates = state
             .data
             .blocks
@@ -996,12 +999,13 @@ where
             return Self::insert_new_best_block(state, &self.inner, block, block_details).await;
         }
 
-        let block_offset = best_number
-            .checked_sub(block_number)
-            .ok_or(PersistBlockError::MissingParent)?
-            .as_u64() as usize;
+        let block_offset = u64::from(
+            best_number
+                .checked_sub(block_number)
+                .ok_or(PersistBlockError::MissingParent)?,
+        ) as usize;
 
-        if block_offset >= self.inner.options.confirmation_depth_k.as_u64() as usize {
+        if block_offset >= u64::from(self.inner.options.confirmation_depth_k) as usize {
             return Err(PersistBlockError::OutsideAcceptableRange);
         }
 
@@ -1194,7 +1198,7 @@ where
 
                 let block_offset = if let Some(best_number) = maybe_best_number {
                     if block_number <= best_number {
-                        (best_number - block_number).as_u64() as usize
+                        u64::from(best_number - block_number) as usize
                     } else {
                         // The new best block must follow the previous best block
                         if block_number - best_number != BlockNumber::ONE {
@@ -1412,7 +1416,7 @@ where
         let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
 
         let mut blocks_to_persist = Vec::new();
-        for block_offset in options.soft_confirmation_depth.as_u64() as usize.. {
+        for block_offset in u64::from(options.soft_confirmation_depth) as usize.. {
             let Some(fork_blocks) = state.data.blocks.get(block_offset) else {
                 break;
             };
@@ -1607,7 +1611,7 @@ where
         fork_tip: &ForkTip,
         state: &mut StateData<Block>,
     ) -> bool {
-        let block_offset = (best_number - fork_tip.number).as_u64() as usize;
+        let block_offset = u64::from(best_number - fork_tip.number) as usize;
 
         // Prune fork top and all its ancestors that are not used
         let mut block_root_to_prune = fork_tip.root;
@@ -1703,7 +1707,7 @@ where
         // `+1` means it effectively confirms parent blocks instead. This is done to keep the parent
         // of the confirmed block with its MMR in memory due to confirmed blocks not storing their
         // MMRs, which might be needed for reorgs at the lowest possible depth.
-        let block_offset = (options.confirmation_depth_k + BlockNumber::ONE).as_u64() as usize;
+        let block_offset = u64::from(options.confirmation_depth_k + BlockNumber::ONE) as usize;
 
         let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
             // Nothing to confirm yet

@@ -236,7 +236,7 @@ fn archiver() {
     {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number(), BlockNumber::new(2));
+        assert_eq!(last_archived_block.number(), BlockNumber::from(2));
         assert_eq!(
             last_archived_block.partial_archived(),
             Some(NonZeroU32::new(111848003).unwrap())
@@ -245,7 +245,7 @@ fn archiver() {
     {
         let archived_segment = archived_segments.get(1).unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number(), BlockNumber::new(2));
+        assert_eq!(last_archived_block.number(), BlockNumber::from(2));
         assert_eq!(
             last_archived_block.partial_archived(),
             Some(NonZeroU32::new(246065641).unwrap())
@@ -335,7 +335,7 @@ fn archiver() {
     {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number(), BlockNumber::new(3));
+        assert_eq!(last_archived_block.number(), BlockNumber::from(3));
         assert_eq!(last_archived_block.partial_archived(), None);
 
         #[cfg(not(feature = "parallel"))]

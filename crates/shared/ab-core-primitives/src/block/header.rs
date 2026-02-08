@@ -1677,7 +1677,7 @@ impl<'a> BlockHeader<'a> {
         let prefix = unsafe { BlockHeaderPrefix::from_bytes(prefix) }?;
 
         if !(prefix.padding_0 == [0; _]
-            && prefix.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX)
+            && u32::from(prefix.shard_index) <= ShardIndex::MAX_SHARD_INDEX)
         {
             return None;
         }

@@ -103,6 +103,13 @@ impl From<RealShardKind> for ShardKind {
 #[repr(C)]
 pub struct ShardIndex(u32);
 
+impl const From<ShardIndex> for u32 {
+    #[inline(always)]
+    fn from(shard_index: ShardIndex) -> Self {
+        shard_index.0
+    }
+}
+
 impl ShardIndex {
     /// Beacon chain
     pub const BEACON_CHAIN: Self = Self(0);
@@ -126,15 +133,6 @@ impl ShardIndex {
         }
 
         Some(Self(shard_index))
-    }
-
-    // TODO: Remove once traits work in const environment and `From` could be used
-    /// Convert shard index to `u32`.
-    ///
-    /// This is typically only necessary for low-level code.
-    #[inline(always)]
-    pub const fn as_u32(self) -> u32 {
-        self.0
     }
 
     /// Whether the shard index corresponds to the beacon chain

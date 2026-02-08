@@ -1,6 +1,11 @@
 //! Consensus node CLI
 
-#![feature(const_block_items, default_field_values)]
+#![feature(
+    const_block_items,
+    const_convert,
+    const_trait_impl,
+    default_field_values
+)]
 
 mod cli;
 mod storage_backend;

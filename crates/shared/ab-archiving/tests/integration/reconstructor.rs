@@ -92,7 +92,7 @@ fn basic() {
             .unwrap();
 
         // Only first block fits
-        assert_eq!(contents.blocks, vec![(BlockNumber::new(0), block_0)]);
+        assert_eq!(contents.blocks, vec![(BlockNumber::from(0), block_0)]);
         assert_eq!(contents.segment_header, None);
     }
 
@@ -105,8 +105,8 @@ fn basic() {
         assert_eq!(
             contents.blocks,
             vec![
-                (BlockNumber::new(1), block_1),
-                (BlockNumber::new(2), block_2.clone())
+                (BlockNumber::from(1), block_1),
+                (BlockNumber::from(2), block_2.clone())
             ]
         );
         assert!(contents.segment_header.is_some());
@@ -117,7 +117,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(1).into(),
+                number: BlockNumber::from(1).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(67108854).unwrap()
                 ),
@@ -130,7 +130,7 @@ fn basic() {
             .unwrap();
 
         // Only third block is fully contained
-        assert_eq!(contents.blocks, vec![(BlockNumber::new(2), block_2)]);
+        assert_eq!(contents.blocks, vec![(BlockNumber::from(2), block_2)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
             contents.segment_header.unwrap().local_segment_index(),
@@ -139,7 +139,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(1).into(),
+                number: BlockNumber::from(1).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(67108854).unwrap()
                 ),
@@ -162,7 +162,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(3).into(),
+                number: BlockNumber::from(3).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(33554322).unwrap()
                 ),
@@ -184,7 +184,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(3).into(),
+                number: BlockNumber::from(3).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(33554322).unwrap()
                 ),
@@ -207,7 +207,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(3).into(),
+                number: BlockNumber::from(3).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(167771960).unwrap()
                 ),
@@ -231,7 +231,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(3).into(),
+                number: BlockNumber::from(3).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(167771960).unwrap()
                 ),
@@ -245,7 +245,7 @@ fn basic() {
             .unwrap();
 
         // Enough data to reconstruct fourth block
-        assert_eq!(contents.blocks, vec![(BlockNumber::new(3), block_3)]);
+        assert_eq!(contents.blocks, vec![(BlockNumber::from(3), block_3)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
             contents.segment_header.unwrap().local_segment_index(),
@@ -254,7 +254,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(3).into(),
+                number: BlockNumber::from(3).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(301989598).unwrap()
                 ),
@@ -278,7 +278,7 @@ fn basic() {
         assert_eq!(
             contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
-                number: BlockNumber::new(3).into(),
+                number: BlockNumber::from(3).into(),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(301989598).unwrap()
                 ),
@@ -338,7 +338,7 @@ fn partial_data() {
 
         assert_eq!(
             contents.blocks,
-            vec![(BlockNumber::new(0), block_0.clone())]
+            vec![(BlockNumber::from(0), block_0.clone())]
         );
     }
 
@@ -354,7 +354,7 @@ fn partial_data() {
 
         assert_eq!(
             contents.blocks,
-            vec![(BlockNumber::new(0), block_0.clone())]
+            vec![(BlockNumber::from(0), block_0.clone())]
         );
     }
 
@@ -371,7 +371,7 @@ fn partial_data() {
             .add_segment(&pieces)
             .unwrap();
 
-        assert_eq!(contents.blocks, vec![(BlockNumber::new(0), block_0)]);
+        assert_eq!(contents.blocks, vec![(BlockNumber::from(0), block_0)]);
     }
 }
 

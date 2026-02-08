@@ -40,8 +40,6 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -71,6 +69,20 @@ impl Step for BlockNumber {
     }
 }
 
+impl const From<u64> for BlockNumber {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<BlockNumber> for u64 {
+    #[inline(always)]
+    fn from(value: BlockNumber) -> Self {
+        value.0
+    }
+}
+
 impl BlockNumber {
     /// Size in bytes
     pub const SIZE: usize = size_of::<u64>();
@@ -80,18 +92,6 @@ impl BlockNumber {
     pub const ONE: BlockNumber = BlockNumber(1);
     /// Max block number
     pub const MAX: BlockNumber = BlockNumber(u64::MAX);
-
-    /// Create a new instance
-    #[inline(always)]
-    pub const fn new(n: u64) -> Self {
-        Self(n)
-    }
-
-    /// Get internal representation
-    #[inline(always)]
-    pub const fn as_u64(self) -> u64 {
-        self.0
-    }
 
     /// Create block number from bytes
     #[inline(always)]
@@ -736,8 +736,6 @@ impl<'a> Block<'a> {
     Eq,
     PartialEq,
     Hash,
-    From,
-    Into,
     Add,
     AddAssign,
     Sub,
@@ -748,6 +746,20 @@ impl<'a> Block<'a> {
 #[repr(C)]
 pub struct BlockWeight(u128);
 
+impl const From<u128> for BlockWeight {
+    #[inline(always)]
+    fn from(value: u128) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<BlockWeight> for u128 {
+    #[inline(always)]
+    fn from(value: BlockWeight) -> Self {
+        value.0
+    }
+}
+
 impl BlockWeight {
     /// Size in bytes
     pub const SIZE: usize = size_of::<u128>();
@@ -756,21 +768,11 @@ impl BlockWeight {
     /// Max block wright
     pub const MAX: BlockWeight = BlockWeight(u128::MAX);
 
-    /// Create a new instance
-    #[inline(always)]
-    pub const fn new(n: u128) -> Self {
-        Self(n)
-    }
-
     /// Derive block weight from provided solution range
     pub const fn from_solution_range(solution_range: SolutionRange) -> Self {
-        Self::new((SolutionRange::MAX.as_u64() - solution_range.as_u64()) as u128)
-    }
-
-    /// Get internal representation
-    #[inline(always)]
-    pub const fn as_u128(self) -> u128 {
-        self.0
+        Self::from(u128::from(
+            u64::from(SolutionRange::MAX) - u64::from(solution_range),
+        ))
     }
 }
 

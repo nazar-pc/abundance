@@ -24,10 +24,10 @@ fn check_repr() {
 
     for (kind, repr_byte) in known_variants {
         assert_eq!(kind as u8, repr_byte);
-        assert_eq!(ContractMetadataKind::try_from_u8(repr_byte), Some(kind));
+        assert_eq!(ContractMetadataKind::try_from(repr_byte), Ok(kind));
     }
 
     for byte in known_variants.len() as u8..=u8::MAX {
-        assert_eq!(ContractMetadataKind::try_from_u8(byte), None);
+        assert_eq!(ContractMetadataKind::try_from(byte), Err(()));
     }
 }

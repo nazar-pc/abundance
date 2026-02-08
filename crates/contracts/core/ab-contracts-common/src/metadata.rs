@@ -142,12 +142,12 @@ pub enum ContractMetadataKind {
     Return,
 }
 
-impl ContractMetadataKind {
-    // TODO: Implement `TryFrom` once it is available in const environment
-    /// Try to create an instance from its `u8` representation
+impl const TryFrom<u8> for ContractMetadataKind {
+    type Error = ();
+
     #[inline(always)]
-    pub const fn try_from_u8(byte: u8) -> Option<Self> {
-        Some(match byte {
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        Ok(match byte {
             0 => Self::Contract,
             1 => Self::Trait,
             2 => Self::Init,
@@ -166,11 +166,13 @@ impl ContractMetadataKind {
             15 => Self::Output,
             16 => Self::Return,
             _ => {
-                return None;
+                return Err(());
             }
         })
     }
+}
 
+impl ContractMetadataKind {
     // TODO: Create wrapper type for metadata bytes and move this method there
     /// Produce compact metadata.
     ///

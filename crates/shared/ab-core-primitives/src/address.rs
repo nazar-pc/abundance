@@ -69,7 +69,7 @@ impl ShortHrp {
     /// Create a new instance.
     ///
     /// Returns `None` if length of human-readable part is longer than [`Self::MAX_HRP_LENGTH`].
-    // TODO: `const fn` once `bech32 > 0.11.0` is released
+    // TODO: `const fn` once `bech32 > 0.12.0` is released
     pub fn new(hrp: Hrp) -> Option<Self> {
         if hrp.len() > Self::MAX_HRP_LENGTH {
             return None;
@@ -106,7 +106,7 @@ const {
 
 impl fmt::Debug for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Address").field(&self.as_u128()).finish()
+        f.debug_tuple("Address").field(&u128::from(self)).finish()
     }
 }
 
@@ -127,7 +127,7 @@ impl PartialEq<Address> for &Address {
 impl Ord for Address {
     #[inline(always)]
     fn cmp(&self, other: &Address) -> Ordering {
-        self.as_u128().cmp(&other.as_u128())
+        u128::from(self).cmp(&u128::from(other))
     }
 }
 
@@ -138,36 +138,48 @@ impl PartialOrd for Address {
     }
 }
 
-impl From<u128> for Address {
+impl const From<u128> for Address {
     #[inline(always)]
     fn from(value: u128) -> Self {
-        Self::new(value)
+        let mut result = MaybeUninit::<Self>::uninit();
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe {
+            result.as_mut_ptr().cast::<u128>().write_unaligned(value);
+            result.assume_init()
+        }
     }
 }
 
-impl From<Address> for u128 {
+impl const From<&Address> for u128 {
+    #[inline(always)]
+    fn from(value: &Address) -> Self {
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe { ptr::from_ref(value).cast::<u128>().read_unaligned() }
+    }
+}
+
+impl const From<Address> for u128 {
     #[inline(always)]
     fn from(value: Address) -> Self {
-        value.as_u128()
+        Self::from(&value)
     }
 }
-
 // TODO: Method for getting creation shard out of the address
 // TODO: There should be a notion of global address
 impl Address {
     // TODO: Various system contracts
     /// Sentinel contract address, inaccessible and not owned by anyone
-    pub const NULL: Self = Self::new(0);
+    pub const NULL: Self = Self::from(0);
     /// System contract for managing code of other contracts
-    pub const SYSTEM_CODE: Self = Self::new(1);
+    pub const SYSTEM_CODE: Self = Self::from(1);
     /// System contract for managing block state
-    pub const SYSTEM_BLOCK: Self = Self::new(2);
+    pub const SYSTEM_BLOCK: Self = Self::from(2);
     /// System contract for managing state of other contracts
-    pub const SYSTEM_STATE: Self = Self::new(3);
+    pub const SYSTEM_STATE: Self = Self::from(3);
     /// System contract for native token
-    pub const SYSTEM_NATIVE_TOKEN: Self = Self::new(4);
+    pub const SYSTEM_NATIVE_TOKEN: Self = Self::from(4);
     /// System simple wallet base contract that can be used by end user wallets
-    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::new(10);
+    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::from(10);
 
     // Formatting-related constants
     const FORMAT_SEPARATOR_INTERVAL: [usize; 7] = [
@@ -183,17 +195,6 @@ impl Address {
     const FORMAT_SEPARATOR: u8 = b'-';
     const FORMAT_ALL_ZEROES: u8 = b'q';
     const FORMAT_CHECKSUM_LENGTH: usize = 6;
-
-    /// Create a value from `u128`
-    #[inline(always)]
-    const fn new(n: u128) -> Self {
-        let mut result = MaybeUninit::<Self>::uninit();
-        // SAFETY: correct size, valid pointer, and all bits are valid
-        unsafe {
-            result.as_mut_ptr().cast::<u128>().write_unaligned(n);
-            result.assume_init()
-        }
-    }
 
     /// Parse address from a string formatted using [`Self::format()`].
     ///
@@ -285,8 +286,7 @@ impl Address {
             length: 0,
         };
 
-        for char in self
-            .as_u128()
+        for char in u128::from(self)
             .to_be_bytes()
             .into_iter()
             .bytes_to_fes()
@@ -356,19 +356,12 @@ impl Address {
         formatted_address
     }
 
-    /// Get inner `u128` representation
-    #[inline(always)]
-    const fn as_u128(self) -> u128 {
-        // SAFETY: correct size, valid pointer, and all bits are valid
-        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
-    }
-
     /// System contract for address allocation on a particular shard index
     #[inline(always)]
     pub const fn system_address_allocator(shard_index: ShardIndex) -> Self {
         // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
         // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
         // to address allocators of respective shards
-        Self::new((shard_index.as_u32() as u128).reverse_bits())
+        Self::from(u128::from(u32::from(shard_index)).reverse_bits())
     }
 }
