@@ -58,8 +58,8 @@ ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
-aes = "0.9.0-rc.2"
-anyhow = { version = "1.0.100", default-features = false }
+aes = "0.9.0-rc.4"
+anyhow = { version = "1.0.101", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
 async-nats = { version = "0.46.0", default-features = false, features = ["ring"] }
@@ -72,16 +72,16 @@ bytes = { version = "1.11.1", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "70160693564611ca85e17a3c441da93ee642d29a", default-features = false }
 cargo_metadata = { version = "0.23.1" }
-chacha20 = { version = "0.10.0-rc.9", default-features = false }
+chacha20 = { version = "0.10.0", default-features = false }
 clap = { version = "4.5.57", features = ["derive"] }
 const_format = "0.2.35"
 core_affinity = "0.8.3"
-cpufeatures = "0.2.17"
-criterion = { version = "0.8.1", default-features = false }
+cpufeatures = "0.3.0"
+criterion = { version = "0.8.2", default-features = false }
 derive_destructure2 = { version = "0.1.3" }
 derive_more = { version = "2.1.1", default-features = false }
 dirs = { version = "6.0.0" }
-ed25519-dalek = { version = "3.0.0-pre.5", default-features = false }
+ed25519-dalek = { version = "3.0.0-pre.6", default-features = false }
 enum-map = "2.7.3"
 event-listener = "5.4.1"
 event-listener-primitives = "2.0.1"
@@ -115,7 +115,7 @@ prettyplease = "0.2.37"
 proc-macro2 = "1.0.106"
 prometheus-client = "0.23.1"
 quote = "1.0.44"
-rand = { version = "0.10.0-rc.8", default-features = false }
+rand = { version = "0.10.0", default-features = false }
 rayon = "1.11.0"
 rclite = "0.4.1"
 reed-solomon-simd = { version = "3.1.0", default-features = false }
@@ -127,7 +127,7 @@ seq-macro = "0.3.6"
 serde = { version = "1.0.228", default-features = false }
 serde_json = "1.0.149"
 serde-big-array = "0.5.1"
-sha2 = { version = "0.11.0-rc.4", default-features = false }
+sha2 = { version = "0.11.0-rc.5", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae" }
 stable_deref_trait = { version = "1.2.1", default-features = false }

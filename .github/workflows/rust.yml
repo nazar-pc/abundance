@@ -317,7 +317,7 @@ jobs:
       - name: Miri aarch64 workaround
         shell: bash
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_backend=\"soft\"" >> $GITHUB_ENV
         if: matrix.miri == true && runner.arch == 'ARM64'
 
       - name: Install Vulkan runtime (Linux)

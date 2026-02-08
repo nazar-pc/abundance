@@ -80,7 +80,12 @@ where
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!
     /// If that is the case, use `new_boxed()` method.
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
+    //  for unknown reason
+    #[cfg_attr(
+        all(feature = "no-panic", not(target_arch = "riscv64")),
+        no_panic::no_panic
+    )]
     pub fn new(leaves: &'a [[u8; OUT_LEN]; N]) -> Self {
         let mut tree = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
 
@@ -94,7 +99,12 @@ where
     }
 
     /// Like [`Self::new()`], but used pre-allocated memory for instantiation
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
+    //  for unknown reason
+    #[cfg_attr(
+        all(feature = "no-panic", not(target_arch = "riscv64")),
+        no_panic::no_panic
+    )]
     pub fn new_in<'b>(
         instance: &'b mut MaybeUninit<Self>,
         leaves: &'a [[u8; OUT_LEN]; N],
@@ -133,7 +143,12 @@ where
         unsafe { instance.assume_init() }
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
+    //  for unknown reason
+    #[cfg_attr(
+        all(feature = "no-panic", not(target_arch = "riscv64")),
+        no_panic::no_panic
+    )]
     fn init_internal(leaves: &[[u8; OUT_LEN]; N], tree: &mut [MaybeUninit<[u8; OUT_LEN]>; N - 1]) {
         let mut tree_hashes = tree.as_mut_slice();
         let mut level_hashes = leaves.as_slice();
