@@ -5212,7 +5212,7 @@ checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 [[package]]
 name = "rustc_codegen_spirv-types"
 version = "0.9.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=a30bd43db45f2bfe260051f44141e5eaffcbb4b0#a30bd43db45f2bfe260051f44141e5eaffcbb4b0"
+source = "git+https://github.com/Rust-GPU/rust-gpu//?rev=e7e447a9395a77caec5cbddea556af86bc68c573#e7e447a9395a77caec5cbddea556af86bc68c573"
 dependencies = [
  "rspirv",
  "semver",
@@ -5748,7 +5748,7 @@ dependencies = [
 [[package]]
 name = "spirv-builder"
 version = "0.9.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=a30bd43db45f2bfe260051f44141e5eaffcbb4b0#a30bd43db45f2bfe260051f44141e5eaffcbb4b0"
+source = "git+https://github.com/Rust-GPU/rust-gpu//?rev=e7e447a9395a77caec5cbddea556af86bc68c573#e7e447a9395a77caec5cbddea556af86bc68c573"
 dependencies = [
  "cargo_metadata 0.21.0",
  "log",
@@ -5764,7 +5764,7 @@ dependencies = [
 [[package]]
 name = "spirv-std"
 version = "0.9.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae#ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae"
+source = "git+https://github.com/Rust-GPU/rust-gpu//?rev=e7e447a9395a77caec5cbddea556af86bc68c573#e7e447a9395a77caec5cbddea556af86bc68c573"
 dependencies = [
  "bitflags 1.3.2",
  "glam",
@@ -5777,7 +5777,7 @@ dependencies = [
 [[package]]
 name = "spirv-std-macros"
 version = "0.9.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae#ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae"
+source = "git+https://github.com/Rust-GPU/rust-gpu//?rev=e7e447a9395a77caec5cbddea556af86bc68c573#e7e447a9395a77caec5cbddea556af86bc68c573"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5788,7 +5788,7 @@ dependencies = [
 [[package]]
 name = "spirv-std-types"
 version = "0.9.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae#ba15d4c65aa8845428ab6e9efef4ff499dc1e3ae"
+source = "git+https://github.com/Rust-GPU/rust-gpu//?rev=e7e447a9395a77caec5cbddea556af86bc68c573#e7e447a9395a77caec5cbddea556af86bc68c573"
 
 [[package]]
 name = "spki"

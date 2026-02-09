@@ -15,11 +15,13 @@ pub(super) trait ArrayIndexingPolyfill<T> {
 impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> &T {
+        // SAFETY: Explicitly unchecked
         unsafe { self.index_unchecked(index) }
     }
 
     #[inline(always)]
     unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+        // SAFETY: Explicitly unchecked
         unsafe { self.index_unchecked_mut(index) }
     }
 }
