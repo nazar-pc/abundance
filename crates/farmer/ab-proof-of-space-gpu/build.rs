@@ -61,9 +61,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .forward_rustc_warnings
         .replace(true);
 
+    println!("cargo::rerun-if-env-changed=CLIPPY_ARGS");
     let path_to_spv = if env::var("CLIPPY_ARGS").is_ok() {
-        println!("cargo::rerun-if-env-changed=CLIPPY_ARGS");
-        match spirv_builder.clippy() {
+        // TODO: Call actual `clippy` once https://github.com/Rust-GPU/rust-gpu/issues/525 is
+        //  resolved
+        match spirv_builder.check() {
             Ok(compile_result) => compile_result.module.unwrap_single().to_path_buf(),
             Err(SpirvBuilderError::NoArtifactProduced { .. }) => {
                 let empty_file = out_dir.join("empty.bin");
