@@ -9,6 +9,7 @@ pub mod b;
 pub mod m;
 #[cfg(test)]
 mod tests;
+pub mod zicsr;
 pub mod zk;
 
 /// RISC-V RV64 instruction
