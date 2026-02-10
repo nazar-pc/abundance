@@ -97,7 +97,7 @@ where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
 {
-    /// Registers
+    /// General purpose registers
     pub regs: Registers<Reg>,
     /// Memory
     pub memory: Memory,

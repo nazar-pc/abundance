@@ -14,7 +14,7 @@ mod private {
     pub struct PhantomRegister<Type>(PhantomData<Type>);
 }
 
-/// Generic register
+/// General purpose register
 ///
 /// # Safety
 /// `Self::offset()` must return values in `0..Self::N` range.
@@ -51,7 +51,7 @@ pub const unsafe trait Register:
     fn offset(self) -> usize;
 }
 
-/// A set of RISC-V registers
+/// A set of RISC-V general purpose registers
 #[derive(Debug, Clone, Copy)]
 pub struct Registers<Reg>
 where
@@ -108,7 +108,7 @@ where
     }
 }
 
-/// RISC-V register for RV32E/RV64E.
+/// RISC-V general purpose register for RV32E/RV64E.
 ///
 /// Use `Type = u32` for RV32E and `Type = u64` for RV64E.
 #[derive(Clone, Copy)]
@@ -341,7 +341,7 @@ unsafe impl const Register for EReg<u64> {
     }
 }
 
-/// RISC-V register for RV32I/RV64I.
+/// RISC-V general purpose register for RV32I/RV64I.
 ///
 /// Use `Type = u32` for RV32I and `Type = u64` for RV64I.
 #[derive(Clone, Copy)]
