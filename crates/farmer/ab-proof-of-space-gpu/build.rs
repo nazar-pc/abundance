@@ -13,8 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("Always set by Cargo; qed"));
 
-    // Skip compilation under Clippy, it doesn't work for some reason and isn't really needed
-    // anyway. Same about Miri and rustdoc.
+    // Skip compilation under Miri and rustdoc, it will not be used
     if ["MIRI_SYSROOT", "RUSTDOCFLAGS"]
         .iter()
         .any(|var| env::var(var).is_ok())
@@ -63,9 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("cargo::rerun-if-env-changed=CLIPPY_ARGS");
     let path_to_spv = if env::var("CLIPPY_ARGS").is_ok() {
-        // TODO: Call actual `clippy` once https://github.com/Rust-GPU/rust-gpu/issues/525 is
-        //  resolved
-        match spirv_builder.check() {
+        match spirv_builder.clippy() {
             Ok(compile_result) => compile_result.module.unwrap_single().to_path_buf(),
             Err(SpirvBuilderError::NoArtifactProduced { .. }) => {
                 let empty_file = out_dir.join("empty.bin");
