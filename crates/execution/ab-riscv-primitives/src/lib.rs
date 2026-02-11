@@ -11,6 +11,7 @@
     const_try,
     const_try_residual,
     generic_const_exprs,
+    stmt_expr_attributes,
     try_blocks
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]

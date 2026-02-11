@@ -9,6 +9,7 @@ pub mod b;
 pub mod m;
 #[cfg(test)]
 mod tests;
+pub mod v;
 pub mod zicsr;
 pub mod zk;
 
