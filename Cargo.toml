@@ -70,7 +70,7 @@ bech32 = { version = "0.11.1", default-features = false }
 blake3 = { version = "1.8.3", default-features = false }
 bytes = { version = "1.11.1", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
-cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "70160693564611ca85e17a3c441da93ee642d29a", default-features = false }
+cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "e87c3d7021874ac4b95a1dcb14fc267d21c9f224", default-features = false }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0", default-features = false }
 clap = { version = "4.5.57", features = ["derive"] }
@@ -129,7 +129,7 @@ serde_json = "1.0.149"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.5", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu//", rev = "e7e447a9395a77caec5cbddea556af86bc68c573" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "e7e447a9395a77caec5cbddea556af86bc68c573" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.114"
@@ -183,8 +183,3 @@ cast_possible_wrap = "warn"
 cast_sign_loss = "warn"
 ptr_as_ptr = "warn"
 undocumented_unsafe_blocks = "warn"
-
-# TODO: This overrides the revision brought by `cargo-gpu` until it is either published on crates.io or merged into the
-#  `rust-gpu` repo
-[patch."https://github.com/Rust-GPU/rust-gpu"]
-spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu//", rev = "e7e447a9395a77caec5cbddea556af86bc68c573" }
