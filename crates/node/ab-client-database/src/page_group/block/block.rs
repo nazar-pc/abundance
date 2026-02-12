@@ -145,6 +145,7 @@ impl StorageItemBlockBlock {
 
             // Sub-slice due to possible trailing alignment bytes
             header_bytes[..header.len()].write_copy_of_slice(header);
+            header_bytes[header.len()..].write_filled(0);
             written_len += header_bytes.len();
         }
         {
@@ -160,9 +161,18 @@ impl StorageItemBlockBlock {
                 .split_off_mut(..mmr_with_block.len())
                 .expect("Total length checked above; qed");
 
-            // Sub-slice due to possible trailing alignment bytes
             mmr_raw_bytes.write_copy_of_slice(mmr_with_block);
             written_len += mmr_raw_bytes.len();
+        }
+
+        // Alignment padding (if needed)
+        if !written_len.is_multiple_of(size_of::<u64>()) {
+            let new_written_len = written_len.next_multiple_of(size_of::<u64>());
+            buffer
+                .split_off_mut(..(new_written_len - written_len))
+                .expect("Total length checked above; qed")
+                .write_filled(0);
+            written_len = new_written_len;
         }
 
         for system_contract_state in system_contract_states {
@@ -171,7 +181,8 @@ impl StorageItemBlockBlock {
                 let new_written_len = written_len.next_multiple_of(size_of::<u64>());
                 buffer
                     .split_off_mut(..(new_written_len - written_len))
-                    .expect("Total length checked above; qed");
+                    .expect("Total length checked above; qed")
+                    .write_filled(0);
                 written_len = new_written_len;
             }
 
@@ -196,7 +207,8 @@ impl StorageItemBlockBlock {
                 let new_written_len = written_len.next_multiple_of(size_of::<u128>());
                 buffer
                     .split_off_mut(..(new_written_len - written_len))
-                    .expect("Total length checked above; qed");
+                    .expect("Total length checked above; qed")
+                    .write_filled(0);
                 written_len = new_written_len;
             }
 

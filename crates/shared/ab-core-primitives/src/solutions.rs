@@ -739,7 +739,7 @@ impl ShardCommitmentHash {
     /// Convenient conversion from array of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn array_from_repr<const N: usize>(value: [[u8; Self::SIZE]; N]) -> [Self; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
         // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute_copy(&value) }
@@ -756,7 +756,7 @@ impl ShardCommitmentHash {
     /// Convenient conversion to an array of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_array<const N: usize>(value: [Self; N]) -> [[u8; Self::SIZE]; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
         // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute_copy(&value) }
