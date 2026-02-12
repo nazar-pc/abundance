@@ -23,6 +23,7 @@ const fn funct7(funct6: u8, vm: bool) -> u8 {
 // Single-width integer multiply (Section 12.10)
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmul_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -38,6 +39,7 @@ fn test_vmul_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmul_vv_masked() {
     let inst = make_r_type(OP_V, 4, OPMVV, 5, 6, funct7(0b100101, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -53,6 +55,7 @@ fn test_vmul_vv_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmul_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b100101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -68,6 +71,7 @@ fn test_vmul_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmulh_vv() {
     let inst = make_r_type(OP_V, 8, OPMVV, 9, 10, funct7(0b100111, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -83,6 +87,7 @@ fn test_vmulh_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmulh_vx() {
     let inst = make_r_type(OP_V, 8, OPMVX, 10, 12, funct7(0b100111, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -98,6 +103,7 @@ fn test_vmulh_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmulhu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100100, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -113,6 +119,7 @@ fn test_vmulhu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmulhu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b100100, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -128,6 +135,7 @@ fn test_vmulhu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmulhsu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100110, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -143,6 +151,7 @@ fn test_vmulhsu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmulhsu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b100110, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -160,6 +169,7 @@ fn test_vmulhsu_vx() {
 // Integer divide (Section 12.11)
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vdivu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100000, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -175,6 +185,7 @@ fn test_vdivu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vdivu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b100000, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -190,6 +201,7 @@ fn test_vdivu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vdiv_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100001, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -205,6 +217,7 @@ fn test_vdiv_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vdiv_vx_masked() {
     let inst = make_r_type(OP_V, 16, OPMVX, 17, 18, funct7(0b100001, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -220,6 +233,7 @@ fn test_vdiv_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vremu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100010, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -235,6 +249,7 @@ fn test_vremu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vremu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b100010, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -250,6 +265,7 @@ fn test_vremu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vrem_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100011, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -265,6 +281,7 @@ fn test_vrem_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vrem_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b100011, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -282,6 +299,7 @@ fn test_vrem_vx() {
 // Widening integer multiply (Section 12.12)
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmulu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b111000, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -297,6 +315,7 @@ fn test_vwmulu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmulu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 5, 6, funct7(0b111000, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -312,6 +331,7 @@ fn test_vwmulu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmulsu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b111010, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -327,6 +347,7 @@ fn test_vwmulsu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmulsu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 5, 6, funct7(0b111010, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -342,6 +363,7 @@ fn test_vwmulsu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmul_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b111011, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -357,6 +379,7 @@ fn test_vwmul_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmul_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 5, 6, funct7(0b111011, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -374,6 +397,7 @@ fn test_vwmul_vx() {
 // Single-width integer multiply-add (Section 12.13)
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmacc_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b101101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -389,6 +413,7 @@ fn test_vmacc_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmacc_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 10, 3, funct7(0b101101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -404,6 +429,7 @@ fn test_vmacc_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnmsac_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b101111, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -419,6 +445,7 @@ fn test_vnmsac_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnmsac_vx_masked() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b101111, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -434,6 +461,7 @@ fn test_vnmsac_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmadd_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b101001, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -449,6 +477,7 @@ fn test_vmadd_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmadd_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b101001, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -464,6 +493,7 @@ fn test_vmadd_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnmsub_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b101011, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -479,6 +509,7 @@ fn test_vnmsub_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnmsub_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b101011, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -496,6 +527,7 @@ fn test_vnmsub_vx() {
 // Widening integer multiply-add (Section 12.14)
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmaccu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b111100, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -511,6 +543,7 @@ fn test_vwmaccu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmaccu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b111100, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -526,6 +559,7 @@ fn test_vwmaccu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmacc_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b111101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -541,6 +575,7 @@ fn test_vwmacc_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmacc_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b111101, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -556,6 +591,7 @@ fn test_vwmacc_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmaccsu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b111111, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -571,6 +607,7 @@ fn test_vwmaccsu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmaccsu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b111111, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -586,6 +623,7 @@ fn test_vwmaccsu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmaccus_vx() {
     // Only .vx form exists for vwmaccus
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b111110, true));
@@ -602,6 +640,7 @@ fn test_vwmaccus_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwmaccus_vv_does_not_exist() {
     // funct6=0b111110 under OPMVV should not decode (no .vv form)
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b111110, true));
@@ -612,6 +651,7 @@ fn test_vwmaccus_vv_does_not_exist() {
 // High register numbers
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmul_vv_high_regs() {
     let inst = make_r_type(OP_V, 31, OPMVV, 30, 29, funct7(0b100101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -627,6 +667,7 @@ fn test_vmul_vv_high_regs() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vdiv_vx_high_regs() {
     let inst = make_r_type(OP_V, 31, OPMVX, 31, 31, funct7(0b100001, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -644,6 +685,7 @@ fn test_vdiv_vx_high_regs() {
 // Negative tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     let inst = make_r_type(0b0110011, 1, OPMVV, 2, 3, funct7(0b100101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst);
@@ -651,6 +693,7 @@ fn test_wrong_opcode() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3() {
     // OPIVV (0b000) instead of OPMVV (0b010)
     let inst = make_r_type(OP_V, 1, 0b000, 2, 3, funct7(0b100101, true));
@@ -659,6 +702,7 @@ fn test_wrong_funct3() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_invalid_funct6_opmvv() {
     // funct6=0b101000 is not allocated under OPMVV for this group
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b101000, true));
@@ -667,6 +711,7 @@ fn test_invalid_funct6_opmvv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_invalid_funct6_opmvx() {
     // funct6=0b111001 is not allocated under OPMVX for this group
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b111001, true));
@@ -677,6 +722,7 @@ fn test_invalid_funct6_opmvx() {
 // Display tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmul_vv_unmasked() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -684,6 +730,7 @@ fn test_display_vmul_vv_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmul_vv_masked() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b100101, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -691,6 +738,7 @@ fn test_display_vmul_vv_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmul_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 10, 3, funct7(0b100101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -698,6 +746,7 @@ fn test_display_vmul_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vdivu_vv() {
     let inst = make_r_type(OP_V, 8, OPMVV, 9, 10, funct7(0b100000, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -705,6 +754,7 @@ fn test_display_vdivu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vwmul_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b111011, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -712,6 +762,7 @@ fn test_display_vwmul_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmacc_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b101101, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -719,6 +770,7 @@ fn test_display_vmacc_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmacc_vx_masked() {
     let inst = make_r_type(OP_V, 1, OPMVX, 10, 3, funct7(0b101101, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -726,6 +778,7 @@ fn test_display_vmacc_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vwmaccus_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b111110, true));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -733,6 +786,7 @@ fn test_display_vwmaccus_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vnmsub_vx_masked() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b101011, false));
     let decoded = Rv64Zve64xMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();

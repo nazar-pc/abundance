@@ -27,6 +27,7 @@ fn make_vl(nf: u8, mew: u8, mop: u8, vm: u8, rs2_field: u8, rs1: u8, width: u8, 
 // Unit-stride loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vle8() {
     // vle8.v v1, (x2), vm=1 (unmasked)
     let inst = make_vl(0, 0, 0b00, 1, 0b00000, 2, 0b000, 1);
@@ -43,6 +44,7 @@ fn test_vle8() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vle16_masked() {
     // vle16.v v8, (x10), v0.t
     let inst = make_vl(0, 0, 0b00, 0, 0b00000, 10, 0b101, 8);
@@ -59,6 +61,7 @@ fn test_vle16_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vle32() {
     let inst = make_vl(0, 0, 0b00, 1, 0b00000, 5, 0b110, 16);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst);
@@ -74,6 +77,7 @@ fn test_vle32() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vle64() {
     let inst = make_vl(0, 0, 0b00, 1, 0b00000, 3, 0b111, 24);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst);
@@ -91,6 +95,7 @@ fn test_vle64() {
 // Fault-only-first loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vle8ff() {
     // vle8ff.v v4, (x11)
     let inst = make_vl(0, 0, 0b00, 1, 0b10000, 11, 0b000, 4);
@@ -107,6 +112,7 @@ fn test_vle8ff() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vle32ff_masked() {
     let inst = make_vl(0, 0, 0b00, 0, 0b10000, 10, 0b110, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst);
@@ -124,6 +130,7 @@ fn test_vle32ff_masked() {
 // Mask load
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlm() {
     // vlm.v v0, (x10) - width=e8, vm=1, nf=0, lumop=01011
     let inst = make_vl(0, 0, 0b00, 1, 0b01011, 10, 0b000, 0);
@@ -138,6 +145,7 @@ fn test_vlm() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlm_invalid_width() {
     // vlm with width != e8 should fail
     let inst = make_vl(0, 0, 0b00, 1, 0b01011, 10, 0b110, 0);
@@ -146,6 +154,7 @@ fn test_vlm_invalid_width() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlm_invalid_masked() {
     // vlm with vm=0 should fail
     let inst = make_vl(0, 0, 0b00, 0, 0b01011, 10, 0b000, 0);
@@ -156,6 +165,7 @@ fn test_vlm_invalid_masked() {
 // Strided loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlse8() {
     // vlse8.v v2, (x10), x11
     let inst = make_vl(0, 0, 0b10, 1, 11, 10, 0b000, 2);
@@ -173,6 +183,7 @@ fn test_vlse8() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlse64_masked() {
     let inst = make_vl(0, 0, 0b10, 0, 12, 10, 0b111, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst);
@@ -191,6 +202,7 @@ fn test_vlse64_masked() {
 // Indexed-unordered loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vluxei8() {
     // vluxei8.v v4, (x10), v2
     let inst = make_vl(0, 0, 0b01, 1, 2, 10, 0b000, 4);
@@ -208,6 +220,7 @@ fn test_vluxei8() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vluxei32_masked() {
     let inst = make_vl(0, 0, 0b01, 0, 16, 5, 0b110, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst);
@@ -226,6 +239,7 @@ fn test_vluxei32_masked() {
 // Indexed-ordered loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vloxei16() {
     // vloxei16.v v4, (x10), v8
     let inst = make_vl(0, 0, 0b11, 1, 8, 10, 0b101, 4);
@@ -243,6 +257,7 @@ fn test_vloxei16() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vloxei64_masked() {
     let inst = make_vl(0, 0, 0b11, 0, 24, 11, 0b111, 16);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst);
@@ -261,6 +276,7 @@ fn test_vloxei64_masked() {
 // Whole-register loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vl1re8() {
     // vl1re8.v v8, (x10) - nf=0 (nreg=1), lumop=01000, vm=1, width=e8
     let inst = make_vl(0, 0, 0b00, 1, 0b01000, 10, 0b000, 8);
@@ -277,6 +293,7 @@ fn test_vl1re8() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vl2re32() {
     // vl2re32.v v8, (x10) - nf=1 (nreg=2)
     let inst = make_vl(1, 0, 0b00, 1, 0b01000, 10, 0b110, 8);
@@ -293,6 +310,7 @@ fn test_vl2re32() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vl4re64() {
     // vl4re64.v v8, (x10) - nf=3 (nreg=4)
     let inst = make_vl(3, 0, 0b00, 1, 0b01000, 10, 0b111, 8);
@@ -309,6 +327,7 @@ fn test_vl4re64() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vl8re16() {
     // vl8re16.v v0, (x10) - nf=7 (nreg=8)
     let inst = make_vl(7, 0, 0b00, 1, 0b01000, 10, 0b101, 0);
@@ -325,6 +344,7 @@ fn test_vl8re16() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlr_invalid_nreg_3() {
     // nf=2 => nreg=3, which is not a power of 2
     let inst = make_vl(2, 0, 0b00, 1, 0b01000, 10, 0b000, 8);
@@ -333,6 +353,7 @@ fn test_vlr_invalid_nreg_3() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlr_invalid_nreg_5() {
     // nf=4 => nreg=5
     let inst = make_vl(4, 0, 0b00, 1, 0b01000, 10, 0b000, 8);
@@ -341,6 +362,7 @@ fn test_vlr_invalid_nreg_5() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlr_invalid_masked() {
     // Whole-register load with vm=0 is invalid
     let inst = make_vl(0, 0, 0b00, 0, 0b01000, 10, 0b000, 8);
@@ -351,6 +373,7 @@ fn test_vlr_invalid_masked() {
 // Segment loads
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlseg2e8() {
     // vlseg2e8.v v4, (x10) - nf=1 means 2 fields
     let inst = make_vl(1, 0, 0b00, 1, 0b00000, 10, 0b000, 4);
@@ -368,6 +391,7 @@ fn test_vlseg2e8() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlseg8e32_masked() {
     // vlseg8e32.v v0, (x5), v0.t - nf=7 means 8 fields
     let inst = make_vl(7, 0, 0b00, 0, 0b00000, 5, 0b110, 0);
@@ -385,6 +409,7 @@ fn test_vlseg8e32_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlseg3e16ff() {
     // vlseg3e16ff.v v8, (x10) - nf=2 means 3 fields, lumop=10000
     let inst = make_vl(2, 0, 0b00, 1, 0b10000, 10, 0b101, 8);
@@ -402,6 +427,7 @@ fn test_vlseg3e16ff() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vlsseg4e64() {
     // vlsseg4e64.v v8, (x10), x11 - strided segment, nf=3
     let inst = make_vl(3, 0, 0b10, 1, 11, 10, 0b111, 8);
@@ -420,6 +446,7 @@ fn test_vlsseg4e64() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vluxseg2ei32() {
     // vluxseg2ei32.v v4, (x10), v8 - indexed-unordered segment, nf=1
     let inst = make_vl(1, 0, 0b01, 1, 8, 10, 0b110, 4);
@@ -438,6 +465,7 @@ fn test_vluxseg2ei32() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vloxseg3ei8() {
     // vloxseg3ei8.v v4, (x10), v12, v0.t - indexed-ordered segment, nf=2
     let inst = make_vl(2, 0, 0b11, 0, 12, 10, 0b000, 4);
@@ -458,6 +486,7 @@ fn test_vloxseg3ei8() {
 // Negative tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     // Use STORE-FP opcode instead of LOAD-FP
     let inst = make_vl(0, 0, 0b00, 1, 0b00000, 10, 0b000, 8) | 0b0100000;
@@ -466,6 +495,7 @@ fn test_wrong_opcode() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_mew_reserved() {
     // mew=1 is reserved
     let inst = make_vl(0, 1, 0b00, 1, 0b00000, 10, 0b000, 8);
@@ -474,6 +504,7 @@ fn test_mew_reserved() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_invalid_width() {
     // width=0b001 is not a valid EEW
     let inst = make_vl(0, 0, 0b00, 1, 0b00000, 10, 0b001, 8);
@@ -482,6 +513,7 @@ fn test_invalid_width() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_invalid_lumop() {
     // lumop=0b00001 is reserved
     let inst = make_vl(0, 0, 0b00, 1, 0b00001, 10, 0b000, 8);
@@ -492,6 +524,7 @@ fn test_invalid_lumop() {
 // Display tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vle32() {
     let inst = make_vl(0, 0, 0b00, 1, 0b00000, 10, 0b110, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -499,6 +532,7 @@ fn test_display_vle32() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vle8_masked() {
     let inst = make_vl(0, 0, 0b00, 0, 0b00000, 10, 0b000, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -506,6 +540,7 @@ fn test_display_vle8_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vlm() {
     let inst = make_vl(0, 0, 0b00, 1, 0b01011, 10, 0b000, 0);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -513,6 +548,7 @@ fn test_display_vlm() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vlse64() {
     let inst = make_vl(0, 0, 0b10, 1, 11, 10, 0b111, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -520,6 +556,7 @@ fn test_display_vlse64() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vluxei32() {
     let inst = make_vl(0, 0, 0b01, 1, 16, 10, 0b110, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -527,6 +564,7 @@ fn test_display_vluxei32() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vl4re64() {
     let inst = make_vl(3, 0, 0b00, 1, 0b01000, 10, 0b111, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -534,6 +572,7 @@ fn test_display_vl4re64() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vlseg3e16() {
     let inst = make_vl(2, 0, 0b00, 1, 0b00000, 10, 0b101, 8);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -541,6 +580,7 @@ fn test_display_vlseg3e16() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vloxseg2ei64_masked() {
     let inst = make_vl(1, 0, 0b11, 0, 12, 10, 0b111, 4);
     let decoded = Rv64Zve64xLoadInstruction::<Reg<u64>>::try_decode(inst).unwrap();

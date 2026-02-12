@@ -22,6 +22,7 @@ fn make_vop(funct6: u8, vm: u8, vs2: u8, vs1: u8, funct3: u8, vd: u8) -> u32 {
 // All use OPMVV (funct3=0b010), vm=1
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmandn() {
     let inst = make_vop(0b011000, 1, 2, 3, 0b010, 1);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -36,6 +37,7 @@ fn test_vmandn() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmand() {
     let inst = make_vop(0b011001, 1, 4, 5, 0b010, 6);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -50,6 +52,7 @@ fn test_vmand() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmor() {
     let inst = make_vop(0b011010, 1, 8, 9, 0b010, 10);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -64,6 +67,7 @@ fn test_vmor() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmxor() {
     let inst = make_vop(0b011011, 1, 12, 13, 0b010, 14);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -78,6 +82,7 @@ fn test_vmxor() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmorn() {
     let inst = make_vop(0b011100, 1, 16, 17, 0b010, 18);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -92,6 +97,7 @@ fn test_vmorn() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmnand() {
     let inst = make_vop(0b011101, 1, 20, 21, 0b010, 22);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -106,6 +112,7 @@ fn test_vmnand() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmnor() {
     let inst = make_vop(0b011110, 1, 24, 25, 0b010, 26);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -120,6 +127,7 @@ fn test_vmnor() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmxnor() {
     let inst = make_vop(0b011111, 1, 28, 29, 0b010, 30);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -134,6 +142,7 @@ fn test_vmxnor() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmand_v0() {
     // Use v0 as operand
     let inst = make_vop(0b011001, 1, 0, 1, 0b010, 2);
@@ -149,6 +158,7 @@ fn test_vmand_v0() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_mask_logical_rejects_vm0() {
     // Mask-register logical instructions must have vm=1
     let inst = make_vop(0b011001, 0, 2, 3, 0b010, 1);
@@ -160,6 +170,7 @@ fn test_mask_logical_rejects_vm0() {
 // Result written to scalar x register
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vcpop_unmasked() {
     // vcpop.m rd, vs2  (vm=1 = unmasked)
     let inst = make_vop(0b010000, 1, 4, 0b10000, 0b010, 1);
@@ -175,6 +186,7 @@ fn test_vcpop_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vcpop_masked() {
     // vcpop.m rd, vs2, v0.t  (vm=0 = masked)
     let inst = make_vop(0b010000, 0, 8, 0b10000, 0b010, 10);
@@ -192,6 +204,7 @@ fn test_vcpop_masked() {
 // vfirst.m (Section 16.3) - VWXUNARY0, funct6=010000, vs1=10001
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vfirst_unmasked() {
     let inst = make_vop(0b010000, 1, 5, 0b10001, 0b010, 2);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -206,6 +219,7 @@ fn test_vfirst_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vfirst_masked() {
     let inst = make_vop(0b010000, 0, 12, 0b10001, 0b010, 5);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -222,6 +236,7 @@ fn test_vfirst_masked() {
 // vmsbf.m (Section 16.4) - VMUNARY0, funct6=010100, vs1=00001
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmsbf_unmasked() {
     let inst = make_vop(0b010100, 1, 3, 0b00001, 0b010, 1);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -236,6 +251,7 @@ fn test_vmsbf_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmsbf_masked() {
     let inst = make_vop(0b010100, 0, 7, 0b00001, 0b010, 2);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -252,6 +268,7 @@ fn test_vmsbf_masked() {
 // vmsof.m (Section 16.5) - VMUNARY0, funct6=010100, vs1=00010
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmsof_unmasked() {
     let inst = make_vop(0b010100, 1, 6, 0b00010, 0b010, 4);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -266,6 +283,7 @@ fn test_vmsof_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmsof_masked() {
     let inst = make_vop(0b010100, 0, 10, 0b00010, 0b010, 8);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -282,6 +300,7 @@ fn test_vmsof_masked() {
 // vmsif.m (Section 16.6) - VMUNARY0, funct6=010100, vs1=00011
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmsif_unmasked() {
     let inst = make_vop(0b010100, 1, 9, 0b00011, 0b010, 5);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -296,6 +315,7 @@ fn test_vmsif_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmsif_masked() {
     let inst = make_vop(0b010100, 0, 15, 0b00011, 0b010, 11);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -312,6 +332,7 @@ fn test_vmsif_masked() {
 // viota.m (Section 16.8) - VMUNARY0, funct6=010100, vs1=10000
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_viota_unmasked() {
     let inst = make_vop(0b010100, 1, 2, 0b10000, 0b010, 4);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -326,6 +347,7 @@ fn test_viota_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_viota_masked() {
     let inst = make_vop(0b010100, 0, 6, 0b10000, 0b010, 8);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -342,6 +364,7 @@ fn test_viota_masked() {
 // vid.v (Section 16.9) - VMUNARY0, funct6=010100, vs1=10001, vs2=00000
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vid_unmasked() {
     let inst = make_vop(0b010100, 1, 0, 0b10001, 0b010, 3);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -355,6 +378,7 @@ fn test_vid_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vid_masked() {
     let inst = make_vop(0b010100, 0, 0, 0b10001, 0b010, 16);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -370,6 +394,7 @@ fn test_vid_masked() {
 // Negative tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     // Use OP (0b0110011) instead of OP-V
     let funct7 = (0b011001u8 << 1) | 1;
@@ -379,6 +404,7 @@ fn test_wrong_opcode() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3_for_mask_logical() {
     // OPIVV (funct3=0b000) instead of OPMVV (0b010) for vmand
     let inst = make_vop(0b011001, 1, 2, 3, 0b000, 1);
@@ -387,6 +413,7 @@ fn test_wrong_funct3_for_mask_logical() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3_opivx() {
     // OPIVX (funct3=0b100) for vcpop
     let inst = make_vop(0b010000, 1, 4, 0b10000, 0b100, 1);
@@ -395,6 +422,7 @@ fn test_wrong_funct3_opivx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vwxunary0_invalid_vs1() {
     // funct6=010000 with vs1=00001 is not vcpop or vfirst
     let inst = make_vop(0b010000, 1, 4, 0b00001, 0b010, 1);
@@ -403,6 +431,7 @@ fn test_vwxunary0_invalid_vs1() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmunary0_invalid_vs1() {
     // funct6=010100 with vs1=00000 is reserved
     let inst = make_vop(0b010100, 1, 4, 0b00000, 0b010, 1);
@@ -411,6 +440,7 @@ fn test_vmunary0_invalid_vs1() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmunary0_invalid_vs1_gap() {
     // funct6=010100 with vs1=01000 falls in the gap between known encodings
     let inst = make_vop(0b010100, 1, 4, 0b01000, 0b010, 1);
@@ -419,6 +449,7 @@ fn test_vmunary0_invalid_vs1_gap() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_unrelated_funct6() {
     // funct6=000000 (vadd) should not decode as mask instruction
     let inst = make_vop(0b000000, 1, 2, 3, 0b010, 1);
@@ -429,6 +460,7 @@ fn test_unrelated_funct6() {
 // Display tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmand() {
     let inst = make_vop(0b011001, 1, 2, 3, 0b010, 1);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -436,6 +468,7 @@ fn test_display_vmand() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmandn() {
     let inst = make_vop(0b011000, 1, 4, 5, 0b010, 6);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -443,6 +476,7 @@ fn test_display_vmandn() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmxnor() {
     let inst = make_vop(0b011111, 1, 0, 0, 0b010, 0);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -450,6 +484,7 @@ fn test_display_vmxnor() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vcpop_unmasked() {
     let inst = make_vop(0b010000, 1, 4, 0b10000, 0b010, 1);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -457,6 +492,7 @@ fn test_display_vcpop_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vcpop_masked() {
     let inst = make_vop(0b010000, 0, 4, 0b10000, 0b010, 1);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -464,6 +500,7 @@ fn test_display_vcpop_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vfirst_unmasked() {
     let inst = make_vop(0b010000, 1, 8, 0b10001, 0b010, 10);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -471,6 +508,7 @@ fn test_display_vfirst_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmsbf_unmasked() {
     let inst = make_vop(0b010100, 1, 3, 0b00001, 0b010, 1);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -478,6 +516,7 @@ fn test_display_vmsbf_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmsof_masked() {
     let inst = make_vop(0b010100, 0, 6, 0b00010, 0b010, 4);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -485,6 +524,7 @@ fn test_display_vmsof_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vmsif_unmasked() {
     let inst = make_vop(0b010100, 1, 9, 0b00011, 0b010, 5);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -492,6 +532,7 @@ fn test_display_vmsif_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_viota_masked() {
     let inst = make_vop(0b010100, 0, 2, 0b10000, 0b010, 4);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -499,6 +540,7 @@ fn test_display_viota_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vid_unmasked() {
     let inst = make_vop(0b010100, 1, 0, 0b10001, 0b010, 3);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -506,6 +548,7 @@ fn test_display_vid_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vid_masked() {
     let inst = make_vop(0b010100, 0, 0, 0b10001, 0b010, 16);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -515,6 +558,7 @@ fn test_display_vid_masked() {
 // Edge cases: high-numbered vector registers
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vmand_v31() {
     let inst = make_vop(0b011001, 1, 31, 31, 0b010, 31);
     let decoded = Rv64Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
@@ -529,6 +573,7 @@ fn test_vmand_v31() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vcpop_rd_zero() {
     // vcpop.m x0, vs2 - result discarded
     let inst = make_vop(0b010000, 1, 4, 0b10000, 0b010, 0);
@@ -544,6 +589,7 @@ fn test_vcpop_rd_zero() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vcpop_high_rd() {
     // vcpop.m t6, v31
     let inst = make_vop(0b010000, 1, 31, 0b10000, 0b010, 31);
