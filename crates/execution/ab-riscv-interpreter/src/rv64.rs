@@ -12,8 +12,8 @@ use crate::{
     ExecutableInstruction, ExecutionError, ProgramCounter, ProgramCounterError, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instruction::Instruction;
-use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instructions::Instruction;
+use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;

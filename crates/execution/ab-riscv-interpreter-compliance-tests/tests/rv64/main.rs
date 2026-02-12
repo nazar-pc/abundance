@@ -8,8 +8,8 @@ mod utils;
 
 use crate::utils::run_tests;
 use ab_riscv_interpreter_compliance_tests::RISCV_ARCH_TEST_REPO_PATH;
-use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
+use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use std::path::Path;
 
 #[cfg_attr(miri, ignore)]

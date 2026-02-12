@@ -3,8 +3,8 @@ use ab_riscv_interpreter::{
     BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
     ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::Instruction;
-use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instructions::Instruction;
+use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Reg, Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;

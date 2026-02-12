@@ -7,7 +7,7 @@
 
 pub mod rv64;
 
-use ab_riscv_primitives::instruction::Instruction;
+use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::Register;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;

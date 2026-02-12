@@ -3,7 +3,7 @@
 use crate::rv64::Rv64InterpreterState;
 use crate::{ExecutableInstruction, ExecutionError};
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instruction::rv64::m::zmmul::Rv64ZmmulInstruction;
+use ab_riscv_primitives::instructions::rv64::m::zmmul::Rv64ZmmulInstruction;
 use ab_riscv_primitives::registers::Register;
 use core::ops::ControlFlow;
 

@@ -13,7 +13,7 @@ use ab_riscv_benchmarks::host_utils::{
 };
 use ab_riscv_interpreter::BasicInstructionFetcher;
 use ab_riscv_interpreter::rv64::Rv64InterpreterState;
-use ab_riscv_primitives::instruction::Instruction;
+use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::Registers;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
