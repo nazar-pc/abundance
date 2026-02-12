@@ -3,7 +3,7 @@ extern crate alloc;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::v::zve64x::config::Rv64Zve64xConfigInstruction;
 use crate::instructions::test_utils::{make_i_type, make_r_type};
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
 use alloc::format;
 
 // vsetvli: I-type encoding

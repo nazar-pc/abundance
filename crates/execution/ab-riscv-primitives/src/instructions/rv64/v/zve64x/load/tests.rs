@@ -1,9 +1,9 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::v::zve64x::VReg;
 use crate::instructions::rv64::v::zve64x::load::{Eew, Rv64Zve64xLoadInstruction};
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
+use crate::registers::vector::VReg;
 use alloc::format;
 
 /// Build a vector load instruction word.

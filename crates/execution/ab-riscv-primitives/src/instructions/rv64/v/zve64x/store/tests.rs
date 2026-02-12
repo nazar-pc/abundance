@@ -2,8 +2,8 @@ extern crate alloc;
 
 use crate::instructions::Instruction;
 use crate::instructions::rv64::v::zve64x::store::Rv64Zve64xStoreInstruction;
-use crate::instructions::rv64::v::zve64x::{Eew, VReg};
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
+use crate::registers::vector::{Eew, VReg};
 use alloc::format;
 
 /// Build a vector store instruction word.

@@ -4,7 +4,7 @@ pub mod rv64;
 #[cfg(test)]
 mod test_utils;
 
-use crate::registers::Register;
+use crate::registers::general_purpose::Register;
 use core::fmt;
 use core::marker::Destruct;
 

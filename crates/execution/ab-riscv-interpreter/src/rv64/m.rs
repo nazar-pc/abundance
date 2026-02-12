@@ -8,7 +8,7 @@ use crate::ExecutionError;
 use crate::rv64::{ExecutableInstruction, Rv64InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
-use ab_riscv_primitives::registers::Register;
+use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

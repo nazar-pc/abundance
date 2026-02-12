@@ -1,10 +1,10 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::v::zve64x::VReg;
 use crate::instructions::rv64::v::zve64x::arith::Rv64Zve64xArithInstruction;
 use crate::instructions::test_utils::make_r_type;
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
+use crate::registers::vector::VReg;
 use alloc::format;
 
 /// Construct a vector arithmetic instruction word.

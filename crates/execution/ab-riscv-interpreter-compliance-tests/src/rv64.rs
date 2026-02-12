@@ -8,7 +8,7 @@ use ab_riscv_primitives::instructions::rv64::b::zba::Rv64ZbaInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbb::Rv64ZbbInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
-use ab_riscv_primitives::registers::Register;
+use ab_riscv_primitives::registers::general_purpose::Register;
 use core::fmt;
 use core::ops::ControlFlow;
 

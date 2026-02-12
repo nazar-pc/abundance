@@ -6,7 +6,7 @@ use crate::rv64::b::zbc::clmul_internal;
 use crate::{ExecutableInstruction, ExecutionError};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
-use ab_riscv_primitives::registers::Register;
+use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

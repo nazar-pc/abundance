@@ -2,7 +2,7 @@
 
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbc::Rv64ZbcInstruction;
-use crate::registers::Register;
+use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 

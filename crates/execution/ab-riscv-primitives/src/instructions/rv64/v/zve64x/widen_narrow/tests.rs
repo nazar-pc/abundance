@@ -1,10 +1,10 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::v::zve64x::VReg;
 use crate::instructions::rv64::v::zve64x::widen_narrow::Rv64Zve64xWidenNarrowInstruction;
 use crate::instructions::test_utils::make_r_type;
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
+use crate::registers::vector::VReg;
 use alloc::format;
 
 /// OP-V opcode

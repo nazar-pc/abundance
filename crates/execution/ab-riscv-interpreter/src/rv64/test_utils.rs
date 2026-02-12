@@ -7,7 +7,7 @@ use crate::{
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{EReg, Registers};
+use ab_riscv_primitives::registers::general_purpose::{EReg, Registers};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;

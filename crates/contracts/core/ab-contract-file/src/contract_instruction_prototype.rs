@@ -11,7 +11,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
-use ab_riscv_primitives::registers::{EReg, Register};
+use ab_riscv_primitives::registers::general_purpose::{EReg, Register};
 use core::fmt;
 use core::ops::ControlFlow;
 

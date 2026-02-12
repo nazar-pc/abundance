@@ -14,7 +14,7 @@ use crate::{
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{Register, Registers};
+use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 

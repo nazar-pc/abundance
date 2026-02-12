@@ -1,10 +1,10 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::v::zve64x::VReg;
 use crate::instructions::rv64::v::zve64x::mask::Rv64Zve64xMaskInstruction;
 use crate::instructions::test_utils::make_r_type;
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
+use crate::registers::vector::VReg;
 use alloc::format;
 
 /// Helper: build a vector arithmetic OP-V instruction using make_r_type.

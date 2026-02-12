@@ -5,7 +5,7 @@ use ab_riscv_interpreter::{
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{Reg, Register, Registers};
+use ab_riscv_primitives::registers::general_purpose::{Reg, Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 use std::path::Path;

@@ -4,8 +4,8 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::v::zve64x::VReg;
-use crate::registers::Register;
+use crate::registers::general_purpose::Register;
+use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
 use core::fmt;
 use core::marker::PhantomData;

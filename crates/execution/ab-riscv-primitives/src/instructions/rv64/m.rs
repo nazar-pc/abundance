@@ -5,7 +5,7 @@ mod tests;
 pub mod zmmul;
 
 use crate::instructions::Instruction;
-use crate::registers::Register;
+use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 

@@ -3,7 +3,7 @@ use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::test_utils::{
     make_b_type, make_i_type, make_j_type, make_r_type, make_s_type, make_u_type,
 };
-use crate::registers::{EReg, Reg};
+use crate::registers::general_purpose::{EReg, Reg};
 
 // R-type
 

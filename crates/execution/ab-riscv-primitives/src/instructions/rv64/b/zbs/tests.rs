@@ -1,7 +1,7 @@
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
-use crate::registers::Reg;
+use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_bset() {
