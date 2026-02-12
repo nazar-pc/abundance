@@ -1,6 +1,6 @@
 use crate::rv64::test_utils::{execute, initialize_state};
-use ab_riscv_primitives::instruction::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
-use ab_riscv_primitives::registers::EReg;
+use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
+use ab_riscv_primitives::registers::general_purpose::EReg;
 
 #[test]
 fn test_sha256_sig0_simple() {

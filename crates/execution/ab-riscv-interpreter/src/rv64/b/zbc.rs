@@ -6,8 +6,8 @@ mod tests;
 use crate::rv64::Rv64InterpreterState;
 use crate::{ExecutableInstruction, ExecutionError};
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instruction::rv64::b::zbc::Rv64ZbcInstruction;
-use ab_riscv_primitives::registers::Register;
+use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
+use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

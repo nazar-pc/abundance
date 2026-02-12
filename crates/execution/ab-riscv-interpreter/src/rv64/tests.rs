@@ -2,8 +2,8 @@ extern crate alloc;
 
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::EReg;
+use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::registers::general_purpose::EReg;
 use alloc::vec;
 
 // Arithmetic Instructions

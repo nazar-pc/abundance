@@ -27,8 +27,8 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::Instruction;
-use ab_riscv_primitives::registers::EReg;
+use ab_riscv_primitives::instructions::Instruction;
+use ab_riscv_primitives::registers::general_purpose::EReg;
 use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;

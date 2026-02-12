@@ -72,6 +72,8 @@ use proc_macro::TokenStream;
 /// where
 ///     Reg: [const] Register<Type = u64>,
 /// {
+///     // ...
+/// }
 /// ```
 ///
 /// `try_decode()` implementation will end up containing decoding logic for the full extended enum
@@ -91,6 +93,8 @@ use proc_macro::TokenStream;
 /// where
 ///     Reg: fmt::Display + Copy,
 /// {
+///     // ...
+/// }
 /// ```
 /// `fmt()` implementation will end up containing decoding logic for the full extended enum as
 /// mentioned above. The three major restrictions are that an enum must be generic over `Reg`

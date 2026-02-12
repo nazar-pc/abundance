@@ -13,6 +13,8 @@ const FROM_IMPL_CONST_REVERT_3: &str = ") cnst::";
 const TO_IMPL_CONST_REVERT_3: &str = ") const ";
 const FROM_IMPL_CONST_REVERT_4: &str = ") cnst ::";
 const TO_IMPL_CONST_REVERT_4: &str = ") const  ";
+const FROM_IMPL_CONST_REVERT_5: &str = "cnst::fn";
+const TO_IMPL_CONST_REVERT_5: &str = "const fn";
 
 const FROM_BRACKETS_CONST_1: &str = "[const] ";
 const TO_BRACKETS_CONST_1: &str = "BRCONST+";
@@ -28,6 +30,7 @@ pub fn pre_process_rust_code(s: &mut str) {
     replace_inplace(s, FROM_IMPL_CONST_REVERT_2, TO_IMPL_CONST_REVERT_2);
     replace_inplace(s, FROM_IMPL_CONST_REVERT_3, TO_IMPL_CONST_REVERT_3);
     replace_inplace(s, FROM_IMPL_CONST_REVERT_4, TO_IMPL_CONST_REVERT_4);
+    replace_inplace(s, FROM_IMPL_CONST_REVERT_5, TO_IMPL_CONST_REVERT_5);
     replace_inplace(s, FROM_BRACKETS_CONST_1, TO_BRACKETS_CONST_1);
     replace_inplace(s, FROM_BRACKETS_CONST_2, TO_BRACKETS_CONST_2);
 }
