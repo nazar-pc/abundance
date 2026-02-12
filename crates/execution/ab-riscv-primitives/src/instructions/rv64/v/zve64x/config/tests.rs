@@ -11,6 +11,7 @@ use alloc::format;
 // make_i_type(opcode, rd, funct3, rs1, imm) where imm = 0|zimm[10:0]
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_basic() {
     // vtypei=0b00000001011 (e32, m8) = 0x0b
     let inst = make_i_type(0b1010111, 1, 0b111, 2, 0x0b);
@@ -26,6 +27,7 @@ fn test_vsetvli_basic() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_e8_m1() {
     // vtypei=0b00000000000 (e8, m1) = 0x00
     let inst = make_i_type(0b1010111, 10, 0b111, 11, 0x000);
@@ -41,6 +43,7 @@ fn test_vsetvli_e8_m1() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_e64_mf8_ta_ma() {
     // e64=0b011, mf8=0b101, ta=1, ma=1 => vtypei = 0b11_0_011_101 = 0x0dd
     // Actually: vlmul[2:0]=101, vsew[2:0]=011, vta=1, vma=1
@@ -59,6 +62,7 @@ fn test_vsetvli_e64_mf8_ta_ma() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_max_vtypei() {
     // Maximum 11-bit immediate = 0x7ff (bit31 must remain 0, so max is 0x7ff)
     let inst = make_i_type(0b1010111, 1, 0b111, 2, 0x7ff);
@@ -74,6 +78,7 @@ fn test_vsetvli_max_vtypei() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_rd_zero() {
     // vsetvli x0, rs1, vtypei - used to set vtype without writing vl to a register
     let inst = make_i_type(0b1010111, 0, 0b111, 5, 0x03);
@@ -89,6 +94,7 @@ fn test_vsetvli_rd_zero() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_rs1_zero_rd_nonzero() {
     // vsetvli rd, x0, vtypei - sets vl = VLMAX
     let inst = make_i_type(0b1010111, 1, 0b111, 0, 0x03);
@@ -104,6 +110,7 @@ fn test_vsetvli_rs1_zero_rd_nonzero() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_rs1_zero_rd_zero() {
     // vsetvli x0, x0, vtypei - change vtype keeping current vl
     let inst = make_i_type(0b1010111, 0, 0b111, 0, 0x03);
@@ -123,6 +130,7 @@ fn test_vsetvli_rs1_zero_rd_zero() {
 // imm[11:0] = 11|zimm[9:0], rs1 field = uimm[4:0]
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetivli_basic() {
     // uimm=4, vtypei=0b0000001011 (e32,m8) = 0x0b
     // imm = 0b11_0000001011 = 0xc0b
@@ -139,6 +147,7 @@ fn test_vsetivli_basic() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetivli_uimm_zero() {
     // uimm=0, vtypei=0
     let inst = make_i_type(0b1010111, 10, 0b111, 0, 0xc00);
@@ -154,6 +163,7 @@ fn test_vsetivli_uimm_zero() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetivli_uimm_max() {
     // uimm=31 (max 5-bit), vtypei=0x1ff (max 10-bit: 0b11_1111_1111)
     // imm = 0b11_1111111111 = 0xfff
@@ -170,6 +180,7 @@ fn test_vsetivli_uimm_max() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetivli_e64_m1_ta_ma() {
     // vtypei: vma=1, vta=1, vsew=011(e64), vlmul=000(m1) = 0b11_011_000 = 0xd8
     // imm = 0b11_00_1101_1000 = 0xcd8
@@ -190,6 +201,7 @@ fn test_vsetivli_e64_m1_ta_ma() {
 // make_r_type(opcode, rd, funct3, rs1, rs2, funct7)
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvl_basic() {
     let inst = make_r_type(0b1010111, 1, 0b111, 2, 3, 0b1000000);
     let decoded = Rv64Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst);
@@ -204,6 +216,7 @@ fn test_vsetvl_basic() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvl_all_arg_regs() {
     let inst = make_r_type(0b1010111, 10, 0b111, 11, 12, 0b1000000);
     let decoded = Rv64Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst);
@@ -218,6 +231,7 @@ fn test_vsetvl_all_arg_regs() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvl_rd_zero() {
     let inst = make_r_type(0b1010111, 0, 0b111, 5, 6, 0b1000000);
     let decoded = Rv64Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst);
@@ -232,6 +246,7 @@ fn test_vsetvl_rd_zero() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvl_rs1_zero_rd_nonzero() {
     // Sets vl = VLMAX
     let inst = make_r_type(0b1010111, 1, 0b111, 0, 7, 0b1000000);
@@ -249,6 +264,7 @@ fn test_vsetvl_rs1_zero_rd_nonzero() {
 // Negative tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     // Use OP (0b0110011) instead of OP-V
     let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b1000000);
@@ -257,6 +273,7 @@ fn test_wrong_opcode() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3() {
     // funct3=0b000 (OPIVV) instead of 0b111 (OPCFG)
     let inst = make_r_type(0b1010111, 1, 0b000, 2, 3, 0b1000000);
@@ -265,6 +282,7 @@ fn test_wrong_funct3() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvl_wrong_funct7() {
     // bit31=1, bit30=0, but bits[29:25] != 0 (funct7=0b1000001)
     let inst = make_r_type(0b1010111, 1, 0b111, 2, 3, 0b1000001);
@@ -273,6 +291,7 @@ fn test_vsetvl_wrong_funct7() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvl_nonzero_bits_29_25() {
     // bit31=1, bit30=0, bits[29:25]=0b00001
     let inst = make_r_type(0b1010111, 1, 0b111, 2, 3, 0b1000010);
@@ -281,6 +300,7 @@ fn test_vsetvl_nonzero_bits_29_25() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetvli_bit31_clear() {
     // Verify that when bit31=0, we get vsetvli not vsetivli
     // imm = 0b0_111_1111_1111 = 0x7ff => vtypei = 0x7ff
@@ -293,6 +313,7 @@ fn test_vsetvli_bit31_clear() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsetivli_bits_31_30_set() {
     // imm with bits[11:10]=11 => vsetivli
     let inst = make_i_type(0b1010111, 1, 0b111, 2, 0xc00);
@@ -304,6 +325,7 @@ fn test_vsetivli_bits_31_30_set() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsetvli() {
     let inst = make_i_type(0b1010111, 1, 0b111, 2, 0x0b);
     let decoded = Rv64Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -311,6 +333,7 @@ fn test_display_vsetvli() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsetivli() {
     let inst = make_i_type(0b1010111, 1, 0b111, 4, 0xc0b);
     let decoded = Rv64Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -318,6 +341,7 @@ fn test_display_vsetivli() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsetvl() {
     let inst = make_r_type(0b1010111, 1, 0b111, 2, 3, 0b1000000);
     let decoded = Rv64Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst).unwrap();

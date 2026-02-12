@@ -30,6 +30,7 @@ const OPMVX: u8 = 0b110;
 // Saturating add/subtract
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsaddu_vv() {
     let inst = make_v_arith(0b100000, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -45,6 +46,7 @@ fn test_vsaddu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsaddu_vv_masked() {
     let inst = make_v_arith(0b100000, false, 4, 5, OPIVV, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -60,6 +62,7 @@ fn test_vsaddu_vv_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsaddu_vx() {
     let inst = make_v_arith(0b100000, true, 2, 5, OPIVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -75,6 +78,7 @@ fn test_vsaddu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsaddu_vi() {
     // imm = 5 (positive 5-bit signed)
     let inst = make_v_arith(0b100000, true, 2, 5, OPIVI, 1);
@@ -91,6 +95,7 @@ fn test_vsaddu_vi() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsaddu_vi_negative() {
     // imm = -1 (0b11111 sign-extended)
     let inst = make_v_arith(0b100000, true, 2, 0b11111, OPIVI, 1);
@@ -107,6 +112,7 @@ fn test_vsaddu_vi_negative() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsadd_vv() {
     let inst = make_v_arith(0b100001, true, 8, 9, OPIVV, 10);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -122,6 +128,7 @@ fn test_vsadd_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsadd_vx() {
     let inst = make_v_arith(0b100001, true, 8, 10, OPIVX, 12);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -137,6 +144,7 @@ fn test_vsadd_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsadd_vi() {
     let inst = make_v_arith(0b100001, true, 8, 15, OPIVI, 12);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -152,6 +160,7 @@ fn test_vsadd_vi() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssubu_vv() {
     let inst = make_v_arith(0b100010, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -167,6 +176,7 @@ fn test_vssubu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssubu_vx() {
     let inst = make_v_arith(0b100010, true, 2, 5, OPIVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -182,6 +192,7 @@ fn test_vssubu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssubu_vi_rejected() {
     // vssubu has no VI form
     let inst = make_v_arith(0b100010, true, 2, 5, OPIVI, 1);
@@ -190,6 +201,7 @@ fn test_vssubu_vi_rejected() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssub_vv() {
     let inst = make_v_arith(0b100011, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -205,6 +217,7 @@ fn test_vssub_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssub_vx_masked() {
     let inst = make_v_arith(0b100011, false, 2, 5, OPIVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -220,6 +233,7 @@ fn test_vssub_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssub_vi_rejected() {
     // vssub has no VI form
     let inst = make_v_arith(0b100011, true, 2, 5, OPIVI, 1);
@@ -230,6 +244,7 @@ fn test_vssub_vi_rejected() {
 // Averaging add/subtract
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vaaddu_vv() {
     let inst = make_v_arith(0b001000, true, 2, 3, OPMVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -245,6 +260,7 @@ fn test_vaaddu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vaaddu_vx() {
     let inst = make_v_arith(0b001000, true, 2, 10, OPMVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -260,6 +276,7 @@ fn test_vaaddu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vaaddu_wrong_funct3() {
     // vaaddu uses OPMVV/OPMVX, not OPIVV
     let inst = make_v_arith(0b001000, true, 2, 3, OPIVV, 1);
@@ -268,6 +285,7 @@ fn test_vaaddu_wrong_funct3() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vaadd_vv() {
     let inst = make_v_arith(0b001001, true, 4, 5, OPMVV, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -283,6 +301,7 @@ fn test_vaadd_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vaadd_vx_masked() {
     let inst = make_v_arith(0b001001, false, 4, 11, OPMVX, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -298,6 +317,7 @@ fn test_vaadd_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vasubu_vv() {
     let inst = make_v_arith(0b001010, true, 2, 3, OPMVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -313,6 +333,7 @@ fn test_vasubu_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vasubu_vx() {
     let inst = make_v_arith(0b001010, true, 2, 5, OPMVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -328,6 +349,7 @@ fn test_vasubu_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vasub_vv() {
     let inst = make_v_arith(0b001011, true, 2, 3, OPMVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -343,6 +365,7 @@ fn test_vasub_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vasub_vx() {
     let inst = make_v_arith(0b001011, true, 2, 5, OPMVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -360,6 +383,7 @@ fn test_vasub_vx() {
 // Fractional multiply
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsmul_vv() {
     let inst = make_v_arith(0b100111, true, 2, 3, OPMVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -375,6 +399,7 @@ fn test_vsmul_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsmul_vx_masked() {
     let inst = make_v_arith(0b100111, false, 8, 10, OPMVX, 12);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -390,6 +415,7 @@ fn test_vsmul_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsmul_vi_rejected() {
     // vsmul has no VI form
     let inst = make_v_arith(0b100111, true, 2, 3, OPIVI, 1);
@@ -400,6 +426,7 @@ fn test_vsmul_vi_rejected() {
 // Scaling shifts
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssrl_vv() {
     let inst = make_v_arith(0b101000, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -415,6 +442,7 @@ fn test_vssrl_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssrl_vx() {
     let inst = make_v_arith(0b101000, true, 2, 5, OPIVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -430,6 +458,7 @@ fn test_vssrl_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssrl_vi() {
     // imm=7 (unsigned shift amount)
     let inst = make_v_arith(0b101000, true, 2, 7, OPIVI, 1);
@@ -446,6 +475,7 @@ fn test_vssrl_vi() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssra_vv() {
     let inst = make_v_arith(0b101001, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -461,6 +491,7 @@ fn test_vssra_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssra_vx_masked() {
     let inst = make_v_arith(0b101001, false, 8, 10, OPIVX, 12);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -476,6 +507,7 @@ fn test_vssra_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssra_vi() {
     let inst = make_v_arith(0b101001, true, 4, 31, OPIVI, 8);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -493,6 +525,7 @@ fn test_vssra_vi() {
 // Narrowing clips
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnclipu_wv() {
     let inst = make_v_arith(0b101110, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -508,6 +541,7 @@ fn test_vnclipu_wv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnclipu_wx() {
     let inst = make_v_arith(0b101110, true, 2, 5, OPIVX, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -523,6 +557,7 @@ fn test_vnclipu_wx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnclipu_wi() {
     let inst = make_v_arith(0b101110, true, 2, 3, OPIVI, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -538,6 +573,7 @@ fn test_vnclipu_wi() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnclip_wv() {
     let inst = make_v_arith(0b101111, true, 4, 5, OPIVV, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -553,6 +589,7 @@ fn test_vnclip_wv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnclip_wx_masked() {
     let inst = make_v_arith(0b101111, false, 4, 11, OPIVX, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -568,6 +605,7 @@ fn test_vnclip_wx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vnclip_wi() {
     let inst = make_v_arith(0b101111, true, 4, 0, OPIVI, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -585,6 +623,7 @@ fn test_vnclip_wi() {
 // Negative tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     // Use OP (0b0110011) instead of OP-V
     let funct7 = (0b100000u8 << 1) | 1;
@@ -594,6 +633,7 @@ fn test_wrong_opcode() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_unknown_funct6() {
     // funct6=0b111111 is not a fixed-point instruction
     let inst = make_v_arith(0b111111, true, 2, 3, OPIVV, 1);
@@ -602,6 +642,7 @@ fn test_unknown_funct6() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsmul_opivv_rejected() {
     // vsmul uses OPMVV/OPMVX, not OPIVV
     let inst = make_v_arith(0b100111, true, 2, 3, OPIVV, 1);
@@ -612,6 +653,7 @@ fn test_vsmul_opivv_rejected() {
 // Display tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsaddu_vv_unmasked() {
     let inst = make_v_arith(0b100000, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -619,6 +661,7 @@ fn test_display_vsaddu_vv_unmasked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsaddu_vv_masked() {
     let inst = make_v_arith(0b100000, false, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -626,6 +669,7 @@ fn test_display_vsaddu_vv_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsadd_vx() {
     let inst = make_v_arith(0b100001, true, 8, 10, OPIVX, 12);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -633,6 +677,7 @@ fn test_display_vsadd_vx() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsaddu_vi_negative() {
     let inst = make_v_arith(0b100000, true, 2, 0b10000, OPIVI, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -640,6 +685,7 @@ fn test_display_vsaddu_vi_negative() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vaadd_vv() {
     let inst = make_v_arith(0b001001, true, 4, 5, OPMVV, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -647,6 +693,7 @@ fn test_display_vaadd_vv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vsmul_vx_masked() {
     let inst = make_v_arith(0b100111, false, 8, 10, OPMVX, 12);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -654,6 +701,7 @@ fn test_display_vsmul_vx_masked() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vssrl_vi() {
     let inst = make_v_arith(0b101000, true, 2, 7, OPIVI, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -661,6 +709,7 @@ fn test_display_vssrl_vi() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vnclipu_wv() {
     let inst = make_v_arith(0b101110, true, 2, 3, OPIVV, 1);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -668,6 +717,7 @@ fn test_display_vnclipu_wv() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_display_vnclip_wx_masked() {
     let inst = make_v_arith(0b101111, false, 4, 11, OPIVX, 6);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -677,6 +727,7 @@ fn test_display_vnclip_wx_masked() {
 // High register number tests
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vsaddu_vv_high_regs() {
     let inst = make_v_arith(0b100000, true, 31, 30, OPIVV, 29);
     let decoded = Rv64Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
@@ -692,6 +743,7 @@ fn test_vsaddu_vv_high_regs() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_vssra_vi_max_shift() {
     // max 5-bit unsigned immediate = 31
     let inst = make_v_arith(0b101001, true, 16, 31, OPIVI, 0);
