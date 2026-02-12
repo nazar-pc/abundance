@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("Always set by Cargo; qed"));
 
     // Skip compilation under Miri and rustdoc, it will not be used
-    if ["MIRI_SYSROOT", "RUSTDOCFLAGS"]
+    if ["CLIPPY_ARGS", "MIRI_SYSROOT", "RUSTDOCFLAGS"]
         .iter()
         .any(|var| env::var(var).is_ok())
     {
