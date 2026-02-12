@@ -171,7 +171,7 @@ where
                     .zip(parent_hashes_chunks)
                 {
                     // TODO: Would be nice to have a convenient method for this:
-                    //  https://github.com/rust-lang/rust/issues/96097#issuecomment-3133515169
+                    //  https://github.com/rust-lang/rust/pull/145504#pullrequestreview-3788155275
                     // SAFETY: Identical layout
                     let hashes = unsafe {
                         mem::transmute::<

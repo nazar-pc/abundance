@@ -11,7 +11,6 @@ use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult, UniqueStorageItem,
 };
-use std::mem;
 use std::mem::MaybeUninit;
 use strum::FromRepr;
 
@@ -54,8 +53,7 @@ impl StorageItem for StorageItemBlock {
 
         let (storage_item_bytes, buffer) = buffer.split_at_mut(storage_item_size);
         // SAFETY: Storage item bytes were just written to
-        let storage_item_bytes =
-            unsafe { mem::transmute::<&mut [MaybeUninit<u8>], &mut [u8]>(storage_item_bytes) };
+        let storage_item_bytes = unsafe { storage_item_bytes.assume_init_mut() };
 
         Ok(StorageItemWriteResult {
             storage_item_variant: variant as u8,
