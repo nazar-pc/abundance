@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["playground_var_bytes"],"struct":["InternalArgs","PlaygroundVarBytesArgs"]};

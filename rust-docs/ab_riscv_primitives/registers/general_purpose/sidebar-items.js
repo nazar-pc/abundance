@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EReg","Reg"],"struct":["Registers"],"trait":["Register"]};

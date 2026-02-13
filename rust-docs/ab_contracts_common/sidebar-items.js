@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["HOST_CALL_FN","HOST_CALL_FN_IMPORT","MAX_CODE_SIZE","MAX_TOTAL_METHOD_ARGS","METADATA_STATIC_NAME_PREFIX"],"enum":["ContractError"],"mod":["env","metadata","method"],"struct":["CustomContractErrorCode","ExitCode"],"trait":["Contract","ContractTrait","ContractTraitDefinition"]};

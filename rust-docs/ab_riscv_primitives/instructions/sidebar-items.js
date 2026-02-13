@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["rv64"],"trait":["Instruction"]};

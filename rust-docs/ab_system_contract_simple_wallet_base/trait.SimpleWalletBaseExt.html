@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extension trait that provides helper methods for calling `SimpleWalletBase`’s methods on `Env` for convenience purposes"><title>SimpleWalletBaseExt in ab_system_contract_simple_wallet_base - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ab_system_contract_simple_wallet_base" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (9e79395f9 2026-02-10)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SimpleWalletBaseExt</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ab_system_contract_simple_wallet_base/index.html">ab_<wbr>system_<wbr>contract_<wbr>simple_<wbr>wallet_<wbr>base</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Simple<wbr>Wallet<wbr>Base<wbr>Ext</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.simple_wallet_base_authorize" title="simple_wallet_base_authorize">simple_wallet_base_authorize</a></li><li><a href="#tymethod.simple_wallet_base_change_public_key" title="simple_wallet_base_change_public_key">simple_wallet_base_change_public_key</a></li><li><a href="#tymethod.simple_wallet_base_execute" title="simple_wallet_base_execute">simple_wallet_base_execute</a></li><li><a href="#tymethod.simple_wallet_base_increase_nonce" title="simple_wallet_base_increase_nonce">simple_wallet_base_increase_nonce</a></li><li><a href="#tymethod.simple_wallet_base_initialize" title="simple_wallet_base_initialize">simple_wallet_base_initialize</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-SimpleWalletBaseExt-for-Env%3C'_%3E" title="Env&#60;&#39;_&#62;">Env&#60;&#39;_&#62;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate ab_<wbr>system_<wbr>contract_<wbr>simple_<wbr>wallet_<wbr>base</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ab_system_contract_simple_wallet_base</a></div><h1>Trait <span class="trait">Simple<wbr>Wallet<wbr>Base<wbr>Ext</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#106">Source</a> </span></div><pre class="rust item-decl"><code>pub trait SimpleWalletBaseExt {
+    // Required methods
+    fn <a href="#tymethod.simple_wallet_base_initialize" class="fn">simple_wallet_base_initialize</a>(
+        &amp;self,
+        contract: Address,
+        public_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">32</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.simple_wallet_base_authorize" class="fn">simple_wallet_base_authorize</a>(
+        &amp;self,
+        contract: Address,
+        state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+        header: &amp;TransactionHeader,
+        read_slots: &amp;TxHandlerSlots,
+        write_slots: &amp;TxHandlerSlots,
+        payload: &amp;TxHandlerPayload,
+        seal: &amp;TxHandlerSeal,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.simple_wallet_base_execute" class="fn">simple_wallet_base_execute</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        header: &amp;TransactionHeader,
+        read_slots: &amp;TxHandlerSlots,
+        write_slots: &amp;TxHandlerSlots,
+        payload: &amp;TxHandlerPayload,
+        seal: &amp;TxHandlerSeal,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.simple_wallet_base_increase_nonce" class="fn">simple_wallet_base_increase_nonce</a>(
+        &amp;self,
+        contract: Address,
+        state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.simple_wallet_base_change_public_key" class="fn">simple_wallet_base_change_public_key</a>(
+        &amp;self,
+        contract: Address,
+        state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+        public_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">32</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extension trait that provides helper methods for calling <a href="struct.SimpleWalletBase.html" title="struct ab_system_contract_simple_wallet_base::SimpleWalletBase"><code>SimpleWalletBase</code></a>’s methods on <a href="::ab_contracts_macros::__private::Env"><code>Env</code></a> for convenience purposes</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.simple_wallet_base_initialize" class="method"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#111">Source</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_initialize" class="fn">simple_wallet_base_initialize</a>(
+    &amp;self,
+    contract: Address,
+    public_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">32</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Returns initial state with a provided public key</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.simple_wallet_base_authorize" class="method"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#126-133">Source</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_authorize" class="fn">simple_wallet_base_authorize</a>(
+    &amp;self,
+    contract: Address,
+    state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+    header: &amp;TransactionHeader,
+    read_slots: &amp;TxHandlerSlots,
+    write_slots: &amp;TxHandlerSlots,
+    payload: &amp;TxHandlerPayload,
+    seal: &amp;TxHandlerSeal,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Reads state of <code>owner</code> and returns <code>Ok(())</code> if authorization succeeds</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.simple_wallet_base_execute" class="method"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#169-176">Source</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_execute" class="fn">simple_wallet_base_execute</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    header: &amp;TransactionHeader,
+    read_slots: &amp;TxHandlerSlots,
+    write_slots: &amp;TxHandlerSlots,
+    payload: &amp;TxHandlerPayload,
+    seal: &amp;TxHandlerSeal,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Executes provided transactions in the payload.</p>
+<p>IMPORTANT:</p>
+<ul>
+<li><em>must only be called with trusted input</em>, for example, successful signature verification
+in <a href="struct.SimpleWalletBase.html#method.authorize" title="associated function ab_system_contract_simple_wallet_base::SimpleWalletBase::authorize"><code>SimpleWalletBase::authorize()</code></a> implies transaction was seen and verified by the user</li>
+<li><em>remember to also <a href="struct.SimpleWalletBase.html#method.increase_nonce" title="associated function ab_system_contract_simple_wallet_base::SimpleWalletBase::increase_nonce"><code>SimpleWalletBase::increase_nonce()</code></a> afterward</em> unless there is a very
+good reason not to (like when wallet was replaced with another implementation containing a
+different state)</li>
+</ul>
+<p>The caller must set themselves as a context or else error will be returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.simple_wallet_base_increase_nonce" class="method"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#215">Source</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_increase_nonce" class="fn">simple_wallet_base_increase_nonce</a>(
+    &amp;self,
+    contract: Address,
+    state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Returns state with increased nonce</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.simple_wallet_base_change_public_key" class="method"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#227-230">Source</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_change_public_key" class="fn">simple_wallet_base_change_public_key</a>(
+    &amp;self,
+    contract: Address,
+    state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+    public_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">32</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Returns a new state with a changed public key</p>
+</div></details></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-SimpleWalletBaseExt-for-Env%3C'_%3E" class="impl"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#106">Source</a><a href="#impl-SimpleWalletBaseExt-for-Env%3C'_%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.SimpleWalletBaseExt.html" title="trait ab_system_contract_simple_wallet_base::SimpleWalletBaseExt">SimpleWalletBaseExt</a> for Env&lt;'_&gt;</h3></section></summary><div class="impl-items"><section id="method.simple_wallet_base_initialize" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#111">Source</a><a href="#method.simple_wallet_base_initialize" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_initialize" class="fn">simple_wallet_base_initialize</a>(
+    &amp;self,
+    contract: Address,
+    public_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">32</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;</h4></section><section id="method.simple_wallet_base_authorize" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#126-133">Source</a><a href="#method.simple_wallet_base_authorize" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_authorize" class="fn">simple_wallet_base_authorize</a>(
+    &amp;self,
+    contract: Address,
+    state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+    header: &amp;TransactionHeader,
+    read_slots: &amp;TxHandlerSlots,
+    write_slots: &amp;TxHandlerSlots,
+    payload: &amp;TxHandlerPayload,
+    seal: &amp;TxHandlerSeal,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.simple_wallet_base_execute" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#169-176">Source</a><a href="#method.simple_wallet_base_execute" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_execute" class="fn">simple_wallet_base_execute</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    header: &amp;TransactionHeader,
+    read_slots: &amp;TxHandlerSlots,
+    write_slots: &amp;TxHandlerSlots,
+    payload: &amp;TxHandlerPayload,
+    seal: &amp;TxHandlerSeal,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.simple_wallet_base_increase_nonce" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#215">Source</a><a href="#method.simple_wallet_base_increase_nonce" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_increase_nonce" class="fn">simple_wallet_base_increase_nonce</a>(
+    &amp;self,
+    contract: Address,
+    state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;</h4></section><section id="method.simple_wallet_base_change_public_key" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_simple_wallet_base/lib.rs.html#227-230">Source</a><a href="#method.simple_wallet_base_change_public_key" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.simple_wallet_base_change_public_key" class="fn">simple_wallet_base_change_public_key</a>(
+    &amp;self,
+    contract: Address,
+    state: &amp;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>,
+    public_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">32</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WalletState.html" title="struct ab_system_contract_simple_wallet_base::WalletState">WalletState</a>, ContractError&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/ab_system_contract_simple_wallet_base/trait.SimpleWalletBaseExt.js" data-ignore-extern-crates="ab_contracts_common" async></script></section></div></main></body></html>

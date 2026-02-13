@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["benchmarks_ed25519_verify"],"struct":["BenchmarksEd25519VerifyArgs","InternalArgs"]};

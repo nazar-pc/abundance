@@ -1,0 +1,141 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extension trait that provides helper methods for calling `Playground`’s methods on `Env` for convenience purposes"><title>PlaygroundExt in ab_contract_playground - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ab_contract_playground" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (9e79395f9 2026-02-10)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">PlaygroundExt</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ab_contract_playground/index.html">ab_<wbr>contract_<wbr>playground</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Playground<wbr>Ext</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.playground_balance" title="playground_balance">playground_balance</a></li><li><a href="#tymethod.playground_balance_output" title="playground_balance_output">playground_balance_output</a></li><li><a href="#tymethod.playground_last_action" title="playground_last_action">playground_last_action</a></li><li><a href="#tymethod.playground_mint" title="playground_mint">playground_mint</a></li><li><a href="#tymethod.playground_new" title="playground_new">playground_new</a></li><li><a href="#tymethod.playground_new_result" title="playground_new_result">playground_new_result</a></li><li><a href="#tymethod.playground_transfer" title="playground_transfer">playground_transfer</a></li><li><a href="#tymethod.playground_var_bytes" title="playground_var_bytes">playground_var_bytes</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-PlaygroundExt-for-Env%3C'_%3E" title="Env&#60;&#39;_&#62;">Env&#60;&#39;_&#62;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate ab_<wbr>contract_<wbr>playground</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ab_contract_playground</a></div><h1>Trait <span class="trait">Playground<wbr>Ext</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ab_contract_playground/lib.rs.html#58">Source</a> </span></div><pre class="rust item-decl"><code>pub trait PlaygroundExt {
+    // Required methods
+    fn <a href="#tymethod.playground_new" class="fn">playground_new</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        owner: &amp;Address,
+        total_supply: &amp;Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_new_result" class="fn">playground_new_result</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        owner: &amp;Address,
+        total_supply: &amp;Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_mint" class="fn">playground_mint</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        to: &amp;Address,
+        value: &amp;Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_balance" class="fn">playground_balance</a>(
+        &amp;self,
+        contract: Address,
+        target: &amp;Address,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_balance_output" class="fn">playground_balance_output</a>(
+        &amp;self,
+        contract: Address,
+        target: &amp;Address,
+        balance: &amp;mut MaybeData&lt;Balance&gt;,
+        balance_2: &amp;mut Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_var_bytes" class="fn">playground_var_bytes</a>(
+        &amp;self,
+        contract: Address,
+        _out: &amp;mut VariableBytes&lt;1024&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_transfer" class="fn">playground_transfer</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        from: &amp;Address,
+        to: &amp;Address,
+        amount: &amp;Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.playground_last_action" class="fn">playground_last_action</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="enum.LastAction.html" title="enum ab_contract_playground::LastAction">LastAction</a>, ContractError&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extension trait that provides helper methods for calling <a href="struct.Playground.html" title="struct ab_contract_playground::Playground"><code>Playground</code></a>’s methods on <a href="::ab_contracts_macros::__private::Env"><code>Env</code></a> for convenience purposes</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.playground_new" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#61-64">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_new" class="fn">playground_new</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    owner: &amp;Address,
+    total_supply: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="tymethod.playground_new_result" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#75-79">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_new_result" class="fn">playground_new_result</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    owner: &amp;Address,
+    total_supply: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="tymethod.playground_mint" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#90-96">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_mint" class="fn">playground_mint</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    to: &amp;Address,
+    value: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="tymethod.playground_balance" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#114">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_balance" class="fn">playground_balance</a>(
+    &amp;self,
+    contract: Address,
+    target: &amp;Address,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ContractError&gt;</h4></section><section id="tymethod.playground_balance_output" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#121-125">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_balance_output" class="fn">playground_balance_output</a>(
+    &amp;self,
+    contract: Address,
+    target: &amp;Address,
+    balance: &amp;mut MaybeData&lt;Balance&gt;,
+    balance_2: &amp;mut Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="tymethod.playground_var_bytes" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#134">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_var_bytes" class="fn">playground_var_bytes</a>(
+    &amp;self,
+    contract: Address,
+    _out: &amp;mut VariableBytes&lt;1024&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="tymethod.playground_transfer" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#139-145">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_transfer" class="fn">playground_transfer</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    from: &amp;Address,
+    to: &amp;Address,
+    amount: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="tymethod.playground_last_action" class="method"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#180">Source</a><h4 class="code-header">fn <a href="#tymethod.playground_last_action" class="fn">playground_last_action</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="enum.LastAction.html" title="enum ab_contract_playground::LastAction">LastAction</a>, ContractError&gt;</h4></section></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-PlaygroundExt-for-Env%3C'_%3E" class="impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#58">Source</a><a href="#impl-PlaygroundExt-for-Env%3C'_%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.PlaygroundExt.html" title="trait ab_contract_playground::PlaygroundExt">PlaygroundExt</a> for Env&lt;'_&gt;</h3></section></summary><div class="impl-items"><section id="method.playground_new" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#61-64">Source</a><a href="#method.playground_new" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_new" class="fn">playground_new</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    owner: &amp;Address,
+    total_supply: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.playground_new_result" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#75-79">Source</a><a href="#method.playground_new_result" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_new_result" class="fn">playground_new_result</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    owner: &amp;Address,
+    total_supply: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.playground_mint" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#90-96">Source</a><a href="#method.playground_mint" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_mint" class="fn">playground_mint</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    to: &amp;Address,
+    value: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.playground_balance" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#114">Source</a><a href="#method.playground_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_balance" class="fn">playground_balance</a>(
+    &amp;self,
+    contract: Address,
+    target: &amp;Address,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ContractError&gt;</h4></section><section id="method.playground_balance_output" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#121-125">Source</a><a href="#method.playground_balance_output" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_balance_output" class="fn">playground_balance_output</a>(
+    &amp;self,
+    contract: Address,
+    target: &amp;Address,
+    balance: &amp;mut MaybeData&lt;Balance&gt;,
+    balance_2: &amp;mut Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.playground_var_bytes" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#134">Source</a><a href="#method.playground_var_bytes" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_var_bytes" class="fn">playground_var_bytes</a>(
+    &amp;self,
+    contract: Address,
+    _out: &amp;mut VariableBytes&lt;1024&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.playground_transfer" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#139-145">Source</a><a href="#method.playground_transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_transfer" class="fn">playground_transfer</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    from: &amp;Address,
+    to: &amp;Address,
+    amount: &amp;Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.playground_last_action" class="method trait-impl"><a class="src rightside" href="../src/ab_contract_playground/lib.rs.html#180">Source</a><a href="#method.playground_last_action" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.playground_last_action" class="fn">playground_last_action</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="enum.LastAction.html" title="enum ab_contract_playground::LastAction">LastAction</a>, ContractError&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/ab_contract_playground/trait.PlaygroundExt.js" data-ignore-extern-crates="ab_contracts_common" async></script></section></div></main></body></html>

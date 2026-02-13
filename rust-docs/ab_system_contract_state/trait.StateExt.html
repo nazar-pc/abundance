@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extension trait that provides helper methods for calling `State`’s methods on `Env` for convenience purposes"><title>StateExt in ab_system_contract_state - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ab_system_contract_state" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (9e79395f9 2026-02-10)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">StateExt</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ab_system_contract_state/index.html">ab_<wbr>system_<wbr>contract_<wbr>state</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">State<wbr>Ext</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.state_compare_and_write" title="state_compare_and_write">state_compare_and_write</a></li><li><a href="#tymethod.state_initialize" title="state_initialize">state_initialize</a></li><li><a href="#tymethod.state_is_empty" title="state_is_empty">state_is_empty</a></li><li><a href="#tymethod.state_read" title="state_read">state_read</a></li><li><a href="#tymethod.state_write" title="state_write">state_write</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-StateExt-for-Env%3C'_%3E" title="Env&#60;&#39;_&#62;">Env&#60;&#39;_&#62;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate ab_<wbr>system_<wbr>contract_<wbr>state</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ab_system_contract_state</a></div><h1>Trait <span class="trait">State<wbr>Ext</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ab_system_contract_state/lib.rs.html#51">Source</a> </span></div><pre class="rust item-decl"><code>pub trait StateExt {
+    // Required methods
+    fn <a href="#tymethod.state_initialize" class="fn">state_initialize</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        contract_state: &amp;Address,
+        state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.state_write" class="fn">state_write</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        state: &amp;Address,
+        new_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.state_compare_and_write" class="fn">state_compare_and_write</a>(
+        &amp;mut self,
+        method_context: MethodContext,
+        contract: Address,
+        state: &amp;Address,
+        old_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+        new_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bool, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.state_read" class="fn">state_read</a>(
+        &amp;self,
+        contract: Address,
+        contract_state: &amp;Address,
+        state: &amp;mut VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.state_is_empty" class="fn">state_is_empty</a>(
+        &amp;self,
+        contract: Address,
+        contract_state: &amp;Address,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bool, ContractError&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extension trait that provides helper methods for calling <a href="struct.State.html" title="struct ab_system_contract_state::State"><code>State</code></a>’s methods on <a href="::ab_contracts_macros::__private::Env"><code>Env</code></a> for convenience purposes</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.state_initialize" class="method"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#57-64">Source</a><h4 class="code-header">fn <a href="#tymethod.state_initialize" class="fn">state_initialize</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    contract_state: &amp;Address,
+    state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Initialize state.</p>
+<p>Similar to <a href="struct.State.html#method.write" title="associated function ab_system_contract_state::State::write"><code>State::write()</code></a>, but returns error if the state is not empty.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.state_write" class="method"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#76-80">Source</a><h4 class="code-header">fn <a href="#tymethod.state_write" class="fn">state_write</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    state: &amp;Address,
+    new_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Write state.</p>
+<p>Only direct caller is allowed to write its own state for security reasons.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.state_compare_and_write" class="method"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#99-104">Source</a><h4 class="code-header">fn <a href="#tymethod.state_compare_and_write" class="fn">state_compare_and_write</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    state: &amp;Address,
+    old_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+    new_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bool, ContractError&gt;</h4></section></summary><div class="docblock"><p>Compare state with a given old state and write new state if old state matches.</p>
+<p>Only direct caller is allowed to write its own state for security reasons.</p>
+<p>Returns boolean indicating whether write happened or not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.state_read" class="method"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#123-126">Source</a><h4 class="code-header">fn <a href="#tymethod.state_read" class="fn">state_read</a>(
+    &amp;self,
+    contract: Address,
+    contract_state: &amp;Address,
+    state: &amp;mut VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section></summary><div class="docblock"><p>Read state</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.state_is_empty" class="method"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#136">Source</a><h4 class="code-header">fn <a href="#tymethod.state_is_empty" class="fn">state_is_empty</a>(
+    &amp;self,
+    contract: Address,
+    contract_state: &amp;Address,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bool, ContractError&gt;</h4></section></summary><div class="docblock"><p>Check if the state is empty</p>
+</div></details></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-StateExt-for-Env%3C'_%3E" class="impl"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#51">Source</a><a href="#impl-StateExt-for-Env%3C'_%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.StateExt.html" title="trait ab_system_contract_state::StateExt">StateExt</a> for Env&lt;'_&gt;</h3></section></summary><div class="impl-items"><section id="method.state_initialize" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#57-64">Source</a><a href="#method.state_initialize" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.state_initialize" class="fn">state_initialize</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    contract_state: &amp;Address,
+    state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.state_write" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#76-80">Source</a><a href="#method.state_write" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.state_write" class="fn">state_write</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    state: &amp;Address,
+    new_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.state_compare_and_write" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#99-104">Source</a><a href="#method.state_compare_and_write" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.state_compare_and_write" class="fn">state_compare_and_write</a>(
+    &amp;mut self,
+    method_context: MethodContext,
+    contract: Address,
+    state: &amp;Address,
+    old_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+    new_state: &amp;VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bool, ContractError&gt;</h4></section><section id="method.state_read" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#123-126">Source</a><a href="#method.state_read" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.state_read" class="fn">state_read</a>(
+    &amp;self,
+    contract: Address,
+    contract_state: &amp;Address,
+    state: &amp;mut VariableBytes&lt;RECOMMENDED_STATE_CAPACITY&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, ContractError&gt;</h4></section><section id="method.state_is_empty" class="method trait-impl"><a class="src rightside" href="../src/ab_system_contract_state/lib.rs.html#136">Source</a><a href="#method.state_is_empty" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.state_is_empty" class="fn">state_is_empty</a>(
+    &amp;self,
+    contract: Address,
+    contract_state: &amp;Address,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bool, ContractError&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/ab_system_contract_state/trait.StateExt.js" data-ignore-extern-crates="ab_contracts_common" async></script></section></div></main></body></html>

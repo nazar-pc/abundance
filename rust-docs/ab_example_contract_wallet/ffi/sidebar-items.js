@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["change_public_key","initialize"]};

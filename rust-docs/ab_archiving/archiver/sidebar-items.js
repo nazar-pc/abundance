@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ArchiverInstantiationError","SegmentItem"],"struct":["ArchiveBlockOutcome","Archiver","BlockBytes","NewArchivedSegment","Segment"]};

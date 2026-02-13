@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Project Abundance</title><link>https://abundance.build/</link><description>Recent content on Project Abundance</description><generator>Hugo -- gohugo.io</generator><language>en</language><copyright>&lt;a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="license noopener noreferrer">CC0 1.0 Universal&lt;/a></copyright><lastBuildDate>Sat, 24 Jan 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/index.xml" rel="self" type="application/rss+xml"/><item><title>Making RISC-V interpreter faster</title><link>https://abundance.build/blog/2026-01-24-making-risc-v-interpreter-faster/</link><pubDate>Sat, 24 Jan 2026 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2026-01-24-making-risc-v-interpreter-faster/</guid><description>&lt;p>In the &lt;a
+href="../2025-12-29-contracts-cli-and-risc-v-interpreter">last update&lt;/a> I introduced a basic RISC-V interpreter, but its performance was underwhelming, which was to be
+expected, but still was something that I&amp;rsquo;d like to improve. So since the last update I have implemented infrastructure
+for measuring performance, did a bunch of refactorings to hopefully make my work reusable by other projects in the
+future, and even implemented some performance improvements with a solid idea of what to explore next.&lt;/p>
+&lt;p>In the process of doing it I ended up parsing and generating Rust code in &lt;em>both&lt;/em> &lt;code>build.rs&lt;/code> and procedural macros,
+something I have never thought I&amp;rsquo;d end up doing, but let&amp;rsquo;s start from the beginning.&lt;/p></description></item><item><title>A year of Abundance</title><link>https://abundance.build/blog/2026-01-01-a-year-of-abundance/</link><pubDate>Thu, 01 Jan 2026 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2026-01-01-a-year-of-abundance/</guid><description>&lt;p>It has been around a year since the project started, and I would like to share a brief summary of what has happened so
+far, where the project is at and what&amp;rsquo;s coming next. I&amp;rsquo;ll only capture the highlights and key outcomes here, presented
+in rough chronological order.&lt;/p></description></item><item><title>Contracts CLI and RISC-V interpreter</title><link>https://abundance.build/blog/2025-12-29-contracts-cli-and-risc-v-interpreter/</link><pubDate>Mon, 29 Dec 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-12-29-contracts-cli-and-risc-v-interpreter/</guid><description>&lt;p>Switching to something that I thought would be more fun, I decided to look into ELF and RISC-V last week or so. I
+learned more than I wanted and managed to achieve a few key deliverables:&lt;/p>
+&lt;ul>
+&lt;li>design initial CLI for building/converting/verifying contract files&lt;/li>
+&lt;li>define and implement a contract file format&lt;/li>
+&lt;li>implement a simple RISC-V interpreter&lt;/li>
+&lt;/ul>
+&lt;p>Let&amp;rsquo;s look into each of those in more detail.&lt;/p></description></item><item><title>Permissionless assignments of farmers to shards</title><link>https://abundance.build/blog/2025-12-19-permissionless-assignments-of-farmers-to-shards/</link><pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-12-19-permissionless-assignments-of-farmers-to-shards/</guid><description>&lt;p>&lt;a
+href="../2025-12-11-steps-towards-multi-shard-farming">Last time&lt;/a> I shared challenges and next steps in making consensus shard-aware. I&amp;rsquo;m happy to report that an initial
+version of the shard assignment algorithm is now implemented and working.&lt;/p>
+&lt;p>To the best of my knowledge, this is the first shard assignment design of this kind in blockchain space. All other
+designs are permissioned and require on-chain registration with some tokens, which hinders both participation and
+scalability.&lt;/p></description></item><item><title>Steps towards multi-shard farming</title><link>https://abundance.build/blog/2025-12-11-steps-towards-multi-shard-farming/</link><pubDate>Thu, 11 Dec 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-12-11-steps-towards-multi-shard-farming/</guid><description>&lt;p>So far the block production was basic and very similar to &lt;a
+href="https://subspace.github.io/protocol-specs/docs/category/consensus"
+target="_blank"
+>Subspace&lt;/a>, despite some key underlying differences. But that
+is just an early prototype to get beacon chain running, but intermediate and leaf shards must be added into the mix,
+which substantially complicate things.&lt;/p></description></item><item><title>The first 10k blocks</title><link>https://abundance.build/blog/2025-12-02-the-first-10k-blocks/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-12-02-the-first-10k-blocks/</guid><description>&lt;p>In the previous update I shared that the block production started to work on the beacon chain. Well, it did produce the
+first block, but not that many more, for a variety of reasons. But majority of those reasons are not fixed, so I&amp;rsquo;m happy
+to share what they were and where things are at today.&lt;/p></description></item><item><title>The first block</title><link>https://abundance.build/blog/2025-11-24-the-first-block/</link><pubDate>Mon, 24 Nov 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-11-24-the-first-block/</guid><description>&lt;p>It has been a month since the last update, and I finally have more exciting news to share here. I received feedback
+previously that grinding on the same topic is not particularly interesting, so I decided to wait for something different
+to happen, and it finally did, we&amp;rsquo;ve got the first block on the beacon chain!&lt;/p></description></item><item><title>GPU plotting works!</title><link>https://abundance.build/blog/2025-10-23-gpu-plotting-works/</link><pubDate>Thu, 23 Oct 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-10-23-gpu-plotting-works/</guid><description>&lt;p>All the updates in recent weeks were about Proof-of-Space performance improvements, but what was really driving it is my
+exploration into how to efficiently implement it for GPU. Today I&amp;rsquo;m happy to announce that an initial version of that
+implementation is integrated into the farmer.&lt;/p>
+&lt;p>I&amp;rsquo;ve tested it on both AMD and Nvidia GPUs, but in principle it should work on any Vulkan 1.2-capable GPU, which
+includes both discrete and integrated graphics from something like the last decade or so. It will also run on Apple
+Silicon Macs (actually tested in CI) and likely older Macs with Intel/AMD GPUs as well, though I didn&amp;rsquo;t bother verifying
+it myself.&lt;/p>
+&lt;p>The fact that it runs doesn&amp;rsquo;t necessarily mean it is fast, though, so the bulk of this post will be about that.&lt;/p>
+&lt;p align="center">
+&lt;img alt="Screenshot of nvtop CLI with a farmer process in it" src="nvtop-gpu-plotting.png">
+&lt;/p></description></item><item><title>Faster Proof-of-Space (part 4)</title><link>https://abundance.build/blog/2025-10-14-faster-proof-of-space-part-4/</link><pubDate>Tue, 14 Oct 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-10-14-faster-proof-of-space-part-4/</guid><description>&lt;p>It has been a couple of weeks since the last status update about performance improvements in Proof-of-Space and I am
+finally at a decent stopping point where all architectural changes are done and I can share them with you.&lt;/p></description></item><item><title>Shorter GitHub Actions runs</title><link>https://abundance.build/blog/2025-09-25-shorter-github-actions-runs/</link><pubDate>Thu, 25 Sep 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-09-25-shorter-github-actions-runs/</guid><description>&lt;p>This is just a short note about something that was not possible to do as cleanly before.&lt;/p>
+&lt;p>If you worked with GitHub Actions for a meaningful period of time, and especially for testing Rust code, you will know
+that Windows runners are really slow. They are easily the bottleneck in many workflows and until recently there was no
+good way around it without turning the whole workflow into a mess. Thankfully, GitHub Actions recently introduced
+support for &lt;a
+href="https://github.blog/changelog/2025-09-18-actions-yaml-anchors-and-non-public-workflow-templates/"
+target="_blank"
+>Yaml anchors&lt;/a> in workflow files, which allows to reuse parts of the workflow instead of copy-pasting them.&lt;/p></description></item><item><title>Faster Proof-of-Space (part 3)</title><link>https://abundance.build/blog/2025-09-18-faster-proof-of-space-part-3/</link><pubDate>Thu, 18 Sep 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-09-18-faster-proof-of-space-part-3/</guid><description>&lt;p>This third part has fewer improvements and could have been called &amp;ldquo;&lt;a
+href="../2025-07-02-adventures-with-rust-gpu">Adventures with rust-gpu&lt;/a> part 2&amp;rdquo; given how much
+time I spent wrestling with it.&lt;/p></description></item><item><title>Faster Proof-of-Space (part 2)</title><link>https://abundance.build/blog/2025-09-07-faster-proof-of-space-part-2/</link><pubDate>Sun, 07 Sep 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-09-07-faster-proof-of-space-part-2/</guid><description>&lt;p>In the &lt;a
+href="../2025-08-26-faster-proof-of-space-part-1">part 1&lt;/a> I shared some background information, performance improvements and future opportunities. Since then, I
+was pursuing various approaches. Some worked out nicely, others were not so fruitful. Overall, I have achieved a
+substantial performance improvement on CPU with a few more options still remaining on the table, all while becoming
+substantially more GPU-friendly.&lt;/p></description></item><item><title>Faster Proof-of-Space (part 1)</title><link>https://abundance.build/blog/2025-08-26-faster-proof-of-space-part-1/</link><pubDate>Tue, 26 Aug 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-08-26-faster-proof-of-space-part-1/</guid><description>&lt;p>In the &lt;a
+href="../2025-08-17-node-prototype">last update&lt;/a> I shared that I plan to work on GPU plotting some more, so that is what I did. The &amp;ldquo;easier&amp;rdquo; parts
+of it were &lt;a
+href="../2025-07-02-adventures-with-rust-gpu">done&lt;/a> &lt;a
+href="../2025-08-01-client-database-prototype/#gpu-plotting-implementation">earlier&lt;/a>. Now it was time for matching logic and that is more complex, so I decided to dedicate the
+whole blog post to it.&lt;/p></description></item><item><title>Node prototype</title><link>https://abundance.build/blog/2025-08-17-node-prototype/</link><pubDate>Sun, 17 Aug 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-08-17-node-prototype/</guid><description>&lt;p>The state of the codebase is slowing approaching the state in which block production might be finally possible.
+Exciting!&lt;/p></description></item><item><title>Async transaction processing</title><link>https://abundance.build/blog/2025-08-08-async-transaction-processing/</link><pubDate>Fri, 08 Aug 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-08-08-async-transaction-processing/</guid><description>&lt;p>This week I continued working with the client database and integrating it closer with the rest of the node. A key
+integration point that was missing completely and still not implemented was state management. The core parts of the
+consensus do not involve state management, but transaction processing will. So I was considering various ways to process
+transactions and came up with an idea I&amp;rsquo;ll be pursuing that should work nicely, but is also a bit unlike most of the
+blockchains out there.&lt;/p></description></item><item><title>Client database prototype</title><link>https://abundance.build/blog/2025-08-01-client-database-prototype/</link><pubDate>Fri, 01 Aug 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-08-01-client-database-prototype/</guid><description>&lt;p>The biggest update since the last blog post is that an initial prototype of the database was merged. It lays the
+foundation in terms of fundamental architecture and will now be extended to support more features. There were also
+updates in a few other areas.&lt;/p></description></item><item><title>Sparse Merkle Tree and client database preparation</title><link>https://abundance.build/blog/2025-07-20-sparse-merkle-tree-and-client-database-preparation/</link><pubDate>Sun, 20 Jul 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-07-20-sparse-merkle-tree-and-client-database-preparation/</guid><description>&lt;p>After adventures with rust-gpu, which I still monitor periodically, I moved on to the client database implementation,
+which is required for proper blockchain operation, and which is one of the bigger undertakings. Unfortunately, the
+database as such isn&amp;rsquo;t quite ready yet, but I did some preparation and would like to share some details about the
+database architecture.&lt;/p></description></item><item><title>A Deterministic Mapping for Plot Lifecycle Management</title><link>https://abundance.build/blog/2025-07-14-a-deterministic-mapping-for-plot-lifecycle-management/</link><pubDate>Mon, 14 Jul 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-07-14-a-deterministic-mapping-for-plot-lifecycle-management/</guid><description>&lt;p>This week has been mainly focused on refining a bit the design for plot identification and sector
+expiration. I think that I finally have a model with which I am comfortable with, and that I think
+solves all of our previous problems. Nazar had this idea to drastically simplify how plot IDs were
+derived, and how sectors were linked to plots. The high-level idea made sense, but there were still
+some details that weren&amp;rsquo;t clear. This week I managed to come up with a design that I think satisfies
+all of our requirements.&lt;/p></description></item><item><title>What is blockchain scalability?</title><link>https://abundance.build/blog/2025-07-13-what-is-blockchain-scalability/</link><pubDate>Sun, 13 Jul 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-07-13-what-is-blockchain-scalability/</guid><description>&lt;p>There are buzzwords in any industry that are thrown around easily, and blockchains are no exception. In this post, I
+want to focus on &amp;ldquo;scalability&amp;rdquo;. Turns out when you say &amp;ldquo;blockchain scalability&amp;rdquo; different people hear different things.
+The prevalent opinion seems to be that scalable blockchains are able to process more transactions than non-scalable ones
+or something along those lines. Essentially making the ability to scale equivalent to peak performance.&lt;/p>
+&lt;p>Sure, peak performance is an important metric, although it is often a theoretical one. But I don&amp;rsquo;t think that is the
+most useful property, especially without clarifying the conditions under which it can be achieved.&lt;/p></description></item><item><title>Simplifying Plot Expiration</title><link>https://abundance.build/blog/2025-07-07-simplifying-plot-expiration/</link><pubDate>Mon, 07 Jul 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-07-07-simplifying-plot-expiration/</guid><description>&lt;p>I have to admit that I am a bit disappointed with my progress this week. If you recall from last
+week&amp;rsquo;s update, I started the week with a base proposal to handle the linking of sectors to plots
+based on history window ranges. The idea was to limit the number of parallel sectors that could be
+created in parallel, linked to the same plot, and hence allocated to the same shard. While the
+approach seemed quite elegant because it didn&amp;rsquo;t require any changes to how piece selection and
+expiration currently works in Subspace, it turned out to be pretty complicated (even to explain) and
+not the most effective solution to prevent the attack I was trying to mitigate.&lt;/p></description></item><item><title>Adventures with rust-gpu</title><link>https://abundance.build/blog/2025-07-02-adventures-with-rust-gpu/</link><pubDate>Wed, 02 Jul 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-07-02-adventures-with-rust-gpu/</guid><description>&lt;p>GPU plotting was one of the items on the roadmap last week and that turned into a week+ long side quest, so let me share
+some details about that.&lt;/p></description></item><item><title>Expiring Sharded Subspace Plots and improving model script</title><link>https://abundance.build/blog/2025-06-30-expiring-sharded-subspace-plots-and-improving-model-script/</link><pubDate>Mon, 30 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-30-expiring-sharded-subspace-plots-and-improving-model-script/</guid><description>&lt;p>As mentioned on last week&amp;rsquo;s status update, one of the key pieces that I was missing to have the
+detailed operation of plot membership allocation was the impact of sector expiration on the
+protocol. By having a unique plot identifier, we are able to uniquely link sectors to plots, but
+these sectors need to expire in a way that does not require farmers to re-plot while archiving the
+most recent history. Fortunately, we can leverage the current expiration mechanism of the Subspace
+protocol, and build a layer on top of it to adapt it to the sharded version while maintaining the
+original guarantees in terms of plot expiration, sector re-plotting, and history archiving.&lt;/p></description></item><item><title>Block processing progress</title><link>https://abundance.build/blog/2025-06-23-block-processing-progress/</link><pubDate>Mon, 23 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-23-block-processing-progress/</guid><description>&lt;p>This was a lighter week on meaningful changes, but there are still few things to share. First of all, last week&amp;rsquo;s block
+import was (and still is) and incomplete prototype, but this week it was extended to become a bit more complete. I was
+also working on bringing up more components frm Subspace, including farmer, which lead me to attempt GPU plotting in
+Rust, so let&amp;rsquo;s get into it.&lt;/p></description></item><item><title>Reshuffling interval and living without fraud proofs</title><link>https://abundance.build/blog/2025-06-23-reshuffling-interval-and-living-without-fraud-proofs/</link><pubDate>Mon, 23 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-23-reshuffling-interval-and-living-without-fraud-proofs/</guid><description>&lt;p>Last week I shared a model that can help us reason about the security of shards assuming an honest
+majority in the beacon chain. The model evaluates what are the trade-offs in terms of the number of
+shards, the number of farmers per shard, and the proportion of malicious farmers in the system. But
+if you recall from the overall design of the system, shards are periodically submitting segments and
+blocks to the upper layers of the hierarchy and to the beacon chain. We need to verify that these
+are valid, available, and correctly encoded before they are included in super segments and the
+global history of the system. Can we do so without relying on fraud proofs? This has been one of my
+focuses for the week, let&amp;rsquo;s jump right into it.&lt;/p></description></item><item><title>Beacon chain block processing infrastructure</title><link>https://abundance.build/blog/2025-06-16-beacon-chain-block-processing-infrastructure/</link><pubDate>Mon, 16 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-16-beacon-chain-block-processing-infrastructure/</guid><description>&lt;p>There was no update last week again since I didn&amp;rsquo;t feel like there was enough to share at the time, but now that more
+things have settled I&amp;rsquo;d like to share what I&amp;rsquo;ve been busy with.&lt;/p></description></item><item><title>Thinking about the overall security of the system</title><link>https://abundance.build/blog/2025-06-16-thinking-about-the-overall-security-of-the-system/</link><pubDate>Mon, 16 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-16-thinking-about-the-overall-security-of-the-system/</guid><description>&lt;p>This week has been all about objectively assessing the security of the system. After all of the work
+around the membership allocation protocol and its security there are still two questions that we
+need to answer to understand the feasibility of the protocol: (i) what is the security bound of the
+protocol as a whole (from beacon chain to shards), and (ii) how can we ensure that plots are
+uniquely identified and that farmers cannot cheat by committing the same plot to different history
+sizes to try and game the shard allocation mechanism.&lt;/p></description></item><item><title>Modelling farmer membership allocation</title><link>https://abundance.build/blog/2025-06-09-modelling-farmer-membership-allocation/</link><pubDate>Mon, 09 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-09-modelling-farmer-membership-allocation/</guid><description>&lt;p>Last week I shared a high-level of how I was thinking farmer membership selection should work. After
+some discussions early in the week, we realised there were still some blind spots and attacks that
+we weren&amp;rsquo;t protecting against (or if we were, we didn&amp;rsquo;t have an objective measure of how robust they
+were). Thus, this week has been exclusively focused on modeling the membership selection protocol so
+we can reason objectively about its design.&lt;/p></description></item><item><title>Membership selection and segment verification</title><link>https://abundance.build/blog/2025-06-02-membership-selection-and-segment-verification/</link><pubDate>Mon, 02 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-02-membership-selection-and-segment-verification/</guid><description>&lt;p>This week has been another of those weeks where I am pretty happy with the progress made. The
+highlights of the week are the following: (i) we now have a pretty good sense of the end-to-end
+operation to commit shard segments into the global history of the beacon chain (as described in the
+discussion of &lt;a
+href="https://github.com/nazar-pc/abundance/pull/267"
+target="_blank"
+>PR267&lt;/a>); (ii) and Nazar had an idea
+to tackle the verification of the availability and correctness of shard segments without requiring
+an independent data availability mechanism, by leveraging the longest-chain rule and farmers
+membership allocation (which was an issue that was really bugging me). Let&amp;rsquo;s jump into the details
+of these two topics.&lt;/p></description></item><item><title>Path to block production and procrastination</title><link>https://abundance.build/blog/2025-06-02-path-to-block-production-and-procrastination/</link><pubDate>Mon, 02 Jun 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-06-02-path-to-block-production-and-procrastination/</guid><description>&lt;p>There have not been an update from me last week, how come? Well, it didn&amp;rsquo;t seem like there was anything particularly
+substantial to share, mostly some refactoring, so I decided to skip it. This week though I have a few words to say about
+the path towards block production (not there yet, but getting closer). Some this is a boring process, I procrastinated
+some too, diving into various topics with some interesting performance improvements and new learnings.&lt;/p></description></item><item><title>Longest-chain rule and blocks probability of reorganisation</title><link>https://abundance.build/blog/2025-05-26-longest-chain-rule-and-blocks-probability-of-reorganisation/</link><pubDate>Mon, 26 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-26-longest-chain-rule-and-blocks-probability-of-reorganisation/</guid><description>&lt;p>I started the week thinking about the mechanics of shard segment commitment into the global history
+of the beacon chain. If you recall from previous updates, we already had a pretty good idea of how
+the information about child shard segments flow up to the beacon chain, but there were still a few
+questions that were really bugging me.&lt;/p></description></item><item><title>The Unblocker - Blocks as a forest of trees</title><link>https://abundance.build/blog/2025-05-19-the-unblocker-blocks-as-a-forest-of-trees/</link><pubDate>Mon, 19 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-19-the-unblocker-blocks-as-a-forest-of-trees/</guid><description>&lt;p>I am pretty happy with the progress this week. Funnily, the main culprit for all of this progress
+has been the the work that Nazar has been doing on the definition of the block structure for our
+hierarchical consensus. I&amp;rsquo;ll let Nazar dig deeper into what he&amp;rsquo;s been doing here, but let me share
+in this post what this block structure entails, and how this has unblock several lines of work, and
+solved many issues for me.&lt;/p></description></item><item><title>What does a block look like?</title><link>https://abundance.build/blog/2025-05-19-what-does-a-block-look-like/</link><pubDate>Mon, 19 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-19-what-does-a-block-look-like/</guid><description>&lt;p>The question might seem somewhat obvious: you have a header and a body with transactions, many blockchains have it, what
+might be so difficult about it? Well, as I &lt;a
+href="../2025-05-12-address-formatting/#block-structure">mentioned in the previous update&lt;/a>, there are some complications and part of
+the challenge is related to the fact that we&amp;rsquo;re dealing with sharded architecture, which most blockchains don&amp;rsquo;t need to
+deal with.&lt;/p></description></item><item><title>Address formatting</title><link>https://abundance.build/blog/2025-05-12-address-formatting/</link><pubDate>Mon, 12 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-12-address-formatting/</guid><description>&lt;p>The discussions with Alfonso and attempts to start building an actual blockchain led to spending a big part of last week
+working on block structure. That work is not done yet. However, I like to have some sort of accomplishment at the end of
+the week if possible, so I spent some time to finally implement the formatting of addresses, which will be the main part
+of this update.&lt;/p></description></item><item><title>Digging deeper into sharded archiving</title><link>https://abundance.build/blog/2025-05-12-digging-deeper-into-sharded-archiving/</link><pubDate>Mon, 12 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-12-digging-deeper-into-sharded-archiving/</guid><description>&lt;p>This week has been mainly focused on clearing the fog around shard archiving and trying to start
+fleshing the low-level details for the protocol. It feels like in the past few weeks we&amp;rsquo;ve been
+surfacing more questions than answers, and I honestly think this is a good sign. It means that we
+are getting to the point where we can start to see the details of the protocol and how it will work
+in practice.&lt;/p></description></item><item><title>From sharded archiving to sharded plotting</title><link>https://abundance.build/blog/2025-05-05-from-sharded-archiving-to-sharded-plotting/</link><pubDate>Mon, 05 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-05-from-sharded-archiving-to-sharded-plotting/</guid><description>&lt;p>We keep iterating on the best way to discuss and make progress on the design of the protocol. Using
+issues for discussions have shown less efficient than originally expected. The inability to make
+in-line threads, and having to quote every single detail of the spec that we want to discuss about
+was really cumbersome. I started the
+&lt;a
+href="https://github.com/nazar-pc/abundance/issues/215"
+target="_blank"
+>shard block submission issue&lt;/a> as an attempt to
+start iterating the low-level details of specific protocol mechanisms in a way that is narrow enough
+and easy to track, but it didn&amp;rsquo;t fulfill all our needs. The solution? Creating discussion PRs that I
+don&amp;rsquo;t expect to get merged, but gives us all that we need to have low-level discussions about
+specific parts of the protocol, track our progress, open ideas, and discussions, and have them
+public so anyone can contribute or follow along.&lt;/p></description></item><item><title>Subspace codebase refactoring (part 2)</title><link>https://abundance.build/blog/2025-05-05-subspace-codebase-refactoring-part-2/</link><pubDate>Mon, 05 May 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-05-05-subspace-codebase-refactoring-part-2/</guid><description>&lt;p>This week was very similar to the last one with a bunch of refactoring in cleanups. There were important archiver
+improvements/fixes (depends on point of view) and more work on Merkle Trees. Two more crucial crates were moved from
+&lt;code>subspace&lt;/code> to &lt;code>crates&lt;/code>.&lt;/p></description></item><item><title>Proving blocks and segments</title><link>https://abundance.build/blog/2025-04-28-proving-blocks-and-segments/</link><pubDate>Mon, 28 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-28-proving-blocks-and-segments/</guid><description>&lt;p>We started last week with two PRs that attempted to describe in detail the operation of sharded
+archiving (&lt;a
+href="https://github.com/nazar-pc/abundance/pull/192"
+target="_blank"
+>PR192&lt;/a>), and the data availability layer
+of the system (&lt;a
+href="https://github.com/nazar-pc/abundance/pull/193"
+target="_blank"
+>PR193&lt;/a>). When I started writing this
+spec, it was meant to be for a broader audience, but we realised after a few rounds of feedback that
+the project is still in a really early stage and in constant change, so it would be more efficient
+to focus on detailing the parts of the protocol that are currently under-defined instead of trying
+to give a deep overview of the overall operation of the protocol from the get-go. The actual goal
+behind this protocol specification is to unblock the implementation of a prototype that can help us
+gain certainty about the design decisions that we are making, and surface potential blind spots in
+the design, and not to have a reference spec (just yet).&lt;/p></description></item><item><title>Subspace codebase refactoring</title><link>https://abundance.build/blog/2025-04-28-subspace-codebase-refactoring/</link><pubDate>Mon, 28 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-28-subspace-codebase-refactoring/</guid><description>&lt;p>The last week was lighter on major changes, but there was a lot of cleanups and refactoring done to prepare Subspace
+components reuse for building a new blockchain from scratch. Also some improvements based on new developer feedback.&lt;/p></description></item><item><title>Blockchain as a library</title><link>https://abundance.build/blog/2025-04-26-blockchain-as-a-library/</link><pubDate>Sat, 26 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-26-blockchain-as-a-library/</guid><description>&lt;p>Most blockchain implementations are pieces of software that include the logic to support many different roles/features,
+possibly all at once: bootstrap node, block producer, RPC node, archival node, light client, etc. That is one way to do
+it, but one thing I learned over the years is that you can do a lot of interesting optimizations if you can apply
+additional constraints during the design phase.&lt;/p>
+&lt;p>So why is basically everyone trying to combine all into one? Let&amp;rsquo;s consider different roles separately first and see
+what is special or interesting about them.&lt;/p></description></item><item><title>The beginning of a Spec</title><link>https://abundance.build/blog/2025-04-21-the-beginning-of-a-spec/</link><pubDate>Mon, 21 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-21-the-beginning-of-a-spec/</guid><description>&lt;p>Over the past weeks, my updates have highlighted many of the ideas emerging from our open design
+discussions. Now that we have a clearer direction for the design, I wanted to consolidate these
+ideas into a draft spec. This will serve as a foundation for implementing the first few prototypes,
+while also providing a structured way to gather feedback and uncover potential blind spots. I expect
+this spec to suffer significant changes, but it felt like the perfect way to consolidate the ideas,
+get feedback from the community, and unblock Nazar in case he wants to start prototyping some of the
+ideas we&amp;rsquo;ve been discussing.&lt;/p></description></item><item><title>Very fast archiving</title><link>https://abundance.build/blog/2025-04-20-very-fast-archiving/</link><pubDate>Sun, 20 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-20-very-fast-archiving/</guid><description>&lt;p>Last time I mentioned that I was looking into Merkle Trees to replace KZG. This week it happened, the whole codebase is
+basically free from KZG. The only place that is not fully fixed and where I am looking for help is &lt;a
+href="https://abundance.build/book/Contribute.html#gpu-plotting">GPU plotting&lt;/a>, it
+broke with all these changes and isn&amp;rsquo;t the highest priority for me to fix right now.&lt;/p></description></item><item><title>The data availability problem</title><link>https://abundance.build/blog/2025-04-14-the-data-availability-problem/</link><pubDate>Mon, 14 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-14-the-data-availability-problem/</guid><description>&lt;p>This week has been another good week of progress. I finally have a good idea of how shard archiving
+should work in the happy path, and I&amp;rsquo;ve started writing a low-level spec for it (that I am hoping to
+push to this repo soon). Unfortunately, there is still a slight gap in the spec that we need to fill
+before we can move forward: the &lt;em>data availability problem&lt;/em>.&lt;/p></description></item><item><title>Trees everywhere</title><link>https://abundance.build/blog/2025-04-14-trees-everywhere/</link><pubDate>Mon, 14 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-14-trees-everywhere/</guid><description>&lt;p>Last week was lighter on code changes and more heavy on research. Specifically, I&amp;rsquo;ve been looking into commitment
+schemes generally and Blake3 hash function in particular, which was already used in the codebase, but turns out can be
+applied in more interesting ways than just a hash function.&lt;/p></description></item><item><title>We are building a blockchain</title><link>https://abundance.build/blog/2025-04-08-we-are-building-a-blockchain/</link><pubDate>Tue, 08 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-08-we-are-building-a-blockchain/</guid><description>&lt;p>&lt;a
+href="../2025-01-13-welcome">Welcome&lt;/a> post mentioned briefly &lt;a
+href="https://gist.github.com/nazar-pc/760505c5ad7d56c20b2c75c1484e672f"
+target="_blank"
+>initial set of constraints&lt;/a> that led to the creation of this project, but I figured it
+might be helpful to have a short writeup about it that might be helpful for sharing.&lt;/p>
+&lt;p>In short: we&amp;rsquo;re building a blockchain.&lt;/p>
+&lt;p>By &amp;ldquo;we&amp;rdquo; I really mean just me and Alfonso so far, but I hope more people will join over time if they find it
+interesting.&lt;/p></description></item><item><title>Merged Farming</title><link>https://abundance.build/blog/2025-04-07-merged-farming/</link><pubDate>Mon, 07 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-07-merged-farming/</guid><description>&lt;p>This week I&amp;rsquo;ve gone a bit deeper into the design of the multi-shard Subspace protocol idea which I briefly introduced in
+my last update. The protocol is conformed by the following parts:&lt;/p>
+&lt;ul>
+&lt;li>Sharded archiving, responsible for creating a global canonical history of the whole system, and of creating the
+history records that will eventually become part of farmers&amp;rsquo; plots.&lt;/li>
+&lt;li>Sharded plotting, which takes records from the global history and seals them in plots that include segments of the
+history of every shard of the system, and that will be used for the farming process.&lt;/li>
+&lt;li>And finally, merged farming, which is the protocol responsible for challenging farmer plots, and deriving the
+corresponding winning tickets that elect block proposers in specific shards.&lt;/li>
+&lt;/ul>
+&lt;p>Let me introduce the high-level operation behind each of these sub-protocols, while digging deep in the one that I&amp;rsquo;ve
+focused the most on this week: sharded archiving.&lt;/p></description></item><item><title>Preparing for blockchain</title><link>https://abundance.build/blog/2025-04-07-preparing-for-blockchain/</link><pubDate>Mon, 07 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-07-preparing-for-blockchain/</guid><description>&lt;p>The majority of last week I spent tinkering with Subspace codebase after importing it here in preparation for building
+an actual blockchain.&lt;/p></description></item><item><title>Building contract files</title><link>https://abundance.build/blog/2025-03-31-building-contract-files/</link><pubDate>Mon, 31 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-31-building-contract-files/</guid><description>&lt;p>The majority of the last two weeks I&amp;rsquo;ve been busy with the installation of the antivirus system update for my immune
+system. It was neither pleasant nor quick, but now that it is slowly approaching 100%, I&amp;rsquo;m back with another update of
+what I managed to do since the last update.&lt;/p></description></item><item><title>Hierarchical Subspace Protocol</title><link>https://abundance.build/blog/2025-03-31-hierarchical-subspace-protocol/</link><pubDate>Mon, 31 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-31-hierarchical-subspace-protocol/</guid><description>&lt;p>After a lot of thinking, this week I came to the realisation that a sharded architecture like the one we are trying to
+build can be designed leveraging the current design of the Subspace protocol and all its underlying mechanisms as a
+base. While this was the idea from the beginning, either for lack of familiarity with the protocol or plain ignorance, I
+was missing the big picture of how this could be done.&lt;/p></description></item><item><title>Thinking formally in terms of sidechains</title><link>https://abundance.build/blog/2025-03-24-thinking-formally-in-terms-of-sidechains/</link><pubDate>Mon, 24 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-24-thinking-formally-in-terms-of-sidechains/</guid><description>&lt;p>Overall, I am really happy with the progress I&amp;rsquo;ve made this week. I&amp;rsquo;ve been mainly focused on unravelling one of the
+papers that I mentioned in my last update, &lt;a
+href="https://eprint.iacr.org/2018/1239.pdf"
+target="_blank"
+>Proof-of-Stake Sidechains&lt;/a>. While is
+true that we don&amp;rsquo;t want our system to have anything to do with PoS, and there is no 1:1 matching of the concepts from
+the paper with what we are trying to build, the paper presents a framework that can come pretty handy to evaluate the
+correctness of our designs. This paper is from 2018, and after a first pass the first thing that I did is to check if
+there were any follow-up papers that built upon the abstractions of this paper. I came
+across &lt;a
+href="https://eprint.iacr.org/2018/1048.pdf"
+target="_blank"
+>Proof-of-Work Sidechains&lt;/a> from the same authors, but without a doubt, the
+most complete proposal is the one that I started with. Let&amp;rsquo;s dive right into it.&lt;/p></description></item><item><title>Way faster transactions and no-panic</title><link>https://abundance.build/blog/2025-03-17-way-faster-transactions-and-no-panic/</link><pubDate>Mon, 17 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-17-way-faster-transactions-and-no-panic/</guid><description>&lt;p>The plan was to get to transaction pool implementation, but it didn&amp;rsquo;t quite happen. I did a lot of investigation around
+performance though. For example, transaction processing was several orders of magnitude slower than direct method calls
+without a transaction, which concerned me, but after optimizations of last week the difference is ~10x. And it makes
+sense given how much more work the wallet has to do on top of the method call itself.&lt;/p></description></item><item><title>Drawing inspiration from the Internet's architecture to scale consensus</title><link>https://abundance.build/blog/2025-03-16-drawing-inspiration-from-the-internets-architecture-to-scale-consensus/</link><pubDate>Sun, 16 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-16-drawing-inspiration-from-the-internets-architecture-to-scale-consensus/</guid><description>&lt;p>I want to kick-off my first weekly update in the project thanking Nazar for the warm welcome and the opportunity to work with him on this exciting project. I was really pumped to see other teams actively working on a similar problem to the one I started researching more than three years ago. For several reasons, I wasn&amp;rsquo;t actively contributing to this problem any more, but this opportunity was the perfect excuse to get back to the game.&lt;/p></description></item><item><title>There is two of us now</title><link>https://abundance.build/blog/2025-03-09-there-is-two-of-us-now/</link><pubDate>Sun, 09 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-09-there-is-two-of-us-now/</guid><description>&lt;p>The big change from the last update is that &lt;a
+href="https://www.linkedin.com/in/adlrocha/"
+target="_blank"
+>Alfonso de la Rocha&lt;/a> has joined me
+as a part-time researcher to help with sharding designing. Code-wise, there were also a bunch of performance benchmarks
+and optimizations.&lt;/p></description></item><item><title>Transactions</title><link>https://abundance.build/blog/2025-03-02-transactions/</link><pubDate>Sun, 02 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-02-transactions/</guid><description>&lt;p>The most important progress from last week is initial work on transactions. I&amp;rsquo;ve spent quite some time thinking about
+the design and even implemented an initial wallet contract alongside with related infrastructure.&lt;/p></description></item><item><title>5 million flips</title><link>https://abundance.build/blog/2025-02-21-5-million-flips/</link><pubDate>Fri, 21 Feb 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-02-21-5-million-flips/</guid><description>&lt;p>It was a challenging week working on storage access checks for slots, but it is over, and I&amp;rsquo;m quite happy with how
+things are looking right now. Some extra refactoring also allowed running tests under Miri and spotted some things that
+violate the Rust safety rules.&lt;/p></description></item><item><title>Initial developer feedback</title><link>https://abundance.build/blog/2025-02-14-initial-developer-feedback/</link><pubDate>Fri, 14 Feb 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-02-14-initial-developer-feedback/</guid><description>&lt;p>Last week felt a bit less productive with a lot of time spent thinking about how to approach slots conflict resolution
+in the native execution environment, but still managed to land a few improvements, especially on the documentation side.
+Also conducted four separate interviews.&lt;/p></description></item><item><title>Contracts are actually running</title><link>https://abundance.build/blog/2025-02-07-contracts-are-actually-running/</link><pubDate>Fri, 07 Feb 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-02-07-contracts-are-actually-running/</guid><description>&lt;p>After a lot of refactoring and preparation, native execution environment is finally functional and can be used for
+purposes like writing tests and debugging.&lt;/p></description></item><item><title>Contracts are almost running</title><link>https://abundance.build/blog/2025-01-30-contracts-are-almost-running/</link><pubDate>Thu, 30 Jan 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-01-30-contracts-are-almost-running/</guid><description>&lt;p>Last week was busy with refactoring with the primary goal of being able to run contracts in test execution environment.
+The environment is not quite ready yet, but a lot of progress was done, and it&amp;rsquo;ll hopefully be ready next week.&lt;/p></description></item><item><title>System contracts, trait support and more</title><link>https://abundance.build/blog/2025-01-21-system-contracts-trait-support-and-more/</link><pubDate>Tue, 21 Jan 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-01-21-system-contracts-trait-support-and-more/</guid><description>&lt;p>Last week was busy on various improvements for contracts infrastructure, trying to clarify existing API and ensuring
+everything that might be built is actually possible. First system contracts were introduced, trait support was added and
+more, below is a recap of key updates.&lt;/p></description></item><item><title>Welcome!</title><link>https://abundance.build/blog/2025-01-13-welcome/</link><pubDate>Mon, 13 Jan 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-01-13-welcome/</guid><description>&lt;p>Hello, world 👋!&lt;/p>
+&lt;p>This is the beginning of hopefully successful thing I call &amp;ldquo;Project Abundance&amp;rdquo;.&lt;/p>
+&lt;p>After &lt;a
+href="https://gist.github.com/nazar-pc/760505c5ad7d56c20b2c75c1484e672f"
+target="_blank"
+>writing initial set of constraints&lt;/a> and thinking about it for quite a while, it is finally time to dedicate all
+my time to it and see where it leads us.&lt;/p></description></item></channel></rss>

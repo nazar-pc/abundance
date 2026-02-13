@@ -1,0 +1,506 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`#[contract]` macro to derive contract implementation."><title>contract in ab_contracts_macros - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ab_contracts_macros" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (9e79395f9 2026-02-10)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc attr"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">contract</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ab_contracts_macros/index.html">ab_<wbr>contracts_<wbr>macros</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">contract</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#for-struct-implementation" title="For struct implementation">For struct implementation</a><ul><li><a href="#init" title="#[init]">#[init]</a></li><li><a href="#update" title="#[update]">#[update]</a></li><li><a href="#view" title="#[view]">#[view]</a></li></ul></li><li><a href="#for-trait-definition-and-trait-implementation" title="For trait definition and trait implementation">For trait definition and trait implementation</a><ul><li><a href="#update-1" title="#[update]">#[update]</a></li><li><a href="#view-1" title="#[view]">#[view]</a></li></ul></li><li><a href="#generated-code" title="Generated code">Generated code</a><ul><li><a href="#contract-trait-implementation" title="`Contract` trait implementation"><code>Contract</code> trait implementation</a></li><li><a href="#ffi-function" title="FFI function">FFI function</a></li><li><a href="#internalargs-struct" title="`InternalArgs` struct"><code>InternalArgs</code> struct</a></li><li><a href="#externalargs-implementation" title="`ExternalArgs` implementation"><code>ExternalArgs</code> implementation</a></li><li><a href="#extension-trait" title="Extension trait">Extension trait</a></li><li><a href="#metadata" title="Metadata">Metadata</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate ab_<wbr>contracts_<wbr>macros</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ab_contracts_macros</a></div><h1>Attribute Macro <span class="attr">contract</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ab_contracts_macros_impl/lib.rs.html#10">Source</a> </span></div><pre class="rust item-decl"><code>#[contract]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>#[contract]</code> macro to derive contract implementation.</p>
+<p>This macro is supposed to be applied to an implementation of the struct that in turn
+implements <a href="ab_io_type::IoType"><code>IoType</code></a> trait. <a href="ab_io_type::IoType"><code>IoType</code></a> is most commonly obtained by deriving
+<a href="ab_io_type::trivial_type::TrivialType"><code>TrivialType</code></a> (<a href="ab_io_type::IoType"><code>IoType</code></a> is implemented for all types that implement <a href="ab_io_type::trivial_type::TrivialType"><code>TrivialType</code></a>).</p>
+<p><code>#[contract]</code> macro will process <em>public</em> methods annotated with the following attributes:</p>
+<ul>
+<li><code>#[init]</code> - a method that can be called to produce an initial state of the contract,
+called once during contacts lifetime</li>
+<li><code>#[update]</code> - a method that can read and/or modify state and/or slots of the contact;
+might be called by user transaction directly or by another contract</li>
+<li><code>#[view]</code> - a method that can only read blockchain data, can read state or slots of the
+contract, but can’t modify their contents</li>
+</ul>
+<p>Each argument (except <code>self</code>) of these methods has to be annotated with one of the
+following attributes (must be in this order):</p>
+<ul>
+<li><code>#[env]</code> - an environment variable, used to access ephemeral execution environment, call
+methods on other contracts, etc.</li>
+<li><code>#[tmp]</code> - a temporary ephemeral value to store auxiliary data while processing a
+transaction</li>
+<li><code>#[slot]</code> - a slot corresponding to this contract</li>
+<li><code>#[input]</code> - a method input coming from user transaction or invocation from another
+contract</li>
+<li><code>#[output]</code> - a method output serving as an alternative to returning values from a
+function directly, useful to reduce stack usage</li>
+</ul>
+<h2 id="for-struct-implementation"><a class="doc-anchor" href="#for-struct-implementation">§</a>For struct implementation</h2><h3 id="init"><a class="doc-anchor" href="#init">§</a>#[init]</h3>
+<p>Initializer’s purpose is to produce the initial state of the contract.</p>
+<p>This method type supports the following arguments (must be in this order):</p>
+<ul>
+<li><code>#[env]</code> read-only and read-write</li>
+<li><code>#[tmp]</code> read-only and read-write</li>
+<li><code>#[slot]</code> read-only and read-write</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+</ul>
+<p><code>self</code> argument is not supported in any way in this context since the state of the contract
+is just being created.</p>
+<h3 id="update"><a class="doc-anchor" href="#update">§</a>#[update]</h3>
+<p>Generic method contract that can both update the contract’s own state and contents of
+slots.</p>
+<p>This method type supports the following arguments (must be in this order):</p>
+<ul>
+<li><code>&amp;self</code> or <code>&amp;mut self</code> depending on whether state reads and/or modification are required</li>
+<li><code>#[env]</code> read-only and read-write</li>
+<li><code>#[tmp]</code> read-only and read-write</li>
+<li><code>#[slot]</code> read-only and read-write</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+</ul>
+<h3 id="view"><a class="doc-anchor" href="#view">§</a>#[view]</h3>
+<p>Similar to <code>#[update]</code>, but can only access read-only view of the state and slots, can be
+called outside of the block context and can only call other <code>#[view]</code> methods.</p>
+<p>This method type supports the following arguments (must be in this order):</p>
+<ul>
+<li><code>&amp;self</code></li>
+<li><code>#[env]</code> read-only</li>
+<li><code>#[slot]</code> read-only</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+</ul>
+<h2 id="for-trait-definition-and-trait-implementation"><a class="doc-anchor" href="#for-trait-definition-and-trait-implementation">§</a>For trait definition and trait implementation</h2><h3 id="update-1"><a class="doc-anchor" href="#update-1">§</a>#[update]</h3>
+<p>Generic method contract that can (in case of trait indirectly) both update the contract’s
+own state and contents of slots.</p>
+<p>This method type supports the following arguments in the trait context (must be in this
+order):</p>
+<ul>
+<li><code>#[env]</code> read-only and read-write</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+</ul>
+<h3 id="view-1"><a class="doc-anchor" href="#view-1">§</a>#[view]</h3>
+<p>Similar to <code>#[update]</code>, but can only access (in case of trait indirectly) read-only view of
+the state and slots, can be called outside of the block context and can only call other
+<code>#[view]</code> methods.</p>
+<p>This method type supports the following arguments in the trait context (must be in this
+order):</p>
+<ul>
+<li><code>#[env]</code> read-only</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+</ul>
+<h2 id="generated-code"><a class="doc-anchor" href="#generated-code">§</a>Generated code</h2>
+<p>This macro will produce several key outputs:</p>
+<ul>
+<li><a href="ab_contracts_common::Contract"><code>Contract</code></a> trait implementation (for struct implementation)</li>
+<li>FFI function for every method, which can be used by the host to call into the guest
+environment (for struct and trait implementation)</li>
+<li><code>InternalArgs</code> struct corresponding to each method, used as its sole input for FFI
+function</li>
+<li>Struct implementing <a href="ab_contracts_common::method::ExternalArgs"><code>ExternalArgs</code></a> trait for each method, usable by other contracts to
+call into this contract through the host, host will interpret it based on metadata and
+generate <code>InternalArgs</code> (for struct and trait implementation, trait definitions)</li>
+<li>Extension trait (for struct and trait implementation) that simplifies interaction with
+host and removes the need to construct <a href="ab_contracts_common::method::ExternalArgs"><code>ExternalArgs</code></a> manually, providing nice strongly
+typed methods instead, implemented for <a href="ab_contracts_common::env::Env"><code>Env</code></a> struct (for struct and trait
+implementation, trait definitions)</li>
+<li>Metadata as defined in <a href="ab_contracts_common::metadata::ContractMetadataKind"><code>ContractMetadataKind</code></a> stored in the <code>ab-contract-metadata</code> link
+section when compiled with <code>guest</code> feature enabled (for method, struct, and trait
+implementation)</li>
+</ul>
+<h3 id="contract-trait-implementation"><a class="doc-anchor" href="#contract-trait-implementation">§</a><a href="ab_contracts_common::Contract"><code>Contract</code></a> trait implementation</h3>
+<p><a href="ab_contracts_common::Contract"><code>Contract</code></a> trait is required by a few other components in the system, so it is
+automatically implemented by the macro, see trait details.</p>
+<h3 id="ffi-function"><a class="doc-anchor" href="#ffi-function">§</a>FFI function</h3>
+<p>Macro generates an FFI function with C ABI that looks like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg_attr(feature = <span class="string">"guest"</span>, <span class="kw">unsafe</span>(no_mangle))]
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>{prefix}<span class="kw">_</span>{method}(
+    args: <span class="kw-2">&amp;mut </span>InternalArgs,
+) -&gt; ExitCode {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Where <code>{prefix}</code> is derived from struct or trait name and <code>{method}</code> is the original method
+name from struct or trait implementation.</p>
+<p>Example with struct implementation:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// This
+</span><span class="attr">#[contract]
+</span><span class="kw">impl </span>Example {
+    <span class="attr">#[view]
+    </span><span class="kw">pub fn </span>hello() {}
+}
+
+<span class="comment">// Will generate this
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"guest"</span>, <span class="kw">unsafe</span>(no_mangle))]
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>example_hello(
+    args: <span class="kw-2">&amp;mut </span>InternalArgs,
+) -&gt; ExitCode {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Example with trait implementation:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// This
+</span><span class="attr">#[contract]
+</span><span class="kw">impl </span>Fungible <span class="kw">for </span>Token {
+    <span class="attr">#[view]
+    </span><span class="kw">pub fn </span>balance(<span class="attr">#[slot] </span>address: <span class="kw-2">&amp;</span>Address) -&gt; Balance {}
+}
+
+<span class="comment">// Will generate this
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"guest"</span>, <span class="kw">unsafe</span>(no_mangle))]
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>fungible_balance(
+    args: <span class="kw-2">&amp;mut </span>InternalArgs,
+) -&gt; ExitCode {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>These generated functions are public and available in generated submodules, but there
+should generally be no need to call them directly.</p>
+<h3 id="internalargs-struct"><a class="doc-anchor" href="#internalargs-struct">§</a><code>InternalArgs</code> struct</h3>
+<p><code>InternalArgs</code> is generated for each method and is used as input to the above FFI
+functions. Its fields are generated based on function arguments, processing them in the
+same order as in function signature. It is possible for the host to build this data
+structure dynamically using available contact metadata.</p>
+<p>All fields in the data structure are pointers, some are read-only, some can be written to
+if changes need to be communicated back to the host. <code>read-only</code> here means that the host
+will not read the value, even if the contract modifies it.</p>
+<h4 id="self"><a class="doc-anchor" href="#self">§</a><code>&amp;self</code></h4>
+<p><code>&amp;self</code> is a read-only state of the contract and generates three fields, all of which are
+read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="kw">pub </span>state_ptr: NonNull&lt;&lt;StructName <span class="kw">as </span>IoType&gt;::PointerType&gt;,
+    <span class="kw">pub </span>state_size: u32,
+    <span class="kw">pub </span>state_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This allows a contract to read the current state of the contract.</p>
+<h4 id="mut-self"><a class="doc-anchor" href="#mut-self">§</a><code>&amp;mut self</code></h4>
+<p><code>&amp;mut self</code> is a read-write state of the contract and generates three fields, <code>state_ptr</code>
+and <code>state_size</code> can be written to, while <code>state_capacity</code> is read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="kw">pub </span>state_ptr: NonNull&lt;&lt;StructName <span class="kw">as </span>IoType&gt;::PointerType&gt;,
+    <span class="kw">pub </span>state_size: u32,
+    <span class="kw">pub </span>state_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This allows a contract to not only read, but also change the current state of the contract.
+<code>state_capacity</code> is defined by both the type used and the size of the value used (whichever
+is bigger in the case of variable-sized types) and corresponds to the amount of memory that
+host allocated for the guest behind <code>state_ptr</code>. In the case of variable-sized types, guest
+can replace<code>state_ptr</code> with a pointer to a guest-allocated region of memory that the host
+must read updated value from. This is helpful in case an increase of the value size beyond
+allocated capacity is needed.</p>
+<h4 id="env-env-env"><a class="doc-anchor" href="#env-env-env">§</a><code>#[env] env: &amp;Env</code></h4>
+<p><code>#[env] env: &amp;Env</code> is for accessing an ephemeral environment with method calls restricted
+to <code>#[view]</code>. Since this is a system-provided data structure with a known layout, only
+read-only field is generated:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>env: <span class="kw-2">&amp;</span><span class="lifetime">'internal_args </span>Env&lt;<span class="lifetime">'internal_args</span>&gt;,
+    <span class="comment">// ...
+</span>}</code></pre></div><h4 id="env-env-mut-env"><a class="doc-anchor" href="#env-env-mut-env">§</a><code>#[env] env: &amp;mut Env</code></h4>
+<p><code>#[env] env: &amp;mut Env</code> is for accessing ephemeral environment without method calls
+restrictions. Since this is a system-provided data structure with a known layout, only
+read-write field is generated:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>env_ptr: <span class="kw-2">&amp;</span><span class="lifetime">'internal_args </span><span class="kw-2">mut </span>Env&lt;<span class="lifetime">'internal_args</span>&gt;,
+    <span class="comment">// ...
+</span>}</code></pre></div><h4 id="tmp-tmp-maybedatatmp"><a class="doc-anchor" href="#tmp-tmp-maybedatatmp">§</a><code>#[tmp] tmp: &amp;MaybeData&lt;Tmp&gt;</code></h4>
+<p><code>#[tmp] tmp: &amp;MaybeData&lt;Tmp&gt;</code> is for accessing ephemeral value with auxiliary data and
+generates two fields, both of which are read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>tmp_ptr: NonNull&lt;
+        &lt;
+            &lt;StructName <span class="kw">as </span>Contract&gt;::Tmp <span class="kw">as </span>IoType
+        &gt;::PointerType,
+    &gt;,
+    <span class="kw">pub </span>tmp_size: NonNull&lt;u32&gt;,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This allows a contract to read the current ephemeral value of the contract.</p>
+<h4 id="tmp-tmp-mut-maybedatatmp"><a class="doc-anchor" href="#tmp-tmp-mut-maybedatatmp">§</a><code>#[tmp] tmp: &amp;mut MaybeData&lt;Tmp&gt;</code></h4>
+<p><code>#[tmp] tmp: &amp;MaybeData&lt;Tmp&gt;</code> is for accessing ephemeral value with auxiliary data and
+generates three fields, <code>tmp_ptr</code> and <code>tmp_size</code> can be written to, while <code>tmp_capacity</code> is
+read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>tmp_ptr: NonNull&lt;
+        &lt;
+            &lt;StructName <span class="kw">as </span>Contract&gt;::Tmp <span class="kw">as </span>IoType
+        &gt;::PointerType,
+    &gt;,
+    <span class="kw">pub </span>tmp_size: u32,
+    <span class="kw">pub </span>tmp_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This allows a contract to not only read, but also change the ephemeral value of the
+contract. <code>tmp_capacity</code> is defined by both the type used and the size of the value used
+(whichever is bigger in the case of variable-sized types) and corresponds to the amount of
+memory that host allocated for the guest behind <code>tmp_ptr</code>. In the case of variable-sized
+types, guest can replace<code>tmp_ptr</code> with a pointer to a guest-allocated region of memory that
+the host must read updated value from. This is helpful in case an increase of the value
+size beyond allocated capacity is needed.</p>
+<h4 id="slot-slot-maybedataslot-and-slot-address-slot-address-maybedataslot"><a class="doc-anchor" href="#slot-slot-maybedataslot-and-slot-address-slot-address-maybedataslot">§</a><code>#[slot] slot: &amp;MaybeData&lt;Slot&gt;</code> and <code>#[slot] (address, slot): (&amp;Address, &amp;MaybeData&lt;Slot&gt;)</code></h4>
+<p><code>#[slot] slot: &amp;MaybeData&lt;Slot&gt;</code> and its variant with explicit address argument is for
+accessing slot data (that corresponds to an optional <code>address</code> argument) and generates four
+fields, all of which are read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>slot_address: <span class="kw-2">&amp;</span><span class="lifetime">'internal_args </span>Address,
+    <span class="kw">pub </span>slot_ptr: NonNull&lt;
+        &lt;
+            &lt;StructName <span class="kw">as </span>Contract&gt;::Slot <span class="kw">as </span>IoType
+        &gt;::PointerType,
+    &gt;,
+    <span class="kw">pub </span>slot_size: u32,
+    <span class="kw">pub </span>slot_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This allows a contract to read slot data.</p>
+<h4 id="slot-slot-mut-maybedataslot-and-slot-address-slot-address-mut-maybedataslot"><a class="doc-anchor" href="#slot-slot-mut-maybedataslot-and-slot-address-slot-address-mut-maybedataslot">§</a><code>#[slot] slot: &amp;mut MaybeData&lt;Slot&gt;</code> and <code>#[slot] (address, slot): (&amp;Address, &amp;mut MaybeData&lt;Slot&gt;)</code></h4>
+<p><code>#[slot] slot: &amp;mut MaybeData&lt;Slot&gt;</code> and its variant with explicit address argument are for
+accessing slot data (that corresponds to optional <code>address</code> argument) and generates four
+fields, <code>slot_ptr</code> and <code>slot_size</code> can be written to, while <code>slot_address</code> and
+<code>slot_capacity</code> are read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>slot_address: <span class="kw-2">&amp;</span><span class="lifetime">'internal_args </span>Address,
+    <span class="kw">pub </span>slot_ptr: NonNull&lt;
+        &lt;
+            &lt;StructName <span class="kw">as </span>Contract&gt;::Slot <span class="kw">as </span>IoType
+        &gt;::PointerType,
+    &gt;,
+    <span class="kw">pub </span>slot_size: u32,
+    <span class="kw">pub </span>slot_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This allows a contract to not only read, but also change slot data.
+<code>slot_capacity</code> is defined by both the type used and the size of the value used (whichever
+is bigger in the case of variable-sized types) and corresponds to the amount of memory that
+host allocated for the guest behind <code>slot_ptr</code>. In the case of variable-sized types,
+guest can replace<code>slot_ptr</code> with a pointer to a guest-allocated region of memory that the
+host must read updated value from. This is helpful in case an increase of the value size
+beyond allocated capacity is needed.</p>
+<p>Slot changes done by the method call will not be persisted if it returns an error.</p>
+<h4 id="input-input-inputvalue"><a class="doc-anchor" href="#input-input-inputvalue">§</a><code>#[input] input: &amp;InputValue</code></h4>
+<p><code>#[input] input: &amp;InputValue</code> is a read-only input to the contract call and generates three
+fields, both of which are read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>input_ptr: NonNull&lt;&lt;InputValue <span class="kw">as </span>IoType&gt;::PointerType&gt;,
+    <span class="kw">pub </span>input_size: u32,
+    <span class="kw">pub </span>input_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div><h4 id="output-output-mut-maybedataoutputvalue"><a class="doc-anchor" href="#output-output-mut-maybedataoutputvalue">§</a><code>#[output] output: &amp;mut MaybeData&lt;OutputValue&gt;</code></h4>
+<p><code>#[output] output: &amp;mut MaybeData&lt;OutputValue&gt;</code> and regular return value is a read-write
+output to the contract call and generates three fields, <code>output_ptr</code> and <code>output_size</code> can
+be written to, while <code>output_capacity</code> is read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>output_ptr: NonNull&lt;&lt;OutputValue <span class="kw">as </span>IoType&gt;::PointerType&gt;,
+    <span class="kw">pub </span>output_size: u32,
+    <span class="kw">pub </span>output_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Initially output is initialized by the caller (typically empty), but contract can write
+something useful there and written value will be propagated back to the caller to observe.
+<code>output_ptr</code> pointer <em>must not be changed</em> as the host will not follow it to the new
+address, the output size is fully constrained by capacity specified in <code>output_capacity</code>.
+The only exception is the last <code>#[output]</code> of <code>#[init]</code> method, which is the contract’s
+initial state. In this case, its pointer can be changed to point to a different memory
+location and not being limited by <code>result_capacity</code> allocation from the host.</p>
+<p><code>#[output]</code> may be used as an alternative to <code>-&gt; ReturnValue</code> and
+<code>-&gt; Result&lt;ReturnValue, ContractError&gt;</code> in case the data structure is large and allocation
+on the stack is undesirable, which is especially helpful in case of a variable-sized
+contract state.</p>
+<h4 id="--returnvalue-and---resultreturnvalue-contracterror"><a class="doc-anchor" href="#--returnvalue-and---resultreturnvalue-contracterror">§</a><code>-&gt; ReturnValue</code> and <code>-&gt; Result&lt;ReturnValue, ContractError&gt;</code></h4>
+<p>Return values (wrapped in <code>Result</code> or not) are only possible with <a href="ab_io_type::trivial_type::TrivialType"><code>TrivialType</code></a> types,
+hence they don’t need size and capacity as separate fields:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>InternalArgs&lt;<span class="lifetime">'internal_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>ok_result: <span class="kw-2">&amp;</span><span class="lifetime">'internal_args </span><span class="kw-2">mut </span>MaybeUninit&lt;ReturnValue&gt;,
+}</code></pre></div>
+<p>NOTE: In case <code>ReturnValue</code> in <code>-&gt; ReturnValue</code> or <code>-&gt; Result&lt;ReturnValue, ContractError&gt;</code>
+is <code>()</code>, it will be omitted in <code>InternalArgs</code>.</p>
+<h3 id="externalargs-implementation"><a class="doc-anchor" href="#externalargs-implementation">§</a><a href="ab_contracts_common::method::ExternalArgs"><code>ExternalArgs</code></a> implementation</h3>
+<p>Macro generates a struct that implements <a href="ab_contracts_common::method::ExternalArgs"><code>ExternalArgs</code></a> for each method that other
+contracts give to the host when they want to call into another (or even the same) contract.</p>
+<p>Here is an example with struct implementation, but it works the same way with trait
+definition and implementation too:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// This
+</span><span class="attr">#[contract]
+</span><span class="kw">impl </span>Example {
+    <span class="attr">#[view]
+    </span><span class="kw">pub fn </span>hello() {}
+}
+
+<span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>ExampleHelloArgs&lt;<span class="lifetime">'external_args</span>&gt; {
+    <span class="comment">// ...
+</span>}
+
+<span class="attr">#[automatically_derived]
+</span><span class="kw">unsafe impl </span>ExternalArgs <span class="kw">for </span>ExampleHelloArgs {
+    <span class="comment">// ...
+</span>}
+
+<span class="kw">impl </span>ExternalArgs&lt;<span class="lifetime">'external_args</span>&gt; {
+    <span class="kw">pub fn </span>new(
+        <span class="comment">// ...
+    </span>) -&gt; <span class="self">Self </span>{
+        <span class="comment">// ...
+    </span>}
+}</code></pre></div>
+<p>Struct name if generated by concatenating struct or trait name on which name was generated,
+method name, and <code>Args</code> suffix, which is done to make it more convenient to use externally.</p>
+<p><code>&amp;self</code>, <code>&amp;mut self</code>, <code>#[env]</code> and <code>#[tmp]</code> arguments of the method are controlled fully by
+the host and not present in <code>ExternalArgs</code>.</p>
+<p><code>ExternalArgs::new()</code> method is generated for convenient construction of the instance,
+though in most cases <a href="#extension-trait">Extension trait</a> is used with a more convenient API.</p>
+<h4 id="slot"><a class="doc-anchor" href="#slot">§</a><code>#[slot]</code></h4>
+<p>Each <code>#[slot]</code> argument in <code>ExternalArgs</code> is represented by a single read-only address
+pointer:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>ExternalArgs&lt;<span class="lifetime">'external_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>slot_ptr: NonNull&lt;Address&gt;,
+    <span class="comment">// ...
+</span>}</code></pre></div><h4 id="input"><a class="doc-anchor" href="#input">§</a><code>#[input]</code></h4>
+<p>Each <code>#[input]</code> argument in <code>ExternalArgs</code> is represented by three read-only fields,
+a pointer to data, and size + capacity:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>ExternalArgs&lt;<span class="lifetime">'external_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>input_ptr: NonNull&lt;&lt;InputValue <span class="kw">as </span>IoType&gt;::PointerType&gt;,
+    <span class="kw">pub </span>input_size: u32,
+    <span class="kw">pub </span>input_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div><h4 id="output---returnvalue-and---resultreturnvalue-contracterror"><a class="doc-anchor" href="#output---returnvalue-and---resultreturnvalue-contracterror">§</a><code>#[output]</code>, <code>-&gt; ReturnValue</code> and <code>-&gt; Result&lt;ReturnValue, ContractError&gt;</code></h4>
+<p>Each <code>#[output]</code> argument in <code>ExternalArgs</code> is represented by three fields, <code>output_ptr</code>
+and <code>output_size</code> can be written to, while <code>output_capacity</code> is read-only:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>ExternalArgs&lt;<span class="lifetime">'external_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>output_ptr: NonNull&lt;&lt;OutputValue <span class="kw">as </span>IoType&gt;::PointerType&gt;,
+    <span class="kw">pub </span>output_size: u32,
+    <span class="kw">pub </span>output_capacity: u32,
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Each return value is represented by just a pointer since return type is <a href="ab_io_type::trivial_type::TrivialType"><code>TrivialType</code></a> and
+don’t need separate size and capacity fields:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>ExternalArgs&lt;<span class="lifetime">'external_args</span>&gt; {
+    <span class="comment">// ...
+    </span><span class="kw">pub </span>ok_result: <span class="kw-2">&amp;</span><span class="lifetime">'external_args </span><span class="kw-2">mut </span>MaybeUninit&lt;ReturnValue&gt;,
+}</code></pre></div>
+<p>The arguments are omitted in <code>ExternalArgs</code> for the last <code>#[output]</code> or <code>ReturnValue</code> when
+method is <code>#[init]</code> or when <code>ReturnValue</code> is <code>()</code> in other cases. For <code>#[init]</code> method’s
+return value is the contract’s initial state and is processed by the execution environment
+itself. When <code>ReturnValue</code> is <code>()</code>, then there is no point in having a pointer for it.</p>
+<p>The host will propagate the current value that <code>output_size</code> points to to the caller, so
+that the callee can both read and write to it.</p>
+<h3 id="extension-trait"><a class="doc-anchor" href="#extension-trait">§</a>Extension trait</h3>
+<p>Extension trait is just a convenient wrapper, whose safe methods take strongly typed
+arguments, construct <code>ExternalArgs</code> while respecting Rust safety invariants, and calls
+<a href="ab_contracts_common::env::Env::call()"><code>Env::call()</code></a> with it. Extension trait usage is not mandatory, but it does make method
+calls much more convenient in most simple cases.</p>
+<p>Generated methods reflect <code>ExternalArgs</code> fields with just context (except when calling
+<code>#[view]</code> method where context is not applicable), and the address of the contract being
+called is added at the beginning:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// This
+</span><span class="kw">impl </span>Token {
+    <span class="comment">// ...
+
+    </span><span class="attr">#[view]
+    </span><span class="kw">pub fn </span>balance(<span class="attr">#[slot] </span>target: <span class="kw-2">&amp;</span>MaybeData&lt;Slot&gt;) -&gt; Balance {
+        <span class="comment">// ...
+    </span>}
+
+    <span class="attr">#[update]
+    </span><span class="kw">pub fn </span>transfer(
+        <span class="attr">#[env] </span>env: <span class="kw-2">&amp;mut </span>Env&lt;<span class="lifetime">'_</span>&gt;,
+        <span class="attr">#[slot] </span>(from_address, from): (<span class="kw-2">&amp;</span>Address, <span class="kw-2">&amp;mut </span>MaybeData&lt;Slot&gt;),
+        <span class="attr">#[slot] </span>to: <span class="kw-2">&amp;mut </span>MaybeData&lt;Slot&gt;,
+        <span class="attr">#[input] </span><span class="kw-2">&amp;</span>amount: <span class="kw-2">&amp;</span>Balance,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ContractError&gt; {
+        <span class="comment">// ...
+    </span>}
+}
+
+<span class="comment">// Will generate this
+</span><span class="kw">pub trait </span>TokenExt {
+    <span class="kw">fn </span>balance(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        contract: <span class="kw-2">&amp;</span>Address,
+        target: <span class="kw-2">&amp;</span>Address,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Balance, ContractError&gt;;
+
+    <span class="kw">fn </span>transfer(
+        <span class="self">self</span>: &amp;&amp;<span class="kw-2">mut </span><span class="self">Self</span>,
+        method_context: <span class="kw-2">&amp;</span>MethodContext,
+        contract: <span class="kw-2">&amp;</span>Address,
+        from: <span class="kw-2">&amp;</span>Address,
+        to: <span class="kw-2">&amp;</span>Address,
+        amount: <span class="kw-2">&amp;</span>Balance,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ContractError&gt;;
+}
+
+<span class="kw">impl </span>TokenExt <span class="kw">for </span>Env {
+    <span class="kw">fn </span>balance(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        contract: <span class="kw-2">&amp;</span>Address,
+        target: <span class="kw-2">&amp;</span>Address,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Balance, ContractError&gt; {
+        <span class="comment">// ...
+    </span>}
+
+    <span class="kw">fn </span>transfer(
+        <span class="self">self</span>: &amp;&amp;<span class="kw-2">mut </span><span class="self">Self</span>,
+        method_context: <span class="kw-2">&amp;</span>MethodContext,
+        contract: <span class="kw-2">&amp;</span>Address,
+        from: <span class="kw-2">&amp;</span>Address,
+        to: <span class="kw-2">&amp;</span>Address,
+        amount: <span class="kw-2">&amp;</span>Balance,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ContractError&gt; {
+        <span class="comment">// ...
+    </span>}
+}</code></pre></div>
+<p>The name of the extension trait is created as struct or trait name followed by <code>Ext</code>
+suffix.</p>
+<h3 id="metadata"><a class="doc-anchor" href="#metadata">§</a>Metadata</h3>
+<p>There are several places where metadata is being generated, see <a href="ab_contracts_common::metadata::ContractMetadataKind"><code>ContractMetadataKind</code></a>
+for details.</p>
+<p>First, the <code>#[contract]</code> macro generates a public <code>METADATA</code> constant for each method
+individually.</p>
+<p>Second, for each trait that contract can implement <code>#[contract]</code> macro generates an
+associated constant <code>METADATA</code> that essentially aggregates metadata of all annotated
+methods.</p>
+<p>Third, <a href="ab_contracts_common::Contract"><code>Contract</code></a> trait implementation generated by <code>#[contract]</code> macro contains
+<code>MAIN_CONTRACT_METADATA</code> associated constant, which is similar in nature to <code>METADATA</code>
+constant for traits described above.</p>
+<p>Lastly, for the whole contract as a project, both trait and contract metadata is
+concatenated and stored in the <code>ab-contract-metadata</code> link section that can later be
+inspected externally to understand everything about the contract’s interfaces,
+auto-generate UI, etc.</p>
+</div></details></section></div></main></body></html>

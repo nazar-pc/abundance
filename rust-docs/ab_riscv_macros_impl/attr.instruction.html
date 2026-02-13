@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Processes `#[instruction]` attribute on both enum definitions and implementations."><title>instruction in ab_riscv_macros_impl - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ab_riscv_macros_impl" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (9e79395f9 2026-02-10)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc attr"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">instruction</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ab_riscv_macros_impl/index.html">ab_<wbr>riscv_<wbr>macros_<wbr>impl</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">instruction</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#enum-definition" title="Enum definition">Enum definition</a></li><li><a href="#enum-decoding-implementation" title="Enum decoding implementation">Enum decoding implementation</a></li><li><a href="#enum-display-implementation" title="Enum display implementation">Enum display implementation</a></li><li><a href="#process_instruction_macros" title="`process_instruction_macros()`"><code>process_instruction_macros()</code></a></li><li><a href="#packagelinks" title="[package.links]">[package.links]</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate ab_<wbr>riscv_<wbr>macros_<wbr>impl</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ab_riscv_macros_impl</a></div><h1>Attribute Macro <span class="attr">instruction</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ab_riscv_macros_impl/lib.rs.html#117-121">Source</a> </span></div><pre class="rust item-decl"><code>#[instruction]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Processes <code>#[instruction]</code> attribute on both enum definitions and implementations.</p>
+<h2 id="enum-definition"><a class="doc-anchor" href="#enum-definition">§</a>Enum definition</h2>
+<p>When applied to the enum definition, it can be used as simply <code>#[instruction]</code> to make an enum
+with instructions available for inheritance.</p>
+<p>More complex syntax is used when inheriting instructions:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[instruction(
+    reorder = [C, Add]</span>,
+    ignore = [E],
+    inherit = [BaseInstruction],
+    reorder = [D, A],
+)]
+<span class="kw">struct </span>Extended&lt;Reg&gt; {
+    A(Reg),
+    B(Reg),
+    C(Reg),
+    D(Reg),
+    E(Reg),
+}</code></pre></div>
+<p>This will generate an enum with both <code>BaseInstruction</code> and <code>Extended</code> instructions, while also
+reordering them according to the specified order. So the eventual enum will look like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>Extended&lt;Reg&gt; {
+    C(Reg),
+    Add { rd: Reg, rs1: Reg, rs2: Reg },
+    <span class="comment">// Any other instructions from `BaseInstruction` that were not mentioned explicitly
+    </span>D(Reg),
+    A(Reg),
+    B(Reg),
+}</code></pre></div>
+<p>Note that both <code>reorder</code>, <code>ignore</code> and <code>inherit</code> attributes can be specified multiple times, and
+reordering can reference any variant from both the <code>BaseInstruction</code> and <code>Extended</code> enums.</p>
+<p>This, of course, only works when enums have compatible generics.</p>
+<p>All instruction enums in the project must have unique names. Individual instructions can be
+repeated between inherited enums, but they must have the same exact variant definition and are
+assumed to be 100% compatible.</p>
+<p>Here is how the attributes are processed:</p>
+<ul>
+<li>first, all own and inherited enum variants are collected into a set</li>
+<li>then each attribute is processed in order of declaration
+<ul>
+<li><code>reorder</code> indicated where the corresponding variant needs to be included</li>
+<li><code>ignore</code> removed individual variants or the whole enum from a set mentioned earlier (but
+instructions that were already “reordered” before will remain). Ignored list may contain
+enums that are not in the list of inherited enums.</li>
+<li><code>inherit</code> includes all remaining variants of the corresponding enum that were not explicitly
+reordered or ignored earlier</li>
+<li>own variants that were not explicitly reordered or ignored are placed at the end of the enum</li>
+</ul>
+</li>
+</ul>
+<h2 id="enum-decoding-implementation"><a class="doc-anchor" href="#enum-decoding-implementation">§</a>Enum decoding implementation</h2>
+<p>For enum decoding implementation, the macro is applied to the implementation of <code>Instruction</code>
+trait and affects its <code>try_decode()</code> method:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[instruction]
+</span><span class="kw">impl</span>&lt;Reg&gt; <span class="kw">const </span>Instruction <span class="kw">for </span>Rv64MInstruction&lt;Reg&gt;
+<span class="kw">where
+    </span>Reg: [<span class="kw">const</span>] Register&lt;Type = u64&gt;,
+{
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p><code>try_decode()</code> implementation will end up containing decoding logic for the full extended enum
+as mentioned above. The two major restrictions are that <code>return</code> is not allowed in the
+<code>try_decode()</code> method and enum variants must be constructed using <code>Self::</code>. The implementation
+is quite fragile, so if you’re calling internal functions, they might have to be re-exported
+since the macro will simply copy-paste the decoding logic as is. Similarly with missing imports,
+etc. Compiler should be able to guide you through errors reasonably well.</p>
+<h2 id="enum-display-implementation"><a class="doc-anchor" href="#enum-display-implementation">§</a>Enum display implementation</h2>
+<p>For enum display implementation, the macro is applied to the implementation of
+<code>core::fmt::Display</code> trait and affects its <code>fmt()</code> method:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[instruction]
+</span><span class="kw">impl</span>&lt;Reg&gt; fmt::Display <span class="kw">for </span>Rv64MInstruction&lt;Reg&gt;
+<span class="kw">where
+    </span>Reg: fmt::Display + Copy,
+{
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p><code>fmt()</code> implementation will end up containing decoding logic for the full extended enum as
+mentioned above. The three major restrictions are that an enum must be generic over <code>Reg</code>
+register type, field types must have <code>Copy</code> bounds on them (like <code>Reg</code> in the example above),
+and the method body must consist of a single <code>match</code> statement.</p>
+<h2 id="process_instruction_macros"><a class="doc-anchor" href="#process_instruction_macros">§</a><code>process_instruction_macros()</code></h2>
+<p>What this macro “does” is impossible to do in Rust macros. So for completeness,
+<code>ab_riscv_macros::process_instruction_macros()</code> must be called from <code>build.rs</code> in a
+crate that uses <code>#[instruction]</code> macro to generate a bunch of special filed, which the macro
+uses to replace the original code with. This is the only way to get the desired ergonomics
+withing current constraints of what macros are allowed to do.</p>
+<h2 id="packagelinks"><a class="doc-anchor" href="#packagelinks">§</a>[package.links]</h2>
+<p><code>package</code> section of <code>Cargo.toml</code> must contain <code>links = "crate-name"</code> in order for metadata to
+be successfully exported to dependent crates.</p>
+</div></details></section></div></main></body></html>
