@@ -3,16 +3,8 @@
 //! Implements archiving process in that converts blockchain history (blocks) into archived history
 //! (segments and pieces).
 //!
-//! The main entry point here is [`create_archiver_task`] that will create a task, which while
-//! driven will perform the archiving itself.
-//!
-//! Archiving is triggered by block importing notification and tries to archive the block at
-//! [`ConsensusConstants::confirmation_depth_k`] depth from the block being imported. Block import
-//! will then wait for archiver to acknowledge processing, which is necessary for ensuring that when
-//! the next block is imported, it will contain a segment header of the newly archived block (must
-//! happen exactly in the next block).
-//!
-//! [`ConsensusConstants::confirmation_depth_k`]: ab_client_consensus_common::ConsensusConstants::confirmation_depth_k
+//! The main entry point here is [`create_segment_archiver_task`] that will create a task, which
+//! while driven will perform the archiving itself.
 //!
 //! Archiving itself will also wait for acknowledgement by various subscribers before proceeding,
 //! which includes farmer subscription, in case of reference implementation via RPC.
@@ -23,16 +15,15 @@
 //! archival history received from other network participants. Future segment header might also be
 //! already known in the case of syncing from DSN.
 //!
-//! [`recreate_genesis_segment`] is a bit of a hack and is useful for deriving of the genesis
-//! segment that is a special case since we don't have enough data in the blockchain history itself
-//! during genesis to do the archiving.
+//! [`recreate_genesis_segment`] is a bit of a hack and is useful for deriving of the genesis beacon
+//! chain segment that is a special case since we don't have enough data in the blockchain history
+//! itself during genesis to do the archiving.
 //!
 //! [`encode_block`] and [`decode_block`] are symmetric encoding/decoding functions turning
 //! Blocks into bytes and back.
 
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, NewArchivedSegment};
-use ab_archiving::objects::{BlockObject, GlobalObject};
 use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError};
 use ab_client_consensus_common::{BlockImportingNotification, ConsensusConstants};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
@@ -48,7 +39,6 @@ use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use futures::channel::mpsc;
 use futures::prelude::*;
-use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, trace, warn};
@@ -78,80 +68,14 @@ pub struct ArchivedSegmentNotification {
     pub acknowledgement_sender: mpsc::Sender<()>,
 }
 
-/// Notification with incrementally generated object mappings for a block (and any previous block
-/// continuation)
-#[derive(Debug, Clone)]
-pub struct ObjectMappingNotification {
-    /// Incremental object mappings for a block (and any previous block continuation).
-    ///
-    /// The archived data won't be available in pieces until the entire segment is full and
-    /// archived.
-    pub object_mapping: Vec<GlobalObject>,
-    /// The block that these mappings are from.
-    pub block_number: BlockNumber,
-    // TODO: add an acknowledgement_sender for backpressure if needed
-}
-
-/// Whether to create object mappings.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub enum CreateObjectMappings {
-    /// Start creating object mappings from this block number.
-    ///
-    /// This can be lower than the latest archived block, but must be greater than genesis.
-    ///
-    /// The genesis block doesn't have mappings, so starting mappings at genesis is pointless.
-    /// The archiver will fail if it can't get the data for this block, but snap sync doesn't store
-    /// the genesis data on disk.  So avoiding genesis also avoids this error.
-    /// <https://github.com/paritytech/polkadot-sdk/issues/5366>
-    Block(NonZeroU64),
-    /// Create object mappings as archiving is happening
-    Yes,
-    /// Don't create object mappings
-    #[default]
-    No,
-}
-
-impl CreateObjectMappings {
-    /// The fixed block number to start creating object mappings from.
-    /// If there is no fixed block number, or mappings are disabled, returns None.
-    fn block(&self) -> Option<BlockNumber> {
-        match self {
-            CreateObjectMappings::Block(block) => Some(BlockNumber::from(block.get())),
-            CreateObjectMappings::Yes => None,
-            CreateObjectMappings::No => None,
-        }
-    }
-
-    /// Returns true if object mappings will be created from a past or future block.
-    pub fn is_enabled(&self) -> bool {
-        !matches!(self, CreateObjectMappings::No)
-    }
-
-    /// Does the supplied block number need object mappings?
-    pub fn is_enabled_for_block(&self, block: BlockNumber) -> bool {
-        if !self.is_enabled() {
-            return false;
-        }
-
-        if let Some(target_block) = self.block() {
-            return block >= target_block;
-        }
-
-        // We're continuing where we left off, so all blocks get mappings.
-        true
-    }
-}
-
-async fn find_last_archived_block<Block, CI, COM>(
+async fn find_last_archived_block<Block, CI>(
     chain_info: &CI,
     best_block_number_to_archive: BlockNumber,
     best_block_root: &BlockRoot,
-    create_object_mappings: Option<COM>,
-) -> Option<(SegmentHeader, Block, Vec<BlockObject>)>
+) -> Option<(SegmentHeader, Block)>
 where
     Block: GenericOwnedBlock,
     CI: ChainInfo<Block>,
-    COM: Fn(&Block) -> Vec<BlockObject>,
 {
     let max_local_segment_index = chain_info.max_local_segment_index()?;
 
@@ -188,14 +112,7 @@ where
             continue;
         };
 
-        // If we're starting mapping creation at this block, return its mappings
-        let block_object_mappings = if let Some(create_object_mappings) = create_object_mappings {
-            create_object_mappings(&last_archived_block)
-        } else {
-            Vec::new()
-        };
-
-        return Some((segment_header, last_archived_block, block_object_mappings));
+        return Some((segment_header, last_archived_block));
     }
 
     None
@@ -209,7 +126,6 @@ pub fn recreate_genesis_segment(
 ) -> NewArchivedSegment {
     let encoded_block = encode_block(owned_genesis_block);
 
-    // There are no mappings in the genesis block, so they can be ignored
     let block_outcome = Archiver::new(erasure_coding)
         .add_block(encoded_block, Vec::new())
         .expect("Block is never empty and doesn't exceed u32; qed");
@@ -291,9 +207,9 @@ where
     Block::from_buffers(header_buffer, body_buffer)
 }
 
-/// Archiver task error
+/// Segment archiver task error
 #[derive(Debug, thiserror::Error)]
-pub enum ArchiverTaskError {
+pub enum SegmentArchiverTaskError {
     /// Archiver instantiation error
     #[error("Archiver instantiation error: {error}")]
     Instantiation {
@@ -345,9 +261,8 @@ struct InitializedArchiver {
 async fn initialize_archiver<Block, CI>(
     chain_info: &CI,
     confirmation_depth_k: BlockNumber,
-    create_object_mappings: CreateObjectMappings,
     erasure_coding: ErasureCoding,
-) -> Result<InitializedArchiver, ArchiverTaskError>
+) -> Result<InitializedArchiver, SegmentArchiverTaskError>
 where
     Block: GenericOwnedBlock,
     CI: ChainInfoWrite<Block>,
@@ -357,17 +272,6 @@ where
     let best_block_number: BlockNumber = best_block_header.header().prefix.number;
 
     let mut best_block_to_archive = best_block_number.saturating_sub(confirmation_depth_k);
-    // Choose a lower block number if we want to get mappings from that specific block.
-    // If we are continuing from where we left off, we don't need to change the block number to
-    // archive. If there is no path to this block from the tip due to snap sync, we'll start
-    // archiving from an earlier segment, then start mapping again once archiving reaches this
-    // block.
-    if let Some(block_number) = create_object_mappings.block() {
-        // There aren't any mappings in the genesis block, so starting there is pointless.
-        // (And causes errors on restart, because genesis block data is never stored during snap
-        // sync.)
-        best_block_to_archive = best_block_to_archive.min(block_number);
-    }
 
     if (best_block_to_archive..best_block_number).any(|block_number| {
         chain_info
@@ -380,77 +284,14 @@ where
         best_block_to_archive = best_block_number;
     }
 
-    // TODO: Uncomment once API for object mapping is established
-    // // If the user chooses an object mapping start block we don't have data or state for, we
-    // // can't create mappings for it, so the node must exit with an error. We ignore genesis
-    // // here, because it doesn't have mappings.
-    // if create_object_mappings.is_enabled() && best_block_to_archive >= BlockNumber::ONE {
-    //     let Some(best_block_to_archive_root) = client.root(NumberFor::<Block>::saturated_from(
-    //         best_block_to_archive.as_u64(),
-    //     ))?
-    //     else {
-    //         let error = format!(
-    //             "Missing root for mapping block {best_block_to_archive}, \
-    //             try a higher block number, or wipe your node and restart with `--sync full`"
-    //         );
-    //         return Err(sp_blockchain::Error::Application(error.into()));
-    //     };
-    //
-    //     let Some(_best_block_data) = client.block(best_block_to_archive_root)? else {
-    //         let error = format!(
-    //             "Missing data for mapping block {best_block_to_archive} \
-    //             root {best_block_to_archive_root}, \
-    //             try a higher block number, or wipe your node and restart with `--sync full`"
-    //         );
-    //         return Err(sp_blockchain::Error::Application(error.into()));
-    //     };
-    //
-    //     // Similarly, state can be pruned, even if the data is present
-    //     // TODO: Injection of external logic
-    //     // client
-    //     //     .runtime_api()
-    //     //     .extract_block_object_mapping(
-    //     //         *best_block_data.block.header().parent_root(),
-    //     //         best_block_data.block.clone(),
-    //     //     )
-    //     //     .map_err(|error| {
-    //     //         sp_blockchain::Error::Application(
-    //     //             format!(
-    //     //                 "Missing state for mapping block {best_block_to_archive} \
-    //     //                 root {best_block_to_archive_root}: {error}, \
-    //     //                 try a higher block number, or wipe your node and restart with
-    //     //                 `--sync full`"
-    //     //             )
-    //     //             .into(),
-    //     //         )
-    //     //     })?;
-    // }
-
-    let maybe_last_archived_block = find_last_archived_block(
-        chain_info,
-        best_block_to_archive,
-        &best_block_root,
-        create_object_mappings
-            .is_enabled()
-            .then_some(|_block: &Block| {
-                // TODO: Injection of external logic
-                // let parent_root = *block.header().parent_root();
-                // client
-                //     .runtime_api()
-                //     .extract_block_object_mapping(parent_root, block)
-                //     .unwrap_or_default()
-                Vec::new()
-            }),
-    )
-    .await;
+    let maybe_last_archived_block =
+        find_last_archived_block(chain_info, best_block_to_archive, &best_block_root).await;
 
     let have_last_segment_header = maybe_last_archived_block.is_some();
     let mut best_archived_block = None::<(BlockRoot, BlockNumber)>;
 
     let mut archiver =
-        if let Some((last_segment_header, last_archived_block, block_object_mappings)) =
-            maybe_last_archived_block
-        {
+        if let Some((last_segment_header, last_archived_block)) = maybe_last_archived_block {
             // Continuing from existing initial state
             let last_archived_block_number = last_segment_header.last_archived_block.number;
             info!(
@@ -472,7 +313,7 @@ where
                 erasure_coding,
                 last_segment_header,
                 &last_archived_block_encoded,
-                block_object_mappings,
+                Vec::new(),
             )?
         } else {
             info!("Starting archiving from genesis");
@@ -514,20 +355,6 @@ where
                     .await
                     .expect("All blocks since last archived must be present; qed");
 
-                let block_object_mappings =
-                    if create_object_mappings.is_enabled_for_block(block_number_to_archive) {
-                        // TODO: Injection of external logic
-                        // runtime_api
-                        //     .extract_block_object_mapping(
-                        //         *block.block.header().parent_root(),
-                        //         block.block.clone(),
-                        //     )
-                        //     .unwrap_or_default()
-                        Vec::new()
-                    } else {
-                        Vec::new()
-                    };
-
                 let encoded_block = encode_block(&block);
 
                 debug!(
@@ -537,14 +364,8 @@ where
                 );
 
                 let block_outcome = archiver
-                    .add_block(encoded_block, block_object_mappings)
+                    .add_block(encoded_block, Vec::new())
                     .expect("Block is never empty and doesn't exceed u32; qed");
-                // TODO: Allow to capture these from the outside
-                // send_object_mapping_notification(
-                //     &subspace_link.object_mapping_notification_sender,
-                //     block_outcome.global_objects,
-                //     block_number_to_archive,
-                // );
                 let new_segment_headers: Vec<SegmentHeader> = block_outcome
                     .archived_segments
                     .iter()
@@ -571,10 +392,12 @@ where
     })
 }
 
-/// Create an archiver task.
+// TODO: Public API for re-archiving of blocks with ability to produce object mappings
+/// Create a segment archiver task.
 ///
 /// Archiver task will listen for importing blocks and archive blocks at `K` depth, producing pieces
-/// and segment headers (segment headers are then added back to the blockchain in the next block).
+/// and segment headers. It produces local segments initially, which after confirmation by the
+/// beacon chain will be updated with the necessary proof and given a global segment index.
 ///
 /// NOTE: Archiver is doing blocking operations and must run in a dedicated task.
 ///
@@ -585,40 +408,30 @@ where
 /// Archiving is triggered by block importing notification (`block_importing_notification_receiver`)
 /// and tries to archive the block at [`ConsensusConstants::confirmation_depth_k`] depth from the
 /// block being imported. Block importing will then wait for archiver to acknowledge processing,
-/// which is necessary for ensuring that when the next block is imported, the body will contain a
-/// segment header of the newly archived segment.
-///
-/// `create_object_mappings` controls when object mappings are created for archived blocks. When
-/// these mappings are created.
+/// which is necessary for ensuring that when the next block is imported, the newly archived segment
+/// is already available deterministically.
 ///
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
-/// sent and archiver will be paused until all receivers have provided an acknowledgement for it.
-pub async fn create_archiver_task<Block, CI>(
+/// sent and archiver will be paused until all receivers have provided an acknowledgement for it (or
+/// a very generous timeout has passed).
+pub async fn create_segment_archiver_task<Block, CI>(
     chain_info: CI,
     mut block_importing_notification_receiver: mpsc::Receiver<BlockImportingNotification>,
     mut archived_segment_notification_sender: mpsc::Sender<ArchivedSegmentNotification>,
     consensus_constants: ConsensusConstants,
-    create_object_mappings: CreateObjectMappings,
     erasure_coding: ErasureCoding,
-) -> Result<impl Future<Output = Result<(), ArchiverTaskError>> + Send + 'static, ArchiverTaskError>
+) -> Result<
+    impl Future<Output = Result<(), SegmentArchiverTaskError>> + Send + 'static,
+    SegmentArchiverTaskError,
+>
 where
     Block: GenericOwnedBlock,
     CI: ChainInfoWrite<Block> + 'static,
 {
-    if create_object_mappings.is_enabled() {
-        info!(
-            ?create_object_mappings,
-            "Creating object mappings from the configured block onwards"
-        );
-    } else {
-        info!("Not creating object mappings");
-    }
-
     let maybe_archiver = if chain_info.max_local_segment_index().is_none() {
         let initialize_archiver_fut = initialize_archiver(
             &chain_info,
             consensus_constants.confirmation_depth_k,
-            create_object_mappings,
             erasure_coding.clone(),
         );
         Some(initialize_archiver_fut.await?)
@@ -633,7 +446,6 @@ where
                 let initialize_archiver_fut = initialize_archiver(
                     &chain_info,
                     consensus_constants.confirmation_depth_k,
-                    create_object_mappings,
                     erasure_coding.clone(),
                 );
                 initialize_archiver_fut.await?
@@ -665,8 +477,6 @@ where
                 .expect("Exists after archiver initialization; qed")
                 .last_archived_block
                 .number();
-            let create_mappings =
-                create_object_mappings.is_enabled_for_block(last_archived_block_number);
             trace!(
                 %importing_block_number,
                 %block_number_to_archive,
@@ -675,9 +485,8 @@ where
                 "Checking if block needs to be skipped"
             );
 
-            // Skip archived blocks, unless we're producing object mappings for them
-            let skip_last_archived_blocks =
-                last_archived_block_number > block_number_to_archive && !create_mappings;
+            // Skip archived blocks
+            let skip_last_archived_blocks = last_archived_block_number > block_number_to_archive;
             if best_archived_block_number >= block_number_to_archive || skip_last_archived_blocks {
                 // This block was already archived, skip
                 debug!(
@@ -700,7 +509,6 @@ where
                 let initialize_archiver_fut = initialize_archiver(
                     &chain_info,
                     consensus_constants.confirmation_depth_k,
-                    create_object_mappings,
                     erasure_coding.clone(),
                 );
                 InitializedArchiver {
@@ -724,7 +532,7 @@ where
                     // block for now
                     continue;
                 } else {
-                    return Err(ArchiverTaskError::BlockGap {
+                    return Err(SegmentArchiverTaskError::BlockGap {
                         best_archived_block_number,
                         block_number_to_archive,
                         importing_block_number,
@@ -739,7 +547,6 @@ where
                 best_archived_block_root,
                 block_number_to_archive,
                 &best_block_root,
-                create_object_mappings,
             )
             .await?;
         }
@@ -752,14 +559,11 @@ where
 async fn archive_block<Block, CI>(
     archiver: &mut Archiver,
     chain_info: &CI,
-    // TODO: Probably remove
-    // object_mapping_notification_sender: SubspaceNotificationSender<ObjectMappingNotification>,
     archived_segment_notification_sender: &mut mpsc::Sender<ArchivedSegmentNotification>,
     best_archived_block_root: BlockRoot,
     block_number_to_archive: BlockNumber,
     best_block_root: &BlockRoot,
-    create_object_mappings: CreateObjectMappings,
-) -> Result<(BlockRoot, BlockNumber), ArchiverTaskError>
+) -> Result<(BlockRoot, BlockNumber), SegmentArchiverTaskError>
 where
     Block: GenericOwnedBlock,
     CI: ChainInfoWrite<Block>,
@@ -770,7 +574,7 @@ where
 
     let parent_block_root = header.header().prefix.parent_root;
     if parent_block_root != best_archived_block_root {
-        return Err(ArchiverTaskError::ArchivingReorg {
+        return Err(SegmentArchiverTaskError::ArchivingReorg {
             parent_block_root,
             best_archived_block_root,
         });
@@ -785,23 +589,6 @@ where
 
     debug!("Archiving block {block_number_to_archive} ({block_root_to_archive})");
 
-    let create_mappings = create_object_mappings.is_enabled_for_block(block_number_to_archive);
-
-    let block_object_mappings = if create_mappings {
-        // TODO: Injection of external logic
-        // client
-        //     .runtime_api()
-        //     .extract_block_object_mapping(parent_block_root, block.block.clone())
-        //     .map_err(|error| {
-        //         sp_blockchain::Error::Application(
-        //             format!("Failed to retrieve block object mappings: {error}").into(),
-        //         )
-        //     })?
-        Vec::new()
-    } else {
-        Vec::new()
-    };
-
     let encoded_block = encode_block(&block);
     debug!(
         "Encoded block {block_number_to_archive} has size of {}",
@@ -809,14 +596,8 @@ where
     );
 
     let block_outcome = archiver
-        .add_block(encoded_block, block_object_mappings)
+        .add_block(encoded_block, Vec::new())
         .expect("Block is never empty and doesn't exceed u32; qed");
-    // TODO: Probably remove
-    // send_object_mapping_notification(
-    //     &object_mapping_notification_sender,
-    //     block_outcome.global_objects,
-    //     block_number_to_archive,
-    // );
     for archived_segment in block_outcome.archived_segments {
         let segment_header = archived_segment.segment_header;
 
@@ -830,24 +611,6 @@ where
 
     Ok((block_root_to_archive, block_number_to_archive))
 }
-
-// TODO: Probably remove
-// fn send_object_mapping_notification(
-//     object_mapping_notification_sender: &SubspaceNotificationSender<ObjectMappingNotification>,
-//     object_mapping: Vec<GlobalObject>,
-//     block_number: BlockNumber,
-// ) {
-//     if object_mapping.is_empty() {
-//         return;
-//     }
-//
-//     let object_mapping_notification = ObjectMappingNotification {
-//         object_mapping,
-//         block_number,
-//     };
-//
-//     object_mapping_notification_sender.notify(move || object_mapping_notification);
-// }
 
 async fn send_archived_segment_notification(
     archived_segment_notification_sender: &mut mpsc::Sender<ArchivedSegmentNotification>,
