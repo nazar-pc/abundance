@@ -59,7 +59,7 @@ ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/cont
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 aes = "0.9.0-rc.4"
-anyhow = { version = "1.0.101", default-features = false }
+anyhow = { version = "1.0.102", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
 async-nats = { version = "0.46.0", default-features = false, features = ["ring"] }
@@ -73,7 +73,7 @@ bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "f2244a3f7f9f30998918a543075a1ce17b42af64", default-features = false }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0", default-features = false }
-clap = { version = "4.5.57", features = ["derive"] }
+clap = { version = "4.5.60", features = ["derive"] }
 const_format = "0.2.35"
 core_affinity = "0.8.3"
 cpufeatures = "0.3.0"
@@ -89,17 +89,17 @@ fdlimit = "0.3.0"
 # TODO: Not using fs4 intentionally due to https://github.com/al8n/fs4-rs/issues/15
 fs2 = "0.4.3"
 fs4 = "0.13.1"
-futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
+futures = { version = "0.3.32", default-features = false, features = ["async-await"] }
 futures-timer = "3.0.3"
 halfbrown = "0.4.0"
 hex = { version = "0.4.3", default-features = false }
 hwlocality = "1.0.0-alpha.11"
 ident_case = "1.0.1"
 jsonrpsee = "0.26.0"
-libc = "0.2.180"
+libc = "0.2.182"
 libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea", default-features = false }
 libp2p-swarm-test = { version = "0.6.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
-memmap2 = "0.9.9"
+memmap2 = "0.9.10"
 mimalloc = "0.1.48"
 multihash = "0.19.3"
 nohash-hasher = "0.2.0"
@@ -131,9 +131,9 @@ sha2 = { version = "0.11.0-rc.5", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "e7e447a9395a77caec5cbddea556af86bc68c573" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
-strum = { version = "0.27.2", default-features = false, features = ["derive"] }
-syn = "2.0.114"
-tempfile = "3.24.0"
+strum = { version = "0.28.0", default-features = false, features = ["derive"] }
+syn = "2.0.117"
+tempfile = "3.26.0"
 thiserror = { version = "2.0.18", default-features = false }
 thread-priority = "3.0.0"
 tokio = { version = "1.49.0", default-features = false }
