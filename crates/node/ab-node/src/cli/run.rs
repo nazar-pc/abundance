@@ -6,7 +6,7 @@ use crate::storage_backend::FileStorageBackend;
 use crate::{Error, PAGE_GROUP_SIZE};
 use ab_cli_utils::shutdown_signal;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_archiving::{ArchiverTaskError, CreateObjectMappings, create_archiver_task};
+use ab_client_archiving::segment::{SegmentArchiverTaskError, create_segment_archiver_task};
 use ab_client_block_authoring::beacon_chain::BeaconChainBlockProducer;
 use ab_client_block_authoring::slot_worker::{SlotWorker, SlotWorkerOptions};
 use ab_client_block_builder::beacon_chain::BeaconChainBlockBuilder;
@@ -128,12 +128,12 @@ pub(crate) enum RunError {
         #[from]
         error: ClientDatabaseError,
     },
-    /// Failed to create an archiver task
-    #[error("Failed to create an archiver task: {error}")]
-    ArchiverTask {
+    /// Failed to create a segment archiver task
+    #[error("Failed to create a segment archiver task: {error}")]
+    SegmentArchiverTask {
         /// Low-level error
         #[from]
-        error: ArchiverTaskError,
+        error: SegmentArchiverTaskError,
     },
     /// Failed to start farmer RPC server
     #[error("Failed to start farmer RPC server: {error}")]
@@ -618,12 +618,11 @@ impl Run {
 
         // TODO: Initialize in a blocking task
         let archiver_task = tokio::task::block_in_place(|| {
-            Handle::current().block_on(create_archiver_task(
+            Handle::current().block_on(create_segment_archiver_task(
                 client_database.clone(),
                 block_importing_notification_receiver,
                 archived_segment_notification_sender,
                 consensus_constants,
-                CreateObjectMappings::No,
                 erasure_coding,
             ))
         })?;
