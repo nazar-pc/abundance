@@ -379,43 +379,46 @@ impl DirectIoFile {
 
         let buf = buf.as_flattened_mut();
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::FileExt;
+        cfg_select! {
+            unix => {{
+                use std::os::unix::fs::FileExt;
 
-            self.file.read_exact_at(buf, offset)
-        }
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::FileExt;
+                self.file.read_exact_at(buf, offset)
+            }}
+            windows => {{
+                use std::os::windows::fs::FileExt;
 
-            let mut buf = buf;
-            let mut offset = offset;
-            while !buf.is_empty() {
-                match self.file.seek_read(buf, offset) {
-                    Ok(0) => {
-                        break;
-                    }
-                    Ok(n) => {
-                        buf = &mut buf[n..];
-                        offset += n as u64;
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {
-                        // Try again
-                    }
-                    Err(e) => {
-                        return Err(e);
+                let mut buf = buf;
+                let mut offset = offset;
+                while !buf.is_empty() {
+                    match self.file.seek_read(buf, offset) {
+                        Ok(0) => {
+                            break;
+                        }
+                        Ok(n) => {
+                            buf = &mut buf[n..];
+                            offset += n as u64;
+                        }
+                        Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {
+                            // Try again
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
                     }
                 }
-            }
 
-            if !buf.is_empty() {
-                Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "failed to fill the whole buffer",
-                ))
-            } else {
-                Ok(())
+                if !buf.is_empty() {
+                    Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "failed to fill the whole buffer",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }}
+            _ => {
+                compile_error!("Unsupported platform (consider contributing)");
             }
         }
     }
@@ -428,40 +431,43 @@ impl DirectIoFile {
     pub fn write_all_at_raw(&self, buf: &[AlignedPage], offset: u64) -> io::Result<()> {
         let buf = AlignedPage::slice_to_repr(buf).as_flattened();
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::FileExt;
+        cfg_select! {
+            unix => {{
+                use std::os::unix::fs::FileExt;
 
-            self.file.write_all_at(buf, offset)
-        }
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::FileExt;
+                self.file.write_all_at(buf, offset)
+            }}
+            windows => {{
+                use std::os::windows::fs::FileExt;
 
-            let mut buf = buf;
-            let mut offset = offset;
-            while !buf.is_empty() {
-                match self.file.seek_write(buf, offset) {
-                    Ok(0) => {
-                        return Err(io::Error::new(
-                            io::ErrorKind::WriteZero,
-                            "failed to write the whole buffer",
-                        ));
-                    }
-                    Ok(n) => {
-                        buf = &buf[n..];
-                        offset += n as u64;
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {
-                        // Try again
-                    }
-                    Err(e) => {
-                        return Err(e);
+                let mut buf = buf;
+                let mut offset = offset;
+                while !buf.is_empty() {
+                    match self.file.seek_write(buf, offset) {
+                        Ok(0) => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::WriteZero,
+                                "failed to write the whole buffer",
+                            ));
+                        }
+                        Ok(n) => {
+                            buf = &buf[n..];
+                            offset += n as u64;
+                        }
+                        Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {
+                            // Try again
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
                     }
                 }
-            }
 
-            Ok(())
+                Ok(())
+            }}
+            _ => {
+                compile_error!("Unsupported platform (consider contributing)");
+            }
         }
     }
 

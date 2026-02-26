@@ -209,19 +209,18 @@ impl<'a> Env<'a> {
     /// convenient way to make method calls and are enough in most cases.
     #[inline]
     pub fn call_prepared(&self, method: PreparedMethod<'_>) -> Result<(), ContractError> {
-        #[cfg(feature = "executor")]
-        {
-            let mut method = method;
-            self.executor_context.call(&self.state, &mut method)
-        }
-        #[cfg(all(feature = "guest", not(feature = "executor")))]
-        {
-            __ab_host_call(&method).into()
-        }
-        #[cfg(not(any(feature = "executor", feature = "guest")))]
-        {
-            let _ = method;
-            Err(ContractError::InternalError)
+        cfg_select! {
+            feature = "executor" => {
+                let mut method = method;
+                self.executor_context.call(&self.state, &mut method)
+            }
+            feature = "guest" => {
+                __ab_host_call(&method).into()
+            }
+            _ => {
+                let _ = method;
+                Err(ContractError::InternalError)
+            }
         }
     }
 }
