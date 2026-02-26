@@ -1,5 +1,4 @@
 #![feature(
-    assert_matches,
     const_block_items,
     exact_size_is_empty,
     fmt_helpers_for_derive,

@@ -29,15 +29,14 @@ where
             Self::Sha256Sig0 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha256sig0(x)
+                let res32 = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha256sig0(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
                     }
                 };
@@ -49,15 +48,14 @@ where
             Self::Sha256Sig1 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = {
+                let res32 = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
                     // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha256sig1(x)
+                        unsafe {
+                            core::arch::riscv64::sha256sig1(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
                     }
                 };
@@ -69,15 +67,14 @@ where
             Self::Sha256Sum0 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha256sum0(x)
+                let res32 = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha256sum0(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
                     }
                 };
@@ -89,15 +86,14 @@ where
             Self::Sha256Sum1 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha256sum1(x)
+                let res32 = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha256sum1(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
                     }
                 };
@@ -109,15 +105,14 @@ where
             Self::Sha512Sig0 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha512sig0(x)
+                let res = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha512sig0(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(1) ^ x.rotate_right(8) ^ (x >> 7)
                     }
                 };
@@ -127,15 +122,14 @@ where
             Self::Sha512Sig1 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha512sig1(x)
+                let res = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha512sig1(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(19) ^ x.rotate_right(61) ^ (x >> 6)
                     }
                 };
@@ -145,15 +139,14 @@ where
             Self::Sha512Sum0 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha512sum0(x)
+                let res = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha512sum0(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(28) ^ x.rotate_right(34) ^ x.rotate_right(39)
                     }
                 };
@@ -163,15 +156,14 @@ where
             Self::Sha512Sum1 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                    #[cfg(all(not(miri), target_arch = "riscv64", target_feature = "zknh"))]
-                    unsafe {
-                        core::arch::riscv64::sha512sum1(x)
+                let res = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
+                        // SAFETY: Just an intrinsic, no undefined behavior
+                        unsafe {
+                            core::arch::riscv64::sha512sum1(x)
+                        }
                     }
-
-                    #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknh")))]
-                    {
+                    _ => {
                         x.rotate_right(14) ^ x.rotate_right(18) ^ x.rotate_right(41)
                     }
                 };

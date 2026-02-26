@@ -364,7 +364,7 @@ In the simplest case, slapping `#[instruction]` on instruction definition and de
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64Instruction<Reg> {
     Add { rd: Reg, rs1: Reg, rs2: Reg },
-    // ,,,
+    // ...
 }
 
 #[instruction]
@@ -424,7 +424,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-And for all this to be reusable by dependencies it, `package.links` needs to be added to `Cargo.toml`:
+And for all this to be reusable by dependencies, `package.links` needs to be added to `Cargo.toml`:
 
 ```toml
 [package]

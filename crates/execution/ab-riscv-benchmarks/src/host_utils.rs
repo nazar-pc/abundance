@@ -19,13 +19,11 @@ use core::mem::offset_of;
 use core::ops::ControlFlow;
 
 /// Contract file bytes
-pub const RISCV_CONTRACT_BYTES: &[u8] = {
-    #[cfg(target_env = "abundance")]
-    {
+pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
+    target_env = "abundance" => {
         &[]
     }
-    #[cfg(not(target_env = "abundance"))]
-    {
+    _ => {
         include_bytes!(env!("CONTRACT_PATH"))
     }
 };

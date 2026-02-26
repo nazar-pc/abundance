@@ -22,56 +22,57 @@ pub trait OpenOptionsExt {
 }
 
 impl OpenOptionsExt for OpenOptions {
-    #[cfg(not(windows))]
     fn advise_random_access(&mut self) -> &mut Self {
-        // Not supported
-        self
+        cfg_select! {
+            windows => {{
+                use std::os::windows::fs::OpenOptionsExt;
+                // `FILE_FLAG_WRITE_THROUGH` below is a bit of a hack, especially in
+                // `advise_random_access`, but it helps with memory usage and feels like should be
+                // default. Since `.custom_flags()` overrides previous value, we need to set bitwise
+                // OR of two flags rather that two flags separately.
+                self.custom_flags(
+                    windows::Win32::Storage::FileSystem::FILE_FLAG_RANDOM_ACCESS.0
+                        | windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0,
+                )
+            }}
+            _ => {
+                // Not supported
+                self
+            }
+        }
     }
 
-    #[cfg(windows)]
-    fn advise_random_access(&mut self) -> &mut Self {
-        use std::os::windows::fs::OpenOptionsExt;
-        // `FILE_FLAG_WRITE_THROUGH` below is a bit of a hack, especially in `advise_random_access`,
-        // but it helps with memory usage and feels like should be default. Since `.custom_flags()`
-        // overrides previous value, we need to set bitwise OR of two flags rather that two flags
-        // separately.
-        self.custom_flags(
-            windows::Win32::Storage::FileSystem::FILE_FLAG_RANDOM_ACCESS.0
-                | windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0,
-        )
-    }
-
-    #[cfg(not(windows))]
     fn advise_sequential_access(&mut self) -> &mut Self {
-        // Not supported
-        self
+        cfg_select! {
+            windows => {{
+                use std::os::windows::fs::OpenOptionsExt;
+                self.custom_flags(windows::Win32::Storage::FileSystem::FILE_FLAG_SEQUENTIAL_SCAN.0)
+            }}
+            _ => {
+                // Not supported
+                self
+            }
+        }
     }
 
-    #[cfg(windows)]
-    fn advise_sequential_access(&mut self) -> &mut Self {
-        use std::os::windows::fs::OpenOptionsExt;
-        self.custom_flags(windows::Win32::Storage::FileSystem::FILE_FLAG_SEQUENTIAL_SCAN.0)
-    }
-
-    #[cfg(windows)]
     fn use_direct_io(&mut self) -> &mut Self {
-        use std::os::windows::fs::OpenOptionsExt;
-        self.custom_flags(
-            windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0
-                | windows::Win32::Storage::FileSystem::FILE_FLAG_NO_BUFFERING.0,
-        )
-    }
-
-    #[cfg(target_os = "linux")]
-    fn use_direct_io(&mut self) -> &mut Self {
-        use std::os::unix::fs::OpenOptionsExt;
-        self.custom_flags(libc::O_DIRECT)
-    }
-
-    #[cfg(not(any(target_os = "linux", windows)))]
-    fn use_direct_io(&mut self) -> &mut Self {
-        // Not supported
-        self
+        cfg_select! {
+            windows => {{
+                use std::os::windows::fs::OpenOptionsExt;
+                self.custom_flags(
+                    windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0
+                        | windows::Win32::Storage::FileSystem::FILE_FLAG_NO_BUFFERING.0,
+                )
+            }}
+            target_os = "linux" => {{
+                use std::os::unix::fs::OpenOptionsExt;
+                self.custom_flags(libc::O_DIRECT)
+            }}
+            _ => {
+                // Not supported
+                self
+            }
+        }
     }
 }
 
@@ -111,145 +112,158 @@ impl FileExt for File {
         fs2::FileExt::allocate(self, len)
     }
 
-    #[cfg(target_os = "linux")]
     fn advise_random_access(&self) -> Result<()> {
-        use std::os::unix::io::AsRawFd;
-        // SAFETY: Correct low-level FFI file
-        let err = unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_RANDOM) };
-        if err != 0 {
-            Err(std::io::Error::from_raw_os_error(err))
-        } else {
-            Ok(())
+        cfg_select! {
+            target_os = "linux" => {{
+                use std::os::unix::io::AsRawFd;
+                // SAFETY: Correct low-level FFI file
+                let err = unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_RANDOM) };
+                if err != 0 {
+                    Err(std::io::Error::from_raw_os_error(err))
+                } else {
+                    Ok(())
+                }
+            }}
+            target_os = "macos" => {{
+                use std::os::unix::io::AsRawFd;
+                // SAFETY: Correct low-level FFI file
+                if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 0) } != 0 {
+                    Err(std::io::Error::last_os_error())
+                } else {
+                    Ok(())
+                }
+            }}
+            _ => {
+                // Not supported
+                Ok(())
+            }
         }
     }
 
-    #[cfg(target_os = "macos")]
-    fn advise_random_access(&self) -> Result<()> {
-        use std::os::unix::io::AsRawFd;
-        // SAFETY: Correct low-level FFI file
-        if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 0) } != 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(())
-        }
-    }
-
-    #[cfg(windows)]
-    fn advise_random_access(&self) -> Result<()> {
-        // Not supported
-        Ok(())
-    }
-
-    #[cfg(target_os = "linux")]
     fn advise_sequential_access(&self) -> Result<()> {
-        use std::os::unix::io::AsRawFd;
-        // SAFETY: Correct low-level FFI file
-        let err =
-            unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL) };
-        if err != 0 {
-            Err(std::io::Error::from_raw_os_error(err))
-        } else {
-            Ok(())
+        cfg_select! {
+            target_os = "linux" => {{
+                use std::os::unix::io::AsRawFd;
+                // SAFETY: Correct low-level FFI file
+                let err =
+                    unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL) };
+                if err != 0 {
+                    Err(std::io::Error::from_raw_os_error(err))
+                } else {
+                    Ok(())
+                }
+            }}
+            target_os = "macos" => {{
+                use std::os::unix::io::AsRawFd;
+                // SAFETY: Correct low-level FFI file
+                if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 1) } != 0 {
+                    Err(std::io::Error::last_os_error())
+                } else {
+                    Ok(())
+                }
+            }}
+            _ => {
+                // Not supported
+                Ok(())
+            }
         }
     }
 
-    #[cfg(target_os = "macos")]
-    fn advise_sequential_access(&self) -> Result<()> {
-        use std::os::unix::io::AsRawFd;
-        // SAFETY: Correct low-level FFI file
-        if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 1) } != 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(())
-        }
-    }
-
-    #[cfg(windows)]
-    fn advise_sequential_access(&self) -> Result<()> {
-        // Not supported
-        Ok(())
-    }
-
-    #[cfg(not(target_os = "macos"))]
     fn disable_cache(&self) -> Result<()> {
-        // Not supported
-        Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
-    fn disable_cache(&self) -> Result<()> {
-        use std::os::unix::io::AsRawFd;
-        // SAFETY: Correct low-level FFI file
-        if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_NOCACHE, 1) } != 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(())
+        cfg_select! {
+            target_os = "macos" => {{
+                use std::os::unix::io::AsRawFd;
+                // SAFETY: Correct low-level FFI file
+                if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_NOCACHE, 1) } != 0 {
+                    Err(std::io::Error::last_os_error())
+                } else {
+                    Ok(())
+                }
+            }}
+            _ => {
+                // Not supported
+                Ok(())
+            }
         }
     }
 
-    #[cfg(unix)]
     fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> Result<()> {
-        std::os::unix::fs::FileExt::read_exact_at(self, buf, offset)
+        cfg_select! {
+            unix => {
+                std::os::unix::fs::FileExt::read_exact_at(self, buf, offset)
+            }
+            windows => {{
+                let mut buf = buf;
+                let mut offset = offset;
+
+                while !buf.is_empty() {
+                    match std::os::windows::fs::FileExt::seek_read(self, buf, offset) {
+                        Ok(0) => {
+                            break;
+                        }
+                        Ok(n) => {
+                            buf = &mut buf[n..];
+                            offset += n as u64;
+                        }
+                        Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {
+                            // Try again
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+
+                if !buf.is_empty() {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::UnexpectedEof,
+                        "failed to fill whole buffer",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }}
+            _ => {
+                compile_error!("Unsupported platform (consider contributing)");
+            }
+        }
     }
 
-    #[cfg(unix)]
     fn write_all_at(&self, buf: &[u8], offset: u64) -> Result<()> {
-        std::os::unix::fs::FileExt::write_all_at(self, buf, offset)
-    }
+        cfg_select! {
+            unix => {
+                std::os::unix::fs::FileExt::write_all_at(self, buf, offset)
+            }
+            windows => {{
+                let mut buf = buf;
+                let mut offset = offset;
 
-    #[cfg(windows)]
-    fn read_exact_at(&self, mut buf: &mut [u8], mut offset: u64) -> Result<()> {
-        while !buf.is_empty() {
-            match std::os::windows::fs::FileExt::seek_read(self, buf, offset) {
-                Ok(0) => {
-                    break;
+                while !buf.is_empty() {
+                    match std::os::windows::fs::FileExt::seek_write(self, buf, offset) {
+                        Ok(0) => {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::WriteZero,
+                                "failed to write whole buffer",
+                            ));
+                        }
+                        Ok(n) => {
+                            buf = &buf[n..];
+                            offset += n as u64;
+                        }
+                        Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {
+                            // Try again
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
                 }
-                Ok(n) => {
-                    buf = &mut buf[n..];
-                    offset += n as u64;
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {
-                    // Try again
-                }
-                Err(e) => {
-                    return Err(e);
-                }
+
+                Ok(())
+            }}
+            _ => {
+                compile_error!("Unsupported platform (consider contributing)");
             }
         }
-
-        if !buf.is_empty() {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "failed to fill whole buffer",
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
-    #[cfg(windows)]
-    fn write_all_at(&self, mut buf: &[u8], mut offset: u64) -> Result<()> {
-        while !buf.is_empty() {
-            match std::os::windows::fs::FileExt::seek_write(self, buf, offset) {
-                Ok(0) => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::WriteZero,
-                        "failed to write whole buffer",
-                    ));
-                }
-                Ok(n) => {
-                    buf = &buf[n..];
-                    offset += n as u64;
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {
-                    // Try again
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
-
-        Ok(())
     }
 }
