@@ -1,4 +1,4 @@
-#![feature(assert_matches, trusted_len)]
+#![feature(trusted_len)]
 
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use chacha20::ChaCha8Rng;

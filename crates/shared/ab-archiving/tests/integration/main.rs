@@ -1,5 +1,3 @@
-#![feature(assert_matches)]
-
 #[cfg(not(miri))]
 mod archiver;
 #[cfg(not(miri))]
