@@ -25,8 +25,11 @@ pub struct PotConsensusConstants {
 /// Consensus constants
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ConsensusConstants {
-    /// Depth `K` after which a block enters the recorded history
-    pub confirmation_depth_k: BlockNumber,
+    /// Depth after which a block enters the recorded history.
+    ///
+    /// This is from the perspective of the individual shard, with additional confirmation on the
+    /// beacon chain required for intermediate and leaf shards.
+    pub block_confirmation_depth: BlockNumber,
     /// Number of slots between slot arrival and when the corresponding block can be produced
     pub block_authoring_delay: SlotNumber,
     /// Proof-of-time consensus constants

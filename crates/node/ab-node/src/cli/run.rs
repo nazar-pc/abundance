@@ -434,7 +434,7 @@ impl Run {
 
         let client_database =
             ClientDatabase::<OwnedBeaconChainBlock, _>::open(ClientDatabaseOptions {
-                confirmation_depth_k: consensus_constants.confirmation_depth_k,
+                block_confirmation_depth: consensus_constants.block_confirmation_depth,
                 genesis_block_builder: || GenesisBlockBuilderResult {
                     block: genesis_block.clone(),
                     // TODO: Fill correct initial state

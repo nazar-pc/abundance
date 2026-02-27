@@ -260,7 +260,7 @@ struct InitializedArchiver {
 
 async fn initialize_archiver<Block, CI>(
     chain_info: &CI,
-    confirmation_depth_k: BlockNumber,
+    block_confirmation_depth: BlockNumber,
     erasure_coding: ErasureCoding,
 ) -> Result<InitializedArchiver, SegmentArchiverTaskError>
 where
@@ -271,7 +271,7 @@ where
     let best_block_root = *best_block_header.header().root();
     let best_block_number: BlockNumber = best_block_header.header().prefix.number;
 
-    let mut best_block_to_archive = best_block_number.saturating_sub(confirmation_depth_k);
+    let mut best_block_to_archive = best_block_number.saturating_sub(block_confirmation_depth);
 
     if (best_block_to_archive..best_block_number).any(|block_number| {
         chain_info
@@ -328,7 +328,7 @@ where
             .map(|n| n + BlockNumber::ONE)
             .unwrap_or_default();
         let blocks_to_archive_to = best_block_number
-            .checked_sub(confirmation_depth_k)
+            .checked_sub(block_confirmation_depth)
             .filter(|&blocks_to_archive_to| blocks_to_archive_to >= blocks_to_archive_from)
             .or({
                 if have_last_segment_header {
@@ -406,8 +406,8 @@ where
 /// the last shutdown and continue incrementally archiving blockchain history from there.
 ///
 /// Archiving is triggered by block importing notification (`block_importing_notification_receiver`)
-/// and tries to archive the block at [`ConsensusConstants::confirmation_depth_k`] depth from the
-/// block being imported. Block importing will then wait for archiver to acknowledge processing,
+/// and tries to archive the block at [`ConsensusConstants::block_confirmation_depth`] depth from
+/// the block being imported. Block importing will then wait for archiver to acknowledge processing,
 /// which is necessary for ensuring that when the next block is imported, the newly archived segment
 /// is already available deterministically.
 ///
@@ -431,7 +431,7 @@ where
     let maybe_archiver = if chain_info.max_local_segment_index().is_none() {
         let initialize_archiver_fut = initialize_archiver(
             &chain_info,
-            consensus_constants.confirmation_depth_k,
+            consensus_constants.block_confirmation_depth,
             erasure_coding.clone(),
         );
         Some(initialize_archiver_fut.await?)
@@ -445,7 +445,7 @@ where
             None => {
                 let initialize_archiver_fut = initialize_archiver(
                     &chain_info,
-                    consensus_constants.confirmation_depth_k,
+                    consensus_constants.block_confirmation_depth,
                     erasure_coding.clone(),
                 );
                 initialize_archiver_fut.await?
@@ -463,7 +463,7 @@ where
         {
             let importing_block_number = block_importing_notification.block_number;
             let block_number_to_archive = match importing_block_number
-                .checked_sub(consensus_constants.confirmation_depth_k)
+                .checked_sub(consensus_constants.block_confirmation_depth)
             {
                 Some(block_number_to_archive) => block_number_to_archive,
                 None => {
@@ -508,7 +508,7 @@ where
             if best_archived_block_number + BlockNumber::ONE != block_number_to_archive {
                 let initialize_archiver_fut = initialize_archiver(
                     &chain_info,
-                    consensus_constants.confirmation_depth_k,
+                    consensus_constants.block_confirmation_depth,
                     erasure_coding.clone(),
                 );
                 InitializedArchiver {

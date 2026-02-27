@@ -486,7 +486,7 @@ where
         let best_number = best_header.prefix.number;
 
         // Reject block below archiving point
-        if block_number + self.consensus_constants.confirmation_depth_k < best_number {
+        if block_number + self.consensus_constants.block_confirmation_depth < best_number {
             debug!(
                 ?header,
                 %best_number,
@@ -572,7 +572,7 @@ where
         let best_number = best_header.prefix.number;
 
         // Reject block below archiving point
-        if block_number + self.consensus_constants.confirmation_depth_k < best_number {
+        if block_number + self.consensus_constants.block_confirmation_depth < best_number {
             debug!(
                 ?header,
                 %best_number,
