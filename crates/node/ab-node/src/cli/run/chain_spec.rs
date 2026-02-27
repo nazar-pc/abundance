@@ -13,7 +13,7 @@ use ab_core_primitives::solutions::{Solution, SolutionRange};
 use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 
 const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
-    confirmation_depth_k: BlockNumber::from(100),
+    block_confirmation_depth: BlockNumber::from(100),
     block_authoring_delay: SlotNumber::from(4),
     pot: PotConsensusConstants {
         entropy_injection_interval: BlockNumber::from(50),

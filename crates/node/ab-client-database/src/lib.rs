@@ -165,7 +165,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     ///
     /// This parameter allows establishing a final canonical order of blocks and eliminating any
     /// potential forks at a specified depth and beyond.
-    pub confirmation_depth_k: BlockNumber,
+    pub block_confirmation_depth: BlockNumber,
     /// Soft confirmation depth for blocks.
     ///
     /// Doesn't prevent forking on the consensus level but makes it extremely unlikely.
@@ -596,7 +596,7 @@ struct PersistedBlock {
 
 #[derive(Debug)]
 struct ClientDatabaseInnerOptions {
-    confirmation_depth_k: BlockNumber,
+    block_confirmation_depth: BlockNumber,
     soft_confirmation_depth: BlockNumber,
     max_fork_tips: NonZeroUsize,
     max_fork_tip_distance: BlockNumber,
@@ -929,7 +929,7 @@ where
             // The block immediately after the archived segment adding the confirmation depth
             let target_block_number = current_segment_header.last_archived_block.number()
                 + BlockNumber::ONE
-                + self.inner.options.confirmation_depth_k;
+                + self.inner.options.block_confirmation_depth;
             if target_block_number == block_number {
                 let mut headers_for_block = vec![current_segment_header];
 
@@ -1005,7 +1005,7 @@ where
                 .ok_or(PersistBlockError::MissingParent)?,
         ) as usize;
 
-        if block_offset >= u64::from(self.inner.options.confirmation_depth_k) as usize {
+        if block_offset >= u64::from(self.inner.options.block_confirmation_depth) as usize {
             return Err(PersistBlockError::OutsideAcceptableRange);
         }
 
@@ -1101,18 +1101,18 @@ where
     {
         let ClientDatabaseOptions {
             write_buffer_size,
-            confirmation_depth_k,
+            block_confirmation_depth,
             soft_confirmation_depth,
             max_fork_tips,
             max_fork_tip_distance,
             genesis_block_builder,
             storage_backend,
         } = options;
-        if soft_confirmation_depth >= confirmation_depth_k {
+        if soft_confirmation_depth >= block_confirmation_depth {
             return Err(ClientDatabaseError::InvalidSoftConfirmationDepth);
         }
 
-        if max_fork_tip_distance > confirmation_depth_k {
+        if max_fork_tip_distance > block_confirmation_depth {
             return Err(ClientDatabaseError::InvalidMaxForkTipDistance);
         }
 
@@ -1126,7 +1126,7 @@ where
         };
 
         let options = ClientDatabaseInnerOptions {
-            confirmation_depth_k,
+            block_confirmation_depth,
             soft_confirmation_depth,
             max_fork_tips,
             max_fork_tip_distance,
@@ -1707,7 +1707,7 @@ where
         // `+1` means it effectively confirms parent blocks instead. This is done to keep the parent
         // of the confirmed block with its MMR in memory due to confirmed blocks not storing their
         // MMRs, which might be needed for reorgs at the lowest possible depth.
-        let block_offset = u64::from(options.confirmation_depth_k + BlockNumber::ONE) as usize;
+        let block_offset = u64::from(options.block_confirmation_depth + BlockNumber::ONE) as usize;
 
         let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
             // Nothing to confirm yet
