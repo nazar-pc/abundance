@@ -4,9 +4,11 @@
 )]
 pub(crate) mod block;
 pub(crate) mod segment_headers;
+pub(crate) mod super_segment_headers;
 
 use crate::page_group::block::block::StorageItemBlockBlock;
 use crate::page_group::block::segment_headers::StorageItemBlockSegmentHeaders;
+use crate::page_group::block::super_segment_headers::StorageItemBlockSuperSegmentHeaders;
 use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult, UniqueStorageItem,
@@ -19,6 +21,7 @@ use strum::FromRepr;
 enum StorageItemBlockVariant {
     Block = 0,
     SegmentHeaders = 1,
+    SuperSegmentHeaders = 2,
 }
 
 // TODO: Rename to `temporary` or something?
@@ -27,6 +30,7 @@ enum StorageItemBlockVariant {
 pub(crate) enum StorageItemBlock {
     Block(StorageItemBlockBlock),
     SegmentHeaders(StorageItemBlockSegmentHeaders),
+    SuperSegmentHeaders(StorageItemBlockSuperSegmentHeaders),
 }
 
 impl StorageItem for StorageItemBlock {
@@ -35,6 +39,7 @@ impl StorageItem for StorageItemBlock {
         match self {
             Self::Block(block) => block.total_bytes(),
             Self::SegmentHeaders(segment_headers) => segment_headers.total_bytes(),
+            Self::SuperSegmentHeaders(super_segment_headers) => super_segment_headers.total_bytes(),
         }
     }
 
@@ -45,9 +50,13 @@ impl StorageItem for StorageItemBlock {
     ) -> Result<StorageItemWriteResult<'a>, StorageItemError> {
         let (variant, storage_item_size) = match self {
             Self::Block(block) => (StorageItemBlockVariant::Block, block.write(buffer)?),
-            StorageItemBlock::SegmentHeaders(segment_headers) => (
+            Self::SegmentHeaders(segment_headers) => (
                 StorageItemBlockVariant::SegmentHeaders,
                 segment_headers.write(buffer)?,
+            ),
+            Self::SuperSegmentHeaders(super_segment_headers) => (
+                StorageItemBlockVariant::SuperSegmentHeaders,
+                super_segment_headers.write(buffer)?,
             ),
         };
 
@@ -71,6 +80,9 @@ impl StorageItem for StorageItemBlock {
             StorageItemBlockVariant::Block => Self::Block(StorageItemBlockBlock::read(buffer)?),
             StorageItemBlockVariant::SegmentHeaders => {
                 Self::SegmentHeaders(StorageItemBlockSegmentHeaders::read(buffer)?)
+            }
+            StorageItemBlockVariant::SuperSegmentHeaders => {
+                Self::SuperSegmentHeaders(StorageItemBlockSuperSegmentHeaders::read(buffer)?)
             }
         })
     }

@@ -60,7 +60,7 @@ pub enum BlockVerificationError {
 }
 
 /// Block verification interface
-pub trait BlockVerification<Block>: Send + Sync
+pub trait BlockVerification<Block, ExtraBlockVerificationDetails>: Send + Sync
 where
     Block: GenericOwnedBlock,
 {
@@ -104,5 +104,5 @@ where
         header: &GenericHeader<'_, Block>,
         body: &GenericBody<'_, Block>,
         origin: &BlockOrigin,
-    ) -> impl Future<Output = Result<(), BlockVerificationError>> + Send;
+    ) -> impl Future<Output = Result<ExtraBlockVerificationDetails, BlockVerificationError>> + Send;
 }

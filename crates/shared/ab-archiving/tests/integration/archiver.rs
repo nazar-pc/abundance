@@ -5,8 +5,11 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
-    RecordedHistorySegment, SegmentHeader, SegmentRoot,
+    RecordedHistorySegment, SegmentHeader, SegmentIndex, SegmentPosition, SegmentRoot,
+    ShardSegmentRootWithPosition, SuperSegment, SuperSegmentHeader, SuperSegmentIndex,
+    SuperSegmentRoot,
 };
+use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
@@ -15,7 +18,18 @@ use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
 use std::io::Write;
 use std::num::NonZeroU32;
+use std::sync::Arc;
 use std::{assert_matches, iter};
+
+const TEST_SHARD_INDEX: ShardIndex = ShardIndex::new(ShardIndex::MAX_SHARD_INDEX - 1).unwrap();
+const PLACEHOLDER_SUPER_SEGMENT_HEADER: SuperSegmentHeader = SuperSegmentHeader {
+    index: SuperSegmentIndex::ZERO.into(),
+    root: SuperSegmentRoot::default(),
+    prev_super_segment_header_hash: Blake3Hash::default(),
+    max_segment_index: SegmentIndex::ZERO.into(),
+    target_beacon_chain_block_number: BlockNumber::ZERO.into(),
+    num_segments: 0,
+};
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();
@@ -48,7 +62,7 @@ fn compare_block_objects_to_global_objects<'a>(
 fn archiver() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding.clone());
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone());
 
     let (block_0, block_0_block_objects) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
@@ -122,7 +136,7 @@ fn archiver() {
     let object_mapping = block_1_outcome.global_objects.clone();
     assert_eq!(archived_segments.len(), 1);
 
-    let first_archived_segment = archived_segments.first().cloned().unwrap();
+    let mut first_archived_segment = archived_segments.first().cloned().unwrap();
     assert_eq!(
         first_archived_segment.pieces.len(),
         ArchivedHistorySegment::NUM_PIECES
@@ -145,6 +159,19 @@ fn archiver() {
             Some(NonZeroU32::new(67108854).unwrap())
         );
     }
+    assert!(
+        first_archived_segment
+            .pieces
+            .iter()
+            .all(|piece| piece.header.shard_index.as_inner() == TEST_SHARD_INDEX)
+    );
+    assert!(
+        first_archived_segment.pieces.iter().all(|piece| piece
+            .header
+            .local_segment_index
+            .as_inner()
+            == first_archived_segment.segment_header.local_segment_index())
+    );
 
     // All block mappings must appear in the global object mapping
     assert_eq!(object_mapping.len(), block_1_block_objects.len());
@@ -169,23 +196,45 @@ fn archiver() {
         compare_block_objects_to_global_objects(block_objects, global_objects);
     }
 
-    #[cfg(not(feature = "parallel"))]
-    let iter = first_archived_segment.pieces.iter().enumerate();
-    #[cfg(feature = "parallel")]
-    let iter = first_archived_segment.pieces.par_iter().enumerate();
-    let results = iter
-        .map(|(position, piece)| {
-            (
-                position,
-                piece.is_valid(
-                    &first_archived_segment.segment_header.segment_root,
-                    PiecePosition::from(position as u8),
-                ),
-            )
-        })
-        .collect::<Vec<_>>();
-    for (position, valid) in results {
-        assert!(valid, "Piece at position {position} is valid");
+    {
+        let shard_segment_root = ShardSegmentRootWithPosition {
+            shard_index: TEST_SHARD_INDEX,
+            segment_position: SegmentPosition::from(0),
+            local_segment_index: LocalSegmentIndex::ZERO,
+            segment_root: first_archived_segment.segment_header.segment_root,
+        };
+        let super_segment = SuperSegment::new(
+            &PLACEHOLDER_SUPER_SEGMENT_HEADER,
+            BlockNumber::ONE,
+            Arc::new([shard_segment_root]),
+        )
+        .unwrap();
+        let segment_proof = super_segment.proof_for_segment(0).unwrap();
+        for piece in first_archived_segment.pieces.iter_mut() {
+            piece.header.super_segment_index = super_segment.header.index;
+            piece.header.segment_position = SegmentPosition::from(0).into();
+            piece.header.segment_proof = segment_proof;
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        let iter = first_archived_segment.pieces.iter().enumerate();
+        #[cfg(feature = "parallel")]
+        let iter = first_archived_segment.pieces.par_iter().enumerate();
+        let results = iter
+            .map(|(position, piece)| {
+                (
+                    position,
+                    piece.is_valid(
+                        &super_segment.header.root,
+                        super_segment.segment_roots.len() as u32,
+                        PiecePosition::from(position as u8),
+                    ),
+                )
+            })
+            .collect::<Vec<_>>();
+        for (position, valid) in results {
+            assert!(valid, "Piece at position {position} is valid");
+        }
     }
 
     let block_2 = {
@@ -195,7 +244,7 @@ fn archiver() {
     };
     // This should be big enough to produce two archived segments in one go
     let block_2_outcome = archiver.add_block(block_2.clone(), Vec::new()).unwrap();
-    let archived_segments = block_2_outcome.archived_segments.clone();
+    let mut archived_segments = block_2_outcome.archived_segments.clone();
     let object_mapping = block_2_outcome.global_objects.clone();
     assert_eq!(archived_segments.len(), 2);
 
@@ -203,6 +252,7 @@ fn archiver() {
     // archived segments once last block is added.
     {
         let mut archiver_with_initial_state = Archiver::with_initial_state(
+            TEST_SHARD_INDEX,
             erasure_coding.clone(),
             first_archived_segment.segment_header,
             &block_1,
@@ -241,6 +291,19 @@ fn archiver() {
             last_archived_block.partial_archived(),
             Some(NonZeroU32::new(111848003).unwrap())
         );
+        assert!(
+            archived_segment
+                .pieces
+                .iter()
+                .all(|piece| piece.header.shard_index.as_inner() == TEST_SHARD_INDEX)
+        );
+        assert!(
+            archived_segment
+                .pieces
+                .iter()
+                .all(|piece| piece.header.local_segment_index.as_inner()
+                    == archived_segment.segment_header.local_segment_index())
+        );
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
@@ -250,47 +313,91 @@ fn archiver() {
             last_archived_block.partial_archived(),
             Some(NonZeroU32::new(246065641).unwrap())
         );
+        assert!(
+            archived_segment
+                .pieces
+                .iter()
+                .all(|piece| piece.header.shard_index.as_inner() == TEST_SHARD_INDEX)
+        );
+        assert!(
+            archived_segment
+                .pieces
+                .iter()
+                .all(|piece| piece.header.local_segment_index.as_inner()
+                    == archived_segment.segment_header.local_segment_index())
+        );
     }
 
-    // Check that both archived segments have expected content and valid pieces in them
-    let mut expected_segment_index = LocalSegmentIndex::ONE;
-    let mut previous_segment_header_hash = first_archived_segment.segment_header.hash();
     let last_segment_header = archived_segments.iter().last().unwrap().segment_header;
-    for archived_segment in archived_segments {
-        assert_eq!(
-            archived_segment.pieces.len(),
-            ArchivedHistorySegment::NUM_PIECES
-        );
-        assert_eq!(
-            archived_segment.segment_header.local_segment_index(),
-            expected_segment_index
-        );
-        assert_eq!(
-            archived_segment.segment_header.prev_segment_header_hash,
-            previous_segment_header_hash
-        );
-
-        #[cfg(not(feature = "parallel"))]
-        let iter = archived_segment.pieces.iter().enumerate();
-        #[cfg(feature = "parallel")]
-        let iter = archived_segment.pieces.par_iter().enumerate();
-        let results = iter
-            .map(|(position, piece)| {
-                (
-                    position,
-                    piece.is_valid(
-                        &archived_segment.segment_header.segment_root,
-                        PiecePosition::from(position as u8),
-                    ),
+    {
+        let super_segment = SuperSegment::new(
+            &PLACEHOLDER_SUPER_SEGMENT_HEADER,
+            BlockNumber::ONE,
+            archived_segments
+                .iter()
+                .enumerate()
+                .map(
+                    |(segment_position, archived_segment)| ShardSegmentRootWithPosition {
+                        shard_index: TEST_SHARD_INDEX,
+                        segment_position: SegmentPosition::from(segment_position as u32),
+                        local_segment_index: archived_segment.segment_header.local_segment_index(),
+                        segment_root: archived_segment.segment_header.segment_root,
+                    },
                 )
-            })
-            .collect::<Vec<_>>();
-        for (position, valid) in results {
-            assert!(valid, "Piece at position {position} is valid");
-        }
+                .collect(),
+        )
+        .unwrap();
 
-        expected_segment_index += LocalSegmentIndex::ONE;
-        previous_segment_header_hash = archived_segment.segment_header.hash();
+        // Check that both archived segments have expected content and valid pieces in them
+        let mut expected_segment_index = LocalSegmentIndex::ONE;
+        let mut previous_segment_header_hash = first_archived_segment.segment_header.hash();
+        for (segment_position, archived_segment) in archived_segments.iter_mut().enumerate() {
+            let segment_proof = super_segment
+                .proof_for_segment(segment_position as u32)
+                .unwrap();
+            for piece in archived_segment.pieces.iter_mut() {
+                piece.header.super_segment_index = super_segment.header.index;
+                piece.header.segment_position =
+                    SegmentPosition::from(segment_position as u32).into();
+                piece.header.segment_proof = segment_proof;
+            }
+
+            assert_eq!(
+                archived_segment.pieces.len(),
+                ArchivedHistorySegment::NUM_PIECES
+            );
+            assert_eq!(
+                archived_segment.segment_header.local_segment_index(),
+                expected_segment_index
+            );
+            assert_eq!(
+                archived_segment.segment_header.prev_segment_header_hash,
+                previous_segment_header_hash
+            );
+
+            #[cfg(not(feature = "parallel"))]
+            let iter = archived_segment.pieces.iter().enumerate();
+            #[cfg(feature = "parallel")]
+            let iter = archived_segment.pieces.par_iter().enumerate();
+            let results = iter
+                .map(|(position, piece)| {
+                    (
+                        position,
+                        piece.is_valid(
+                            &super_segment.header.root,
+                            super_segment.segment_roots.len() as u32,
+                            PiecePosition::from(position as u8),
+                        ),
+                    )
+                })
+                .collect::<Vec<_>>();
+            for (position, valid) in results {
+                assert!(valid, "Piece at position {position} is valid");
+            }
+
+            expected_segment_index += LocalSegmentIndex::ONE;
+            previous_segment_header_hash = archived_segment.segment_header.hash();
+        }
     }
 
     // Add a block such that it fits in the next segment exactly
@@ -300,7 +407,7 @@ fn archiver() {
         block
     };
     let block_3_outcome = archiver.add_block(block_3.clone(), Vec::new()).unwrap();
-    let archived_segments = block_3_outcome.archived_segments.clone();
+    let mut archived_segments = block_3_outcome.archived_segments.clone();
     let object_mapping = block_3_outcome.global_objects.clone();
     assert_eq!(archived_segments.len(), 1);
 
@@ -310,9 +417,14 @@ fn archiver() {
     // Check that initializing archiver with initial state before last block results in the same
     // archived segments and mappings once last block is added
     {
-        let mut archiver_with_initial_state =
-            Archiver::with_initial_state(erasure_coding, last_segment_header, &block_2, Vec::new())
-                .unwrap();
+        let mut archiver_with_initial_state = Archiver::with_initial_state(
+            TEST_SHARD_INDEX,
+            erasure_coding,
+            last_segment_header,
+            &block_2,
+            Vec::new(),
+        )
+        .unwrap();
 
         let initial_block_3_outcome = archiver_with_initial_state
             .add_block(block_3, Vec::new())
@@ -333,10 +445,29 @@ fn archiver() {
 
     // Block should fit exactly into the last archived segment (rare case)
     {
-        let archived_segment = archived_segments.first().unwrap();
+        let archived_segment = archived_segments.first_mut().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
         assert_eq!(last_archived_block.number(), BlockNumber::from(3));
         assert_eq!(last_archived_block.partial_archived(), None);
+
+        let shard_segment_root = ShardSegmentRootWithPosition {
+            shard_index: TEST_SHARD_INDEX,
+            segment_position: SegmentPosition::from(0),
+            local_segment_index: LocalSegmentIndex::from(3),
+            segment_root: archived_segment.segment_header.segment_root,
+        };
+        let super_segment = SuperSegment::new(
+            &PLACEHOLDER_SUPER_SEGMENT_HEADER,
+            BlockNumber::ONE,
+            Arc::new([shard_segment_root]),
+        )
+        .unwrap();
+        let segment_proof = super_segment.proof_for_segment(0).unwrap();
+        for piece in archived_segment.pieces.iter_mut() {
+            piece.header.super_segment_index = super_segment.header.index;
+            piece.header.segment_position = SegmentPosition::from(0).into();
+            piece.header.segment_proof = segment_proof;
+        }
 
         #[cfg(not(feature = "parallel"))]
         let iter = archived_segment.pieces.iter().enumerate();
@@ -347,7 +478,8 @@ fn archiver() {
                 (
                     position,
                     piece.is_valid(
-                        &archived_segment.segment_header.segment_root,
+                        &super_segment.header.root,
+                        super_segment.segment_roots.len() as u32,
                         PiecePosition::from(position as u8),
                     ),
                 )
@@ -364,7 +496,7 @@ fn invalid_usage() {
     let erasure_coding = ErasureCoding::new();
     {
         assert!(
-            Archiver::new(erasure_coding.clone())
+            Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone())
                 .add_block(Vec::new(), Vec::new())
                 .is_none(),
             "Empty block is not allowed"
@@ -372,6 +504,7 @@ fn invalid_usage() {
     }
     {
         let result = Archiver::with_initial_state(
+            TEST_SHARD_INDEX,
             erasure_coding.clone(),
             SegmentHeader {
                 segment_index: LocalSegmentIndex::ZERO.into(),
@@ -400,6 +533,7 @@ fn invalid_usage() {
 
     {
         let result = Archiver::with_initial_state(
+            TEST_SHARD_INDEX,
             erasure_coding.clone(),
             SegmentHeader {
                 segment_index: LocalSegmentIndex::ZERO.into(),
@@ -447,7 +581,7 @@ fn early_segment_creation() {
             + u32::encoded_fixed_size().unwrap()
         );
     assert_eq!(
-        Archiver::new(erasure_coding.clone())
+        Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone())
             .add_block(vec![0u8; block_size], Vec::new())
             .unwrap()
             .archived_segments
@@ -458,7 +592,7 @@ fn early_segment_creation() {
     // Cutting just one byte and block length is no longer large enough to produce a segment because
     // 6 bytes is enough for one more segment item
     assert!(
-        Archiver::new(erasure_coding)
+        Archiver::new(TEST_SHARD_INDEX, erasure_coding)
             .add_block(vec![0u8; block_size - 1], Vec::new())
             .unwrap()
             .archived_segments
@@ -470,7 +604,7 @@ fn early_segment_creation() {
 fn object_on_the_edge_of_segment() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding);
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding);
     let first_block = vec![0u8; RecordedHistorySegment::SIZE];
     let block_1_outcome = archiver.add_block(first_block.clone(), Vec::new()).unwrap();
     let archived_segments = block_1_outcome.archived_segments;

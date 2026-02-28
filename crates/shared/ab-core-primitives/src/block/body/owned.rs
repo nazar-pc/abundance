@@ -32,6 +32,9 @@ pub trait GenericOwnedBlockBody:
     where
         Self: 'a;
 
+    /// Create an owned body from a buffer
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer>;
+
     /// Inner buffer with block body contents
     fn buffer(&self) -> &SharedAlignedBuffer;
 
@@ -249,6 +252,11 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
     const SHARD_KIND: RealShardKind = RealShardKind::BeaconChain;
 
     type Body<'a> = BeaconChainBody<'a>;
+
+    #[inline(always)]
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Self::from_buffer(buffer)
+    }
 
     #[inline(always)]
     fn buffer(&self) -> &SharedAlignedBuffer {
@@ -516,6 +524,11 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
     type Body<'a> = IntermediateShardBody<'a>;
 
     #[inline(always)]
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Self::from_buffer(buffer)
+    }
+
+    #[inline(always)]
     fn buffer(&self) -> &SharedAlignedBuffer {
         self.buffer()
     }
@@ -730,6 +743,11 @@ impl GenericOwnedBlockBody for OwnedLeafShardBody {
     const SHARD_KIND: RealShardKind = RealShardKind::LeafShard;
 
     type Body<'a> = LeafShardBody<'a>;
+
+    #[inline(always)]
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Self::from_buffer(buffer)
+    }
 
     #[inline(always)]
     fn buffer(&self) -> &SharedAlignedBuffer {

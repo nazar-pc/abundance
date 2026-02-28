@@ -3,7 +3,7 @@ use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
-use ab_core_primitives::shard::NumShards;
+use ab_core_primitives::shard::{NumShards, ShardIndex};
 use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
@@ -60,7 +60,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut input = RecordedHistorySegment::new_boxed();
     rng.fill_bytes(input.as_mut().as_mut());
     let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding.clone());
+    let mut archiver = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding.clone());
     let table_generator = PosTable::generator();
     let archived_history_segment = archiver
         .add_block(

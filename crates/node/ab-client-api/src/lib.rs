@@ -8,9 +8,12 @@
 
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::address::Address;
-use ab_core_primitives::block::owned::GenericOwnedBlock;
+use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
-use ab_core_primitives::segments::{LocalSegmentIndex, SegmentHeader};
+use ab_core_primitives::segments::{
+    LocalSegmentIndex, SegmentHeader, SegmentRoot, SuperSegmentHeader, SuperSegmentIndex,
+};
+use ab_core_primitives::shard::ShardIndex;
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use rclite::Arc;
 use std::io;
@@ -66,6 +69,17 @@ pub enum BlockOrigin {
     Sync,
     /// Broadcast on the network during normal operation (not sync)
     Broadcast,
+}
+
+/// Intermediate or leaf shard segment root information
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShardSegmentRoot {
+    /// Shard index
+    pub shard_index: ShardIndex,
+    /// Local segment index
+    pub segment_index: LocalSegmentIndex,
+    /// Segment root
+    pub segment_root: SegmentRoot,
 }
 
 /// Error for [`ChainInfo::block()`]
@@ -133,6 +147,47 @@ pub enum PersistSegmentHeadersError {
     },
 }
 
+/// Error for [`BeaconChainInfo::shard_segment_roots()`]
+#[derive(Debug, thiserror::Error)]
+pub enum ShardSegmentRootsError {
+    /// Block missing
+    #[error("Block {block_number} is missing")]
+    BlockMissing {
+        /// The block number that is missing in the database
+        block_number: BlockNumber,
+    },
+}
+
+/// Error for [`BeaconChainInfoWrite::persist_super_segment_headers()`]
+#[derive(Debug, thiserror::Error)]
+pub enum PersistSuperSegmentHeadersError {
+    /// Super segment index must strictly follow the last super segment index, can't store super
+    /// segment header
+    #[error(
+        "Super segment index {super_segment_index} must strictly follow last super segment index \
+        {last_super_segment_index}, can't store super segment header"
+    )]
+    MustFollowLastSegmentIndex {
+        /// Super segment index that was attempted to be inserted
+        super_segment_index: SuperSegmentIndex,
+        /// Last super segment index
+        last_super_segment_index: SuperSegmentIndex,
+    },
+    /// The first super segment index must be zero
+    #[error("First super segment index must be zero, found {super_segment_index}")]
+    FirstSegmentIndexZero {
+        /// Super segment index that was attempted to be inserted
+        super_segment_index: SuperSegmentIndex,
+    },
+    /// Storage item write error
+    #[error("Storage item write error")]
+    StorageItemWriteError {
+        /// Low-level error
+        #[from]
+        error: io::Error,
+    },
+}
+
 // TODO: Split this into different more narrow traits
 /// Chain info.
 ///
@@ -183,13 +238,13 @@ where
         block_root: &BlockRoot,
     ) -> impl Future<Output = Result<Block, ReadBlockError>> + Send;
 
-    /// Returns last observed segment header
+    /// Returns the last observed local segment header of this shard
     fn last_segment_header(&self) -> Option<SegmentHeader>;
 
     /// Get a single segment header
     fn get_segment_header(&self, segment_index: LocalSegmentIndex) -> Option<SegmentHeader>;
 
-    /// Get segment headers that are expected to be included at specified block number.
+    /// Get segment headers that are expected to be included at specified block number
     fn segment_headers_for_block(&self, block_number: BlockNumber) -> Vec<SegmentHeader>;
 }
 
@@ -212,6 +267,56 @@ where
         &self,
         segment_headers: Vec<SegmentHeader>,
     ) -> impl Future<Output = Result<(), PersistSegmentHeadersError>> + Send;
+}
+
+/// Beacon chain info
+pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
+    /// Returns intermediate and leaf shard segment roots included in the specified block number.
+    ///
+    /// NOTE: Since blocks at this depth are already confirmed, only a block number is needed as a
+    /// reference.
+    fn shard_segment_roots(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
+
+    /// Returns the last observed super segment header
+    fn last_super_segment_header(&self) -> Option<SuperSegmentHeader>;
+
+    /// Returns the previous super segment header for the block built with the specified target
+    /// block number.
+    ///
+    /// `None` is returned for blocks <= 1.
+    fn previous_super_segment_header(
+        &self,
+        target_block_number: BlockNumber,
+    ) -> Option<SuperSegmentHeader>;
+
+    /// Get a single super segment header
+    fn get_super_segment_header(
+        &self,
+        super_segment_index: SuperSegmentIndex,
+    ) -> Option<SuperSegmentHeader>;
+}
+
+/// [`BeaconChainInfo`] extension for writing information
+pub trait BeaconChainInfoWrite: BeaconChainInfo + ChainInfoWrite<OwnedBeaconChainBlock> {
+    /// Persist a new super segment header.
+    ///
+    /// Returns `Ok(true)` if the header was inserted, `Ok(false)` if it was already present.
+    #[must_use]
+    fn persist_super_segment_header(
+        &self,
+        super_segment_header: SuperSegmentHeader,
+    ) -> impl Future<Output = Result<bool, PersistSuperSegmentHeadersError>> + Send;
+
+    /// Persist super segment headers.
+    ///
+    /// Multiple can be inserted for efficiency purposes.
+    fn persist_super_segment_headers(
+        &self,
+        super_segment_headers: Vec<SuperSegmentHeader>,
+    ) -> impl Future<Output = Result<(), PersistSuperSegmentHeadersError>> + Send;
 }
 
 /// Chain sync status

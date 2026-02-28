@@ -12,7 +12,9 @@ pub mod caching_proxy_node_client;
 pub mod rpc_node_client;
 
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{
+    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+};
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
     SolutionResponse,
@@ -52,7 +54,13 @@ pub trait NodeClient: fmt::Debug + Send + Sync + 'static {
         &self,
     ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>>;
 
-    /// Get segment headers for the segments
+    /// Get super segment headers
+    async fn super_segment_headers(
+        &self,
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>>;
+
+    /// Get segment headers
     async fn segment_headers(
         &self,
         segment_indices: Vec<SegmentIndex>,

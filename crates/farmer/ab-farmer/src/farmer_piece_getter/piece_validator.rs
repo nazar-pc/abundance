@@ -44,33 +44,38 @@ where
 
         let segment_index = piece_index.segment_index();
 
-        let segment_headers = match self.node_client.segment_headers(vec![segment_index]).await {
-            Ok(segment_headers) => segment_headers,
+        let super_segment_headers = match self
+            .node_client
+            .super_segment_headers(vec![piece.header.super_segment_index.as_inner()])
+            .await
+        {
+            Ok(super_segment_headers) => super_segment_headers,
             Err(error) => {
                 error!(
                     %piece_index,
                     ?error,
-                    "Failed to retrieve segment headers from node"
+                    "Failed to retrieve super segment headers from node"
                 );
                 return None;
             }
         };
 
-        let segment_root = match segment_headers.into_iter().next().flatten() {
-            Some(segment_header) => segment_header.segment_root,
-            None => {
-                error!(
-                    %piece_index,
-                    %segment_index,
-                    "Segment root for segment index wasn't found on node"
-                );
-                return None;
-            }
+        let Some(super_segment_header) = super_segment_headers.into_iter().next().flatten() else {
+            error!(
+                %piece_index,
+                %segment_index,
+                "Super segment root for super segment index wasn't found on node"
+            );
+            return None;
         };
 
         let is_valid_fut = tokio::task::spawn_blocking(move || {
             piece
-                .is_valid(&segment_root, piece_index.position())
+                .is_valid(
+                    &super_segment_header.root,
+                    super_segment_header.num_segments,
+                    piece_index.position(),
+                )
                 .then_some(piece)
         });
 

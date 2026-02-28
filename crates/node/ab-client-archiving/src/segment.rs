@@ -31,8 +31,10 @@ use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
-use ab_core_primitives::segments::{LocalSegmentIndex, RecordedHistorySegment, SegmentHeader};
-use ab_core_primitives::shard::RealShardKind;
+use ab_core_primitives::segments::{
+    LocalSegmentIndex, RecordedHistorySegment, SegmentHeader, SuperSegmentIndex,
+};
+use ab_core_primitives::shard::{RealShardKind, ShardIndex};
 use ab_erasure_coding::ErasureCoding;
 use bytesize::ByteSize;
 use chacha20::ChaCha8Rng;
@@ -62,9 +64,9 @@ const ACKNOWLEDGEMENT_TIMEOUT: Duration = Duration::from_mins(2);
 pub struct ArchivedSegmentNotification {
     /// Archived segment.
     pub archived_segment: Arc<NewArchivedSegment>,
-    /// Sender that signified the fact of receiving archived segment by farmer.
+    /// Sender that signified the fact of receiving an archived segment by farmer.
     ///
-    /// This must be used to send a message or else block import pipeline will get stuck.
+    /// This must be used to send a message, or else the block import pipeline will get stuck.
     pub acknowledgement_sender: mpsc::Sender<()>,
 }
 
@@ -126,14 +128,23 @@ pub fn recreate_genesis_segment(
 ) -> NewArchivedSegment {
     let encoded_block = encode_block(owned_genesis_block);
 
-    let block_outcome = Archiver::new(erasure_coding)
+    let block_outcome = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding)
         .add_block(encoded_block, Vec::new())
         .expect("Block is never empty and doesn't exceed u32; qed");
-    block_outcome
+    let mut archived_segment = block_outcome
         .archived_segments
         .into_iter()
         .next()
-        .expect("Genesis block always results in exactly one archived segment; qed")
+        .expect("Genesis block always results in exactly one archived segment; qed");
+
+    for piece in archived_segment.pieces.iter_mut() {
+        piece.header.super_segment_index = SuperSegmentIndex::ZERO.into();
+        // Since there is a single segment in super segment, the proof is empty
+    }
+
+    archived_segment.pieces = archived_segment.pieces.to_shared();
+
+    archived_segment
 }
 
 /// Encode block for archiving purposes
@@ -310,6 +321,7 @@ where
             let last_archived_block_encoded = encode_block(&last_archived_block);
 
             Archiver::with_initial_state(
+                best_block_header.header().prefix.shard_index,
                 erasure_coding,
                 last_segment_header,
                 &last_archived_block_encoded,
@@ -318,7 +330,10 @@ where
         } else {
             info!("Starting archiving from genesis");
 
-            Archiver::new(erasure_coding)
+            Archiver::new(
+                best_block_header.header().prefix.shard_index,
+                erasure_coding,
+            )
         };
 
     // Process blocks since last fully archived block up to the current head minus K

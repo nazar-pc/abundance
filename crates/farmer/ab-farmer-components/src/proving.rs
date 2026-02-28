@@ -279,8 +279,7 @@ where
                 &self.sector,
             );
             let RecordMetadata {
-                record_parity_chunks_root: _,
-                record_proof,
+                piece_header,
                 piece_checksum: _,
             } = record_metadata_fut
                 .now_or_never()
@@ -306,11 +305,12 @@ where
                 self.num_shards,
             );
 
+            // TODO: Extend solution with additional fields needed for piece verification
             Solution {
                 public_key_hash: *self.public_key_hash,
                 shard_commitment,
                 record_root: RecordRoot::from(record_merkle_tree.root()),
-                record_proof,
+                record_proof: piece_header.record_proof,
                 chunk,
                 chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,

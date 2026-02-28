@@ -1,5 +1,6 @@
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::segments::RecordedHistorySegment;
+use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
@@ -14,7 +15,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut input = vec![0u8; AMOUNT_OF_DATA];
     rng.fill_bytes(input.as_mut_slice());
     let erasure_coding = ErasureCoding::new();
-    let archiver = Archiver::new(erasure_coding);
+    let archiver = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding);
 
     c.bench_function("segment-archiving-whole-segment", |b| {
         b.iter(|| {

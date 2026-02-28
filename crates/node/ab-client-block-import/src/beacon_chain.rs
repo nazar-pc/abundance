@@ -1,6 +1,8 @@
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
-use ab_client_api::{BlockDetails, BlockOrigin, ChainInfo, ChainInfoWrite};
+use ab_client_api::{
+    BeaconChainInfoWrite, BlockDetails, BlockOrigin, ChainInfo, PersistSuperSegmentHeadersError,
+};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
 use ab_client_consensus_common::BlockImportingNotification;
 use ab_client_consensus_common::consensus_parameters::{
@@ -13,6 +15,7 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::PotOutput;
+use ab_core_primitives::segments::SuperSegment;
 use ab_proof_of_space::Table;
 use futures::channel::mpsc;
 use futures::prelude::*;
@@ -31,6 +34,13 @@ pub enum BeaconChainBlockImportError {
         /// Block verification error
         #[from]
         error: BlockVerificationError,
+    },
+    /// Failed to persist a new super segment header
+    #[error("Failed to persist a new super segment header: {error}")]
+    PersistSuperSegmentHeaders {
+        /// Low-level error
+        #[from]
+        error: PersistSuperSegmentHeadersError,
     },
 }
 
@@ -133,6 +143,7 @@ pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     block_verification: BV,
     importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
     block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
+    super_segments_sender: mpsc::Sender<SuperSegment>,
     block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
     _pos_table: PhantomData<PosTable>,
 }
@@ -141,8 +152,8 @@ impl<PosTable, CI, BV> BlockImport<OwnedBeaconChainBlock>
     for BeaconChainBlockImport<PosTable, CI, BV>
 where
     PosTable: Table,
-    CI: ChainInfoWrite<OwnedBeaconChainBlock>,
-    BV: BlockVerification<OwnedBeaconChainBlock>,
+    CI: BeaconChainInfoWrite,
+    BV: BlockVerification<OwnedBeaconChainBlock, Option<SuperSegment>>,
 {
     fn import(
         &self,
@@ -214,8 +225,8 @@ where
 impl<PosTable, CI, BV> BeaconChainBlockImport<PosTable, CI, BV>
 where
     PosTable: Table,
-    CI: ChainInfoWrite<OwnedBeaconChainBlock>,
-    BV: BlockVerification<OwnedBeaconChainBlock>,
+    CI: BeaconChainInfoWrite,
+    BV: BlockVerification<OwnedBeaconChainBlock, Option<SuperSegment>>,
 {
     /// Create a new instance
     #[inline(always)]
@@ -223,6 +234,7 @@ where
         chain_info: CI,
         block_verification: BV,
         block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
+        super_segments_sender: mpsc::Sender<SuperSegment>,
         block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
     ) -> Self {
         Self {
@@ -230,6 +242,7 @@ where
             block_verification,
             importing_blocks: ImportingBlocks::new(),
             block_importing_notification_sender,
+            super_segments_sender,
             block_import_notification_sender,
             _pos_table: PhantomData,
         }
@@ -278,7 +291,8 @@ where
 
         // TODO: `.send()` is a hack for compiler bug, see:
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
-        self.block_verification
+        let maybe_super_segment = self
+            .block_verification
             .verify_sequential(parent_header, &parent_block_mmr_root, header, body, &origin)
             .send()
             .await
@@ -318,6 +332,19 @@ where
 
         let number = header.prefix.number;
         let root = *header.root();
+
+        if let Some(super_segment) = maybe_super_segment
+            && self
+                .chain_info
+                .persist_super_segment_header(super_segment.header)
+                .await
+                .map_err(
+                    |error| BeaconChainBlockImportError::PersistSuperSegmentHeaders { error },
+                )?
+            && let Err(error) = self.super_segments_sender.clone().send(super_segment).await
+        {
+            warn!(%error, "Failed to send a super segment notification");
+        }
 
         self.chain_info
             .persist_block(

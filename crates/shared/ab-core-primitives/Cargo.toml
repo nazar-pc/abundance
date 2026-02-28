@@ -29,7 +29,7 @@ parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-enc
 replace_with = { workspace = true }
 rayon = { workspace = true, optional = true }
 rclite = { workspace = true, optional = true }
-serde = { workspace = true, features = ["derive"], optional = true }
+serde = { workspace = true, features = ["derive", "rc"], optional = true }
 serde-big-array = { workspace = true }
 thiserror = { workspace = true }
 yoke = { workspace = true, features = ["derive"] }

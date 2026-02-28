@@ -16,7 +16,7 @@ all-features = true
 [dependencies]
 ab-aligned-buffer = { workspace = true }
 ab-client-api = { workspace = true }
-ab-core-primitives = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-merkle-tree = { workspace = true }
 blake3 = { workspace = true }
 futures = { workspace = true, features = ["std"] }

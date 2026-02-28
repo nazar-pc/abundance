@@ -384,15 +384,15 @@ where
     let record = recover_source_record(&sector_record_chunks, piece_offset, erasure_coding)?;
 
     let RecordMetadata {
-        record_parity_chunks_root,
-        record_proof,
+        piece_header,
         piece_checksum,
     } = read_record_metadata(piece_offset, pieces_in_sector, sector).await?;
 
     let mut piece = Piece::default();
 
-    piece.parity_chunks_root = record_parity_chunks_root;
-    piece.record_proof = record_proof;
+    piece.header = piece_header;
+    // Fancy way to insert value to avoid going through stack (if naive dereferencing is used)
+    // and potentially causing stack overflow as the result
     piece.record.copy_from_slice(&**record);
 
     // Verify checksum

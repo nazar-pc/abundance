@@ -63,20 +63,25 @@ mod storage_backend_adapter;
 use crate::page_group::block::StorageItemBlock;
 use crate::page_group::block::block::StorageItemBlockBlock;
 use crate::page_group::block::segment_headers::StorageItemBlockSegmentHeaders;
+use crate::page_group::block::super_segment_headers::StorageItemBlockSuperSegmentHeaders;
 use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
     StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
 };
 use ab_client_api::{
-    BlockDetails, BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, ContractSlotState,
-    PersistBlockError, PersistSegmentHeadersError, ReadBlockError,
+    BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, BlockMerkleMountainRange, ChainInfo,
+    ChainInfoWrite, ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
+    PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
 };
-use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
+use ab_core_primitives::block::body::BeaconChainBody;
+use ab_core_primitives::block::body::owned::{GenericOwnedBlockBody, OwnedBeaconChainBody};
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
-use ab_core_primitives::block::owned::GenericOwnedBlock;
+use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
-use ab_core_primitives::segments::{LocalSegmentIndex, SegmentHeader};
+use ab_core_primitives::segments::{
+    LocalSegmentIndex, SegmentHeader, SuperSegmentHeader, SuperSegmentIndex,
+};
 use ab_core_primitives::shard::RealShardKind;
 use ab_io_type::trivial_type::TrivialType;
 use async_lock::{
@@ -86,6 +91,7 @@ use rand::rngs::SysError;
 use rclite::Arc;
 use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};
+use std::any::Any;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{BuildHasherDefault, Hasher};
 use std::num::{NonZeroU32, NonZeroUsize};
@@ -359,6 +365,56 @@ where
     },
 }
 
+#[derive(Debug)]
+struct BeaconChainBlockDetails {
+    // Shard segment roots, only present for beacon chain blocks
+    shard_segment_roots: StdArc<[ShardSegmentRoot]>,
+}
+
+impl BeaconChainBlockDetails {
+    fn from_body(body: &BeaconChainBody<'_>) -> Self {
+        let shard_segment_roots = body
+            .intermediate_shard_blocks()
+            .iter()
+            .flat_map(|intermediate_shard_block_info| {
+                let own_segments = intermediate_shard_block_info
+                    .own_segments
+                    .into_iter()
+                    .flat_map({
+                        let shard_index = intermediate_shard_block_info.header.prefix.shard_index;
+
+                        move |own_segments| {
+                            (own_segments.first_local_segment_index..)
+                                .zip(own_segments.segment_roots)
+                                .map(move |(segment_index, &segment_root)| ShardSegmentRoot {
+                                    shard_index,
+                                    segment_index,
+                                    segment_root,
+                                })
+                        }
+                    });
+                let child_shard_segment_roots = intermediate_shard_block_info
+                    .leaf_shards_segments()
+                    .flat_map(move |(shard_index, own_segments)| {
+                        (own_segments.first_local_segment_index..)
+                            .zip(own_segments.segment_roots)
+                            .map(move |(segment_index, &segment_root)| ShardSegmentRoot {
+                                shard_index,
+                                segment_index,
+                                segment_root,
+                            })
+                    });
+
+                own_segments.chain(child_shard_segment_roots)
+            })
+            .collect();
+
+        Self {
+            shard_segment_roots,
+        }
+    }
+}
+
 /// Client database block contains details about the block state in the database.
 ///
 /// Originally all blocks are stored in memory. Once a block is soft-confirmed (see
@@ -374,17 +430,23 @@ where
     InMemory {
         block: Block,
         block_details: BlockDetails,
+        /// Only present for beacon chain blocks
+        beacon_chain_block_details: Option<BeaconChainBlockDetails>,
     },
     /// Block was persisted (likely on disk)
     Persisted {
         header: Block::Header,
         block_details: BlockDetails,
+        /// Only present for beacon chain blocks
+        beacon_chain_block_details: Option<BeaconChainBlockDetails>,
         write_location: WriteLocation,
     },
     /// Block was persisted (likely on disk) and is irreversibly "confirmed" from the consensus
     /// perspective
     PersistedConfirmed {
         header: Block::Header,
+        /// Only present for beacon chain blocks
+        beacon_chain_block_details: Option<BeaconChainBlockDetails>,
         write_location: WriteLocation,
     },
 }
@@ -413,6 +475,7 @@ where
             | Self::PersistedConfirmed {
                 header,
                 write_location,
+                ..
             } => FullBlock::Persisted {
                 header,
                 write_location: *write_location,
@@ -427,6 +490,24 @@ where
                 Some(block_details)
             }
             Self::PersistedConfirmed { .. } => None,
+        }
+    }
+
+    #[inline(always)]
+    fn beacon_chain_block_details(&self) -> &Option<BeaconChainBlockDetails> {
+        match self {
+            Self::InMemory {
+                beacon_chain_block_details,
+                ..
+            }
+            | Self::Persisted {
+                beacon_chain_block_details,
+                ..
+            }
+            | Self::PersistedConfirmed {
+                beacon_chain_block_details,
+                ..
+            } => beacon_chain_block_details,
         }
     }
 }
@@ -537,6 +618,103 @@ impl SegmentHeadersCache {
     }
 }
 
+#[derive(Debug)]
+struct SuperSegmentHeadersCache {
+    super_segment_headers_cache: Vec<SuperSegmentHeader>,
+}
+
+impl SuperSegmentHeadersCache {
+    #[inline(always)]
+    fn last_super_segment_header(&self) -> Option<SuperSegmentHeader> {
+        self.super_segment_headers_cache.last().cloned()
+    }
+
+    #[inline]
+    fn previous_super_segment_header(
+        &self,
+        target_block_number: BlockNumber,
+    ) -> Option<SuperSegmentHeader> {
+        let block_number = target_block_number.checked_sub(BlockNumber::ONE)?;
+        let index = match self.super_segment_headers_cache.binary_search_by_key(
+            &block_number,
+            |super_segment_header| {
+                super_segment_header
+                    .target_beacon_chain_block_number
+                    .as_inner()
+            },
+        ) {
+            Ok(found_index) => found_index,
+            Err(insert_index) => insert_index.checked_sub(1)?,
+        };
+
+        self.super_segment_headers_cache.get(index).copied()
+    }
+
+    #[inline(always)]
+    fn get_super_segment_header(
+        &self,
+        local_segment_index: SuperSegmentIndex,
+    ) -> Option<SuperSegmentHeader> {
+        self.super_segment_headers_cache
+            .get(u64::from(local_segment_index) as usize)
+            .copied()
+    }
+
+    /// Returns actually added super segments (some might have been skipped)
+    fn add_super_segment_headers(
+        &mut self,
+        mut super_segment_headers: Vec<SuperSegmentHeader>,
+    ) -> Result<Vec<SuperSegmentHeader>, PersistSuperSegmentHeadersError> {
+        self.super_segment_headers_cache
+            .reserve(super_segment_headers.len());
+
+        let mut maybe_last_super_segment_index = self
+            .super_segment_headers_cache
+            .last()
+            .map(|header| header.index.as_inner());
+
+        if let Some(last_super_segment_index) = maybe_last_super_segment_index {
+            // Skip already stored super segment headers
+            super_segment_headers.retain(|super_segment_header| {
+                super_segment_header.index.as_inner() > last_super_segment_index
+            });
+        }
+
+        // Check all input super segment headers to see which ones are not stored yet and verifying
+        // that super segment indices are monotonically increasing
+        for super_segment_header in super_segment_headers.iter().copied() {
+            let super_segment_index = super_segment_header.index.as_inner();
+            match maybe_last_super_segment_index {
+                Some(last_super_segment_index) => {
+                    if super_segment_index != last_super_segment_index + SuperSegmentIndex::ONE {
+                        return Err(
+                            PersistSuperSegmentHeadersError::MustFollowLastSegmentIndex {
+                                super_segment_index,
+                                last_super_segment_index,
+                            },
+                        );
+                    }
+
+                    self.super_segment_headers_cache.push(super_segment_header);
+                    maybe_last_super_segment_index.replace(super_segment_index);
+                }
+                None => {
+                    if super_segment_index != SuperSegmentIndex::ZERO {
+                        return Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero {
+                            super_segment_index,
+                        });
+                    }
+
+                    self.super_segment_headers_cache.push(super_segment_header);
+                    maybe_last_super_segment_index.replace(super_segment_index);
+                }
+            }
+        }
+
+        Ok(super_segment_headers)
+    }
+}
+
 // TODO: Hide implementation details
 #[derive(Debug)]
 struct State<Block, StorageBackend>
@@ -545,6 +723,7 @@ where
 {
     data: StateData<Block>,
     segment_headers_cache: SegmentHeadersCache,
+    super_segment_headers_cache: SuperSegmentHeadersCache,
     storage_backend_adapter: AsyncRwLock<StorageBackendAdapter<StorageBackend>>,
 }
 
@@ -643,14 +822,14 @@ where
     #[inline]
     fn best_root(&self) -> BlockRoot {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         self.inner.state.read_blocking().best_tip().root
     }
 
     #[inline]
     fn best_header(&self) -> Block::Header {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         self.inner
             .state
             .read_blocking()
@@ -662,7 +841,7 @@ where
     #[inline]
     fn best_header_with_details(&self) -> (Block::Header, BlockDetails) {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
         let best_block = state.best_block();
         (
@@ -682,7 +861,7 @@ where
         descendant_block_root: &BlockRoot,
     ) -> Option<Block::Header> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
 
@@ -746,7 +925,7 @@ where
     #[inline]
     fn header(&self, block_root: &BlockRoot) -> Option<Block::Header> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
 
@@ -768,7 +947,7 @@ where
     #[inline]
     fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
 
@@ -830,7 +1009,14 @@ where
                             StorageItemBlock::SegmentHeaders(_) => {
                                 return Err(ReadBlockError::StorageItemReadError {
                                     error: io::Error::other(
-                                        "Unexpected storage item: SegmentHeaders",
+                                        "Unexpected storage item: `SegmentHeaders`",
+                                    ),
+                                });
+                            }
+                            StorageItemBlock::SuperSegmentHeaders(_) => {
+                                return Err(ReadBlockError::StorageItemReadError {
+                                    error: io::Error::other(
+                                        "Unexpected storage item: `SuperSegmentHeaders`",
                                     ),
                                 });
                             }
@@ -856,7 +1042,7 @@ where
     #[inline]
     fn last_segment_header(&self) -> Option<SegmentHeader> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
         state.segment_headers_cache.last_segment_header()
     }
@@ -864,7 +1050,7 @@ where
     #[inline]
     fn get_segment_header(&self, segment_index: LocalSegmentIndex) -> Option<SegmentHeader> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
 
         state
@@ -872,10 +1058,9 @@ where
             .get_segment_header(segment_index)
     }
 
-    #[inline]
     fn segment_headers_for_block(&self, block_number: BlockNumber) -> Vec<SegmentHeader> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
+        // most locks are read locks
         let state = self.inner.state.read_blocking();
 
         let Some(last_local_segment_index) = state.segment_headers_cache.max_local_segment_index()
@@ -1027,9 +1212,12 @@ where
             },
         );
         state.data.block_roots.insert(block_root, block_number);
+        let beacon_chain_block_details = <dyn Any>::downcast_ref::<OwnedBeaconChainBlock>(&block)
+            .map(|block| BeaconChainBlockDetails::from_body(block.body.body()));
         block_forks.push(ClientDatabaseBlock::InMemory {
             block,
             block_details,
+            beacon_chain_block_details,
         });
 
         Self::prune_outdated_fork_tips(block_number, &mut state.data, &self.inner.options);
@@ -1063,6 +1251,152 @@ where
             .write_storage_item(StorageItemBlock::SegmentHeaders(
                 StorageItemBlockSegmentHeaders {
                     segment_headers: added_segment_headers,
+                },
+            ))
+            .await?;
+
+        Ok(())
+    }
+}
+
+impl<StorageBackend> BeaconChainInfo for ClientDatabase<OwnedBeaconChainBlock, StorageBackend>
+where
+    StorageBackend: ClientDatabaseStorageBackend,
+{
+    fn shard_segment_roots(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // most locks are read locks
+        let state = self.inner.state.read_blocking();
+        let best_number = state.best_tip().number;
+
+        let block_offset = u64::from(
+            best_number
+                .checked_sub(block_number)
+                .ok_or(ShardSegmentRootsError::BlockMissing { block_number })?,
+        ) as usize;
+
+        let block = state
+            .data
+            .blocks
+            .get(block_offset)
+            .ok_or(ShardSegmentRootsError::BlockMissing { block_number })?
+            .first()
+            .expect("There is always at least one block candidate; qed");
+
+        Ok(StdArc::clone(
+            &block
+                .beacon_chain_block_details()
+                .as_ref()
+                .expect("Always present in the beacon chain block; qed")
+                .shard_segment_roots,
+        ))
+    }
+
+    #[inline]
+    fn last_super_segment_header(&self) -> Option<SuperSegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // most locks are read locks
+        let state = self.inner.state.read_blocking();
+        state
+            .super_segment_headers_cache
+            .last_super_segment_header()
+    }
+
+    #[inline]
+    fn previous_super_segment_header(
+        &self,
+        target_block_number: BlockNumber,
+    ) -> Option<SuperSegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // most locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        state
+            .super_segment_headers_cache
+            .previous_super_segment_header(target_block_number)
+    }
+
+    #[inline]
+    fn get_super_segment_header(
+        &self,
+        super_segment_index: SuperSegmentIndex,
+    ) -> Option<SuperSegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // most locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        state
+            .super_segment_headers_cache
+            .get_super_segment_header(super_segment_index)
+    }
+}
+
+impl<StorageBackend> BeaconChainInfoWrite for ClientDatabase<OwnedBeaconChainBlock, StorageBackend>
+where
+    StorageBackend: ClientDatabaseStorageBackend,
+{
+    async fn persist_super_segment_header(
+        &self,
+        super_segment_header: SuperSegmentHeader,
+    ) -> Result<bool, PersistSuperSegmentHeadersError> {
+        let mut state = self.inner.state.write().await;
+
+        let added_super_segment_headers = state
+            .super_segment_headers_cache
+            .add_super_segment_headers(vec![super_segment_header])?;
+
+        if added_super_segment_headers.is_empty() {
+            return Ok(false);
+        }
+
+        // Convert write lock into upgradable read lock to allow reads, while preventing super
+        // segment headers modifications
+        // TODO: This assumes both guarantees in https://github.com/smol-rs/async-lock/issues/100
+        //  are satisfied. If not, blocking read locks in other places will cause issues.
+        let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
+
+        let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
+
+        storage_backend_adapter
+            .write_storage_item(StorageItemBlock::SuperSegmentHeaders(
+                StorageItemBlockSuperSegmentHeaders {
+                    super_segment_headers: added_super_segment_headers,
+                },
+            ))
+            .await?;
+
+        Ok(true)
+    }
+
+    async fn persist_super_segment_headers(
+        &self,
+        super_segment_headers: Vec<SuperSegmentHeader>,
+    ) -> Result<(), PersistSuperSegmentHeadersError> {
+        let mut state = self.inner.state.write().await;
+
+        let added_super_segment_headers = state
+            .super_segment_headers_cache
+            .add_super_segment_headers(super_segment_headers)?;
+
+        if added_super_segment_headers.is_empty() {
+            return Ok(());
+        }
+
+        // Convert write lock into upgradable read lock to allow reads, while preventing super
+        // segment headers modifications
+        // TODO: This assumes both guarantees in https://github.com/smol-rs/async-lock/issues/100
+        //  are satisfied. If not, blocking read locks in other places will cause issues.
+        let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
+
+        let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
+
+        storage_backend_adapter
+            .write_storage_item(StorageItemBlock::SuperSegmentHeaders(
+                StorageItemBlockSuperSegmentHeaders {
+                    super_segment_headers: added_super_segment_headers,
                 },
             ))
             .await?;
@@ -1110,6 +1444,9 @@ where
         let mut segment_headers_cache = SegmentHeadersCache {
             segment_headers_cache: Vec::new(),
         };
+        let mut super_segment_headers_cache = SuperSegmentHeadersCache {
+            super_segment_headers_cache: Vec::new(),
+        };
 
         let options = ClientDatabaseInnerOptions {
             block_confirmation_depth,
@@ -1149,19 +1486,43 @@ where
                             }
                         };
                     }
+                    StorageItemBlock::SuperSegmentHeaders(super_segment_headers) => {
+                        let num_super_segment_headers =
+                            super_segment_headers.super_segment_headers.len();
+                        return match super_segment_headers_cache
+                            .add_super_segment_headers(super_segment_headers.super_segment_headers)
+                        {
+                            Ok(_) => Ok(()),
+                            Err(error) => {
+                                error!(
+                                    %page_offset,
+                                    %num_super_segment_headers,
+                                    %error,
+                                    "Failed to add segment headers from storage item"
+                                );
+
+                                Err(ClientDatabaseError::InvalidSegmentHeaders { page_offset })
+                            }
+                        };
+                    }
                 };
 
                 // TODO: It would be nice to not allocate body here since we'll not use it here
                 //  anyway
                 let StorageItemBlockBlock {
                     header,
-                    body: _,
+                    body,
                     mmr_with_block,
                     system_contract_states,
                 } = storage_item_block;
 
                 let header = Block::Header::from_buffer(header).map_err(|_buffer| {
                     error!(%page_offset, "Failed to decode block header from bytes");
+
+                    ClientDatabaseError::InvalidBlock { page_offset }
+                })?;
+                let body = Block::Body::from_buffer(body).map_err(|_buffer| {
+                    error!(%page_offset, "Failed to decode block body from bytes");
 
                     ClientDatabaseError::InvalidBlock { page_offset }
                 })?;
@@ -1220,12 +1581,16 @@ where
                 };
 
                 // Push a new block to the end of the list, we'll fix it up later
+                let beacon_chain_block_details =
+                    <dyn Any>::downcast_ref::<OwnedBeaconChainBody>(&body)
+                        .map(|body| BeaconChainBlockDetails::from_body(body.body()));
                 block_forks.push(ClientDatabaseBlock::Persisted {
                     header,
                     block_details: BlockDetails {
                         mmr_with_block,
                         system_contract_states,
                     },
+                    beacon_chain_block_details,
                     write_location: WriteLocation {
                         page_offset,
                         num_pages,
@@ -1282,6 +1647,9 @@ where
                 root: block_root,
             });
             state_data.block_roots.insert(block_root, block_number);
+            let beacon_chain_block_details =
+                <dyn Any>::downcast_ref::<OwnedBeaconChainBlock>(&block)
+                    .map(|block| BeaconChainBlockDetails::from_body(block.body.body()));
             state_data
                 .blocks
                 .push_front(smallvec![ClientDatabaseBlock::InMemory {
@@ -1294,12 +1662,14 @@ where
                             mmr
                         })
                     },
+                    beacon_chain_block_details,
                 }]);
         }
 
         let state = State {
             data: state_data,
             segment_headers_cache,
+            super_segment_headers_cache,
             storage_backend_adapter: AsyncRwLock::new(storage_backend_adapter),
         };
 
@@ -1335,11 +1705,14 @@ where
         state.block_roots.clear();
         state.block_roots.insert(block_root, block_number);
         state.blocks.clear();
+        let beacon_chain_block_details = <dyn Any>::downcast_ref::<OwnedBeaconChainBlock>(&block)
+            .map(|block| BeaconChainBlockDetails::from_body(block.body.body()));
         state
             .blocks
             .push_front(smallvec![ClientDatabaseBlock::InMemory {
                 block,
                 block_details,
+                beacon_chain_block_details,
             }]);
     }
 
@@ -1375,12 +1748,16 @@ where
                 root: block_root,
             });
             state.data.block_roots.insert(block_root, block_number);
+            let beacon_chain_block_details =
+                <dyn Any>::downcast_ref::<OwnedBeaconChainBlock>(&block)
+                    .map(|block| BeaconChainBlockDetails::from_body(block.body.body()));
             state
                 .data
                 .blocks
                 .push_front(smallvec![ClientDatabaseBlock::InMemory {
                     block,
-                    block_details: block_details.clone()
+                    block_details: block_details.clone(),
+                    beacon_chain_block_details,
                 }]);
         }
 
@@ -1410,6 +1787,7 @@ where
                         ClientDatabaseBlock::InMemory {
                             block,
                             block_details,
+                            beacon_chain_block_details: _,
                         } => Some(BlockToPersist {
                             block_offset,
                             fork_offset,
@@ -1483,6 +1861,7 @@ where
                 if let ClientDatabaseBlock::InMemory {
                     block,
                     block_details,
+                    beacon_chain_block_details,
                 } = block
                 {
                     let (header, _body) = block.split();
@@ -1490,6 +1869,7 @@ where
                     ClientDatabaseBlock::Persisted {
                         header,
                         block_details,
+                        beacon_chain_block_details,
                         write_location,
                     }
                 } else {
@@ -1727,9 +2107,11 @@ where
                 ClientDatabaseBlock::Persisted {
                     header,
                     block_details: _,
+                    beacon_chain_block_details,
                     write_location,
                 } => ClientDatabaseBlock::PersistedConfirmed {
                     header,
+                    beacon_chain_block_details,
                     write_location,
                 },
                 ClientDatabaseBlock::PersistedConfirmed { .. } => {

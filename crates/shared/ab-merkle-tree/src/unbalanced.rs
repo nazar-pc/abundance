@@ -38,7 +38,8 @@ impl UnbalancedMerkleTree {
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
     ///
-    /// Returns `None` for an empty list of leaves.
+    /// Returns `None` for an empty list of leaves, or if the number of leaves is larger than
+    /// `MAX_N`.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(

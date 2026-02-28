@@ -21,7 +21,7 @@ pub struct Unaligned<Data>(Data)
 where
     Data: TrivialType;
 
-impl<Data> From<Data> for Unaligned<Data>
+impl<Data> const From<Data> for Unaligned<Data>
 where
     Data: TrivialType,
 {

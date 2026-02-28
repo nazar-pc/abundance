@@ -5,6 +5,7 @@ use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{
     HistorySize, LastArchivedBlock, LocalSegmentIndex, SegmentHeader, SegmentIndex,
+    SuperSegmentHeader, SuperSegmentIndex,
 };
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_components::FarmerProtocolInfo;
@@ -97,6 +98,13 @@ impl NodeClient for MockNodeClient {
         // Allow to delay segment headers subscription in tests
         let stream = rx.await.unwrap();
         Ok(Box::pin(stream))
+    }
+
+    async fn super_segment_headers(
+        &self,
+        _super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
+        unimplemented!()
     }
 
     async fn segment_headers(

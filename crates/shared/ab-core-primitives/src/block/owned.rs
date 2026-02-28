@@ -23,12 +23,15 @@ use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use alloc::vec::Vec;
+use core::any::Any;
 use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
 
 /// Generic owned block
-pub trait GenericOwnedBlock: Clone + fmt::Debug + Send + Sync + Into<OwnedBlock> + 'static {
+pub trait GenericOwnedBlock:
+    Clone + fmt::Debug + Send + Sync + Into<OwnedBlock> + Any + 'static
+{
     /// Shard kind
     const SHARD_KIND: RealShardKind;
 

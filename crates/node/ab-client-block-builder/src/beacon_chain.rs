@@ -1,10 +1,11 @@
 //! Block building for the beacon chain
 
 use crate::{BlockBuilder, BlockBuilderError, BlockBuilderResult};
-use ab_client_api::{BlockDetails, BlockMerkleMountainRange, ChainInfo, ContractSlotState};
+use ab_client_api::{BeaconChainInfo, BlockDetails, BlockMerkleMountainRange, ContractSlotState};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
-    DeriveConsensusParametersError, derive_consensus_parameters,
+    DeriveConsensusParametersError, DeriveSuperSegmentForBlockError, derive_consensus_parameters,
+    derive_super_segments_for_block,
 };
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::body::owned::OwnedBeaconChainBodyError;
@@ -19,6 +20,7 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
+use ab_core_primitives::segments::SuperSegmentRoot;
 use ab_core_primitives::shard::ShardIndex;
 use rclite::Arc;
 use std::iter;
@@ -34,6 +36,13 @@ pub enum BeaconChainBlockBuilderError {
         /// Consensus parameters derivation error
         #[from]
         error: DeriveConsensusParametersError,
+    },
+    /// Super segment derivation error
+    #[error("Super segment derivation error: {error}")]
+    SuperSegmentDerivation {
+        /// Super segment derivation error
+        #[from]
+        error: DeriveSuperSegmentForBlockError,
     },
     /// Failed to create body
     #[error("Failed to create body: {error}")]
@@ -65,14 +74,14 @@ impl From<BeaconChainBlockBuilderError> for BlockBuilderError {
 //  with complete headers, etc.
 /// Beacon chain block builder
 #[derive(Debug)]
-pub struct BeaconChainBlockBuilder<CI> {
+pub struct BeaconChainBlockBuilder<BCI> {
     consensus_constants: ConsensusConstants,
-    chain_info: CI,
+    chain_info: BCI,
 }
 
 impl<CI> BlockBuilder<OwnedBeaconChainBlock> for BeaconChainBlockBuilder<CI>
 where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CI: BeaconChainInfo,
 {
     async fn build<SealBlock>(
         &mut self,
@@ -87,7 +96,7 @@ where
         SealBlock: AsyncFnOnce<(Blake3Hash,), Output = Option<OwnedBlockHeaderSeal>, CallOnceFuture: Send>
             + Send,
     {
-        let block_number = parent_header.prefix.number.saturating_add(BlockNumber::ONE);
+        let block_number = parent_header.prefix.number + BlockNumber::ONE;
 
         let header_prefix = self.create_header_prefix(
             parent_block_root,
@@ -95,11 +104,25 @@ where
             &parent_block_details.mmr_with_block,
             block_number,
         )?;
+        // TODO: Handle super segment error caused by too many segments included in shard blocks.
+        //  While not a concern any time soon, but it is theoretically possible and should be
+        //  handled in a general case.
+        let maybe_super_segment = derive_super_segments_for_block(
+            &self.chain_info,
+            parent_header.prefix.number,
+            self.consensus_constants.block_confirmation_depth,
+            self.consensus_constants.shard_confirmation_depth,
+        )
+        .map_err(BeaconChainBlockBuilderError::from)?;
+
         let consensus_parameters = self.derive_consensus_parameters(
             parent_block_root,
             parent_header,
             block_number,
             consensus_info.slot,
+            maybe_super_segment
+                .as_ref()
+                .map(|super_segment| super_segment.header.root),
         )?;
 
         let (state_root, system_contract_states) = self.execute_block(parent_block_details)?;
@@ -146,16 +169,17 @@ where
                 mmr_with_block: Arc::new(block_mmr),
                 system_contract_states,
             },
+            extra: (),
         })
     }
 }
 
-impl<CI> BeaconChainBlockBuilder<CI>
+impl<BCI> BeaconChainBlockBuilder<BCI>
 where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    BCI: BeaconChainInfo,
 {
     /// Create a new instance
-    pub fn new(consensus_constants: ConsensusConstants, chain_info: CI) -> Self {
+    pub fn new(consensus_constants: ConsensusConstants, chain_info: BCI) -> Self {
         Self {
             consensus_constants,
             chain_info,
@@ -200,6 +224,7 @@ where
         parent_header: &BeaconChainHeader<'_>,
         block_number: BlockNumber,
         slot: SlotNumber,
+        super_segment_root: Option<SuperSegmentRoot>,
     ) -> Result<OwnedBlockHeaderConsensusParameters, BeaconChainBlockBuilderError> {
         let derived_consensus_parameters = derive_consensus_parameters(
             &self.consensus_constants,
@@ -213,8 +238,7 @@ where
 
         Ok(OwnedBlockHeaderConsensusParameters {
             fixed_parameters: derived_consensus_parameters.fixed_parameters,
-            // TODO: Super segment support
-            super_segment_root: None,
+            super_segment_root,
             next_solution_range: derived_consensus_parameters.next_solution_range,
             pot_parameters_change: derived_consensus_parameters.pot_parameters_change,
         })
