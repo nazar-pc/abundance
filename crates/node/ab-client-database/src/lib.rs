@@ -348,15 +348,6 @@ struct ForkTip {
     root: BlockRoot,
 }
 
-#[derive(Debug)]
-struct ClientDatabaseBlockInMemory<Block>
-where
-    Block: GenericOwnedBlock,
-{
-    block: Block,
-    block_details: BlockDetails,
-}
-
 enum FullBlock<'a, Block>
 where
     Block: GenericOwnedBlock,
@@ -380,7 +371,10 @@ where
     Block: GenericOwnedBlock,
 {
     /// Block is stored in memory and wasn't persisted yet
-    InMemory(ClientDatabaseBlockInMemory<Block>),
+    InMemory {
+        block: Block,
+        block_details: BlockDetails,
+    },
     /// Block was persisted (likely on disk)
     Persisted {
         header: Block::Header,
@@ -402,16 +396,15 @@ where
     #[inline(always)]
     fn header(&self) -> &Block::Header {
         match self {
-            Self::InMemory(in_memory) => in_memory.block.header(),
-            Self::Persisted { header, .. } => header,
-            Self::PersistedConfirmed { header, .. } => header,
+            Self::InMemory { block, .. } => block.header(),
+            Self::Persisted { header, .. } | Self::PersistedConfirmed { header, .. } => header,
         }
     }
 
     #[inline(always)]
     fn full_block(&self) -> FullBlock<'_, Block> {
         match self {
-            Self::InMemory(in_memory) => FullBlock::InMemory(&in_memory.block),
+            Self::InMemory { block, .. } => FullBlock::InMemory(block),
             Self::Persisted {
                 header,
                 write_location,
@@ -430,8 +423,9 @@ where
     #[inline(always)]
     fn block_details(&self) -> Option<&BlockDetails> {
         match self {
-            Self::InMemory(in_memory) => Some(&in_memory.block_details),
-            Self::Persisted { block_details, .. } => Some(block_details),
+            Self::InMemory { block_details, .. } | Self::Persisted { block_details, .. } => {
+                Some(block_details)
+            }
             Self::PersistedConfirmed { .. } => None,
         }
     }
@@ -584,7 +578,8 @@ where
 {
     block_offset: usize,
     fork_offset: usize,
-    block: &'a ClientDatabaseBlockInMemory<Block>,
+    block: &'a Block,
+    block_details: &'a BlockDetails,
 }
 
 #[derive(Debug)]
@@ -1041,10 +1036,10 @@ where
             },
         );
         state.data.block_roots.insert(block_root, block_number);
-        block_forks.push(ClientDatabaseBlock::InMemory(ClientDatabaseBlockInMemory {
+        block_forks.push(ClientDatabaseBlock::InMemory {
             block,
             block_details,
-        }));
+        });
 
         Self::prune_outdated_fork_tips(block_number, &mut state.data, &self.inner.options);
 
@@ -1298,19 +1293,17 @@ where
             state_data.block_roots.insert(block_root, block_number);
             state_data
                 .blocks
-                .push_front(smallvec![ClientDatabaseBlock::InMemory(
-                    ClientDatabaseBlockInMemory {
-                        block,
-                        block_details: BlockDetails {
-                            system_contract_states,
-                            mmr_with_block: Arc::new({
-                                let mut mmr = BlockMerkleMountainRange::new();
-                                mmr.add_leaf(&block_root);
-                                mmr
-                            })
-                        },
-                    }
-                )]);
+                .push_front(smallvec![ClientDatabaseBlock::InMemory {
+                    block,
+                    block_details: BlockDetails {
+                        system_contract_states,
+                        mmr_with_block: Arc::new({
+                            let mut mmr = BlockMerkleMountainRange::new();
+                            mmr.add_leaf(&block_root);
+                            mmr
+                        })
+                    },
+                }]);
         }
 
         let state = State {
@@ -1353,12 +1346,10 @@ where
         state.blocks.clear();
         state
             .blocks
-            .push_front(smallvec![ClientDatabaseBlock::InMemory(
-                ClientDatabaseBlockInMemory {
-                    block,
-                    block_details,
-                }
-            )]);
+            .push_front(smallvec![ClientDatabaseBlock::InMemory {
+                block,
+                block_details,
+            }]);
     }
 
     async fn insert_new_best_block(
@@ -1396,12 +1387,10 @@ where
             state
                 .data
                 .blocks
-                .push_front(smallvec![ClientDatabaseBlock::InMemory(
-                    ClientDatabaseBlockInMemory {
-                        block,
-                        block_details: block_details.clone()
-                    }
-                )]);
+                .push_front(smallvec![ClientDatabaseBlock::InMemory {
+                    block,
+                    block_details: block_details.clone()
+                }]);
         }
 
         let options = &inner.options;
@@ -1427,10 +1416,14 @@ where
                 .enumerate()
                 .filter_map(|(fork_offset, client_database_block)| {
                     match client_database_block {
-                        ClientDatabaseBlock::InMemory(block) => Some(BlockToPersist {
+                        ClientDatabaseBlock::InMemory {
+                            block,
+                            block_details,
+                        } => Some(BlockToPersist {
                             block_offset,
                             fork_offset,
                             block,
+                            block_details,
                         }),
                         ClientDatabaseBlock::Persisted { .. }
                         | ClientDatabaseBlock::PersistedConfirmed { .. } => {
@@ -1456,15 +1449,16 @@ where
                     block_offset,
                     fork_offset,
                     block,
+                    block_details,
                 } = block_to_persist;
 
                 let write_location = storage_backend_adapter
                     .write_storage_item(StorageItemBlock::Block(StorageItemBlockBlock {
-                        header: block.block.header().buffer().clone(),
-                        body: block.block.body().buffer().clone(),
-                        mmr_with_block: Arc::clone(&block.block_details.mmr_with_block),
+                        header: block.header().buffer().clone(),
+                        body: block.body().buffer().clone(),
+                        mmr_with_block: Arc::clone(&block_details.mmr_with_block),
                         system_contract_states: StdArc::clone(
-                            &block.block_details.system_contract_states,
+                            &block_details.system_contract_states,
                         ),
                     }))
                     .await?;
@@ -1495,12 +1489,16 @@ where
                 .expect("Still holding the same lock since last check; qed");
 
             replace_with_or_abort(block, |block| {
-                if let ClientDatabaseBlock::InMemory(in_memory) = block {
-                    let (header, _body) = in_memory.block.split();
+                if let ClientDatabaseBlock::InMemory {
+                    block,
+                    block_details,
+                } = block
+                {
+                    let (header, _body) = block.split();
 
                     ClientDatabaseBlock::Persisted {
                         header,
-                        block_details: in_memory.block_details,
+                        block_details,
                         write_location,
                     }
                 } else {
@@ -1676,7 +1674,7 @@ where
 
             // Blocks that are already persisted
             match block {
-                ClientDatabaseBlock::InMemory(_) => {
+                ClientDatabaseBlock::InMemory { .. } => {
                     // Prune
                 }
                 ClientDatabaseBlock::Persisted { .. }
@@ -1726,7 +1724,7 @@ where
             };
 
             replace_with_or_abort(canonical_block, |block| match block {
-                ClientDatabaseBlock::InMemory(_) => {
+                ClientDatabaseBlock::InMemory { .. } => {
                     error!(
                         %best_number,
                         block_offset,
