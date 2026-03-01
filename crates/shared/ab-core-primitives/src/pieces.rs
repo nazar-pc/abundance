@@ -953,16 +953,17 @@ impl RecordProof {
 
 /// A piece of archival history.
 ///
-/// This version is allocated on the stack, for heap-allocated piece see [`Piece`].
+/// This version is allocated on the stack, for a heap-allocated piece that can be moved around
+/// efficiently, see [`Piece`].
 ///
-/// Internally a piece contains a record, followed by record root, supplementary record chunk
-/// root and a proof proving this piece belongs to can be used to verify that a piece belongs to
-/// the actual archival history of the blockchain.
+/// Internally, a piece contains a record, followed by record root, supplementary record chunk root,
+/// and a proof proving this piece belongs to can be used to verify that a piece belongs to the
+/// actual archival history of the blockchain.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deref, DerefMut, AsRef, AsMut)]
 #[repr(C)]
-pub struct PieceArray([u8; PieceArray::SIZE]);
+pub struct InnerPiece([u8; InnerPiece::SIZE]);
 
-impl fmt::Debug for PieceArray {
+impl fmt::Debug for InnerPiece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -971,64 +972,64 @@ impl fmt::Debug for PieceArray {
     }
 }
 
-impl Default for PieceArray {
+impl Default for InnerPiece {
     #[inline]
     fn default() -> Self {
         Self([0u8; Self::SIZE])
     }
 }
 
-impl AsRef<[u8]> for PieceArray {
+impl AsRef<[u8]> for InnerPiece {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl AsMut<[u8]> for PieceArray {
+impl AsMut<[u8]> for InnerPiece {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
-impl From<&PieceArray> for &[u8; PieceArray::SIZE] {
+impl From<&InnerPiece> for &[u8; InnerPiece::SIZE] {
     #[inline]
-    fn from(value: &PieceArray) -> Self {
+    fn from(value: &InnerPiece) -> Self {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&[u8; PieceArray::SIZE]> for &PieceArray {
+impl From<&[u8; InnerPiece::SIZE]> for &InnerPiece {
     #[inline]
-    fn from(value: &[u8; PieceArray::SIZE]) -> Self {
+    fn from(value: &[u8; InnerPiece::SIZE]) -> Self {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut PieceArray> for &mut [u8; PieceArray::SIZE] {
+impl From<&mut InnerPiece> for &mut [u8; InnerPiece::SIZE] {
     #[inline]
-    fn from(value: &mut PieceArray) -> Self {
+    fn from(value: &mut InnerPiece) -> Self {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut [u8; PieceArray::SIZE]> for &mut PieceArray {
+impl From<&mut [u8; InnerPiece::SIZE]> for &mut InnerPiece {
     #[inline]
-    fn from(value: &mut [u8; PieceArray::SIZE]) -> Self {
+    fn from(value: &mut [u8; InnerPiece::SIZE]) -> Self {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl PieceArray {
+impl InnerPiece {
     /// Size of a piece (in bytes).
     pub const SIZE: usize =
         Record::SIZE + RecordRoot::SIZE + RecordChunksRoot::SIZE + RecordProof::SIZE;
@@ -1200,10 +1201,10 @@ impl PieceArray {
 }
 
 #[cfg(feature = "alloc")]
-impl From<Box<PieceArray>> for Vec<u8> {
-    fn from(value: Box<PieceArray>) -> Self {
+impl From<Box<InnerPiece>> for Vec<u8> {
+    fn from(value: Box<InnerPiece>) -> Self {
         let mut value = mem::ManuallyDrop::new(value);
         // SAFETY: Always contains fixed allocation of bytes
-        unsafe { Vec::from_raw_parts(value.as_mut_ptr(), PieceArray::SIZE, PieceArray::SIZE) }
+        unsafe { Vec::from_raw_parts(value.as_mut_ptr(), InnerPiece::SIZE, InnerPiece::SIZE) }
     }
 }
