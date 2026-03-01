@@ -383,24 +383,30 @@ where
     // Restore source record scalars
     let record = recover_source_record(&sector_record_chunks, piece_offset, erasure_coding)?;
 
-    let record_metadata = read_record_metadata(piece_offset, pieces_in_sector, sector).await?;
+    let RecordMetadata {
+        record_parity_chunks_root,
+        record_proof,
+        piece_checksum,
+    } = read_record_metadata(piece_offset, pieces_in_sector, sector).await?;
 
     let mut piece = Piece::default();
 
-    piece.record_mut().copy_from_slice(record.as_slice());
+    piece
+        .record
+        .as_mut_slice()
+        .copy_from_slice(record.as_slice());
 
-    *piece.root_mut() = record_metadata.root;
-    *piece.parity_chunks_root_mut() = record_metadata.parity_chunks_root;
-    *piece.proof_mut() = record_metadata.proof;
+    piece.parity_chunks_root = record_parity_chunks_root;
+    piece.record_proof = record_proof;
 
     // Verify checksum
     let actual_checksum = Blake3Hash::from(blake3::hash(piece.as_ref()));
-    if actual_checksum != record_metadata.piece_checksum {
+    if actual_checksum != piece_checksum {
         debug!(
             ?sector_id,
             %piece_offset,
             %actual_checksum,
-            expected_checksum = %record_metadata.piece_checksum,
+            expected_checksum = %piece_checksum,
             "Hash doesn't match, plotted piece is corrupted"
         );
 

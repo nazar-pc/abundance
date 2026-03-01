@@ -373,7 +373,7 @@ impl DiskPieceCache {
         let piece_index_bytes = piece_index.to_bytes();
         // File writes are read/write/modify internally, so combine all data here for more efficient
         // write
-        let mut bytes = Vec::with_capacity(PieceIndex::SIZE + piece.len() + Blake3Hash::SIZE);
+        let mut bytes = Vec::with_capacity(PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE);
         bytes.extend_from_slice(&piece_index_bytes);
         bytes.extend_from_slice(piece.as_ref());
         bytes.extend_from_slice(

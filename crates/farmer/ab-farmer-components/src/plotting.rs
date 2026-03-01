@@ -751,16 +751,14 @@ fn process_piece(
     pieces_to_download: &mut HashMap<PieceIndex, Vec<(&mut Record, &mut RecordMetadata)>>,
 ) {
     for (record, metadata) in pieces_to_download.remove(&piece_index).unwrap_or_default() {
-        // Fancy way to insert value in order to avoid going through stack (if naive
-        // de-referencing is used) and potentially causing stack overflow as the
-        // result
+        // Fancy way to insert value to avoid going through stack (if naive dereferencing is used)
+        // and potentially causing stack overflow as the result
         record
             .as_flattened_mut()
-            .copy_from_slice(piece.record().as_flattened());
+            .copy_from_slice(piece.record.as_flattened());
         *metadata = RecordMetadata {
-            root: *piece.root(),
-            parity_chunks_root: *piece.parity_chunks_root(),
-            proof: *piece.proof(),
+            record_parity_chunks_root: piece.parity_chunks_root,
+            record_proof: piece.record_proof,
             piece_checksum: blake3::hash(piece.as_ref()).into(),
         };
     }

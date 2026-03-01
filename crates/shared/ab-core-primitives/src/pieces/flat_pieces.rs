@@ -1,5 +1,5 @@
 use crate::pieces::cow_bytes::CowBytes;
-use crate::pieces::{Piece, PieceArray};
+use crate::pieces::{InnerPiece, Piece};
 use crate::segments::RecordedHistorySegment;
 use alloc::boxed::Box;
 use bytes::{Bytes, BytesMut};
@@ -20,7 +20,7 @@ impl fmt::Debug for FlatPieces {
 }
 
 impl Deref for FlatPieces {
-    type Target = [PieceArray];
+    type Target = [InnerPiece];
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -33,7 +33,7 @@ impl Deref for FlatPieces {
                 bytes.len() / Piece::SIZE,
             )
         };
-        PieceArray::slice_from_repr(pieces)
+        InnerPiece::slice_from_repr(pieces)
     }
 }
 
@@ -49,7 +49,7 @@ impl DerefMut for FlatPieces {
                 bytes.len() / Piece::SIZE,
             )
         };
-        PieceArray::slice_mut_from_repr(pieces)
+        InnerPiece::slice_mut_from_repr(pieces)
     }
 }
 
@@ -91,13 +91,13 @@ impl FlatPieces {
 
     /// Iterator over source pieces (even indices)
     #[inline]
-    pub fn source(&self) -> impl ExactSizeIterator<Item = &'_ PieceArray> + '_ {
+    pub fn source(&self) -> impl ExactSizeIterator<Item = &'_ InnerPiece> + '_ {
         self.iter().take(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
 
     /// Mutable iterator over source pieces (even indices)
     #[inline]
-    pub fn source_mut(&mut self) -> impl ExactSizeIterator<Item = &'_ mut PieceArray> + '_ {
+    pub fn source_mut(&mut self) -> impl ExactSizeIterator<Item = &'_ mut InnerPiece> + '_ {
         self.iter_mut()
             .take(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
@@ -110,13 +110,13 @@ impl FlatPieces {
 
     /// Iterator over parity pieces (odd indices)
     #[inline]
-    pub fn parity(&self) -> impl ExactSizeIterator<Item = &'_ PieceArray> + '_ {
+    pub fn parity(&self) -> impl ExactSizeIterator<Item = &'_ InnerPiece> + '_ {
         self.iter().skip(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
 
     /// Mutable iterator over parity pieces (odd indices)
     #[inline]
-    pub fn parity_mut(&mut self) -> impl ExactSizeIterator<Item = &'_ mut PieceArray> + '_ {
+    pub fn parity_mut(&mut self) -> impl ExactSizeIterator<Item = &'_ mut InnerPiece> + '_ {
         self.iter_mut()
             .skip(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
@@ -138,7 +138,7 @@ impl FlatPieces {
 impl FlatPieces {
     /// Parallel iterator over source pieces (even indices)
     #[inline]
-    pub fn par_source(&self) -> impl IndexedParallelIterator<Item = &'_ PieceArray> + '_ {
+    pub fn par_source(&self) -> impl IndexedParallelIterator<Item = &'_ InnerPiece> + '_ {
         self.par_iter()
             .take(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
@@ -147,14 +147,14 @@ impl FlatPieces {
     #[inline]
     pub fn par_source_mut(
         &mut self,
-    ) -> impl IndexedParallelIterator<Item = &'_ mut PieceArray> + '_ {
+    ) -> impl IndexedParallelIterator<Item = &'_ mut InnerPiece> + '_ {
         self.par_iter_mut()
             .take(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
 
     /// Parallel iterator over parity pieces (odd indices)
     #[inline]
-    pub fn par_parity(&self) -> impl IndexedParallelIterator<Item = &'_ PieceArray> + '_ {
+    pub fn par_parity(&self) -> impl IndexedParallelIterator<Item = &'_ InnerPiece> + '_ {
         self.par_iter()
             .skip(RecordedHistorySegment::NUM_RAW_RECORDS)
     }
@@ -163,7 +163,7 @@ impl FlatPieces {
     #[inline]
     pub fn par_parity_mut(
         &mut self,
-    ) -> impl IndexedParallelIterator<Item = &'_ mut PieceArray> + '_ {
+    ) -> impl IndexedParallelIterator<Item = &'_ mut InnerPiece> + '_ {
         self.par_iter_mut()
             .skip(RecordedHistorySegment::NUM_RAW_RECORDS)
     }

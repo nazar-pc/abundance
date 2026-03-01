@@ -603,13 +603,6 @@ impl fmt::Debug for RecordedHistorySegment {
     }
 }
 
-impl Default for RecordedHistorySegment {
-    #[inline]
-    fn default() -> Self {
-        Self([Record::default(); Self::NUM_RAW_RECORDS])
-    }
-}
-
 impl AsRef<[u8]> for RecordedHistorySegment {
     #[inline]
     fn as_ref(&self) -> &[u8] {

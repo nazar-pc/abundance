@@ -1,5 +1,6 @@
-use crate::pieces::PieceArray;
+use crate::pieces::InnerPiece;
 use crate::pieces::cow_bytes::CowBytes;
+use ab_io_type::trivial_type::TrivialType;
 #[cfg(any(feature = "scale-codec", feature = "serde"))]
 use alloc::format;
 use alloc::vec::Vec;
@@ -12,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A piece of archival history.
 ///
-/// This version is allocated on the heap, for stack-allocated piece see [`PieceArray`].
+/// This version is allocated on the heap, for stack-allocated piece see [`InnerPiece`].
 ///
 /// Internally piece contains a record and corresponding proof that together with segment
 /// root of the segment this piece belongs to can be used to verify that a piece belongs to
@@ -181,30 +182,28 @@ impl TryFrom<BytesMut> for Piece {
     }
 }
 
-impl From<&PieceArray> for Piece {
+impl From<&InnerPiece> for Piece {
     #[inline]
-    fn from(value: &PieceArray) -> Self {
-        Self(CowBytes::Shared(Bytes::copy_from_slice(value.as_ref())))
+    fn from(value: &InnerPiece) -> Self {
+        Self(CowBytes::Shared(Bytes::copy_from_slice(value.as_bytes())))
     }
 }
 
 impl Deref for Piece {
-    type Target = PieceArray;
+    type Target = InnerPiece;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        <&[u8; Self::SIZE]>::try_from(self.as_ref())
-            .expect("Slice of memory has correct length; qed")
-            .into()
+        // SAFETY: Correct size and alignment
+        unsafe { InnerPiece::from_bytes_unchecked(self.as_ref()) }
     }
 }
 
 impl DerefMut for Piece {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        <&mut [u8; Self::SIZE]>::try_from(self.as_mut())
-            .expect("Slice of memory has correct length; qed")
-            .into()
+        // SAFETY: Correct size and alignment
+        unsafe { InnerPiece::from_bytes_mut_unchecked(self.as_mut()) }
     }
 }
 
@@ -223,8 +222,8 @@ impl AsMut<[u8]> for Piece {
 }
 
 impl Piece {
-    /// Size of a piece (in bytes).
-    pub const SIZE: usize = PieceArray::SIZE;
+    /// Size of a piece (in bytes)
+    pub const SIZE: usize = InnerPiece::SIZE;
 
     /// Ensure piece contains cheaply cloneable shared data.
     ///

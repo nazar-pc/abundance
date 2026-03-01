@@ -350,7 +350,7 @@ impl RecordChunk {
 /// Record contained within a piece.
 ///
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
-#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
+#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, TrivialType)]
 #[repr(C)]
 pub struct Record([[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]);
 
@@ -360,13 +360,6 @@ impl fmt::Debug for Record {
             write!(f, "{byte:02x}")?;
         }
         Ok(())
-    }
-}
-
-impl Default for Record {
-    #[inline]
-    fn default() -> Self {
-        Self([Default::default(); Record::NUM_CHUNKS])
     }
 }
 
@@ -412,42 +405,6 @@ impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
     #[inline]
     fn from(value: &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&Record> for &[u8; Record::SIZE] {
-    #[inline]
-    fn from(value: &Record) -> Self {
-        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
-        // as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&[u8; Record::SIZE]> for &Record {
-    #[inline]
-    fn from(value: &[u8; Record::SIZE]) -> Self {
-        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
-        // as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut Record> for &mut [u8; Record::SIZE] {
-    #[inline]
-    fn from(value: &mut Record) -> Self {
-        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
-        // as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut [u8; Record::SIZE]> for &mut Record {
-    #[inline]
-    fn from(value: &mut [u8; Record::SIZE]) -> Self {
-        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
-        // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
 }
@@ -507,7 +464,7 @@ impl Record {
 
     /// Convenient conversion from slice of record to underlying representation for efficiency
     /// purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_to_repr(value: &[Self]) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -515,7 +472,7 @@ impl Record {
 
     /// Convenient conversion from slice of underlying representation to record for efficiency
     /// purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_from_repr(value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]]) -> &[Self] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -523,7 +480,7 @@ impl Record {
 
     /// Convenient conversion from mutable slice of record to underlying representation for
     /// efficiency purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_mut_to_repr(
         value: &mut [Self],
     ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
@@ -533,16 +490,24 @@ impl Record {
 
     /// Convenient conversion from mutable slice of underlying representation to record for
     /// efficiency purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_mut_from_repr(
         value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]],
     ) -> &mut [Self] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
+
+    /// Derive source chunks root on-demand
+    #[inline(always)]
+    pub fn source_chunks_root(&self) -> RecordChunksRoot {
+        RecordChunksRoot(BalancedMerkleTree::compute_root_only(self))
+    }
 }
 
-/// Record root contained within a piece.
+/// Root of the record contained within a piece.
+///
+/// This is a Merkle Tree root of the roots of source and parity record chunks.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -683,9 +648,10 @@ impl RecordRoot {
     }
 }
 
-/// Record chunks root (source or parity) contained within a piece.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+/// Root of source or parity record chunks
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[repr(C)]
 pub struct RecordChunksRoot([u8; RecordChunksRoot::SIZE]);
 
 impl fmt::Debug for RecordChunksRoot {
@@ -808,7 +774,7 @@ impl RecordChunksRoot {
     pub const SIZE: usize = 32;
 }
 
-/// Record proof contained within a piece.
+/// Proof that the record (root) belongs to a segment
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -953,85 +919,37 @@ impl RecordProof {
 
 /// A piece of archival history.
 ///
-/// This version is allocated on the stack, for heap-allocated piece see [`Piece`].
+/// This version is allocated on the stack, for a heap-allocated piece that can be moved around
+/// efficiently, see [`Piece`].
 ///
-/// Internally a piece contains a record, followed by record root, supplementary record chunk
-/// root and a proof proving this piece belongs to can be used to verify that a piece belongs to
-/// the actual archival history of the blockchain.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deref, DerefMut, AsRef, AsMut)]
+/// Internally, a piece contains a record, supplementary record chunk root, and a proof proving this
+/// piece belongs to can be used to verify that a piece belongs to the actual archival history of
+/// the blockchain.
+#[derive(Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(C)]
-pub struct PieceArray([u8; PieceArray::SIZE]);
+pub struct InnerPiece {
+    /// Record contained within a piece
+    pub record: Record,
+    /// Root of parity record chunks.
+    ///
+    /// Technically redundant, but helps to avoid repeating erasure coding during verification.
+    pub parity_chunks_root: RecordChunksRoot,
+    /// Proof that the record (root) belongs to a segment
+    pub record_proof: RecordProof,
+}
 
-impl fmt::Debug for PieceArray {
+impl fmt::Debug for InnerPiece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
+        for byte in self.as_bytes() {
             write!(f, "{byte:02x}")?;
         }
         Ok(())
     }
 }
 
-impl Default for PieceArray {
-    #[inline]
-    fn default() -> Self {
-        Self([0u8; Self::SIZE])
-    }
-}
-
-impl AsRef<[u8]> for PieceArray {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl AsMut<[u8]> for PieceArray {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
-}
-
-impl From<&PieceArray> for &[u8; PieceArray::SIZE] {
-    #[inline]
-    fn from(value: &PieceArray) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&[u8; PieceArray::SIZE]> for &PieceArray {
-    #[inline]
-    fn from(value: &[u8; PieceArray::SIZE]) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut PieceArray> for &mut [u8; PieceArray::SIZE] {
-    #[inline]
-    fn from(value: &mut PieceArray) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut [u8; PieceArray::SIZE]> for &mut PieceArray {
-    #[inline]
-    fn from(value: &mut [u8; PieceArray::SIZE]) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl PieceArray {
-    /// Size of a piece (in bytes).
-    pub const SIZE: usize =
-        Record::SIZE + RecordRoot::SIZE + RecordChunksRoot::SIZE + RecordProof::SIZE;
+impl InnerPiece {
+    /// Size of a piece (in bytes)
+    pub const SIZE: usize = size_of::<Self>();
 
     /// Create boxed value without hitting stack overflow
     #[inline]
@@ -1044,122 +962,21 @@ impl PieceArray {
 
     /// Validate proof embedded within a piece produced by the archiver
     pub fn is_valid(&self, segment_root: &SegmentRoot, position: PiecePosition) -> bool {
-        let (record, &record_root, parity_chunks_root, record_proof) = self.split();
+        self.record_root()
+            .is_valid(segment_root, &self.record_proof, position)
+    }
 
-        let source_record_merkle_tree_root = BalancedMerkleTree::compute_root_only(record);
+    /// Root of the record contained within a piece.
+    ///
+    /// It is re-derived on every call of this function.
+    #[inline]
+    pub fn record_root(&self) -> RecordRoot {
         let record_merkle_tree_root = BalancedMerkleTree::compute_root_only(&[
-            source_record_merkle_tree_root,
-            **parity_chunks_root,
+            *self.record.source_chunks_root(),
+            *self.parity_chunks_root,
         ]);
 
-        if record_merkle_tree_root != *record_root {
-            return false;
-        }
-
-        record_root.is_valid(segment_root, record_proof, position)
-    }
-
-    /// Split piece into underlying components.
-    #[inline]
-    pub fn split(&self) -> (&Record, &RecordRoot, &RecordChunksRoot, &RecordProof) {
-        let (record, extra) = self.0.split_at(Record::SIZE);
-        let (root, extra) = extra.split_at(RecordRoot::SIZE);
-        let (parity_chunks_root, proof) = extra.split_at(RecordChunksRoot::SIZE);
-
-        let record = <&[u8; Record::SIZE]>::try_from(record)
-            .expect("Slice of memory has correct length; qed");
-        let root = <&[u8; RecordRoot::SIZE]>::try_from(root)
-            .expect("Slice of memory has correct length; qed");
-        let parity_chunks_root = <&[u8; RecordChunksRoot::SIZE]>::try_from(parity_chunks_root)
-            .expect("Slice of memory has correct length; qed");
-        let proof = <&[u8; RecordProof::SIZE]>::try_from(proof)
-            .expect("Slice of memory has correct length; qed");
-
-        (
-            record.into(),
-            root.into(),
-            parity_chunks_root.into(),
-            proof.into(),
-        )
-    }
-
-    /// Split piece into underlying mutable components.
-    #[inline]
-    pub fn split_mut(
-        &mut self,
-    ) -> (
-        &mut Record,
-        &mut RecordRoot,
-        &mut RecordChunksRoot,
-        &mut RecordProof,
-    ) {
-        let (record, extra) = self.0.split_at_mut(Record::SIZE);
-        let (root, extra) = extra.split_at_mut(RecordRoot::SIZE);
-        let (parity_chunks_root, proof) = extra.split_at_mut(RecordChunksRoot::SIZE);
-
-        let record = <&mut [u8; Record::SIZE]>::try_from(record)
-            .expect("Slice of memory has correct length; qed");
-        let root = <&mut [u8; RecordRoot::SIZE]>::try_from(root)
-            .expect("Slice of memory has correct length; qed");
-        let parity_chunks_root = <&mut [u8; RecordChunksRoot::SIZE]>::try_from(parity_chunks_root)
-            .expect("Slice of memory has correct length; qed");
-        let proof = <&mut [u8; RecordProof::SIZE]>::try_from(proof)
-            .expect("Slice of memory has correct length; qed");
-
-        (
-            record.into(),
-            root.into(),
-            parity_chunks_root.into(),
-            proof.into(),
-        )
-    }
-
-    /// Record contained within a piece.
-    #[inline]
-    pub fn record(&self) -> &Record {
-        self.split().0
-    }
-
-    /// Mutable record contained within a piece.
-    #[inline]
-    pub fn record_mut(&mut self) -> &mut Record {
-        self.split_mut().0
-    }
-
-    /// Root contained within a piece.
-    #[inline]
-    pub fn root(&self) -> &RecordRoot {
-        self.split().1
-    }
-
-    /// Mutable root contained within a piece.
-    #[inline]
-    pub fn root_mut(&mut self) -> &mut RecordRoot {
-        self.split_mut().1
-    }
-
-    /// Parity chunks root contained within a piece.
-    #[inline]
-    pub fn parity_chunks_root(&self) -> &RecordChunksRoot {
-        self.split().2
-    }
-
-    /// Mutable parity chunks root contained within a piece.
-    #[inline]
-    pub fn parity_chunks_root_mut(&mut self) -> &mut RecordChunksRoot {
-        self.split_mut().2
-    }
-
-    /// Proof contained within a piece.
-    #[inline]
-    pub fn proof(&self) -> &RecordProof {
-        self.split().3
-    }
-
-    /// Mutable proof contained within a piece.
-    #[inline]
-    pub fn proof_mut(&mut self) -> &mut RecordProof {
-        self.split_mut().3
+        RecordRoot::from(record_merkle_tree_root)
     }
 
     /// Convenient conversion from slice of piece array to underlying representation for efficiency
@@ -1200,10 +1017,16 @@ impl PieceArray {
 }
 
 #[cfg(feature = "alloc")]
-impl From<Box<PieceArray>> for Vec<u8> {
-    fn from(value: Box<PieceArray>) -> Self {
+impl From<Box<InnerPiece>> for Vec<u8> {
+    fn from(value: Box<InnerPiece>) -> Self {
         let mut value = mem::ManuallyDrop::new(value);
         // SAFETY: Always contains fixed allocation of bytes
-        unsafe { Vec::from_raw_parts(value.as_mut_ptr(), PieceArray::SIZE, PieceArray::SIZE) }
+        unsafe {
+            Vec::from_raw_parts(
+                value.as_bytes_mut().as_mut_ptr(),
+                InnerPiece::SIZE,
+                InnerPiece::SIZE,
+            )
+        }
     }
 }

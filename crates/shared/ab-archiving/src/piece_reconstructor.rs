@@ -54,12 +54,13 @@ impl PiecesReconstructor {
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
                             output_piece
-                                .record_mut()
-                                .copy_from_slice(input_piece.record().as_slice());
-                            RecoveryShardState::Present(input_piece.record().as_flattened())
+                                .record
+                                .as_mut_slice()
+                                .copy_from_slice(input_piece.record.as_slice());
+                            RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
                         None => RecoveryShardState::MissingRecover(
-                            output_piece.record_mut().as_flattened_mut(),
+                            output_piece.record.as_flattened_mut(),
                         ),
                     },
                 );
@@ -70,12 +71,13 @@ impl PiecesReconstructor {
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
                             output_piece
-                                .record_mut()
-                                .copy_from_slice(input_piece.record().as_slice());
-                            RecoveryShardState::Present(input_piece.record().as_flattened())
+                                .record
+                                .as_mut_slice()
+                                .copy_from_slice(input_piece.record.as_slice());
+                            RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
                         None => RecoveryShardState::MissingRecover(
-                            output_piece.record_mut().as_flattened_mut(),
+                            output_piece.record.as_flattened_mut(),
                         ),
                     },
                 );
@@ -91,18 +93,16 @@ impl PiecesReconstructor {
             iter.map(|(piece, maybe_input_piece)| {
                 let (record_root, parity_chunks_root) = if let Some(input_piece) = maybe_input_piece
                 {
-                    (**input_piece.root(), **input_piece.parity_chunks_root())
+                    (*input_piece.record_root(), *input_piece.parity_chunks_root)
                 } else {
                     // TODO: Reuse allocations between iterations
                     let [source_chunks_root, parity_chunks_root] = {
                         let mut parity_chunks = Record::new_boxed();
 
                         self.erasure_coding
-                            .extend(piece.record().iter(), parity_chunks.iter_mut())?;
+                            .extend(piece.record.iter(), parity_chunks.iter_mut())?;
 
-                        let source_chunks_root =
-                            BalancedMerkleTree::compute_root_only(piece.record());
-
+                        let source_chunks_root = *piece.record.source_chunks_root();
                         let parity_chunks_root =
                             BalancedMerkleTree::compute_root_only(&parity_chunks);
 
@@ -115,9 +115,8 @@ impl PiecesReconstructor {
                     (record_root, parity_chunks_root)
                 };
 
-                piece.root_mut().copy_from_slice(&record_root);
                 piece
-                    .parity_chunks_root_mut()
+                    .parity_chunks_root
                     .copy_from_slice(&parity_chunks_root);
 
                 Ok::<_, ReconstructorError>(record_root)
@@ -137,7 +136,7 @@ impl PiecesReconstructor {
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
             .for_each(|(piece, record_proof)| {
-                piece.proof_mut().copy_from_slice(&record_proof);
+                piece.record_proof.copy_from_slice(&record_proof);
             });
 
         Ok(reconstructed_pieces)

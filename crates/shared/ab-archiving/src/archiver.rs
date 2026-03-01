@@ -31,7 +31,7 @@ impl Output for ArchivedHistorySegmentOutput<'_> {
                 .segment
                 .get_mut(self.offset / Record::SIZE)
                 .expect("Encoding never exceeds the segment size; qed");
-            let output = &mut piece.record_mut().as_flattened_mut()[self.offset % Record::SIZE..];
+            let output = &mut piece.record.as_flattened_mut()[self.offset % Record::SIZE..];
             let bytes_to_write = output.len().min(bytes.len());
             output[..bytes_to_write].copy_from_slice(&bytes[..bytes_to_write]);
             self.offset += bytes_to_write;
@@ -650,8 +650,8 @@ impl Archiver {
 
             self.erasure_coding
                 .extend(
-                    source_shards.iter().map(|shard| shard.record()),
-                    parity_shards.iter_mut().map(|shard| shard.record_mut()),
+                    source_shards.iter().map(|shard| &shard.record),
+                    parity_shards.iter_mut().map(|shard| &mut shard.record),
                 )
                 .expect("Statically correct parameters; qed");
 
@@ -675,13 +675,13 @@ impl Archiver {
                     let mut parity_chunks = Record::new_boxed();
 
                     self.erasure_coding
-                        .extend(piece.record().iter(), parity_chunks.iter_mut())
+                        .extend(piece.record.iter(), parity_chunks.iter_mut())
                         .expect(
                             "Erasure coding instance is deliberately configured to support this \
                             input; qed",
                         );
 
-                    let source_chunks_root = BalancedMerkleTree::compute_root_only(piece.record());
+                    let source_chunks_root = *piece.record.source_chunks_root();
                     let parity_chunks_root = BalancedMerkleTree::compute_root_only(&parity_chunks);
 
                     [source_chunks_root, parity_chunks_root]
@@ -692,9 +692,8 @@ impl Archiver {
                     parity_chunks_root,
                 ]);
 
-                piece.root_mut().copy_from_slice(&record_root);
                 piece
-                    .parity_chunks_root_mut()
+                    .parity_chunks_root
                     .copy_from_slice(&parity_chunks_root);
 
                 record_root
@@ -718,7 +717,7 @@ impl Archiver {
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
             .for_each(|(piece, record_proof)| {
-                piece.proof_mut().copy_from_slice(&record_proof);
+                piece.record_proof.copy_from_slice(&record_proof);
             });
 
         // Now produce segment header
