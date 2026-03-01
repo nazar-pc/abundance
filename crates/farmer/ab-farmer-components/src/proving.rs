@@ -8,12 +8,12 @@ use crate::reading::{
     ReadingError, read_record_metadata, read_sector_record_chunks, recover_extended_record_chunks,
 };
 use crate::sector::{
-    SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
+    RecordMetadata, SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
 };
 use crate::shard_commitment::{ShardCommitmentsRootsCache, derive_solution_shard_commitment};
 use crate::{ReadAt, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
+use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunk, RecordRoot};
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_core_primitives::shard::NumShards;
@@ -278,7 +278,11 @@ where
                 self.sector_metadata.pieces_in_sector,
                 &self.sector,
             );
-            let record_metadata = record_metadata_fut
+            let RecordMetadata {
+                record_parity_chunks_root: _,
+                record_proof,
+                piece_checksum: _,
+            } = record_metadata_fut
                 .now_or_never()
                 .expect("Sync reader; qed")
                 .map_err(ProvingError::RecordReadingError)?;
@@ -305,8 +309,8 @@ where
             Solution {
                 public_key_hash: *self.public_key_hash,
                 shard_commitment,
-                record_root: record_metadata.root,
-                record_proof: record_metadata.proof,
+                record_root: RecordRoot::from(record_merkle_tree.root()),
+                record_proof,
                 chunk,
                 chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,

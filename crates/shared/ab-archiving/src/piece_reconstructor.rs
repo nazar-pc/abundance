@@ -91,7 +91,10 @@ impl PiecesReconstructor {
             iter.map(|(piece, maybe_input_piece)| {
                 let (record_root, parity_chunks_root) = if let Some(input_piece) = maybe_input_piece
                 {
-                    (**input_piece.root(), **input_piece.parity_chunks_root())
+                    (
+                        *input_piece.record_root(),
+                        **input_piece.parity_chunks_root(),
+                    )
                 } else {
                     // TODO: Reuse allocations between iterations
                     let [source_chunks_root, parity_chunks_root] = {
@@ -115,7 +118,6 @@ impl PiecesReconstructor {
                     (record_root, parity_chunks_root)
                 };
 
-                piece.root_mut().copy_from_slice(&record_root);
                 piece
                     .parity_chunks_root_mut()
                     .copy_from_slice(&parity_chunks_root);
@@ -137,7 +139,7 @@ impl PiecesReconstructor {
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
             .for_each(|(piece, record_proof)| {
-                piece.proof_mut().copy_from_slice(&record_proof);
+                piece.record_proof_mut().copy_from_slice(&record_proof);
             });
 
         Ok(reconstructed_pieces)

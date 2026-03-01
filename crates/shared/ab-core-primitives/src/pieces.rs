@@ -507,7 +507,7 @@ impl Record {
 
     /// Convenient conversion from slice of record to underlying representation for efficiency
     /// purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_to_repr(value: &[Self]) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -515,7 +515,7 @@ impl Record {
 
     /// Convenient conversion from slice of underlying representation to record for efficiency
     /// purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_from_repr(value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]]) -> &[Self] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -523,7 +523,7 @@ impl Record {
 
     /// Convenient conversion from mutable slice of record to underlying representation for
     /// efficiency purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_mut_to_repr(
         value: &mut [Self],
     ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
@@ -533,16 +533,24 @@ impl Record {
 
     /// Convenient conversion from mutable slice of underlying representation to record for
     /// efficiency purposes.
-    #[inline]
+    #[inline(always)]
     pub fn slice_mut_from_repr(
         value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]],
     ) -> &mut [Self] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
+
+    /// Derive source chunks root on-demand
+    #[inline(always)]
+    pub fn source_chunks_root(&self) -> RecordChunksRoot {
+        RecordChunksRoot(BalancedMerkleTree::compute_root_only(self))
+    }
 }
 
-/// Record root contained within a piece.
+/// Root of the record contained within a piece.
+///
+/// This is a Merkle Tree root of the roots of source and parity record chunks.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -683,7 +691,7 @@ impl RecordRoot {
     }
 }
 
-/// Record chunks root (source or parity) contained within a piece.
+/// Root of source or parity record chunks
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -809,7 +817,7 @@ impl RecordChunksRoot {
     pub const SIZE: usize = 32;
 }
 
-/// Record proof contained within a piece.
+/// Proof that the record (root) belongs to a segment
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -957,12 +965,23 @@ impl RecordProof {
 /// This version is allocated on the stack, for a heap-allocated piece that can be moved around
 /// efficiently, see [`Piece`].
 ///
-/// Internally, a piece contains a record, followed by record root, supplementary record chunk root,
-/// and a proof proving this piece belongs to can be used to verify that a piece belongs to the
-/// actual archival history of the blockchain.
+/// Internally, a piece contains a record, supplementary record chunk root, and a proof proving this
+/// piece belongs to can be used to verify that a piece belongs to the actual archival history of
+/// the blockchain.
 #[derive(Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(C)]
 pub struct InnerPiece([u8; InnerPiece::SIZE]);
+// pub struct InnerPiece {
+//     /// Record contained within a piece
+//     pub record: Record,
+//     /// Root contained within a piece
+//     pub record_root: RecordRoot,
+//     /// Parity chunks root contained within a piece.
+//     ///
+//     /// Technically redundant, but helps to avoid repeating erasure coding during verification.
+//     pub parity_chunks_root: RecordChunksRoot,
+//     pub record_proof: RecordProof,
+// }
 
 impl fmt::Debug for InnerPiece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1032,8 +1051,7 @@ impl From<&mut [u8; InnerPiece::SIZE]> for &mut InnerPiece {
 
 impl InnerPiece {
     /// Size of a piece (in bytes).
-    pub const SIZE: usize =
-        Record::SIZE + RecordRoot::SIZE + RecordChunksRoot::SIZE + RecordProof::SIZE;
+    pub const SIZE: usize = Record::SIZE + RecordChunksRoot::SIZE + RecordProof::SIZE;
 
     /// Create boxed value without hitting stack overflow
     #[inline]
@@ -1046,74 +1064,40 @@ impl InnerPiece {
 
     /// Validate proof embedded within a piece produced by the archiver
     pub fn is_valid(&self, segment_root: &SegmentRoot, position: PiecePosition) -> bool {
-        let (record, &record_root, parity_chunks_root, record_proof) = self.split();
-
-        let source_record_merkle_tree_root = BalancedMerkleTree::compute_root_only(record);
-        let record_merkle_tree_root = BalancedMerkleTree::compute_root_only(&[
-            source_record_merkle_tree_root,
-            **parity_chunks_root,
-        ]);
-
-        if record_merkle_tree_root != *record_root {
-            return false;
-        }
-
-        record_root.is_valid(segment_root, record_proof, position)
+        self.record_root()
+            .is_valid(segment_root, self.record_proof(), position)
     }
 
     /// Split piece into underlying components.
     #[inline]
-    pub fn split(&self) -> (&Record, &RecordRoot, &RecordChunksRoot, &RecordProof) {
+    pub fn split(&self) -> (&Record, &RecordChunksRoot, &RecordProof) {
         let (record, extra) = self.0.split_at(Record::SIZE);
-        let (root, extra) = extra.split_at(RecordRoot::SIZE);
         let (parity_chunks_root, proof) = extra.split_at(RecordChunksRoot::SIZE);
 
         let record = <&[u8; Record::SIZE]>::try_from(record)
-            .expect("Slice of memory has correct length; qed");
-        let root = <&[u8; RecordRoot::SIZE]>::try_from(root)
             .expect("Slice of memory has correct length; qed");
         let parity_chunks_root = <&[u8; RecordChunksRoot::SIZE]>::try_from(parity_chunks_root)
             .expect("Slice of memory has correct length; qed");
         let proof = <&[u8; RecordProof::SIZE]>::try_from(proof)
             .expect("Slice of memory has correct length; qed");
 
-        (
-            record.into(),
-            root.into(),
-            parity_chunks_root.into(),
-            proof.into(),
-        )
+        (record.into(), parity_chunks_root.into(), proof.into())
     }
 
     /// Split piece into underlying mutable components.
     #[inline]
-    pub fn split_mut(
-        &mut self,
-    ) -> (
-        &mut Record,
-        &mut RecordRoot,
-        &mut RecordChunksRoot,
-        &mut RecordProof,
-    ) {
+    pub fn split_mut(&mut self) -> (&mut Record, &mut RecordChunksRoot, &mut RecordProof) {
         let (record, extra) = self.0.split_at_mut(Record::SIZE);
-        let (root, extra) = extra.split_at_mut(RecordRoot::SIZE);
         let (parity_chunks_root, proof) = extra.split_at_mut(RecordChunksRoot::SIZE);
 
         let record = <&mut [u8; Record::SIZE]>::try_from(record)
-            .expect("Slice of memory has correct length; qed");
-        let root = <&mut [u8; RecordRoot::SIZE]>::try_from(root)
             .expect("Slice of memory has correct length; qed");
         let parity_chunks_root = <&mut [u8; RecordChunksRoot::SIZE]>::try_from(parity_chunks_root)
             .expect("Slice of memory has correct length; qed");
         let proof = <&mut [u8; RecordProof::SIZE]>::try_from(proof)
             .expect("Slice of memory has correct length; qed");
 
-        (
-            record.into(),
-            root.into(),
-            parity_chunks_root.into(),
-            proof.into(),
-        )
+        (record.into(), parity_chunks_root.into(), proof.into())
     }
 
     /// Record contained within a piece.
@@ -1128,40 +1112,41 @@ impl InnerPiece {
         self.split_mut().0
     }
 
-    /// Root contained within a piece.
+    /// Root of the record contained within a piece.
+    ///
+    /// It is re-derived on every call of this function.
     #[inline]
-    pub fn root(&self) -> &RecordRoot {
-        self.split().1
-    }
+    pub fn record_root(&self) -> RecordRoot {
+        let record_merkle_tree_root = BalancedMerkleTree::compute_root_only(&[
+            *self.record().source_chunks_root(),
+            **self.parity_chunks_root(),
+        ]);
 
-    /// Mutable root contained within a piece.
-    #[inline]
-    pub fn root_mut(&mut self) -> &mut RecordRoot {
-        self.split_mut().1
+        RecordRoot::from(record_merkle_tree_root)
     }
 
     /// Parity chunks root contained within a piece.
     #[inline]
     pub fn parity_chunks_root(&self) -> &RecordChunksRoot {
-        self.split().2
+        self.split().1
     }
 
     /// Mutable parity chunks root contained within a piece.
     #[inline]
     pub fn parity_chunks_root_mut(&mut self) -> &mut RecordChunksRoot {
+        self.split_mut().1
+    }
+
+    /// Proof that the record belongs to a segment
+    #[inline]
+    pub fn record_proof(&self) -> &RecordProof {
+        self.split().2
+    }
+
+    /// Mutable roof that the record belongs to a segment
+    #[inline]
+    pub fn record_proof_mut(&mut self) -> &mut RecordProof {
         self.split_mut().2
-    }
-
-    /// Proof contained within a piece.
-    #[inline]
-    pub fn proof(&self) -> &RecordProof {
-        self.split().3
-    }
-
-    /// Mutable proof contained within a piece.
-    #[inline]
-    pub fn proof_mut(&mut self) -> &mut RecordProof {
-        self.split_mut().3
     }
 
     /// Convenient conversion from slice of piece array to underlying representation for efficiency
@@ -1206,6 +1191,12 @@ impl From<Box<InnerPiece>> for Vec<u8> {
     fn from(value: Box<InnerPiece>) -> Self {
         let mut value = mem::ManuallyDrop::new(value);
         // SAFETY: Always contains fixed allocation of bytes
-        unsafe { Vec::from_raw_parts(value.as_bytes_mut().as_mut_ptr(), InnerPiece::SIZE, InnerPiece::SIZE) }
+        unsafe {
+            Vec::from_raw_parts(
+                value.as_bytes_mut().as_mut_ptr(),
+                InnerPiece::SIZE,
+                InnerPiece::SIZE,
+            )
+        }
     }
 }

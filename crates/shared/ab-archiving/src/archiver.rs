@@ -692,7 +692,6 @@ impl Archiver {
                     parity_chunks_root,
                 ]);
 
-                piece.root_mut().copy_from_slice(&record_root);
                 piece
                     .parity_chunks_root_mut()
                     .copy_from_slice(&parity_chunks_root);
@@ -718,7 +717,7 @@ impl Archiver {
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
             .for_each(|(piece, record_proof)| {
-                piece.proof_mut().copy_from_slice(&record_proof);
+                piece.record_proof_mut().copy_from_slice(&record_proof);
             });
 
         // Now produce segment header

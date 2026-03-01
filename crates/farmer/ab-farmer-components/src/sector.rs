@@ -8,7 +8,7 @@
 
 use ab_core_primitives::checksum::Blake3Checksummed;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordProof, RecordRoot};
+use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordProof};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_io_type::trivial_type::TrivialType;
@@ -135,20 +135,19 @@ impl SectorMetadataChecksummed {
 
 /// Root and proof corresponding to the same record
 #[derive(Debug, Default, Clone, Encode, Decode)]
+#[repr(C)]
 pub(crate) struct RecordMetadata {
-    /// Record root
-    pub(crate) root: RecordRoot,
     /// Parity chunks root
-    pub(crate) parity_chunks_root: RecordChunksRoot,
+    pub(crate) record_parity_chunks_root: RecordChunksRoot,
     /// Record proof
-    pub(crate) proof: RecordProof,
+    pub(crate) record_proof: RecordProof,
     /// Checksum (hash) of the whole piece
     pub(crate) piece_checksum: Blake3Hash,
 }
 
 impl RecordMetadata {
     pub(crate) const fn encoded_size() -> usize {
-        RecordProof::SIZE + RecordRoot::SIZE + RecordChunksRoot::SIZE + Blake3Hash::SIZE
+        size_of::<Self>()
     }
 }
 
