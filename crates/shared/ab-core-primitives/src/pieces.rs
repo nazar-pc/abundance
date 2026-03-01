@@ -350,7 +350,7 @@ impl RecordChunk {
 /// Record contained within a piece.
 ///
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
-#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
+#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, TrivialType)]
 #[repr(C)]
 pub struct Record([[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]);
 
@@ -684,8 +684,9 @@ impl RecordRoot {
 }
 
 /// Record chunks root (source or parity) contained within a piece.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[repr(C)]
 pub struct RecordChunksRoot([u8; RecordChunksRoot::SIZE]);
 
 impl fmt::Debug for RecordChunksRoot {
@@ -959,7 +960,7 @@ impl RecordProof {
 /// Internally, a piece contains a record, followed by record root, supplementary record chunk root,
 /// and a proof proving this piece belongs to can be used to verify that a piece belongs to the
 /// actual archival history of the blockchain.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deref, DerefMut, AsRef, AsMut)]
+#[derive(Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(C)]
 pub struct InnerPiece([u8; InnerPiece::SIZE]);
 
@@ -1205,6 +1206,6 @@ impl From<Box<InnerPiece>> for Vec<u8> {
     fn from(value: Box<InnerPiece>) -> Self {
         let mut value = mem::ManuallyDrop::new(value);
         // SAFETY: Always contains fixed allocation of bytes
-        unsafe { Vec::from_raw_parts(value.as_mut_ptr(), InnerPiece::SIZE, InnerPiece::SIZE) }
+        unsafe { Vec::from_raw_parts(value.as_bytes_mut().as_mut_ptr(), InnerPiece::SIZE, InnerPiece::SIZE) }
     }
 }
