@@ -1,3 +1,4 @@
+use crate::ContractRegister;
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 use ab_riscv_interpreter::rv64::b::zbc::clmul_internal;
 use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
@@ -11,7 +12,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
-use ab_riscv_primitives::registers::general_purpose::{EReg, Register};
+use ab_riscv_primitives::registers::general_purpose::Register;
 use core::fmt;
 use core::ops::ControlFlow;
 
@@ -60,7 +61,7 @@ impl<Reg> const Instruction for PopularInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Reg = EReg<u64>;
+    type Reg = ContractRegister;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -129,7 +130,7 @@ impl<Reg> const Instruction for NotPopularInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Reg = EReg<u64>;
+    type Reg = ContractRegister;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -191,7 +192,7 @@ impl<Reg> const Instruction for ContractInstructionPrototype<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Reg = EReg<u64>;
+    type Reg = ContractRegister;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {

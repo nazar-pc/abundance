@@ -7,8 +7,8 @@ use ab_contracts_common::{HOST_CALL_FN, HOST_CALL_FN_IMPORT, METADATA_STATIC_NAM
 use ab_io_type::trivial_type::TrivialType;
 use anyhow::Context;
 use object::elf::{
-    EF_RISCV_RVE, ELFCLASS64, ELFDATA2LSB, ELFMAG, ELFOSABI_GNU, EM_RISCV, ET_DYN, FileHeader64,
-    Ident, R_RISCV_JUMP_SLOT, SHN_LORESERVE, STB_GLOBAL, STV_DEFAULT,
+    ELFCLASS64, ELFDATA2LSB, ELFMAG, ELFOSABI_GNU, EM_RISCV, ET_DYN, FileHeader64, Ident,
+    R_RISCV_JUMP_SLOT, SHN_LORESERVE, STB_GLOBAL, STV_DEFAULT,
 };
 use object::read::elf::{ElfFile, ElfFile64};
 use object::{
@@ -36,7 +36,7 @@ fn is_correct_header(header: &FileHeader64<LittleEndian>) -> bool {
         e_entry: U64::new(LittleEndian, 0),
         e_phoff: header.e_phoff,
         e_shoff: header.e_shoff,
-        e_flags: U32::new(LittleEndian, EF_RISCV_RVE),
+        e_flags: U32::new(LittleEndian, 0),
         e_ehsize: U16::new(LittleEndian, 64),
         e_phentsize: header.e_phentsize,
         e_phnum: header.e_phnum,

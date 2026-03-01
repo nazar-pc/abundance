@@ -28,7 +28,7 @@ use ab_contracts_common::metadata::decode::{
 };
 use ab_io_type::trivial_type::TrivialType;
 use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::registers::general_purpose::EReg;
+use ab_riscv_primitives::registers::general_purpose::Reg;
 use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
@@ -38,7 +38,7 @@ use tracing::{debug, trace};
 /// Magic bytes at the beginning of the file
 pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
 /// A register type used by contracts
-pub type ContractRegister = EReg<u64>;
+pub type ContractRegister = Reg<u64>;
 /// An instruction type used by contracts
 pub type ContractInstruction = ContractInstructionPrototype<ContractRegister>;
 
