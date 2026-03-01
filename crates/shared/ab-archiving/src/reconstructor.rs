@@ -85,7 +85,7 @@ impl Reconstructor {
             .zip(segment_data.iter_mut())
             .all(|(maybe_piece, record)| {
                 if let Some(piece) = maybe_piece {
-                    record.copy_from_slice(piece.record().as_slice());
+                    record.copy_from_slice(piece.record.as_slice());
                     true
                 } else {
                     false
@@ -100,8 +100,8 @@ impl Reconstructor {
             let source = segment_data.iter_mut().zip(source_segment_pieces).map(
                 |(output_record, maybe_source_piece)| match maybe_source_piece {
                     Some(input_piece) => {
-                        output_record.copy_from_slice(input_piece.record().as_slice());
-                        RecoveryShardState::Present(input_piece.record().as_flattened())
+                        output_record.copy_from_slice(input_piece.record.as_slice());
+                        RecoveryShardState::Present(input_piece.record.as_flattened())
                     }
                     None => RecoveryShardState::MissingRecover(output_record.as_flattened_mut()),
                 },
@@ -111,7 +111,7 @@ impl Reconstructor {
                     .iter()
                     .map(|maybe_source_piece| match maybe_source_piece {
                         Some(input_piece) => {
-                            RecoveryShardState::Present(input_piece.record().as_flattened())
+                            RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
                         None => RecoveryShardState::MissingIgnore,
                     });

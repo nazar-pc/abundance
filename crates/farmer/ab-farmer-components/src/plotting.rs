@@ -755,10 +755,10 @@ fn process_piece(
         // and potentially causing stack overflow as the result
         record
             .as_flattened_mut()
-            .copy_from_slice(piece.record().as_flattened());
+            .copy_from_slice(piece.record.as_flattened());
         *metadata = RecordMetadata {
-            record_parity_chunks_root: *piece.parity_chunks_root(),
-            record_proof: *piece.record_proof(),
+            record_parity_chunks_root: piece.parity_chunks_root,
+            record_proof: piece.record_proof,
             piece_checksum: blake3::hash(piece.as_ref()).into(),
         };
     }

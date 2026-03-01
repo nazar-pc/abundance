@@ -37,7 +37,7 @@ fn compare_block_objects_to_global_objects<'a>(
     block_objects.zip(global_objects).for_each(
         |((block, block_object_mapping), (piece, global_object_mapping))| {
             assert_eq!(
-                extract_data_from_source_record(piece.record(), global_object_mapping.offset),
+                extract_data_from_source_record(&piece.record, global_object_mapping.offset),
                 extract_data(block, block_object_mapping.offset)
             );
         },
@@ -555,7 +555,7 @@ fn object_on_the_edge_of_segment() {
     // Ensure bytes are mapped correctly
     assert_eq!(
         archived_segments[1].pieces.as_ref()[0]
-            .record()
+            .record
             .as_flattened()[object_mapping[0].offset as usize..][..mapped_bytes.len()],
         mapped_bytes
     );
