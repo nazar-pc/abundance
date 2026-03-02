@@ -160,7 +160,7 @@ pub enum SegmentItem {
     /// Special dummy enum variant only used as an implementation detail for padding purposes
     #[codec(index = 0)]
     Padding,
-    /// Contains full block inside
+    /// Contains a full block inside
     #[codec(index = 1)]
     Block {
         /// Block bytes
@@ -170,7 +170,8 @@ pub enum SegmentItem {
         #[codec(skip)]
         block_objects: Vec<BlockObject>,
     },
-    /// Contains the beginning of the block inside, remainder will be found in subsequent segments
+    /// Contains the beginning of the block inside, the remainder will be found in the following
+    /// segments
     #[codec(index = 2)]
     BlockStart {
         /// Block bytes
@@ -195,7 +196,7 @@ pub enum SegmentItem {
     ParentSegmentHeader(SegmentHeader),
 }
 
-/// Newly archived segment as a combination of segment header and corresponding archived history
+/// Newly archived segment as a combination of a segment header and corresponding archived history
 /// segment containing pieces
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct NewArchivedSegment {
@@ -274,7 +275,7 @@ impl Archiver {
         }
     }
 
-    /// Create a new instance of the archiver with initial state in case of restart.
+    /// Create a new instance of the archiver with the initial state in case of restart.
     ///
     /// `block` corresponds to `last_archived_block` and will be processed according to its state.
     pub fn with_initial_state(
@@ -339,16 +340,19 @@ impl Archiver {
         Ok(archiver)
     }
 
-    /// Get last archived block if there was any
+    /// Get the last archived block if there was any
     pub fn last_archived_block_number(&self) -> Option<BlockNumber> {
         self.last_archived_block
             .map(|last_archived_block| last_archived_block.number())
     }
 
-    /// Adds new block to internal buffer, potentially producing pieces, segment headers, and
+    /// Adds a new block to the internal buffer, potentially producing pieces, segment headers, and
     /// object mappings.
     ///
-    /// Returns `None` if block is empty or larger than `u32::MAX`.
+    /// NOTE: Pieces inside [`NewArchivedSegment`] are shared initially for efficient memory reuse
+    /// when working with pieces.
+    ///
+    /// Returns `None` if the block is empty or larger than [`u32::MAX`].
     pub fn add_block(
         &mut self,
         bytes: Vec<u8>,
@@ -367,7 +371,7 @@ impl Archiver {
         let mut archived_segments = Vec::new();
         let mut object_mapping = Vec::new();
 
-        // Add completed segments and their mappings for this block.
+        // Add completed segments and their mappings for this block
         while let Some(mut segment) = self.produce_segment() {
             // Produce any segment mappings that haven't already been produced.
             object_mapping.extend(Self::produce_object_mappings(segment.items.iter_mut()));
@@ -402,7 +406,7 @@ impl Archiver {
             let segment_item = match self.buffer.pop_front() {
                 Some(segment_item) => segment_item,
                 None => {
-                    // Push all of the items back into the buffer, we don't have enough data yet
+                    // Push all the items back into the buffer, we don't have enough data yet
                     for segment_item in segment.items.into_iter().rev() {
                         self.buffer.push_front(segment_item);
                     }
@@ -633,7 +637,7 @@ impl Archiver {
         corrected_object_mapping
     }
 
-    /// Take segment as an input, apply necessary transformations and produce archived segment
+    /// Take a segment as an input, apply necessary transformations, and produce an archived segment
     fn produce_archived_segment(&mut self, segment: Segment) -> NewArchivedSegment {
         let mut pieces = {
             let mut pieces = ArchivedHistorySegment::default();
@@ -669,7 +673,7 @@ impl Archiver {
             // they are originally and the second half being parity chunks. While we build tree
             // threes here (for source chunks, parity chunks and combined for the whole record), it
             // could have been a single tree, and it would end up with the same root. Building them
-            // separately requires less RAM and allows to capture parity chunks root more easily.
+            // separately requires less RAM and allows capturing parity chunks root more easily.
             let iter = source_pieces.map(|piece| {
                 let [source_chunks_root, parity_chunks_root] = {
                     let mut parity_chunks = Record::new_boxed();
