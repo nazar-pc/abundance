@@ -391,13 +391,9 @@ where
 
     let mut piece = Piece::default();
 
-    piece
-        .record
-        .as_mut_slice()
-        .copy_from_slice(record.as_slice());
-
     piece.parity_chunks_root = record_parity_chunks_root;
     piece.record_proof = record_proof;
+    piece.record.copy_from_slice(&**record);
 
     // Verify checksum
     let actual_checksum = Blake3Hash::from(blake3::hash(piece.as_ref()));

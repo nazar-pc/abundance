@@ -928,14 +928,14 @@ impl RecordProof {
 #[derive(Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(C)]
 pub struct InnerPiece {
-    /// Record contained within a piece
-    pub record: Record,
     /// Root of parity record chunks.
     ///
     /// Technically redundant, but helps to avoid repeating erasure coding during verification.
     pub parity_chunks_root: RecordChunksRoot,
     /// Proof that the record (root) belongs to a segment
     pub record_proof: RecordProof,
+    /// Record contained within a piece
+    pub record: Record,
 }
 
 impl fmt::Debug for InnerPiece {

@@ -753,9 +753,7 @@ fn process_piece(
     for (record, metadata) in pieces_to_download.remove(&piece_index).unwrap_or_default() {
         // Fancy way to insert value to avoid going through stack (if naive dereferencing is used)
         // and potentially causing stack overflow as the result
-        record
-            .as_flattened_mut()
-            .copy_from_slice(piece.record.as_flattened());
+        record.copy_from_slice(&*piece.record);
         *metadata = RecordMetadata {
             record_parity_chunks_root: piece.parity_chunks_root,
             record_proof: piece.record_proof,

@@ -53,10 +53,7 @@ impl PiecesReconstructor {
                 .map(
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
-                            output_piece
-                                .record
-                                .as_mut_slice()
-                                .copy_from_slice(input_piece.record.as_slice());
+                            output_piece.record.copy_from_slice(&*input_piece.record);
                             RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
                         None => RecoveryShardState::MissingRecover(
@@ -70,10 +67,7 @@ impl PiecesReconstructor {
                 .map(
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
-                            output_piece
-                                .record
-                                .as_mut_slice()
-                                .copy_from_slice(input_piece.record.as_slice());
+                            output_piece.record.copy_from_slice(&*input_piece.record);
                             RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
                         None => RecoveryShardState::MissingRecover(
