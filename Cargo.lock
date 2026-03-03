@@ -335,6 +335,7 @@ dependencies = [
  "parity-scale-codec",
  "rayon",
  "rclite",
+ "replace_with",
  "serde",
  "serde-big-array",
  "thiserror 2.0.18",
