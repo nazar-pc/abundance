@@ -550,7 +550,8 @@ where
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
         let last_segment_index = self
             .chain_info
-            .max_local_segment_index()
+            .last_segment_header()
+            .map(|segment_header| segment_header.segment_index.as_inner())
             .unwrap_or(LocalSegmentIndex::ZERO);
 
         let consensus_constants = &self.consensus_constants;
@@ -759,7 +760,8 @@ where
 
         let last_segment_index = self
             .chain_info
-            .max_local_segment_index()
+            .last_segment_header()
+            .map(|segment_header| segment_header.segment_index.as_inner())
             .unwrap_or(LocalSegmentIndex::ZERO);
 
         let mut last_segment_headers = (LocalSegmentIndex::ZERO..=last_segment_index)
