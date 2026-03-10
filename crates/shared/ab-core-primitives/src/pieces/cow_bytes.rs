@@ -1,6 +1,7 @@
 use bytes::{Bytes, BytesMut};
+use core::fmt;
 use core::hash::{Hash, Hasher};
-use core::{fmt, mem};
+use replace_with::replace_with_or_abort;
 
 pub(super) enum CowBytes {
     Shared(Bytes),
@@ -52,17 +53,16 @@ impl AsRef<[u8]> for CowBytes {
 impl AsMut<[u8]> for CowBytes {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
-        match self {
-            CowBytes::Shared(bytes) => {
-                *self = CowBytes::Owned(BytesMut::from(mem::take(bytes)));
+        // Ensure the value is owned
+        replace_with_or_abort(self, |cow_bytes| match cow_bytes {
+            CowBytes::Shared(bytes) => CowBytes::Owned(BytesMut::from(bytes)),
+            CowBytes::Owned(bytes) => CowBytes::Owned(bytes),
+        });
 
-                let CowBytes::Owned(bytes) = self else {
-                    unreachable!("Just replaced; qed");
-                };
+        let CowBytes::Owned(bytes) = self else {
+            unreachable!("Just replaced; qed");
+        };
 
-                bytes.as_mut()
-            }
-            CowBytes::Owned(bytes) => bytes.as_mut(),
-        }
+        bytes.as_mut()
     }
 }

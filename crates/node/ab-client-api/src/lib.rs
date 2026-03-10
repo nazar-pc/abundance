@@ -186,9 +186,6 @@ where
     /// Returns last observed segment header
     fn last_segment_header(&self) -> Option<SegmentHeader>;
 
-    /// Returns last observed segment index
-    fn max_local_segment_index(&self) -> Option<LocalSegmentIndex>;
-
     /// Get a single segment header
     fn get_segment_header(&self, segment_index: LocalSegmentIndex) -> Option<SegmentHeader>;
 

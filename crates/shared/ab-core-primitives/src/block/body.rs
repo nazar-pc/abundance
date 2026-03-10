@@ -955,10 +955,10 @@ pub struct LeafShardOwnSegments<'a> {
     pub own_segments: OwnSegments<'a>,
 }
 
-/// Information about leaf shard block container inside intermediate shard block body
+/// Information about the leaf shard block container inside the intermediate shard block body
 #[derive(Debug, Clone)]
 pub struct LeafShardBlockInfo<'a> {
-    /// A block header that corresponds to an intermediate shard
+    /// A block header that corresponds to a leaf shard
     pub header: LeafShardHeader<'a>,
     /// Segments in the corresponding block
     pub segments: Option<LeafShardOwnSegments<'a>>,

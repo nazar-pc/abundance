@@ -36,6 +36,6 @@ pub struct GlobalObject {
     /// Position of the piece where the object is contained within a local segment (at least its
     /// beginning, might not fit fully)
     pub piece_position: PiecePosition,
-    /// Raw record offset of the object in that piece, for use with `Record::to_raw_record_bytes`
+    /// Offset of the object inside a record of that piece
     pub offset: u32,
 }

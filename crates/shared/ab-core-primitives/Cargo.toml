@@ -26,6 +26,7 @@ ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 once_cell = { workspace = true, features = ["alloc"], optional = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
+replace_with = { workspace = true }
 rayon = { workspace = true, optional = true }
 rclite = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }

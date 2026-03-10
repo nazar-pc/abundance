@@ -862,15 +862,6 @@ where
     }
 
     #[inline]
-    fn max_local_segment_index(&self) -> Option<LocalSegmentIndex> {
-        // Blocking read lock is fine because where a write lock is only taken for a short time and
-        // all other locks are read locks
-        let state = self.inner.state.read_blocking();
-
-        state.segment_headers_cache.max_local_segment_index()
-    }
-
-    #[inline]
     fn get_segment_header(&self, segment_index: LocalSegmentIndex) -> Option<SegmentHeader> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks

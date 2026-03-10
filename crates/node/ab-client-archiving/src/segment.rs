@@ -77,7 +77,7 @@ where
     Block: GenericOwnedBlock,
     CI: ChainInfo<Block>,
 {
-    let max_local_segment_index = chain_info.max_local_segment_index()?;
+    let max_local_segment_index = chain_info.last_segment_header()?.segment_index.as_inner();
 
     if max_local_segment_index == LocalSegmentIndex::ZERO {
         // Just genesis, nothing else to check
@@ -428,7 +428,7 @@ where
     Block: GenericOwnedBlock,
     CI: ChainInfoWrite<Block> + 'static,
 {
-    let maybe_archiver = if chain_info.max_local_segment_index().is_none() {
+    let maybe_archiver = if chain_info.last_segment_header().is_none() {
         let initialize_archiver_fut = initialize_archiver(
             &chain_info,
             consensus_constants.block_confirmation_depth,
