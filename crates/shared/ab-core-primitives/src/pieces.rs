@@ -11,10 +11,15 @@ mod piece;
 pub use crate::pieces::flat_pieces::FlatPieces;
 #[cfg(feature = "alloc")]
 pub use crate::pieces::piece::Piece;
-use crate::segments::{RecordedHistorySegment, SegmentIndex, SegmentRoot};
+use crate::segments::{
+    LocalSegmentIndex, RecordedHistorySegment, SegmentIndex, SegmentPosition, SegmentRoot,
+    SuperSegmentIndex, SuperSegmentRoot,
+};
+use crate::shard::ShardIndex;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -24,6 +29,7 @@ use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::hash::Hash;
 use core::iter::Step;
+use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::slice;
 use core::{fmt, mem};
@@ -912,9 +918,196 @@ impl From<&mut [u8; RecordProof::SIZE]> for &mut RecordProof {
 }
 
 impl RecordProof {
-    /// Size of record proof in bytes.
+    /// Size of record proof in bytes
     pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
     const NUM_HASHES: usize = RecordedHistorySegment::NUM_PIECES.ilog2() as usize;
+}
+
+/// Proof that the segment belongs to a super segment
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[repr(C)]
+pub struct SegmentProof([[u8; OUT_LEN]; SegmentProof::NUM_HASHES]);
+
+impl fmt::Debug for SegmentProof {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[")?;
+        for hash in self.0 {
+            for byte in hash {
+                write!(f, "{byte:02x}")?;
+            }
+            write!(f, ", ")?;
+        }
+        write!(f, "]")?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct SegmentProofBinary([[u8; OUT_LEN]; SegmentProof::NUM_HASHES]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct SegmentProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct SegmentProofHex([SegmentProofHexHash; SegmentProof::NUM_HASHES]);
+
+#[cfg(feature = "serde")]
+impl Serialize for SegmentProof {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            // SAFETY: `SegmentProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // same memory layout
+            SegmentProofHex(unsafe {
+                mem::transmute::<
+                    [[u8; OUT_LEN]; SegmentProof::NUM_HASHES],
+                    [SegmentProofHexHash; SegmentProof::NUM_HASHES],
+                >(self.0)
+            })
+            .serialize(serializer)
+        } else {
+            SegmentProofBinary(self.0).serialize(serializer)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for SegmentProof {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(if deserializer.is_human_readable() {
+            // SAFETY: `SegmentProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // same memory layout
+            unsafe {
+                mem::transmute::<
+                    [SegmentProofHexHash; SegmentProof::NUM_HASHES],
+                    [[u8; OUT_LEN]; SegmentProof::NUM_HASHES],
+                >(SegmentProofHex::deserialize(deserializer)?.0)
+            }
+        } else {
+            SegmentProofBinary::deserialize(deserializer)?.0
+        }))
+    }
+}
+
+impl Default for SegmentProof {
+    #[inline]
+    fn default() -> Self {
+        Self([[0; OUT_LEN]; SegmentProof::NUM_HASHES])
+    }
+}
+
+impl AsRef<[u8]> for SegmentProof {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_flattened()
+    }
+}
+
+impl AsMut<[u8]> for SegmentProof {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [u8] {
+        self.0.as_flattened_mut()
+    }
+}
+
+impl From<&SegmentProof> for &[u8; SegmentProof::SIZE] {
+    #[inline]
+    fn from(value: &SegmentProof) -> Self {
+        // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<&[u8; SegmentProof::SIZE]> for &SegmentProof {
+    #[inline]
+    fn from(value: &[u8; SegmentProof::SIZE]) -> Self {
+        // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<&mut SegmentProof> for &mut [u8; SegmentProof::SIZE] {
+    #[inline]
+    fn from(value: &mut SegmentProof) -> Self {
+        // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<&mut [u8; SegmentProof::SIZE]> for &mut SegmentProof {
+    #[inline]
+    fn from(value: &mut [u8; SegmentProof::SIZE]) -> Self {
+        // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl SegmentProof {
+    /// Size of segment proof in bytes
+    pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
+    const NUM_HASHES: usize = SuperSegmentRoot::MAX_SEGMENTS.next_power_of_two().ilog2() as usize;
+
+    /// Returns a mutable reference to an internal array as uninitialized memory.
+    ///
+    /// This is a convenience method for proof generation.
+    pub fn as_uninit_repr(
+        &mut self,
+    ) -> &mut [MaybeUninit<[u8; OUT_LEN]>; SegmentProof::NUM_HASHES] {
+        // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
+        unsafe { mem::transmute(&mut self.0) }
+    }
+}
+
+/// Header for a piece of archival history.
+///
+/// Primarily contains information needed for piece verification.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, TrivialType)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
+pub struct PieceHeader {
+    /// Shard index
+    pub shard_index: Unaligned<ShardIndex>,
+    /// Local segment index
+    pub local_segment_index: Unaligned<LocalSegmentIndex>,
+    /// Super segment index
+    pub super_segment_index: Unaligned<SuperSegmentIndex>,
+    /// Position of the segment in the super segment
+    pub segment_position: Unaligned<SegmentPosition>,
+    /// Segment root
+    pub segment_root: SegmentRoot,
+    /// Segment proof
+    pub segment_proof: SegmentProof,
+    /// Root of parity record chunks.
+    ///
+    /// Technically redundant, but helps to avoid repeating erasure coding during verification.
+    pub parity_chunks_root: RecordChunksRoot,
+    /// Proof that the record (root) belongs to a segment
+    pub record_proof: RecordProof,
+}
+
+const {
+    // Must have minimal alignment for various conversions to/from bytes
+    assert!(align_of::<PieceHeader>() == 1);
 }
 
 /// A piece of archival history.
@@ -925,26 +1118,18 @@ impl RecordProof {
 /// Internally, a piece contains a record, supplementary record chunk root, and a proof proving this
 /// piece belongs to can be used to verify that a piece belongs to the actual archival history of
 /// the blockchain.
-#[derive(Copy, Clone, Eq, PartialEq, TrivialType)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(C)]
 pub struct InnerPiece {
-    /// Root of parity record chunks.
-    ///
-    /// Technically redundant, but helps to avoid repeating erasure coding during verification.
-    pub parity_chunks_root: RecordChunksRoot,
-    /// Proof that the record (root) belongs to a segment
-    pub record_proof: RecordProof,
+    /// Piece header
+    pub header: PieceHeader,
     /// Record contained within a piece
     pub record: Record,
 }
 
-impl fmt::Debug for InnerPiece {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.as_bytes() {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
+const {
+    // Must have minimal alignment for various conversions to/from bytes
+    assert!(align_of::<InnerPiece>() == 1);
 }
 
 impl InnerPiece {
@@ -960,10 +1145,28 @@ impl InnerPiece {
         unsafe { Box::<Self>::new_zeroed().assume_init() }
     }
 
-    /// Validate proof embedded within a piece produced by the archiver
-    pub fn is_valid(&self, segment_root: &SegmentRoot, position: PiecePosition) -> bool {
-        self.record_root()
-            .is_valid(segment_root, &self.record_proof, position)
+    /// Check whether the piece is valid against the matching super segment root
+    pub fn is_valid(
+        &self,
+        super_segment_root: &SuperSegmentRoot,
+        num_segments: u32,
+        position: PiecePosition,
+    ) -> bool {
+        if !self.header.segment_root.is_valid(
+            self.header.shard_index.as_inner(),
+            self.header.local_segment_index.as_inner(),
+            self.header.segment_position.as_inner(),
+            &self.header.segment_proof,
+            num_segments,
+            super_segment_root,
+        ) {
+            return false;
+        }
+        self.record_root().is_valid(
+            &self.header.segment_root,
+            &self.header.record_proof,
+            position,
+        )
     }
 
     /// Root of the record contained within a piece.
@@ -973,7 +1176,7 @@ impl InnerPiece {
     pub fn record_root(&self) -> RecordRoot {
         let record_merkle_tree_root = BalancedMerkleTree::compute_root_only(&[
             *self.record.source_chunks_root(),
-            *self.parity_chunks_root,
+            *self.header.parity_chunks_root,
         ]);
 
         RecordRoot::from(record_merkle_tree_root)

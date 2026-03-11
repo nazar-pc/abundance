@@ -14,6 +14,9 @@ use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 
 const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     block_confirmation_depth: BlockNumber::from(100),
+    // TODO: Reduced values just for testing to hit potential bugs sooner
+    // shard_confirmation_depth: BlockNumber::from(720),
+    shard_confirmation_depth: BlockNumber::from(72),
     block_authoring_delay: SlotNumber::from(4),
     pot: PotConsensusConstants {
         entropy_injection_interval: BlockNumber::from(50),
@@ -30,8 +33,6 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     ),
     min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).expect("Not zero; qed")),
     max_block_timestamp_drift: BlockTimestamp::from_millis(30_000),
-    // TODO: Should shard rotation be measured in beacon chain blocks instead of slots? See original
-    //  PR description for details: https://github.com/nazar-pc/abundance/pull/476
     // TODO: Reduced values just for testing to hit potential bugs sooner
     // shard_rotation_interval: BlockNumber::from(360),
     shard_rotation_interval: BlockNumber::from(36),
@@ -42,6 +43,11 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
 
 const {
     assert!(u64::from(CONSENSUS_CONSTANTS.shard_rotation_interval) > 0);
+    // There must be at least two sets of farmers producing shard blocks before confirmation
+    assert!(
+        u64::from(CONSENSUS_CONSTANTS.shard_confirmation_depth)
+            > u64::from(CONSENSUS_CONSTANTS.shard_rotation_interval)
+    );
 }
 
 // TODO: Placeholder data structure, should probably be replaced with something else

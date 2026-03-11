@@ -4,7 +4,9 @@
 use crate::node_client::{NodeClient, NodeClientExt};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{
+    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+};
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
     MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
@@ -318,7 +320,6 @@ where
         ))
     }
 
-    /// Submit a block seal
     async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()> {
         self.inner.submit_block_seal(block_seal).await
     }
@@ -330,6 +331,16 @@ where
             WatchStream::new(self.archived_segment_headers_receiver.clone())
                 .filter_map(|maybe_segment_header| async move { maybe_segment_header }),
         ))
+    }
+
+    async fn super_segment_headers(
+        &self,
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
+        // TODO: Local caching for super segment headers like for regular segment headers
+        self.inner
+            .super_segment_headers(super_segment_indices)
+            .await
     }
 
     /// Gets segment headers for the given segment indices, updating the cache from the node if

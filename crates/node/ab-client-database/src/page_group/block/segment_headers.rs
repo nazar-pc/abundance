@@ -1,21 +1,7 @@
 use crate::storage_backend_adapter::storage_item::StorageItemError;
-use ab_core_primitives::address::Address;
 use ab_core_primitives::segments::SegmentHeader;
 use ab_io_type::trivial_type::TrivialType;
 use std::mem::MaybeUninit;
-
-#[derive(Debug, Copy, Clone, TrivialType)]
-#[repr(C)]
-struct SystemContractStatePrefix {
-    owner: Address,
-    contract: Address,
-    content_len: u32,
-    padding: [u8; 4],
-}
-
-const {
-    assert!(align_of::<SystemContractStatePrefix>() == align_of::<u64>());
-}
 
 #[derive(Debug)]
 pub(crate) struct StorageItemBlockSegmentHeaders {

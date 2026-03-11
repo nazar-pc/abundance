@@ -18,7 +18,9 @@ use crate::farm::{PieceCacheId, PieceCacheOffset};
 use crate::farmer_cache::FarmerCache;
 use crate::node_client::NodeClient;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{
+    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+};
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
@@ -137,6 +139,17 @@ struct ClusterControllerFarmerAppInfoRequest;
 impl GenericRequest for ClusterControllerFarmerAppInfoRequest {
     const SUBJECT: &'static str = "ab.controller.farmer-app-info";
     type Response = Result<FarmerAppInfo, String>;
+}
+
+/// Request super segment headers with specified super segment indices
+#[derive(Debug, Clone, Encode, Decode)]
+struct ClusterControllerSuperSegmentHeadersRequest {
+    super_segment_indices: Vec<SuperSegmentIndex>,
+}
+
+impl GenericRequest for ClusterControllerSuperSegmentHeadersRequest {
+    const SUBJECT: &'static str = "ab.controller.super-segment-headers";
+    type Response = Vec<Option<SuperSegmentHeader>>;
 }
 
 /// Request segment headers with specified segment indices
@@ -569,6 +582,21 @@ impl NodeClient for ClusterNodeClient {
         Ok(Box::pin(subscription))
     }
 
+    async fn super_segment_headers(
+        &self,
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
+        Ok(self
+            .nats_client
+            .request(
+                &ClusterControllerSuperSegmentHeadersRequest {
+                    super_segment_indices,
+                },
+                None,
+            )
+            .await?)
+    }
+
     async fn segment_headers(
         &self,
         segment_indices: Vec<SegmentIndex>,
@@ -643,6 +671,9 @@ where
             result = farmer_app_info_responder(nats_client, node_client).fuse() => {
                 result
             },
+            result = super_segment_headers_responder(nats_client, node_client).fuse() => {
+                result
+            },
             result = segment_headers_responder(nats_client, node_client).fuse() => {
                 result
             },
@@ -662,6 +693,9 @@ where
     } else {
         select! {
             result = farmer_app_info_responder(nats_client, node_client).fuse() => {
+                result
+            },
+            result = super_segment_headers_responder(nats_client, node_client).fuse() => {
                 result
             },
             result = segment_headers_responder(nats_client, node_client).fuse() => {
@@ -877,6 +911,30 @@ where
                         .await
                         .map_err(|error| error.to_string()),
                 )
+            },
+        )
+        .await
+}
+
+async fn super_segment_headers_responder<NC>(
+    nats_client: &NatsClient,
+    node_client: &NC,
+) -> anyhow::Result<()>
+where
+    NC: NodeClient,
+{
+    nats_client
+        .request_responder(
+            None,
+            Some("ab.controller".to_string()),
+            |ClusterControllerSuperSegmentHeadersRequest { super_segment_indices }| async move {
+                node_client
+                    .super_segment_headers(super_segment_indices.clone())
+                    .await
+                    .inspect_err(|error| {
+                        warn!(%error, ?super_segment_indices, "Failed to get super segment headers");
+                    })
+                    .ok()
             },
         )
         .await

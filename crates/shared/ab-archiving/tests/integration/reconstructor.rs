@@ -6,11 +6,14 @@ use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
     RecordedHistorySegment,
 };
+use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::num::NonZeroU32;
 use std::{assert_matches, iter};
+
+const TEST_SHARD_INDEX: ShardIndex = ShardIndex::new(ShardIndex::MAX_SHARD_INDEX - 1).unwrap();
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()
@@ -20,7 +23,7 @@ fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
 fn basic() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding.clone());
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone());
     // Block that fits into the segment fully
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
@@ -291,7 +294,7 @@ fn basic() {
 fn partial_data() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding.clone());
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone());
     // Block that fits into the segment fully
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
@@ -379,7 +382,7 @@ fn partial_data() {
 fn invalid_usage() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding.clone());
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone());
     // Block that overflows into the next segments
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE * 4];

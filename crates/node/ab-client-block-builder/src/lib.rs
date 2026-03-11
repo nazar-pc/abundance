@@ -52,15 +52,17 @@ pub enum BlockBuilderError {
 
 /// Result of block building
 #[derive(Debug, Clone)]
-pub struct BlockBuilderResult<Block> {
+pub struct BlockBuilderResult<Block, ExtraBlockBuilderDetails = ()> {
     /// Block itself
     pub block: Block,
     /// Additional details about a block
     pub block_details: BlockDetails,
+    /// Extra block builder details
+    pub extra: ExtraBlockBuilderDetails,
 }
 
 /// Block builder interface
-pub trait BlockBuilder<Block>: Send
+pub trait BlockBuilder<Block, ExtraBlockBuilderDetails = ()>: Send
 where
     Block: GenericOwnedBlock,
 {
@@ -73,7 +75,9 @@ where
         consensus_info: &BlockHeaderConsensusInfo,
         checkpoints: &[PotCheckpoints],
         seal_block: SealBlock,
-    ) -> impl Future<Output = Result<BlockBuilderResult<Block>, BlockBuilderError>> + Send
+    ) -> impl Future<
+        Output = Result<BlockBuilderResult<Block, ExtraBlockBuilderDetails>, BlockBuilderError>,
+    > + Send
     where
         SealBlock: AsyncFnOnce<(Blake3Hash,), Output = Option<OwnedBlockHeaderSeal>, CallOnceFuture: Send>
             + Send;

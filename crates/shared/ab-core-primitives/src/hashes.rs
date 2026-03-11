@@ -11,7 +11,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// BLAKE3 hash output transparent wrapper
 #[derive(
-    Default,
     Copy,
     Clone,
     Eq,
@@ -30,6 +29,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct Blake3Hash([u8; Blake3Hash::SIZE]);
+
+impl const Default for Blake3Hash {
+    #[inline(always)]
+    fn default() -> Self {
+        Self([0; Self::SIZE])
+    }
+}
 
 impl fmt::Display for Blake3Hash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

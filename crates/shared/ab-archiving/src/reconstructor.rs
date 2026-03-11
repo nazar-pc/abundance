@@ -85,6 +85,8 @@ impl Reconstructor {
             .zip(segment_data.iter_mut())
             .all(|(maybe_piece, record)| {
                 if let Some(piece) = maybe_piece {
+                    // Fancy way to insert value to avoid going through stack (if naive
+                    // dereferencing is used) and potentially causing stack overflow as the result
                     record.copy_from_slice(&*piece.record);
                     true
                 } else {
@@ -93,13 +95,15 @@ impl Reconstructor {
             })
         {
             // If not all data pieces are available, need to reconstruct data shards using erasure
-            // coding.
-
+            // coding
             let (source_segment_pieces, parity_segment_pieces) =
                 segment_pieces.split_at(RecordedHistorySegment::NUM_RAW_RECORDS);
             let source = segment_data.iter_mut().zip(source_segment_pieces).map(
                 |(output_record, maybe_source_piece)| match maybe_source_piece {
                     Some(input_piece) => {
+                        // Fancy way to insert value to avoid going through stack (if naive
+                        // dereferencing is used) and potentially causing stack overflow as the
+                        // result
                         output_record.copy_from_slice(&*input_piece.record);
                         RecoveryShardState::Present(input_piece.record.as_flattened())
                     }

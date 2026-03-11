@@ -279,8 +279,7 @@ where
                 &self.sector,
             );
             let RecordMetadata {
-                record_parity_chunks_root: _,
-                record_proof,
+                piece_header,
                 piece_checksum: _,
             } = record_metadata_fut
                 .now_or_never()
@@ -309,14 +308,20 @@ where
             Solution {
                 public_key_hash: *self.public_key_hash,
                 shard_commitment,
+                piece_local_segment_index: piece_header.local_segment_index.as_inner(),
+                piece_super_segment_index: piece_header.super_segment_index.as_inner(),
+                segment_root: piece_header.segment_root,
+                segment_proof: piece_header.segment_proof,
                 record_root: RecordRoot::from(record_merkle_tree.root()),
-                record_proof,
+                record_proof: piece_header.record_proof,
                 chunk,
                 chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,
                 history_size,
                 sector_index: self.sector_metadata.sector_index,
                 piece_offset,
+                segment_position: piece_header.segment_position.as_inner(),
+                piece_shard_index: piece_header.shard_index.as_inner(),
                 padding: [0; _],
             }
         };

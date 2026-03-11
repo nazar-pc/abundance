@@ -3,7 +3,7 @@
 #![feature(try_blocks)]
 
 use ab_archiving::archiver::NewArchivedSegment;
-use ab_client_api::{ChainInfo, ChainSyncStatus};
+use ab_client_api::{BeaconChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment::{ArchivedSegmentNotification, recreate_genesis_segment};
 use ab_client_block_authoring::slot_worker::{
     BlockSealNotification, NewSlotInfo, NewSlotNotification,
@@ -14,13 +14,17 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
-use ab_core_primitives::segments::{HistorySize, LocalSegmentIndex, SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{
+    HistorySize, LocalSegmentIndex, SegmentHeader, SegmentIndex, SuperSegmentHeader,
+    SuperSegmentIndex,
+};
 use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
-    MAX_SEGMENT_HEADERS_PER_REQUEST, SHARD_MEMBERSHIP_EXPIRATION, SlotInfo, SolutionResponse,
+    MAX_SEGMENT_HEADERS_PER_REQUEST, MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST,
+    SHARD_MEMBERSHIP_EXPIRATION, SlotInfo, SolutionResponse,
 };
 use ab_networking::libp2p::Multiaddr;
 use futures::channel::{mpsc, oneshot};
@@ -33,6 +37,7 @@ use jsonrpsee::{
     ConnectionId, Extensions, PendingSubscriptionSink, SubscriptionSink, TrySendError,
 };
 use parking_lot::Mutex;
+use replace_with::replace_with_or_abort;
 use schnellru::{ByLength, LruMap};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -109,6 +114,12 @@ pub trait FarmerRpcApi {
     )]
     async fn subscribe_archived_segment_header(&self) -> SubscriptionResult;
 
+    #[method(name = "superSegmentHeaders")]
+    async fn super_segment_headers(
+        &self,
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error>;
+
     #[method(name = "segmentHeaders")]
     async fn segment_headers(
         &self,
@@ -180,14 +191,14 @@ struct ShardMembershipConnections {
 
 /// Farmer RPC configuration
 #[derive(Debug)]
-pub struct FarmerRpcConfig<CI, CSS> {
+pub struct FarmerRpcConfig<BCI, CSS> {
     /// IP and port (TCP) on which to listen for farmer RPC requests
     pub listen_on: SocketAddr,
-    /// Genesis beacon beacon chain block
+    /// Genesis beacon chain block
     pub genesis_block: OwnedBeaconChainBlock,
     /// Consensus constants
     pub consensus_constants: ConsensusConstants,
-    /// Max pieces in sector
+    /// Max pieces in a sector
     pub max_pieces_in_sector: u16,
     /// New slot notifications
     pub new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
@@ -200,7 +211,7 @@ pub struct FarmerRpcConfig<CI, CSS> {
     /// DSN bootstrap nodes
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Beacon chain info
-    pub chain_info: CI,
+    pub beacon_chain_info: BCI,
     /// Chain sync status
     pub chain_sync_status: CSS,
     /// Erasure coding instance
@@ -209,13 +220,13 @@ pub struct FarmerRpcConfig<CI, CSS> {
 
 /// Worker that drives RPC server tasks
 #[derive(Debug)]
-pub struct FarmerRpcWorker<CI, CSS>
+pub struct FarmerRpcWorker<BCI, CSS>
 where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    BCI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
     server: Option<Server>,
-    rpc: Option<FarmerRpc<CI, CSS>>,
+    rpc: Option<FarmerRpc<BCI, CSS>>,
     new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
     block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
     archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
@@ -229,13 +240,13 @@ where
     archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
 }
 
-impl<CI, CSS> FarmerRpcWorker<CI, CSS>
+impl<BCI, CSS> FarmerRpcWorker<BCI, CSS>
 where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    BCI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
     /// Creates a new farmer RPC worker
-    pub async fn new(config: FarmerRpcConfig<CI, CSS>) -> io::Result<Self> {
+    pub async fn new(config: FarmerRpcConfig<BCI, CSS>) -> io::Result<Self> {
         let server = Server::builder()
             .set_config(ServerConfig::builder().ws_only().build())
             .build(config.listen_on)
@@ -265,7 +276,7 @@ where
             solution_response_senders: Arc::clone(&solution_response_senders),
             block_sealing_senders: Arc::clone(&block_sealing_senders),
             dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
-            chain_info: config.chain_info,
+            beacon_chain_info: config.beacon_chain_info,
             cached_archived_segment: Arc::clone(&cached_archived_segment),
             archived_segment_acknowledgement_senders: Arc::default(),
             chain_sync_status: config.chain_sync_status,
@@ -440,7 +451,7 @@ where
         archived_segment_notification: ArchivedSegmentNotification,
     ) {
         let ArchivedSegmentNotification {
-            archived_segment,
+            mut archived_segment,
             acknowledgement_sender,
         } = archived_segment_notification;
 
@@ -465,6 +476,31 @@ where
                     archived_segment_acknowledgement_senders.senders.clear();
                 }
 
+                // TODO: This is a temporary hack while there is only beacon chain. Local segments
+                //  will require special caching on the farmer before super segment is created and
+                //  both global segment index and segment proof are known
+                {
+                    let archived_segment = Arc::make_mut(&mut archived_segment);
+
+                    for piece in archived_segment.pieces.iter_mut() {
+                        piece.header.super_segment_index = SuperSegmentIndex::from(u64::from(
+                            archived_segment.segment_header.segment_index.as_inner(),
+                        ))
+                        .into();
+                        // Since there is a single segment in super segment, the proof is empty
+                    }
+
+                    replace_with_or_abort(&mut archived_segment.pieces, |pieces| {
+                        pieces.to_shared()
+                    });
+                }
+
+                self.cached_archived_segment
+                    .lock()
+                    .replace(CachedArchivedSegment::Weak(Arc::downgrade(
+                        &archived_segment,
+                    )));
+
                 let maybe_archived_segment_header = match archived_segment_acknowledgement_senders
                     .senders
                     .entry(subscription_id.clone())
@@ -480,12 +516,6 @@ where
                         Some(archived_segment.segment_header)
                     }
                 };
-
-                self.cached_archived_segment
-                    .lock()
-                    .replace(CachedArchivedSegment::Weak(Arc::downgrade(
-                        &archived_segment,
-                    )));
 
                 // This will be sent to the farmer
                 let maybe_archived_segment_header =
@@ -515,18 +545,18 @@ where
     }
 }
 
-/// Implements the [`FarmerRpcApiServer`] trait for farmer to connect to
+/// Implements the [`FarmerRpcApiServer`] trait for a farmer to connect to
 #[derive(Debug)]
-struct FarmerRpc<CI, CSS>
+struct FarmerRpc<BCI, CSS>
 where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    BCI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
     genesis_block: OwnedBeaconChainBlock,
     solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
     block_sealing_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
-    chain_info: CI,
+    beacon_chain_info: BCI,
     cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
     archived_segment_acknowledgement_senders:
         Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
@@ -542,14 +572,14 @@ where
 }
 
 #[async_trait]
-impl<CI, CSS> FarmerRpcApiServer for FarmerRpc<CI, CSS>
+impl<BCI, CSS> FarmerRpcApiServer for FarmerRpc<BCI, CSS>
 where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    BCI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
         let last_segment_index = self
-            .chain_info
+            .beacon_chain_info
             .last_segment_header()
             .map(|segment_header| segment_header.segment_index.as_inner())
             .unwrap_or(LocalSegmentIndex::ZERO);
@@ -725,6 +755,30 @@ where
         Ok(None)
     }
 
+    async fn super_segment_headers(
+        &self,
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error> {
+        if super_segment_indices.len() > MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST {
+            error!(
+                "`super_segment_indices` length exceed the limit: {} ",
+                super_segment_indices.len()
+            );
+
+            return Err(Error::SegmentHeadersLengthExceeded {
+                actual: super_segment_indices.len(),
+            });
+        };
+
+        Ok(super_segment_indices
+            .into_iter()
+            .map(|super_segment_index| {
+                self.beacon_chain_info
+                    .get_super_segment_header(super_segment_index)
+            })
+            .collect())
+    }
+
     async fn segment_headers(
         &self,
         segment_indices: Vec<SegmentIndex>,
@@ -742,7 +796,10 @@ where
 
         Ok(segment_indices
             .into_iter()
-            .map(|segment_index| self.chain_info.get_segment_header(segment_index.into()))
+            .map(|segment_index| {
+                self.beacon_chain_info
+                    .get_segment_header(segment_index.into())
+            })
             .collect())
     }
 
@@ -759,7 +816,7 @@ where
         };
 
         let last_segment_index = self
-            .chain_info
+            .beacon_chain_info
             .last_segment_header()
             .map(|segment_header| segment_header.segment_index.as_inner())
             .unwrap_or(LocalSegmentIndex::ZERO);
@@ -767,7 +824,7 @@ where
         let mut last_segment_headers = (LocalSegmentIndex::ZERO..=last_segment_index)
             .rev()
             .take(limit as usize)
-            .map(|segment_index| self.chain_info.get_segment_header(segment_index))
+            .map(|segment_index| self.beacon_chain_info.get_segment_header(segment_index))
             .collect::<Vec<_>>();
 
         last_segment_headers.reverse();

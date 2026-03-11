@@ -5,15 +5,19 @@ mod archival_history_segment;
 
 use crate::block::BlockNumber;
 use crate::hashes::Blake3Hash;
-use crate::pieces::{PieceIndex, Record};
+use crate::pieces::{PieceIndex, Record, SegmentProof};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
-use ab_blake3::single_chunk_hash;
+use crate::shard::ShardIndex;
+use ab_blake3::{single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
+use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use blake3::CHUNK_LEN;
+#[cfg(feature = "alloc")]
+use alloc::sync::Arc as StdArc;
+use blake3::{CHUNK_LEN, OUT_LEN};
 use core::iter::Step;
 use core::num::{NonZeroU32, NonZeroU64};
 use core::{fmt, mem};
@@ -28,6 +32,84 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
+/// Super segment index
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+    Mul,
+    MulAssign,
+    Div,
+    DivAssign,
+    TrivialType,
+)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(C)]
+pub struct SuperSegmentIndex(u64);
+
+impl Step for SuperSegmentIndex {
+    #[inline]
+    fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
+        u64::steps_between(&start.0, &end.0)
+    }
+
+    #[inline]
+    fn forward_checked(start: Self, count: usize) -> Option<Self> {
+        u64::forward_checked(start.0, count).map(Self)
+    }
+
+    #[inline]
+    fn backward_checked(start: Self, count: usize) -> Option<Self> {
+        u64::backward_checked(start.0, count).map(Self)
+    }
+}
+
+impl const From<u64> for SuperSegmentIndex {
+    #[inline(always)]
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl const From<SuperSegmentIndex> for u64 {
+    #[inline(always)]
+    fn from(value: SuperSegmentIndex) -> Self {
+        value.0
+    }
+}
+
+impl SuperSegmentIndex {
+    /// Super segment index 0
+    pub const ZERO: Self = Self(0);
+    /// Super segment index 1
+    pub const ONE: Self = Self(1);
+
+    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if underflow occurred
+    #[inline]
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    /// Saturating integer subtraction. Computes `self - rhs`, returning zero if underflow
+    /// occurred
+    #[inline]
+    pub const fn saturating_sub(self, rhs: Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
+    }
+}
+
 /// Super segment root contained within a beacon chain block
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
@@ -40,6 +122,13 @@ impl fmt::Debug for SuperSegmentRoot {
             write!(f, "{byte:02x}")?;
         }
         Ok(())
+    }
+}
+
+impl const Default for SuperSegmentRoot {
+    #[inline]
+    fn default() -> Self {
+        Self([0; Self::SIZE])
     }
 }
 
@@ -83,13 +172,6 @@ impl<'de> Deserialize<'de> for SuperSegmentRoot {
     }
 }
 
-impl Default for SuperSegmentRoot {
-    #[inline]
-    fn default() -> Self {
-        Self([0; Self::SIZE])
-    }
-}
-
 impl AsRef<[u8]> for SuperSegmentRoot {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -107,6 +189,164 @@ impl AsMut<[u8]> for SuperSegmentRoot {
 impl SuperSegmentRoot {
     /// Size in bytes
     pub const SIZE: usize = 32;
+    /// The maximum number of segments in a super segment's Merkle Tree.
+    ///
+    /// `-1` to minimize the number of bits needed to represent it (exactly 20).
+    pub const MAX_SEGMENTS: u32 = 2u32.pow(20) - 1;
+}
+
+/// Segment position in a super segment
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    TrivialType,
+)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(C)]
+pub struct SegmentPosition(u32);
+
+impl From<SegmentPosition> for u64 {
+    #[inline]
+    fn from(original: SegmentPosition) -> Self {
+        Self::from(original.0)
+    }
+}
+
+/// Shard segment root with position
+#[derive(Debug, Clone, Copy, TrivialType)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
+pub struct ShardSegmentRootWithPosition {
+    /// Shard index
+    pub shard_index: ShardIndex,
+    /// Position of the segment in the super segment
+    pub segment_position: SegmentPosition,
+    /// Local segment index
+    pub local_segment_index: LocalSegmentIndex,
+    /// Segment root
+    pub segment_root: SegmentRoot,
+}
+
+impl ShardSegmentRootWithPosition {
+    /// Hash for super segment creation
+    #[inline(always)]
+    pub fn hash(&self) -> [u8; OUT_LEN] {
+        single_block_hash(self.as_bytes()).expect("Less than a single block worth of bytes; qed")
+    }
+}
+
+/// Super segment header
+#[derive(Debug, Clone, Copy, TrivialType)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
+pub struct SuperSegmentHeader {
+    /// Super segment index
+    pub index: Unaligned<SuperSegmentIndex>,
+    /// Super segment root
+    pub root: SuperSegmentRoot,
+    /// Hash of the previous super segment header
+    pub prev_super_segment_header_hash: Blake3Hash,
+    /// Max index of the segment in the super segment
+    pub max_segment_index: Unaligned<SegmentIndex>,
+    /// Target beacon chain block number for the super segment
+    pub target_beacon_chain_block_number: Unaligned<BlockNumber>,
+    // TODO: New type?
+    /// Number of segments in the super segment
+    pub num_segments: u32,
+}
+
+/// Super segment
+#[cfg(feature = "alloc")]
+#[derive(Debug, Clone)]
+// TODO: Implement SCALE serialization/deserialization manually (if necessary at all)
+// #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct SuperSegment {
+    /// Super segment root
+    pub header: SuperSegmentHeader,
+    /// Segment roots that are included in the super segment
+    pub segment_roots: StdArc<[ShardSegmentRootWithPosition]>,
+}
+
+#[cfg(feature = "alloc")]
+impl SuperSegment {
+    /// Create a new instance and derive super segment root.
+    ///
+    /// Returns `None` if the list of segment roots is empty or there are too many of them.
+    pub fn new(
+        previous_header: &SuperSegmentHeader,
+        target_beacon_chain_block_number: BlockNumber,
+        segment_roots: StdArc<[ShardSegmentRootWithPosition]>,
+    ) -> Option<Self> {
+        let num_segments = u32::try_from(segment_roots.len()).ok()?;
+        let max_segment_index = SegmentIndex::from(
+            u64::from(previous_header.max_segment_index.as_inner()) + u64::from(num_segments),
+        );
+
+        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
+        //  allows the code to compile. Constant 1048575 is hardcoded here and below for compilation
+        //  to succeed.
+        const {
+            assert!(SuperSegmentRoot::MAX_SEGMENTS == 1048575);
+        }
+        // TODO: Keyed hash
+        let maybe_super_segment_root = UnbalancedMerkleTree::compute_root_only::<1048575, _, _>(
+            segment_roots.iter().map(ShardSegmentRootWithPosition::hash),
+        )?;
+
+        Some(Self {
+            header: SuperSegmentHeader {
+                index: (previous_header.index.as_inner() + SuperSegmentIndex::ONE).into(),
+                root: SuperSegmentRoot::from(maybe_super_segment_root),
+                prev_super_segment_header_hash: Blake3Hash::from(
+                    single_chunk_hash(previous_header.as_bytes())
+                        .expect("Less than a single chunk worth of bytes; qed"),
+                ),
+                max_segment_index: max_segment_index.into(),
+                target_beacon_chain_block_number: target_beacon_chain_block_number.into(),
+                num_segments,
+            },
+            segment_roots,
+        })
+    }
+
+    /// Produce a proof for a segment in the super segment at a given position
+    pub fn proof_for_segment(&self, segment_position: u32) -> Option<SegmentProof> {
+        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
+        //  allows the code to compile. Constant 1048575 is hardcoded here and below for compilation
+        //  to succeed.
+        const {
+            assert!(SuperSegmentRoot::MAX_SEGMENTS == 1048575);
+        }
+        // TODO: Keyed hash
+        let mut segment_proof = SegmentProof::default();
+        UnbalancedMerkleTree::compute_root_and_proof_in::<1048575, _, _>(
+            self.segment_roots.iter().map(|shard_segment_root| {
+                single_block_hash(shard_segment_root.as_bytes())
+                    .expect("Less than a single block worth of bytes; qed")
+            }),
+            segment_position as usize,
+            segment_proof.as_uninit_repr(),
+        )?;
+
+        Some(segment_proof)
+    }
 }
 
 /// Local segment index of a shard
@@ -311,6 +551,38 @@ impl SegmentIndex {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
+
+impl SegmentRoot {
+    /// Check whether a segment root is a part of the super segment
+    pub fn is_valid(
+        &self,
+        shard_index: ShardIndex,
+        local_segment_index: LocalSegmentIndex,
+        segment_position: SegmentPosition,
+        segment_proof: &SegmentProof,
+        num_segments: u32,
+        super_segment_root: &SuperSegmentRoot,
+    ) -> bool {
+        let shard_segment_root = ShardSegmentRootWithPosition {
+            shard_index,
+            segment_position,
+            local_segment_index,
+            segment_root: *self,
+        };
+        // The proof is fixed size and contains zero padding elements, which must be skipped for
+        // verification purposes
+        let segment_proof = segment_proof
+            .split_once(|hash| hash == &[0; _])
+            .map_or(segment_proof.as_slice(), |(before, _after)| before);
+        UnbalancedMerkleTree::verify(
+            super_segment_root,
+            segment_proof,
+            u64::from(segment_position),
+            shard_segment_root.hash(),
+            u64::from(num_segments),
+        )
+    }
+}
 
 impl fmt::Debug for SegmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

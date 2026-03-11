@@ -1,11 +1,14 @@
 use crate::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{PiecePosition, Record};
+use ab_core_primitives::pieces::{
+    PieceHeader, PiecePosition, Record, RecordChunksRoot, RecordProof,
+};
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
     RecordedHistorySegment, SegmentHeader, SegmentRoot,
 };
+use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use alloc::collections::VecDeque;
@@ -250,6 +253,7 @@ pub enum ArchiverInstantiationError {
 /// blockchain context anyway).
 #[derive(Debug, Clone)]
 pub struct Archiver {
+    shard_index: ShardIndex,
     /// Buffer containing blocks and other buffered items that are pending to be included into the
     /// next segment
     buffer: VecDeque<SegmentItem>,
@@ -265,8 +269,9 @@ pub struct Archiver {
 
 impl Archiver {
     /// Create a new instance
-    pub fn new(erasure_coding: ErasureCoding) -> Self {
+    pub fn new(shard_index: ShardIndex, erasure_coding: ErasureCoding) -> Self {
         Self {
+            shard_index,
             buffer: VecDeque::default(),
             erasure_coding,
             segment_index: LocalSegmentIndex::ZERO,
@@ -279,12 +284,13 @@ impl Archiver {
     ///
     /// `block` corresponds to `last_archived_block` and will be processed according to its state.
     pub fn with_initial_state(
+        shard_index: ShardIndex,
         erasure_coding: ErasureCoding,
         segment_header: SegmentHeader,
         encoded_block: &[u8],
         mut block_objects: Vec<BlockObject>,
     ) -> Result<Self, ArchiverInstantiationError> {
-        let mut archiver = Self::new(erasure_coding);
+        let mut archiver = Self::new(shard_index, erasure_coding);
 
         archiver.segment_index = segment_header.local_segment_index() + LocalSegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
@@ -349,8 +355,11 @@ impl Archiver {
     /// Adds a new block to the internal buffer, potentially producing pieces, segment headers, and
     /// object mappings.
     ///
-    /// NOTE: Pieces inside [`NewArchivedSegment`] are shared initially for efficient memory reuse
-    /// when working with pieces.
+    /// NOTE:
+    /// * pieces inside [`NewArchivedSegment`] are shared initially for efficient memory reuse when
+    ///   working with pieces
+    /// * pieces do not have a segment position and a segment proof filled in because it is not yet
+    ///   known at the time of local segment creation
     ///
     /// Returns `None` if the block is empty or larger than [`u32::MAX`].
     pub fn add_block(
@@ -696,9 +705,7 @@ impl Archiver {
                     parity_chunks_root,
                 ]);
 
-                piece
-                    .parity_chunks_root
-                    .copy_from_slice(&parity_chunks_root);
+                piece.header.parity_chunks_root = RecordChunksRoot::from(parity_chunks_root);
 
                 record_root
             });
@@ -716,14 +723,6 @@ impl Archiver {
 
         let segment_root = SegmentRoot::from(segment_merkle_tree.root());
 
-        // Create proof for every record and write it to corresponding piece.
-        pieces
-            .iter_mut()
-            .zip(segment_merkle_tree.all_proofs())
-            .for_each(|(piece, record_proof)| {
-                piece.record_proof.copy_from_slice(&record_proof);
-            });
-
         // Now produce segment header
         let segment_header = SegmentHeader {
             segment_index: self.segment_index.into(),
@@ -733,6 +732,20 @@ impl Archiver {
                 .last_archived_block
                 .expect("Never empty by the time segment is produced; qed"),
         };
+
+        // Create proof for every record and write it to corresponding piece.
+        pieces
+            .iter_mut()
+            .zip(segment_merkle_tree.all_proofs())
+            .for_each(|(piece, record_proof)| {
+                piece.header = PieceHeader {
+                    shard_index: self.shard_index.into(),
+                    local_segment_index: segment_header.segment_index,
+                    segment_root: segment_header.segment_root,
+                    record_proof: RecordProof::from(record_proof),
+                    ..piece.header
+                };
+            });
 
         // Update state
         self.segment_index += LocalSegmentIndex::ONE;

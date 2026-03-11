@@ -1,10 +1,10 @@
 use crate::{BlockVerification, BlockVerificationError, GenericBody, GenericHeader};
-use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
+use ab_client_api::{BeaconChainInfo, BlockOrigin, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersChainInfo, DeriveConsensusParametersError,
-    ShardMembershipEntropySourceChainInfo, derive_consensus_parameters,
-    shard_membership_entropy_source,
+    DeriveSuperSegmentForBlockError, ShardMembershipEntropySourceChainInfo,
+    derive_consensus_parameters, derive_super_segments_for_block, shard_membership_entropy_source,
 };
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -17,8 +17,13 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
+use ab_core_primitives::segments::{
+    HistorySize, SuperSegment, SuperSegmentIndex, SuperSegmentRoot,
+};
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
+use ab_core_primitives::solutions::{
+    SolutionVerifyError, SolutionVerifyPieceParams, SolutionVerifyStatelessParams,
+};
 use ab_proof_of_space::Table;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -37,6 +42,13 @@ pub enum BeaconChainBlockVerificationError {
         #[from]
         error: DeriveConsensusParametersError,
     },
+    /// Super segment derivation error
+    #[error("Super segment derivation error: {error}")]
+    SuperSegmentDerivation {
+        /// Super segment derivation error
+        #[from]
+        error: DeriveSuperSegmentForBlockError,
+    },
     /// Invalid consensus parameters
     #[error("Invalid consensus parameters: expected {expected:?}, actual {actual:?}")]
     InvalidConsensusParameters {
@@ -44,6 +56,26 @@ pub enum BeaconChainBlockVerificationError {
         expected: Box<OwnedBlockHeaderConsensusParameters>,
         /// Actual consensus parameters
         actual: Box<OwnedBlockHeaderConsensusParameters>,
+    },
+    /// Missing a super segment in the first block
+    #[error("Missing super segment in the first block")]
+    MissingSuperSegmentInFirstBlock,
+    /// Previous super segment header not found
+    #[error("Previous super segment header not found")]
+    PreviousSuperSegmentHeaderNotFound,
+    /// Solution super segment not found
+    #[error("Solution super segment {index} not found")]
+    SolutionSuperSegmentNotFound {
+        /// Expected super segment index
+        index: SuperSegmentIndex,
+    },
+    /// Invalid super segment root
+    #[error("Invalid super segment root: expected {expected:?}, actual {actual:?}")]
+    InvalidSuperSegmentRoot {
+        /// Expected super segment root
+        expected: Box<Option<SuperSegmentRoot>>,
+        /// Actual super segment root
+        actual: Box<Option<SuperSegmentRoot>>,
     },
     /// Invalid PoT checkpoints
     #[error("Invalid PoT checkpoints")]
@@ -78,11 +110,11 @@ pub struct BeaconChainBlockVerification<PosTable, CI, CSS> {
     _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, CI, CSS> BlockVerification<OwnedBeaconChainBlock>
+impl<PosTable, CI, CSS> BlockVerification<OwnedBeaconChainBlock, Option<SuperSegment>>
     for BeaconChainBlockVerification<PosTable, CI, CSS>
 where
     PosTable: Table,
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
     #[inline(always)]
@@ -117,7 +149,7 @@ where
         header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         body: &GenericBody<'_, OwnedBeaconChainBlock>,
         origin: &BlockOrigin,
-    ) -> Result<(), BlockVerificationError> {
+    ) -> Result<Option<SuperSegment>, BlockVerificationError> {
         self.verify_sequential(parent_header, parent_block_mmr_root, header, body, origin)
             .await
     }
@@ -126,7 +158,7 @@ where
 impl<PosTable, CI, CSS> BeaconChainBlockVerification<PosTable, CI, CSS>
 where
     PosTable: Table,
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
     /// Create a new instance
@@ -200,7 +232,7 @@ where
         Ok(())
     }
 
-    fn check_consensus_parameters<BCI>(
+    fn check_consensus_parameters_concurrent<BCI>(
         &self,
         parent_block_root: &BlockRoot,
         parent_header: &BeaconChainHeader<'_>,
@@ -222,8 +254,8 @@ where
 
         let expected_consensus_parameters = OwnedBlockHeaderConsensusParameters {
             fixed_parameters: derived_consensus_parameters.fixed_parameters,
-            // TODO: Super segment support
-            super_segment_root: None,
+            // TODO: This field is verified separately in the sequential part
+            super_segment_root: header.consensus_parameters().super_segment_root.copied(),
             next_solution_range: derived_consensus_parameters.next_solution_range,
             pot_parameters_change: derived_consensus_parameters.pot_parameters_change,
         };
@@ -455,7 +487,7 @@ where
             });
         }
 
-        // TODO: check intermediate shard blocks
+        // TODO: check intermediate shard blocks and all segment roots included in the body
 
         Ok(())
     }
@@ -498,7 +530,7 @@ where
 
         self.check_header_prefix(parent_header.prefix, parent_block_mmr_root, header.prefix)?;
 
-        self.check_consensus_parameters(
+        self.check_consensus_parameters_concurrent(
             &parent_block_root,
             parent_header,
             header,
@@ -518,19 +550,17 @@ where
             beacon_chain_info,
         )?;
 
-        // Verify that the solution is valid
+        // Verify that the solution is valid (stateless half)
         consensus_info
             .solution
-            .verify::<PosTable>(
+            .verify_stateless::<PosTable>(
                 slot,
-                &SolutionVerifyParams {
+                &SolutionVerifyStatelessParams {
                     shard_index: ShardIndex::BEACON_CHAIN,
                     proof_of_time: consensus_info.proof_of_time,
                     solution_range: consensus_parameters.fixed_parameters.solution_range,
                     shard_membership_entropy,
                     num_shards: consensus_parameters.fixed_parameters.num_shards,
-                    // TODO: Piece check parameters
-                    piece_check_params: None,
                 },
             )
             .map_err(BeaconChainBlockVerificationError::from)?;
@@ -556,16 +586,17 @@ where
 
     async fn verify_sequential(
         &self,
-        // TODO: Probable remove these unused arguments
-        _parent_header: &BeaconChainHeader<'_>,
+        parent_header: &BeaconChainHeader<'_>,
+        // TODO: Probably remove unused arguments
         _parent_block_mmr_root: &Blake3Hash,
         header: &BeaconChainHeader<'_>,
         body: &BeaconChainBody<'_>,
         _origin: &BlockOrigin,
-    ) -> Result<(), BlockVerificationError> {
+    ) -> Result<Option<SuperSegment>, BlockVerificationError> {
         trace!(header = ?header, "Verify sequential");
 
         let block_number = header.prefix.number;
+        let consensus_info = header.consensus_info;
 
         let best_header = self.chain_info.best_header();
         let best_header = best_header.header();
@@ -582,12 +613,105 @@ where
             return Err(BlockVerificationError::BelowArchivingPoint);
         }
 
+        let maybe_super_segment = derive_super_segments_for_block(
+            &self.chain_info,
+            parent_header.prefix.number,
+            self.consensus_constants.block_confirmation_depth,
+            self.consensus_constants.shard_confirmation_depth,
+        )
+        .map_err(BeaconChainBlockVerificationError::from)?;
+        let maybe_super_segment_root = maybe_super_segment
+            .as_ref()
+            .map(|super_segment| super_segment.header.root);
+
+        if maybe_super_segment_root.as_ref() != header.consensus_parameters().super_segment_root {
+            return Err(BlockVerificationError::from(
+                BeaconChainBlockVerificationError::InvalidSuperSegmentRoot {
+                    expected: Box::new(maybe_super_segment_root),
+                    actual: Box::new(header.consensus_parameters().super_segment_root.copied()),
+                },
+            ));
+        }
+
+        // Verify that the solution is valid (piece verification half)
+        {
+            let (current_history_size, solution_num_segments, solution_super_segment_root) =
+                if block_number == BlockNumber::ONE {
+                    let latest_super_segment = maybe_super_segment.as_ref().ok_or(
+                        BeaconChainBlockVerificationError::MissingSuperSegmentInFirstBlock,
+                    )?;
+
+                    (
+                        HistorySize::ONE,
+                        latest_super_segment.header.num_segments,
+                        latest_super_segment.header.root,
+                    )
+                } else {
+                    let max_segment_index = self
+                        .chain_info
+                        .previous_super_segment_header(block_number)
+                        .ok_or(
+                            BeaconChainBlockVerificationError::PreviousSuperSegmentHeaderNotFound,
+                        )?
+                        .max_segment_index
+                        .as_inner();
+                    let current_history_size = HistorySize::from(max_segment_index);
+
+                    let solution_super_segment_header = self
+                        .chain_info
+                        .get_super_segment_header(consensus_info.solution.piece_super_segment_index)
+                        .ok_or(
+                            BeaconChainBlockVerificationError::SolutionSuperSegmentNotFound {
+                                index: consensus_info.solution.piece_super_segment_index,
+                            },
+                        )?;
+
+                    (
+                        current_history_size,
+                        solution_super_segment_header.num_segments,
+                        solution_super_segment_header.root,
+                    )
+                };
+            // TODO: Unlock this once farmer has better access to super segments and replace history
+            //  size with super segment index in the solution
+            // let sector_expiration_check_segment_root = self
+            //     .chain_info
+            //     .get_segment_header(
+            //         consensus_info
+            //             .solution
+            //             .history_size
+            //             .sector_expiration_check(self.consensus_constants.min_sector_lifetime)
+            //             .ok_or(BeaconChainBlockVerificationError::InvalidHistorySize {
+            //                 history_size: consensus_info.solution.history_size,
+            //                 current_history_size,
+            //             })?
+            //             .segment_index(),
+            //     )
+            //     .map(|segment_header| segment_header.segment_root);
+
+            consensus_info
+                .solution
+                .verify_piece(&SolutionVerifyPieceParams {
+                    // TODO: Query it from an actual chain
+                    max_pieces_in_sector: 1000,
+                    super_segment_root: solution_super_segment_root,
+                    num_segments: solution_num_segments,
+                    recent_segments: self.consensus_constants.recent_segments,
+                    recent_history_fraction: self.consensus_constants.recent_history_fraction,
+                    min_sector_lifetime: self.consensus_constants.min_sector_lifetime,
+                    current_history_size,
+                    // TODO: Expiration check
+                    sector_expiration_check_segment_root: None,
+                })
+                .map_err(BeaconChainBlockVerificationError::from)?;
+        }
+
         self.check_body(
             block_number,
             body.own_segments(),
             body.intermediate_shard_blocks(),
         )?;
 
-        Ok(())
+        Ok(maybe_super_segment)
     }
 }

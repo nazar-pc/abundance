@@ -1,5 +1,11 @@
-use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
-use ab_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
+use ab_core_primitives::pieces::{
+    Piece, PieceHeader, PiecePosition, Record, RecordChunksRoot, RecordProof, SegmentProof,
+};
+use ab_core_primitives::segments::{
+    ArchivedHistorySegment, LocalSegmentIndex, RecordedHistorySegment, SegmentPosition,
+    SegmentRoot, SuperSegmentIndex,
+};
+use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use alloc::vec::Vec;
@@ -15,6 +21,15 @@ pub enum ReconstructorError {
     /// Not enough shards
     #[error("Not enough shards: {num_shards}")]
     NotEnoughShards { num_shards: usize },
+}
+
+struct SharedPieceDetails {
+    shard_index: ShardIndex,
+    local_segment_index: LocalSegmentIndex,
+    super_segment_index: SuperSegmentIndex,
+    segment_position: SegmentPosition,
+    segment_root: SegmentRoot,
+    segment_proof: SegmentProof,
 }
 
 /// Piece reconstructor helps to reconstruct missing pieces.
@@ -41,6 +56,8 @@ impl PiecesReconstructor {
         }
         let mut reconstructed_pieces = ArchivedHistorySegment::default();
 
+        // TODO: Fix up piece metadata
+        let mut shared_piece_details = None;
         {
             let (source_input_pieces, parity_input_pieces) =
                 input_pieces.split_at(RecordedHistorySegment::NUM_RAW_RECORDS);
@@ -53,6 +70,28 @@ impl PiecesReconstructor {
                 .map(
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
+                            if shared_piece_details.is_none() {
+                                shared_piece_details.replace(SharedPieceDetails {
+                                    shard_index: input_piece.header.shard_index.as_inner(),
+                                    local_segment_index: input_piece
+                                        .header
+                                        .local_segment_index
+                                        .as_inner(),
+                                    super_segment_index: input_piece
+                                        .header
+                                        .super_segment_index
+                                        .as_inner(),
+                                    segment_position: input_piece
+                                        .header
+                                        .segment_position
+                                        .as_inner(),
+                                    segment_root: input_piece.header.segment_root,
+                                    segment_proof: input_piece.header.segment_proof,
+                                });
+                            }
+                            // Fancy way to insert value to avoid going through stack (if naive
+                            // dereferencing is used) and potentially causing stack overflow as the
+                            // result
                             output_piece.record.copy_from_slice(&*input_piece.record);
                             RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
@@ -67,6 +106,9 @@ impl PiecesReconstructor {
                 .map(
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
+                            // Fancy way to insert value to avoid going through stack (if naive
+                            // dereferencing is used) and potentially causing stack overflow as the
+                            // result
                             output_piece.record.copy_from_slice(&*input_piece.record);
                             RecoveryShardState::Present(input_piece.record.as_flattened())
                         }
@@ -77,6 +119,16 @@ impl PiecesReconstructor {
                 );
             self.erasure_coding.recover(source, parity)?;
         }
+        let SharedPieceDetails {
+            shard_index,
+            local_segment_index,
+            super_segment_index,
+            segment_position,
+            segment_root,
+            segment_proof,
+        } = shared_piece_details.expect(
+            "Sucessful recovery means there was at least one piece to fill this Option; qed",
+        );
 
         let record_roots = {
             #[cfg(not(feature = "parallel"))]
@@ -87,7 +139,10 @@ impl PiecesReconstructor {
             iter.map(|(piece, maybe_input_piece)| {
                 let (record_root, parity_chunks_root) = if let Some(input_piece) = maybe_input_piece
                 {
-                    (*input_piece.record_root(), *input_piece.parity_chunks_root)
+                    (
+                        *input_piece.record_root(),
+                        *input_piece.header.parity_chunks_root,
+                    )
                 } else {
                     // TODO: Reuse allocations between iterations
                     let [source_chunks_root, parity_chunks_root] = {
@@ -109,9 +164,7 @@ impl PiecesReconstructor {
                     (record_root, parity_chunks_root)
                 };
 
-                piece
-                    .parity_chunks_root
-                    .copy_from_slice(&parity_chunks_root);
+                piece.header.parity_chunks_root = RecordChunksRoot::from(parity_chunks_root);
 
                 Ok::<_, ReconstructorError>(record_root)
             })
@@ -130,15 +183,26 @@ impl PiecesReconstructor {
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
             .for_each(|(piece, record_proof)| {
-                piece.record_proof.copy_from_slice(&record_proof);
+                piece.header = PieceHeader {
+                    shard_index: shard_index.into(),
+                    local_segment_index: local_segment_index.into(),
+                    super_segment_index: super_segment_index.into(),
+                    segment_position: segment_position.into(),
+                    segment_root,
+                    segment_proof,
+                    parity_chunks_root: piece.header.parity_chunks_root,
+                    record_proof: RecordProof::from(record_proof),
+                };
             });
 
         Ok(reconstructed_pieces)
     }
 
-    /// Returns all the pieces for a segment using given set of pieces of a segment of the archived
-    /// history (any half of all pieces are required to be present, the rest will be recovered
-    /// automatically due to use of erasure coding if needed).
+    /// Returns all the pieces for a segment using a given set of pieces of a segment of the
+    /// archived history.
+    ///
+    /// Any half of all pieces are required to be present, the rest will be recovered automatically
+    /// due to use of erasure coding if needed.
     pub fn reconstruct_segment(
         &self,
         segment_pieces: &[Option<Piece>],

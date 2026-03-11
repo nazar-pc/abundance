@@ -319,7 +319,7 @@ pub struct OwnedBlockHeaderConsensusParameters {
 }
 
 impl OwnedBlockHeaderConsensusParameters {
-    /// Get a reference out of owned version
+    /// Get a reference out of the owned version
     #[inline]
     pub fn as_ref(&self) -> BlockHeaderConsensusParameters<'_> {
         BlockHeaderConsensusParameters {

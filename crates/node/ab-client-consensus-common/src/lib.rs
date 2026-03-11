@@ -1,3 +1,4 @@
+#![feature(option_into_flat_iter)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
@@ -28,8 +29,16 @@ pub struct ConsensusConstants {
     /// Depth after which a block enters the recorded history.
     ///
     /// This is from the perspective of the individual shard, with additional confirmation on the
-    /// beacon chain required for intermediate and leaf shards.
+    /// beacon chain required for intermediate and leaf shards (see `shard_confirmation_depth`).
     pub block_confirmation_depth: BlockNumber,
+    /// Depth on the beacon chain in addition to `block_confirmation_depth` after intermediate or
+    /// leaf shard information on the beacon chain is confirmed and corresponding segment roots
+    /// become a part of the super segment.
+    ///
+    /// This is separate from the block confirmation on the corresponding shard itself, which
+    /// happens much sooner (see `block_confirmation_depth`), but can't be immediately trusted by
+    /// the beacon chain.
+    pub shard_confirmation_depth: BlockNumber,
     /// Number of slots between slot arrival and when the corresponding block can be produced
     pub block_authoring_delay: SlotNumber,
     /// Proof-of-time consensus constants

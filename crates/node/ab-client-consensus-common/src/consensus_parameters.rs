@@ -1,15 +1,23 @@
 use crate::{ConsensusConstants, PotConsensusConstants};
-use ab_client_api::ChainInfo;
+use ab_client_api::{BeaconChainInfo, ChainInfo, ShardSegmentRoot, ShardSegmentRootsError};
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
     BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::RecordChunk;
 use ab_core_primitives::pot::{PotOutput, PotParametersChange, SlotNumber};
+use ab_core_primitives::segments::{
+    LocalSegmentIndex, SegmentIndex, SegmentPosition, SegmentRoot, ShardSegmentRootWithPosition,
+    SuperSegment, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
+};
+use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
+use std::collections::HashMap;
 use std::num::NonZeroU32;
+use std::sync::Arc as StdArc;
 
 struct SolutionRanges {
     current: SolutionRange,
@@ -346,4 +354,259 @@ where
         )?;
 
     Ok(proof_of_time.shard_membership_entropy())
+}
+
+/// Error for [`derive_super_segments_for_block()`]
+#[derive(Debug, thiserror::Error)]
+pub enum DeriveSuperSegmentForBlockError {
+    /// Genesis beacon chain segment header not found
+    #[error("Genesis beacon chain segment header not found")]
+    GenesisBeaconChainSegmentHeaderNotFound,
+    /// Parent super segment header not found
+    #[error("Parent super segment header not found for block {block_number}")]
+    ParentSuperSegmentHeaderNotFound {
+        /// Block number for which the parent super segment header was not found
+        block_number: BlockNumber,
+    },
+    /// Shard segment roots error
+    #[error("Shard segment roots error: {error}")]
+    ShardSegmentRootsError {
+        /// Low-level error
+        #[from]
+        error: ShardSegmentRootsError,
+    },
+    /// Too many segments
+    #[error("Too many segments: {extra_segment_roots} extra segment roots")]
+    TooManySegments {
+        /// Number of extra segment roots
+        extra_segment_roots: usize,
+    },
+}
+
+/// Chain info for [`derive_super_segments_for_block()`].
+///
+/// Must have access to enough parent blocks.
+pub trait DeriveSuperSegmentsForBlockChainInfo: Send + Sync {
+    /// Get genesis segment root of the beacon chain
+    fn get_genesis_segment_root(&self) -> Result<SegmentRoot, DeriveSuperSegmentForBlockError>;
+
+    /// Get segment roots that are expected to be included at specified block number
+    fn segment_roots_for_block(
+        &self,
+        block_number: BlockNumber,
+    ) -> impl ExactSizeIterator<Item = ShardSegmentRoot> + Send + Sync + 'static;
+
+    /// Returns the previous super segment header for the block built with the specified number
+    fn previous_super_segment_header(
+        &self,
+        block_number: BlockNumber,
+    ) -> Option<SuperSegmentHeader>;
+
+    /// Returns intermediate and leaf shard segment roots included in the specified block number.
+    ///
+    /// NOTE: Since blocks at this depth are already confirmed, only a block number is needed as a
+    /// reference.
+    fn shard_segment_roots(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
+}
+
+impl<T> DeriveSuperSegmentsForBlockChainInfo for T
+where
+    T: BeaconChainInfo,
+{
+    #[inline]
+    fn get_genesis_segment_root(&self) -> Result<SegmentRoot, DeriveSuperSegmentForBlockError> {
+        Ok(self
+            .get_segment_header(LocalSegmentIndex::ZERO)
+            .ok_or(DeriveSuperSegmentForBlockError::GenesisBeaconChainSegmentHeaderNotFound)?
+            .segment_root)
+    }
+
+    #[inline]
+    fn segment_roots_for_block(
+        &self,
+        block_number: BlockNumber,
+    ) -> impl ExactSizeIterator<Item = ShardSegmentRoot> + Send + Sync + 'static {
+        self.segment_headers_for_block(block_number)
+            .into_iter()
+            .map(|segment_header| ShardSegmentRoot {
+                shard_index: ShardIndex::BEACON_CHAIN,
+                segment_index: segment_header.segment_index.as_inner(),
+                segment_root: segment_header.segment_root,
+            })
+    }
+
+    #[inline(always)]
+    fn previous_super_segment_header(
+        &self,
+        target_block_number: BlockNumber,
+    ) -> Option<SuperSegmentHeader> {
+        BeaconChainInfo::previous_super_segment_header(self, target_block_number)
+    }
+
+    #[inline(always)]
+    fn shard_segment_roots(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
+        BeaconChainInfo::shard_segment_roots(self, block_number)
+    }
+}
+
+/// Derive a super segment for a block with a specified parent block number
+pub fn derive_super_segments_for_block<BCI>(
+    chain_info: &BCI,
+    parent_block_number: BlockNumber,
+    block_confirmation_depth: BlockNumber,
+    shard_confirmation_depth: BlockNumber,
+) -> Result<Option<SuperSegment>, DeriveSuperSegmentForBlockError>
+where
+    BCI: DeriveSuperSegmentsForBlockChainInfo,
+{
+    if parent_block_number == BlockNumber::ZERO {
+        let shard_segment_root = ShardSegmentRootWithPosition {
+            shard_index: ShardIndex::BEACON_CHAIN,
+            segment_position: SegmentPosition::from(0),
+            local_segment_index: LocalSegmentIndex::ZERO,
+            segment_root: chain_info.get_genesis_segment_root()?,
+        };
+
+        let mut super_segment = SuperSegment::new(
+            &SuperSegmentHeader {
+                // Placeholder value will be fixed up later
+                index: SuperSegmentIndex::ZERO.into(),
+                root: SuperSegmentRoot::default(),
+                prev_super_segment_header_hash: Blake3Hash::default(),
+                // Placeholder value will be fixed up later
+                max_segment_index: SegmentIndex::ZERO.into(),
+                target_beacon_chain_block_number: BlockNumber::ZERO.into(),
+                num_segments: 0,
+            },
+            BlockNumber::ONE,
+            StdArc::new([shard_segment_root]),
+        )
+        .expect("Genesis super segment is always valid; qed");
+
+        super_segment.header = SuperSegmentHeader {
+            index: SuperSegmentIndex::ZERO.into(),
+            max_segment_index: SegmentIndex::ZERO.into(),
+            prev_super_segment_header_hash: Blake3Hash::default(),
+            ..super_segment.header
+        };
+
+        return Ok(Some(super_segment));
+    }
+
+    let target_block_number = parent_block_number + BlockNumber::ONE;
+
+    let own_segment_roots = chain_info.segment_roots_for_block(target_block_number);
+
+    let shard_segment_roots = if let Some(base_shard_segment_roots_depth) = target_block_number
+        .checked_sub(block_confirmation_depth.saturating_add(shard_confirmation_depth))
+    {
+        let shard_segment_roots = chain_info.shard_segment_roots(base_shard_segment_roots_depth)?;
+        let mut shard_segment_roots_map =
+            HashMap::<ShardIndex, Vec<ShardSegmentRoot>>::with_capacity(shard_segment_roots.len());
+
+        // Group shard segment roots by shard index
+        for &shard_segment_root in shard_segment_roots.iter() {
+            // Segment indices are already sorted in the beacon chain block body, hence a simple
+            // vector for storing them
+            shard_segment_roots_map
+                .entry(shard_segment_root.shard_index)
+                .or_default()
+                .push(shard_segment_root);
+        }
+
+        // Clean up anything that might have reorged since and should not be included in the
+        // super segment yet
+        for block_number_to_check in (base_shard_segment_roots_depth + BlockNumber::ONE..)
+            .take(u64::from(shard_confirmation_depth) as usize)
+        {
+            for shard_segment_root in chain_info
+                .shard_segment_roots(block_number_to_check)?
+                .iter()
+            {
+                if let Some(shard_segments) =
+                    shard_segment_roots_map.get_mut(&shard_segment_root.shard_index)
+                    && let Some(first_shard_segment) = shard_segments.first()
+                    && let Some(offset) = shard_segment_root
+                        .segment_index
+                        .checked_sub(first_shard_segment.segment_index)
+                {
+                    // Truncate the shard segments if there was a reorg
+                    shard_segments.truncate(u64::from(offset) as usize);
+                }
+            }
+        }
+
+        // Collect anything that was not reorged into a flat list of segment roots
+        Some(
+            shard_segment_roots
+                .iter()
+                .filter(|shard_segment_root| {
+                    if let Some(shard_segments) =
+                        shard_segment_roots_map.get(&shard_segment_root.shard_index)
+                        && let Some(first_shard_segment) = shard_segments.first()
+                        && let Some(offset) = shard_segment_root
+                            .segment_index
+                            .checked_sub(first_shard_segment.segment_index)
+                    {
+                        (u64::from(offset) as usize) < shard_segments.len()
+                    } else {
+                        false
+                    }
+                })
+                .copied()
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    };
+    let shard_segment_roots = shard_segment_roots.into_flat_iter();
+
+    let segment_roots = own_segment_roots
+        .chain(shard_segment_roots)
+        .zip(0..)
+        .map(
+            |(shard_segment_root, segment_position)| ShardSegmentRootWithPosition {
+                shard_index: shard_segment_root.shard_index,
+                segment_position: SegmentPosition::from(segment_position),
+                local_segment_index: shard_segment_root.segment_index,
+                segment_root: shard_segment_root.segment_root,
+            },
+        )
+        .collect::<StdArc<_>>();
+
+    if segment_roots.is_empty() {
+        return Ok(None);
+    }
+
+    let num_segments = segment_roots.len();
+
+    let previous_super_segment_header = chain_info
+        .previous_super_segment_header(target_block_number)
+        .ok_or(
+            DeriveSuperSegmentForBlockError::ParentSuperSegmentHeaderNotFound {
+                block_number: target_block_number,
+            },
+        )?;
+
+    SuperSegment::new(
+        &previous_super_segment_header,
+        target_block_number,
+        segment_roots,
+    )
+    .ok_or({
+        // TODO: While very unlikely, this is hypothetically possible and will need to be
+        //  worked around in the block builder by excluding extra block headers, especially since
+        //  the error will happen much later in the life cycle and it might be too late to revert
+        //  once it is actually hit
+        DeriveSuperSegmentForBlockError::TooManySegments {
+            extra_segment_roots: num_segments - SuperSegmentRoot::MAX_SEGMENTS as usize,
+        }
+    })
+    .map(Some)
 }

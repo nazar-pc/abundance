@@ -8,7 +8,7 @@
 
 use ab_core_primitives::checksum::Blake3Checksummed;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordProof};
+use ab_core_primitives::pieces::{PieceHeader, PieceOffset, Record};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_io_type::trivial_type::TrivialType;
@@ -134,15 +134,17 @@ impl SectorMetadataChecksummed {
 }
 
 /// Root and proof corresponding to the same record
-#[derive(Debug, Default, Clone, Encode, Decode)]
+#[derive(Debug, Default, Copy, Clone, Encode, Decode)]
 #[repr(C)]
 pub(crate) struct RecordMetadata {
-    /// Parity chunks root
-    pub(crate) record_parity_chunks_root: RecordChunksRoot,
-    /// Record proof
-    pub(crate) record_proof: RecordProof,
+    /// Piece header
+    pub(crate) piece_header: PieceHeader,
     /// Checksum (hash) of the whole piece
     pub(crate) piece_checksum: Blake3Hash,
+}
+
+const {
+    assert!(align_of::<RecordMetadata>() == 1);
 }
 
 impl RecordMetadata {

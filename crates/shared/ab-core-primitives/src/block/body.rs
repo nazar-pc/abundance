@@ -51,20 +51,13 @@ where
 
 /// Calculates a Merkle Tree root for a provided list of segment roots
 #[inline]
-pub fn compute_segments_root<'a, Iter>(segment_roots: Iter) -> Blake3Hash
+pub fn compute_segments_root<'a, const MAX_SEGMENTS: u64, Iter>(segment_roots: Iter) -> Blake3Hash
 where
+    [(); MAX_SEGMENTS.next_power_of_two().ilog2() as usize + 1]:,
     Iter: IntoIterator<Item = &'a SegmentRoot>,
 {
-    // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
-    //  the code to compile. Constant 4294967295 is hardcoded here and below for compilation to
-    //  succeed.
-    #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
-    #[expect(clippy::eq_op, reason = "Intentional documentation")]
-    const {
-        assert!(u32::MAX == 4294967295);
-    }
     // TODO: Keyed hash
-    let root = UnbalancedMerkleTree::compute_root_only::<4294967295, _, _>(
+    let root = UnbalancedMerkleTree::compute_root_only::<MAX_SEGMENTS, _, _>(
         segment_roots.into_iter().map(|segment_root| {
             // Hash the root again so we can prove it, otherwise root of segments is
             // indistinguishable from individual segment roots and can be used to confuse verifier
@@ -93,7 +86,7 @@ impl OwnSegments<'_> {
         let root = BalancedMerkleTree::compute_root_only(&[
             single_block_hash(self.first_local_segment_index.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
-            *compute_segments_root(self.segment_roots),
+            *compute_segments_root::<{ u8::MAX as u64 }, _>(self.segment_roots),
         ]);
 
         Blake3Hash::new(root)
@@ -119,7 +112,7 @@ impl OwnSegments<'_> {
 
                 single_block_hash(&pair).expect("Less than a single block worth of bytes; qed")
             },
-            *compute_segments_root(self.segment_roots),
+            *compute_segments_root::<{ u8::MAX as u64 }, _>(self.segment_roots),
         ]);
 
         Blake3Hash::new(root)
@@ -144,7 +137,7 @@ impl<'a> IntermediateShardBlockInfo<'a> {
     #[inline]
     pub fn leaf_shards_segments(
         &self,
-    ) -> impl ExactSizeIterator<Item = (ShardIndex, OwnSegments<'a>)> + TrustedLen + 'a {
+    ) -> impl ExactSizeIterator<Item = (ShardIndex, OwnSegments<'a>)> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
         let (counts, mut remainder) = unsafe {
             self.leaf_shards_segments_bytes.split_at_unchecked(
@@ -515,7 +508,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     #[inline]
     pub fn iter(
         &self,
-    ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + 'a {
+    ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
         let (mut counts, mut remainder) = unsafe {
             self.bytes
@@ -1165,7 +1158,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
     /// Iterator over leaf shard blocks in a collection
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + 'a {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
         let (mut counts, mut remainder) = unsafe {
             self.bytes
@@ -1539,7 +1534,7 @@ impl<'a> Transactions<'a> {
 
     /// Iterator over transactions in a collection
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + 'a {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + use<'a> {
         let mut remainder = self.bytes;
 
         (0..self.num_transactions).map(move |_| {

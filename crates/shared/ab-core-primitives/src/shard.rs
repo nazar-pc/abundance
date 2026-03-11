@@ -103,6 +103,13 @@ impl From<RealShardKind> for ShardKind {
 #[repr(C)]
 pub struct ShardIndex(u32);
 
+impl const Default for ShardIndex {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::BEACON_CHAIN
+    }
+}
+
 impl const From<ShardIndex> for u32 {
     #[inline(always)]
     fn from(shard_index: ShardIndex) -> Self {

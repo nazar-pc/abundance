@@ -551,12 +551,14 @@ impl Run {
 
         let (block_importing_notification_sender, block_importing_notification_receiver) =
             mpsc::channel(1);
+        let (super_segments_sender, mut super_segments_receiver) = mpsc::channel(0);
         let (block_imported_notification_sender, mut block_imported_notification_receiver) =
             mpsc::channel(1);
         let block_import = BeaconChainBlockImport::<PosTable, _, _>::new(
             client_database.clone(),
             block_verification,
             block_importing_notification_sender,
+            super_segments_sender,
             block_imported_notification_sender,
         );
 
@@ -608,7 +610,7 @@ impl Run {
             shard_membership_updates_sender,
             // TODO: Correct values once networking stack is integrated
             dsn_bootstrap_nodes: Vec::new(),
-            chain_info: client_database.clone(),
+            beacon_chain_info: client_database.clone(),
             chain_sync_status: chain_sync_status.clone(),
             erasure_coding: erasure_coding.clone(),
         });
@@ -649,21 +651,23 @@ impl Run {
 
         // TODO: Code below is just a placeholder
         tokio::spawn(async move {
+            let _from_gossip_sender = from_gossip_sender;
             let mut to_gossip_receiver = to_gossip_receiver.fuse();
             let mut shard_membership_updates_receiver = shard_membership_updates_receiver.fuse();
 
-            select! {
-                _ = to_gossip_receiver.next() => {
-                    // TODO
-                }
-                _ = shard_membership_updates_receiver.next() => {
-                    // TODO
+            loop {
+                select! {
+                    _ = to_gossip_receiver.next() => {
+                        // TODO
+                    }
+                    _ = shard_membership_updates_receiver.next() => {
+                        // TODO
+                    }
+                    _ = super_segments_receiver.next() => {
+                        // TODO
+                    }
                 }
             }
-
-            std::future::pending::<()>().await;
-
-            drop(from_gossip_sender);
         });
 
         // TODO: Better thread management, probably move to its own dedicated thread

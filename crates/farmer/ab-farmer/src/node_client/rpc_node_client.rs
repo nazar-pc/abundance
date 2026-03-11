@@ -2,7 +2,9 @@
 
 use crate::node_client::{NodeClient, NodeClientExt};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{
+    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+};
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
     SolutionResponse,
@@ -122,6 +124,16 @@ impl NodeClient for RpcNodeClient {
         Ok(Box::pin(subscription.filter_map(
             |archived_segment_header_result| async move { archived_segment_header_result.ok() },
         )))
+    }
+
+    async fn super_segment_headers(
+        &self,
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
+        Ok(self
+            .client
+            .request("superSegmentHeaders", rpc_params![&super_segment_indices])
+            .await?)
     }
 
     async fn segment_headers(

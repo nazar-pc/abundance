@@ -1,6 +1,6 @@
 use crate::{BlockProducer, ClaimedSlot};
 use ab_client_api::{BlockOrigin, ChainInfo};
-use ab_client_block_builder::BlockBuilder;
+use ab_client_block_builder::{BlockBuilder, BlockBuilderResult};
 use ab_client_block_import::BlockImport;
 use ab_core_primitives::block::header::{BeaconChainHeader, OwnedBlockHeaderSeal};
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
@@ -39,7 +39,11 @@ where
             .header_with_details(parent_block_root)
             .expect("Best beacon chain block is never missing during block production; qed");
 
-        let block_builder_result = match self
+        let BlockBuilderResult {
+            block,
+            block_details,
+            extra: (),
+        } = match self
             .block_builder
             .build(
                 parent_block_root,
@@ -58,7 +62,7 @@ where
             }
         };
 
-        let header = block_builder_result.block.header().header();
+        let header = block.header().header();
         info!(
             slot = %header.consensus_info.slot,
             number = %header.prefix.number,
@@ -67,12 +71,10 @@ where
             "🔖 Built new block",
         );
 
-        let block_import_fut = match self.block_import.import(
-            block_builder_result.block,
-            BlockOrigin::LocalBlockBuilder {
-                block_details: block_builder_result.block_details,
-            },
-        ) {
+        let block_import_fut = match self
+            .block_import
+            .import(block, BlockOrigin::LocalBlockBuilder { block_details })
+        {
             Ok(block_import_fut) => block_import_fut,
             Err(error) => {
                 error!(

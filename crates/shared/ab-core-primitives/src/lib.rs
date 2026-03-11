@@ -6,9 +6,11 @@
     const_block_items,
     const_cmp,
     const_convert,
+    const_default,
     const_trait_impl,
     const_try,
     portable_simd,
+    slice_split_once,
     step_trait,
     trusted_len
 )]
