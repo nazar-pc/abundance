@@ -3,11 +3,14 @@
 use crate::block::BlockNumber;
 use crate::ed25519::Ed25519PublicKey;
 use crate::hashes::Blake3Hash;
-use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
+use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot, SegmentProof};
 use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
-use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
+use crate::segments::{
+    HistorySize, LocalSegmentIndex, SegmentIndex, SegmentPosition, SegmentRoot, SuperSegmentIndex,
+    SuperSegmentRoot,
+};
 use crate::shard::{NumShards, RealShardKind, ShardIndex, ShardKind};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
@@ -385,9 +388,12 @@ pub enum SolutionVerifyError {
         /// Current history size
         current_history_size: HistorySize,
     },
-    /// Piece verification failed
-    #[error("Piece verification failed")]
-    InvalidPiece,
+    /// Record does not belong to the segment
+    #[error("Record does not belong to the segment")]
+    RecordNotInSegment,
+    /// Segment doesn't belong to the super segment
+    #[error("Segment doesn't belong to the super segment")]
+    SegmentNotInSuperSegment,
     /// Solution is outside the solution range
     #[error("Solution distance {solution_distance} is outside of solution range {solution_range}")]
     OutsideSolutionRange {
@@ -433,14 +439,35 @@ pub enum SolutionVerifyError {
     InvalidHistorySize,
 }
 
-/// Parameters for checking piece validity
+/// Parameters for stateless solution verification.
+///
+/// These only include the information already contained in the block itself, meaning verification
+/// of different blocks can be done concurrently.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
-pub struct SolutionVerifyPieceCheckParams {
+pub struct SolutionVerifyStatelessParams {
+    /// Shard for which the solution is built
+    pub shard_index: ShardIndex,
+    /// Proof of time for which solution is built
+    pub proof_of_time: PotOutput,
+    /// Solution range
+    pub solution_range: SolutionRange,
+    /// Shard membership entropy
+    pub shard_membership_entropy: ShardMembershipEntropy,
+    /// The number of shards in the network
+    pub num_shards: NumShards,
+}
+
+/// Parameters for checking piece validity used in a solution
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+pub struct SolutionVerifyPieceParams {
     /// How many pieces one sector is supposed to contain (max)
     pub max_pieces_in_sector: u16,
-    /// Segment root of the segment to which piece belongs
-    pub segment_root: SegmentRoot,
+    /// Super segment root of the segment to which piece belongs
+    pub super_segment_root: SuperSegmentRoot,
+    /// Number of segments in the super segment
+    pub num_segments: u32,
     /// Number of latest archived segments that are considered "recent history"
     pub recent_segments: HistorySize,
     /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector
@@ -453,27 +480,17 @@ pub struct SolutionVerifyPieceCheckParams {
     pub sector_expiration_check_segment_root: Option<SegmentRoot>,
 }
 
-/// Parameters for solution verification
+/// Parameters for full solution verification
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
-pub struct SolutionVerifyParams {
-    /// Shard for which the solution is built
-    pub shard_index: ShardIndex,
-    /// Proof of time for which solution is built
-    pub proof_of_time: PotOutput,
-    /// Solution range
-    pub solution_range: SolutionRange,
-    /// Shard membership entropy
-    pub shard_membership_entropy: ShardMembershipEntropy,
-    /// The number of shards in the network
-    pub num_shards: NumShards,
-    /// Parameters for checking piece validity.
-    ///
-    /// If `None`, piece validity check will be skipped.
-    pub piece_check_params: Option<SolutionVerifyPieceCheckParams>,
+pub struct SolutionVerifyFullParams {
+    /// Parameters for stateless solution verification
+    pub stateless: SolutionVerifyStatelessParams,
+    /// Parameters for checking piece validity used in a solution
+    pub piece: SolutionVerifyPieceParams,
 }
 
-/// Proof-of-time verifier to be used in [`Solution::verify()`]
+/// Proof-of-time verifier to be used in [`Solution::verify_full()`]
 pub trait SolutionPotVerifier {
     /// Check whether proof created earlier is valid
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool;
@@ -794,11 +811,19 @@ pub struct Solution {
     pub public_key_hash: Blake3Hash,
     /// Farmer's shard commitment
     pub shard_commitment: SolutionShardCommitment,
-    /// Record root that can use used to verify that piece was included in blockchain history
+    /// Local segment index of the piece
+    pub piece_local_segment_index: LocalSegmentIndex,
+    /// Super segment index
+    pub piece_super_segment_index: SuperSegmentIndex,
+    /// Segment root
+    pub segment_root: SegmentRoot,
+    /// Segment proof
+    pub segment_proof: SegmentProof,
+    /// Record root that can use used to verify that the piece was included in blockchain history
     pub record_root: RecordRoot,
-    /// Proof for above record root
+    /// Proof that the record (root) belongs to a segment
     pub record_proof: RecordProof,
-    /// Chunk at the above offset
+    /// Chunk at the below piece offset
     pub chunk: RecordChunk,
     /// Proof for the above chunk
     pub chunk_proof: ChunkProof,
@@ -810,6 +835,10 @@ pub struct Solution {
     pub sector_index: SectorIndex,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
+    /// Position of the segment in the super segment
+    pub segment_position: SegmentPosition,
+    /// Shard index on which the piece was archived
+    pub piece_shard_index: ShardIndex,
     /// Padding for data structure alignment
     pub padding: [u8; 4],
 }
@@ -824,6 +853,10 @@ impl Solution {
                 proof: [Default::default(); _],
                 leaf: Default::default(),
             },
+            piece_local_segment_index: LocalSegmentIndex::ZERO,
+            piece_super_segment_index: SuperSegmentIndex::ZERO,
+            segment_root: SegmentRoot::default(),
+            segment_proof: SegmentProof::default(),
             record_root: RecordRoot::default(),
             record_proof: RecordProof::default(),
             chunk: RecordChunk::default(),
@@ -832,26 +865,72 @@ impl Solution {
             history_size: HistorySize::from(SegmentIndex::ZERO),
             sector_index: SectorIndex::ZERO,
             piece_offset: PieceOffset::default(),
+            segment_position: SegmentPosition::default(),
+            piece_shard_index: ShardIndex::BEACON_CHAIN,
             padding: [0; _],
         }
     }
 
     /// Check solution validity
-    pub fn verify<PotVerifier>(
+    pub fn verify_full<PotVerifier>(
         &self,
         slot: SlotNumber,
-        params: &SolutionVerifyParams,
+        params: &SolutionVerifyFullParams,
     ) -> Result<(), SolutionVerifyError>
     where
         PotVerifier: SolutionPotVerifier,
     {
-        let SolutionVerifyParams {
+        let sector_id = SectorId::new(
+            &self.public_key_hash,
+            &self.shard_commitment.root,
+            self.sector_index,
+            self.history_size,
+        );
+
+        self.verify_stateless_inner::<PotVerifier>(&sector_id, slot, &params.stateless)?;
+
+        self.verify_piece_inner(&sector_id, &params.piece)
+    }
+
+    /// Stateless solution verification.
+    ///
+    /// Checks most things, except checking that the piece belongs to the global history.
+    ///
+    /// For piece verification use [`Self::verify_piece()`] or call [`Self::verify_full()`] for more
+    /// efficient verification of both at once.
+    pub fn verify_stateless<PotVerifier>(
+        &self,
+        slot: SlotNumber,
+        params: &SolutionVerifyStatelessParams,
+    ) -> Result<(), SolutionVerifyError>
+    where
+        PotVerifier: SolutionPotVerifier,
+    {
+        let sector_id = SectorId::new(
+            &self.public_key_hash,
+            &self.shard_commitment.root,
+            self.sector_index,
+            self.history_size,
+        );
+
+        self.verify_stateless_inner::<PotVerifier>(&sector_id, slot, params)
+    }
+
+    fn verify_stateless_inner<PotVerifier>(
+        &self,
+        sector_id: &SectorId,
+        slot: SlotNumber,
+        params: &SolutionVerifyStatelessParams,
+    ) -> Result<(), SolutionVerifyError>
+    where
+        PotVerifier: SolutionPotVerifier,
+    {
+        let SolutionVerifyStatelessParams {
             shard_index,
             proof_of_time,
             solution_range,
             shard_membership_entropy,
             num_shards,
-            piece_check_params,
         } = params;
 
         let shard_kind = shard_index
@@ -914,13 +993,6 @@ impl Solution {
             return Err(SolutionVerifyError::InvalidShardCommitment);
         }
 
-        let sector_id = SectorId::new(
-            &self.public_key_hash,
-            &self.shard_commitment.root,
-            self.sector_index,
-            self.history_size,
-        );
-
         let global_challenge = proof_of_time.derive_global_challenge(slot);
         let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
         let s_bucket_audit_index = sector_slot_challenge.s_bucket_audit_index();
@@ -963,68 +1035,102 @@ impl Solution {
             return Err(SolutionVerifyError::InvalidChunkProof);
         }
 
-        if let Some(SolutionVerifyPieceCheckParams {
+        Ok(())
+    }
+
+    /// Verify the piece details of the solution
+    pub fn verify_piece(
+        &self,
+        piece_check_params: &SolutionVerifyPieceParams,
+    ) -> Result<(), SolutionVerifyError> {
+        let sector_id = SectorId::new(
+            &self.public_key_hash,
+            &self.shard_commitment.root,
+            self.sector_index,
+            self.history_size,
+        );
+
+        self.verify_piece_inner(&sector_id, piece_check_params)
+    }
+
+    fn verify_piece_inner(
+        &self,
+        sector_id: &SectorId,
+        piece_check_params: &SolutionVerifyPieceParams,
+    ) -> Result<(), SolutionVerifyError> {
+        let SolutionVerifyPieceParams {
             max_pieces_in_sector,
-            segment_root,
+            super_segment_root,
+            num_segments,
             recent_segments,
             recent_history_fraction,
             min_sector_lifetime,
             current_history_size,
             sector_expiration_check_segment_root,
-        }) = piece_check_params
-        {
-            if &self.history_size > current_history_size {
-                return Err(SolutionVerifyError::FutureHistorySize {
-                    current: *current_history_size,
-                    solution: self.history_size,
-                });
-            }
+        } = piece_check_params;
 
-            if u16::from(self.piece_offset) >= *max_pieces_in_sector {
-                return Err(SolutionVerifyError::InvalidPieceOffset {
-                    piece_offset: u16::from(self.piece_offset),
-                    max_pieces_in_sector: *max_pieces_in_sector,
-                });
-            }
+        if &self.history_size > current_history_size {
+            return Err(SolutionVerifyError::FutureHistorySize {
+                current: *current_history_size,
+                solution: self.history_size,
+            });
+        }
 
-            if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root
-            {
-                let expiration_history_size = match sector_id.derive_expiration_history_size(
-                    self.history_size,
-                    sector_expiration_check_segment_root,
-                    *min_sector_lifetime,
-                ) {
-                    Some(expiration_history_size) => expiration_history_size,
-                    None => {
-                        return Err(SolutionVerifyError::InvalidHistorySize);
-                    }
-                };
+        if u16::from(self.piece_offset) >= *max_pieces_in_sector {
+            return Err(SolutionVerifyError::InvalidPieceOffset {
+                piece_offset: u16::from(self.piece_offset),
+                max_pieces_in_sector: *max_pieces_in_sector,
+            });
+        }
 
-                if expiration_history_size <= *current_history_size {
-                    return Err(SolutionVerifyError::SectorExpired {
-                        expiration_history_size,
-                        current_history_size: *current_history_size,
-                    });
+        if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root {
+            let expiration_history_size = match sector_id.derive_expiration_history_size(
+                self.history_size,
+                sector_expiration_check_segment_root,
+                *min_sector_lifetime,
+            ) {
+                Some(expiration_history_size) => expiration_history_size,
+                None => {
+                    return Err(SolutionVerifyError::InvalidHistorySize);
                 }
-            }
+            };
 
-            let position = sector_id
-                .derive_piece_index(
-                    self.piece_offset,
-                    self.history_size,
-                    *max_pieces_in_sector,
-                    *recent_segments,
-                    *recent_history_fraction,
-                )
-                .position();
-
-            // Check that piece is part of the blockchain history
-            if !self
-                .record_root
-                .is_valid(segment_root, &self.record_proof, position)
-            {
-                return Err(SolutionVerifyError::InvalidPiece);
+            if expiration_history_size <= *current_history_size {
+                return Err(SolutionVerifyError::SectorExpired {
+                    expiration_history_size,
+                    current_history_size: *current_history_size,
+                });
             }
+        }
+
+        let position = sector_id
+            .derive_piece_index(
+                self.piece_offset,
+                self.history_size,
+                *max_pieces_in_sector,
+                *recent_segments,
+                *recent_history_fraction,
+            )
+            .position();
+
+        // Check that record belongs to the segment
+        if !self
+            .record_root
+            .is_valid(&self.segment_root, &self.record_proof, position)
+        {
+            return Err(SolutionVerifyError::RecordNotInSegment);
+        }
+
+        // Check that segment belongs to the super segment (global history)
+        if !self.segment_root.is_valid(
+            self.piece_shard_index,
+            self.piece_local_segment_index,
+            self.segment_position,
+            &self.segment_proof,
+            *num_segments,
+            super_segment_root,
+        ) {
+            return Err(SolutionVerifyError::SegmentNotInSuperSegment);
         }
 
         Ok(())
