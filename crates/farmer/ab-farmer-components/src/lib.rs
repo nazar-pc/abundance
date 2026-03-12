@@ -5,11 +5,7 @@
 
 #![feature(
     const_block_items,
-    const_trait_impl,
-    exact_size_is_empty,
-    int_roundings,
     iter_array_chunks,
-    iter_collect_into,
     maybe_uninit_array_assume_init,
     never_type,
     portable_simd,

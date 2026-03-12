@@ -1,7 +1,5 @@
 //! RPC API for the farmer
 
-#![feature(try_blocks)]
-
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{BeaconChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment::{ArchivedSegmentNotification, recreate_genesis_segment};

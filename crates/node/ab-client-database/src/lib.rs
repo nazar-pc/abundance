@@ -51,9 +51,7 @@
     default_field_values,
     get_mut_unchecked,
     iter_collect_into,
-    maybe_uninit_as_bytes,
-    maybe_uninit_fill,
-    try_blocks
+    maybe_uninit_fill
 )]
 
 mod page_group;

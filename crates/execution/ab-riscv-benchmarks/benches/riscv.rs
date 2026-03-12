@@ -2,7 +2,6 @@
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
-#![feature(control_flow_ok)]
 
 use ab_blake3::CHUNK_LEN;
 use ab_contract_file::{ContractFile, ContractInstruction, ContractRegister};

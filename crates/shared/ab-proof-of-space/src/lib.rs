@@ -6,17 +6,16 @@
     const_block_items,
     const_convert,
     const_trait_impl,
-    exact_size_is_empty,
-    float_erf,
     generic_const_exprs,
-    get_mut_unchecked,
-    iter_array_chunks,
-    maybe_uninit_fill,
-    portable_simd,
-    ptr_as_uninit,
-    step_trait,
-    sync_unsafe_cell
+    step_trait
 )]
+#![cfg_attr(test, feature(float_erf))]
+#![cfg_attr(feature = "parallel", feature(exact_size_is_empty, sync_unsafe_cell))]
+#![cfg_attr(
+    feature = "alloc",
+    feature(iter_array_chunks, maybe_uninit_fill, ptr_as_uninit)
+)]
+#![cfg_attr(any(feature = "alloc", test), feature(portable_simd))]
 
 pub mod chia;
 pub mod chiapos;
