@@ -1,4 +1,4 @@
-#![feature(const_convert, const_trait_impl, slice_ptr_get, unsafe_cell_access)]
+#![feature(const_convert, const_trait_impl, slice_ptr_get)]
 
 mod context;
 

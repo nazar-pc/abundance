@@ -1,5 +1,3 @@
-#![feature(const_trait_impl)]
-
 #[cfg(feature = "alloc")]
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::SBucket;

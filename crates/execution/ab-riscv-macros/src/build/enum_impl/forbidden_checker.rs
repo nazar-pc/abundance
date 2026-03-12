@@ -37,10 +37,10 @@ impl<'ast> Visit<'ast> for ForbiddenChecker<'ast> {
             }
 
             // Struct variant: `Enum::Foo { .. }`
-            Expr::Struct(ExprStruct { path, .. }) => {
-                if is_forbidden_variant_path(path, self.enum_name) {
-                    self.found = true;
-                }
+            Expr::Struct(ExprStruct { path, .. })
+                if is_forbidden_variant_path(path, self.enum_name) =>
+            {
+                self.found = true;
             }
 
             _ => {}

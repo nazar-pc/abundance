@@ -1,4 +1,5 @@
-#![feature(const_block_items, box_vec_non_null, pointer_is_aligned_to)]
+#![feature(const_block_items, box_vec_non_null)]
+#![cfg_attr(test, feature(pointer_is_aligned_to))]
 #![no_std]
 
 #[cfg(test)]

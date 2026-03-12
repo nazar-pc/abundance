@@ -169,13 +169,11 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
                         });
                 }
             }
-            ImplItem::Const(impl_item_const) => {
-                if impl_item_const.ident == "METADATA" {
-                    return Err(Error::new(
-                        impl_item_const.span(),
-                        "`#[contract]` doesn't allow overriding `METADATA` constant",
-                    ));
-                }
+            ImplItem::Const(impl_item_const) if impl_item_const.ident == "METADATA" => {
+                return Err(Error::new(
+                    impl_item_const.span(),
+                    "`#[contract]` doesn't allow overriding `METADATA` constant",
+                ));
             }
             _ => {
                 // Ignore
