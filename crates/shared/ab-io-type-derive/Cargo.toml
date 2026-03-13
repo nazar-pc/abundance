@@ -1,6 +1,7 @@
 [package]
 name = "ab-io-type-derive"
 description = "Implements derive macros used by `ab-io-type` crate"
+repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]

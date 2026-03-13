@@ -1,6 +1,7 @@
 [package]
 name = "ab-riscv-macros"
 description = "Macros for RISC-V primitives and interpreter"
+repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]

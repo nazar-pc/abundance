@@ -1,6 +1,7 @@
 [package]
 name = "ab-riscv-macros-common"
 description = "Common utilities for RISC-V macros"
+repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
