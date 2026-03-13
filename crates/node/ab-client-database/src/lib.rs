@@ -58,10 +58,10 @@ mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
 
-use crate::page_group::block::StorageItemBlock;
-use crate::page_group::block::block::StorageItemBlockBlock;
-use crate::page_group::block::segment_headers::StorageItemBlockSegmentHeaders;
-use crate::page_group::block::super_segment_headers::StorageItemBlockSuperSegmentHeaders;
+use crate::page_group::temporary::StorageItemTemporary;
+use crate::page_group::temporary::block::StorageItemTemporaryBlock;
+use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
+use crate::page_group::temporary::super_segment_headers::StorageItemTemporarySuperSegmentHeaders;
 use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
     StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
@@ -999,19 +999,19 @@ where
                         let storage_backend_adapter = state.storage_backend_adapter.read().await;
 
                         let storage_item = storage_backend_adapter
-                            .read_storage_item::<StorageItemBlock>(write_location)
+                            .read_storage_item::<StorageItemTemporary>(write_location)
                             .await?;
 
                         let storage_item_block = match storage_item {
-                            StorageItemBlock::Block(storage_item_block) => storage_item_block,
-                            StorageItemBlock::SegmentHeaders(_) => {
+                            StorageItemTemporary::Block(storage_item_block) => storage_item_block,
+                            StorageItemTemporary::SegmentHeaders(_) => {
                                 return Err(ReadBlockError::StorageItemReadError {
                                     error: io::Error::other(
                                         "Unexpected storage item: `SegmentHeaders`",
                                     ),
                                 });
                             }
-                            StorageItemBlock::SuperSegmentHeaders(_) => {
+                            StorageItemTemporary::SuperSegmentHeaders(_) => {
                                 return Err(ReadBlockError::StorageItemReadError {
                                     error: io::Error::other(
                                         "Unexpected storage item: `SuperSegmentHeaders`",
@@ -1020,7 +1020,7 @@ where
                             }
                         };
 
-                        let StorageItemBlockBlock {
+                        let StorageItemTemporaryBlock {
                             header: _,
                             body,
                             mmr_with_block: _,
@@ -1246,8 +1246,8 @@ where
         let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
 
         storage_backend_adapter
-            .write_storage_item(StorageItemBlock::SegmentHeaders(
-                StorageItemBlockSegmentHeaders {
+            .write_storage_item(StorageItemTemporary::SegmentHeaders(
+                StorageItemTemporarySegmentHeaders {
                     segment_headers: added_segment_headers,
                 },
             ))
@@ -1359,8 +1359,8 @@ where
         let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
 
         storage_backend_adapter
-            .write_storage_item(StorageItemBlock::SuperSegmentHeaders(
-                StorageItemBlockSuperSegmentHeaders {
+            .write_storage_item(StorageItemTemporary::SuperSegmentHeaders(
+                StorageItemTemporarySuperSegmentHeaders {
                     super_segment_headers: added_super_segment_headers,
                 },
             ))
@@ -1392,8 +1392,8 @@ where
         let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
 
         storage_backend_adapter
-            .write_storage_item(StorageItemBlock::SuperSegmentHeaders(
-                StorageItemBlockSuperSegmentHeaders {
+            .write_storage_item(StorageItemTemporary::SuperSegmentHeaders(
+                StorageItemTemporarySuperSegmentHeaders {
                     super_segment_headers: added_super_segment_headers,
                 },
             ))
@@ -1458,15 +1458,15 @@ where
                 // TODO
                 Ok(())
             },
-            block: |arg| {
+            temporary: |arg| {
                 let StorageItemHandlerArg {
                     storage_item,
                     page_offset,
                     num_pages,
                 } = arg;
                 let storage_item_block = match storage_item {
-                    StorageItemBlock::Block(storage_item_block) => storage_item_block,
-                    StorageItemBlock::SegmentHeaders(segment_headers) => {
+                    StorageItemTemporary::Block(storage_item_block) => storage_item_block,
+                    StorageItemTemporary::SegmentHeaders(segment_headers) => {
                         let num_segment_headers = segment_headers.segment_headers.len();
                         return match segment_headers_cache
                             .add_segment_headers(segment_headers.segment_headers)
@@ -1484,7 +1484,7 @@ where
                             }
                         };
                     }
-                    StorageItemBlock::SuperSegmentHeaders(super_segment_headers) => {
+                    StorageItemTemporary::SuperSegmentHeaders(super_segment_headers) => {
                         let num_super_segment_headers =
                             super_segment_headers.super_segment_headers.len();
                         return match super_segment_headers_cache
@@ -1507,7 +1507,7 @@ where
 
                 // TODO: It would be nice to not allocate body here since we'll not use it here
                 //  anyway
-                let StorageItemBlockBlock {
+                let StorageItemTemporaryBlock {
                     header,
                     body,
                     mmr_with_block,
@@ -1820,7 +1820,7 @@ where
                 } = block_to_persist;
 
                 let write_location = storage_backend_adapter
-                    .write_storage_item(StorageItemBlock::Block(StorageItemBlockBlock {
+                    .write_storage_item(StorageItemTemporary::Block(StorageItemTemporaryBlock {
                         header: block.header().buffer().clone(),
                         body: block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block_details.mmr_with_block),

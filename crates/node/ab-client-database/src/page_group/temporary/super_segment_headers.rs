@@ -4,11 +4,11 @@ use ab_io_type::trivial_type::TrivialType;
 use std::mem::MaybeUninit;
 
 #[derive(Debug)]
-pub(crate) struct StorageItemBlockSuperSegmentHeaders {
+pub(crate) struct StorageItemTemporarySuperSegmentHeaders {
     pub(crate) super_segment_headers: Vec<SuperSegmentHeader>,
 }
 
-impl StorageItemBlockSuperSegmentHeaders {
+impl StorageItemTemporarySuperSegmentHeaders {
     pub(super) fn total_bytes(&self) -> usize {
         Self::prefix_size() + size_of_val(self.super_segment_headers.as_slice())
     }

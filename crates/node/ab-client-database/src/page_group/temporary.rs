@@ -1,14 +1,10 @@
-#[expect(
-    clippy::module_inception,
-    reason = "Using the same name on purpose for now"
-)]
 pub(crate) mod block;
 pub(crate) mod segment_headers;
 pub(crate) mod super_segment_headers;
 
-use crate::page_group::block::block::StorageItemBlockBlock;
-use crate::page_group::block::segment_headers::StorageItemBlockSegmentHeaders;
-use crate::page_group::block::super_segment_headers::StorageItemBlockSuperSegmentHeaders;
+use crate::page_group::temporary::block::StorageItemTemporaryBlock;
+use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
+use crate::page_group::temporary::super_segment_headers::StorageItemTemporarySuperSegmentHeaders;
 use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult, UniqueStorageItem,
@@ -24,16 +20,15 @@ enum StorageItemBlockVariant {
     SuperSegmentHeaders = 2,
 }
 
-// TODO: Rename to `temporary` or something?
-/// Storage items that are produced as the result of blocks being imported
+/// Temporary storage items that will be pruned from the database eventually
 #[derive(Debug)]
-pub(crate) enum StorageItemBlock {
-    Block(StorageItemBlockBlock),
-    SegmentHeaders(StorageItemBlockSegmentHeaders),
-    SuperSegmentHeaders(StorageItemBlockSuperSegmentHeaders),
+pub(crate) enum StorageItemTemporary {
+    Block(StorageItemTemporaryBlock),
+    SegmentHeaders(StorageItemTemporarySegmentHeaders),
+    SuperSegmentHeaders(StorageItemTemporarySuperSegmentHeaders),
 }
 
-impl StorageItem for StorageItemBlock {
+impl StorageItem for StorageItemTemporary {
     #[inline(always)]
     fn total_bytes(&self) -> usize {
         match self {
@@ -77,20 +72,20 @@ impl StorageItem for StorageItemBlock {
             .ok_or(StorageItemError::UnknownStorageItemVariant(variant))?;
 
         Ok(match variant {
-            StorageItemBlockVariant::Block => Self::Block(StorageItemBlockBlock::read(buffer)?),
+            StorageItemBlockVariant::Block => Self::Block(StorageItemTemporaryBlock::read(buffer)?),
             StorageItemBlockVariant::SegmentHeaders => {
-                Self::SegmentHeaders(StorageItemBlockSegmentHeaders::read(buffer)?)
+                Self::SegmentHeaders(StorageItemTemporarySegmentHeaders::read(buffer)?)
             }
             StorageItemBlockVariant::SuperSegmentHeaders => {
-                Self::SuperSegmentHeaders(StorageItemBlockSuperSegmentHeaders::read(buffer)?)
+                Self::SuperSegmentHeaders(StorageItemTemporarySuperSegmentHeaders::read(buffer)?)
             }
         })
     }
 }
 
-impl UniqueStorageItem for StorageItemBlock {
+impl UniqueStorageItem for StorageItemTemporary {
     #[inline(always)]
     fn page_group_kind() -> PageGroupKind {
-        PageGroupKind::Block
+        PageGroupKind::Temporary
     }
 }
