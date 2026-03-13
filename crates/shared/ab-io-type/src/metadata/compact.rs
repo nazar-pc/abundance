@@ -275,9 +275,6 @@ pub(super) const fn compact_metadata<'i, 'o>(
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
             (input, output) = compact_metadata(input, output)?;
         }
-        IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => {
-            *io_type_metadata_kind_output = io_type_metadata_kind_input;
-        }
     }
 
     Some((input, output))

@@ -392,14 +392,6 @@ pub enum IoTypeMetadataKind {
     /// Encoded as follows:
     /// * Recursive metadata of a contained type
     Unaligned,
-    /// Address of a contract.
-    ///
-    /// Internally `u128` with `8` byte alignment
-    Address = 128,
-    /// Balance of a token.
-    ///
-    /// Internally `u128` with `8` byte alignment
-    Balance,
 }
 
 impl const TryFrom<u8> for IoTypeMetadataKind {
@@ -503,8 +495,6 @@ impl const TryFrom<u8> for IoTypeMetadataKind {
             92 => Self::FixedCapacityString8b,
             93 => Self::FixedCapacityString16b,
             94 => Self::Unaligned,
-            128 => Self::Address,
-            129 => Self::Balance,
             _ => {
                 return Err(());
             }

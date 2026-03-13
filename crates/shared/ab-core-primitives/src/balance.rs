@@ -1,6 +1,5 @@
 //! Balance-related primitives
 
-use ab_io_type::metadata::IoTypeMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
 use core::cmp::Ordering;
 use core::mem::MaybeUninit;
@@ -9,23 +8,10 @@ use core::{fmt, ptr};
 
 /// Logically the same as `u128`, but aligned to `8` bytes instead of `16`.
 ///
-/// Byte layout is the same as `u128`, just alignment is different
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+/// Byte layout is the same as `u128`, just the alignment is different.
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
 pub struct Balance(u64, u64);
-
-// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
-unsafe impl TrivialType for Balance {
-    const METADATA: &[u8] = &[IoTypeMetadataKind::Balance as u8];
-}
-
-// Ensure this never mismatches with code in `ab-io-type` despite being in different crate
-const {
-    let (type_details, _metadata) = IoTypeMetadataKind::type_details(Balance::METADATA)
-        .expect("Statically correct metadata; qed");
-    assert!(size_of::<Balance>() == type_details.recommended_capacity as usize);
-    assert!(align_of::<Balance>() == type_details.alignment.get() as usize);
-}
 
 impl fmt::Debug for Balance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -1,7 +1,6 @@
 //! Address-related primitives
 
 use crate::shard::ShardIndex;
-use ab_io_type::metadata::IoTypeMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
 use bech32::primitives::decode::CheckedHrpstring;
 use bech32::{Bech32m, ByteIterExt, Fe32IterExt, Hrp};
@@ -81,28 +80,15 @@ impl ShortHrp {
 
 /// Logically the same as `u128`, but aligned to `8` bytes instead of `16`.
 ///
-/// Byte layout is the same as `u128`, just alignment is different.
+/// Byte layout is the same as `u128`, just the alignment is different.
 ///
 /// The first 20 bits correspond to the shard index (the least significant bits first), and the
 /// remaining 108 bits (the most significant bits first) are an address allocated within that shard.
 /// This way, an address will have a bunch of zeroes in the middle that is shrinking as more shards
 /// are added and more addresses are allocated.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
 pub struct Address(u64, u64);
-
-// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
-unsafe impl TrivialType for Address {
-    const METADATA: &[u8] = &[IoTypeMetadataKind::Address as u8];
-}
-
-// Ensure this never mismatches with code in `ab-io-type` despite being in a different crate
-const {
-    let (type_details, _metadata) = IoTypeMetadataKind::type_details(Address::METADATA)
-        .expect("Statically correct metadata; qed");
-    assert!(size_of::<Address>() == type_details.recommended_capacity as usize);
-    assert!(align_of::<Address>() == type_details.alignment.get() as usize);
-}
 
 impl fmt::Debug for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
