@@ -200,12 +200,15 @@ pub(super) fn process_enum_definition(
         .next_back()
         .expect("`#[instruction]` attribute is found; qed");
 
-    for removed_attribute in removed_attributes {
+    for removed_attribute in removed_attributes.collect::<Vec<_>>() {
         if removed_attribute.path().is_ident("derive") {
             return Err(anyhow::anyhow!(
                 "All `#[derive(...)]` attributes must be after `#[instruction(...)]` attribute, found: {}",
                 removed_attribute.to_token_stream()
             ));
+        } else if removed_attribute.path().is_ident("doc") {
+            // Restore documentation attributes
+            item_enum.attrs.push(removed_attribute);
         }
     }
 
