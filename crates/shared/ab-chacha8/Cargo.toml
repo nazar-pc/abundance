@@ -1,6 +1,8 @@
 [package]
 name = "ab-chacha8"
 description = "Small GPU-friendly software implementation of ChaCha8"
+keywords = ["crypto", "chacha8", "no-std"]
+repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]

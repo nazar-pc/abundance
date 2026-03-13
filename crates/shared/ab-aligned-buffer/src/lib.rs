@@ -1,3 +1,13 @@
+//! Efficient abstraction for memory buffers aligned to 16 bytes (`u128`) with both owned and shared
+//! variants.
+//!
+//! [`OwnedAlignedBuffer`] represents a memory location aligned to 16 bytes that can be modified.
+//!
+//! [`SharedAlignedBuffer`] can't be modified but supports cheap reference-counting clones (like
+//! `Arc`, but much more efficient).
+//!
+//! Does not require a standard library (`no_std`) but does require allocator and atomics.
+
 #![feature(const_block_items, box_vec_non_null)]
 #![cfg_attr(test, feature(pointer_is_aligned_to))]
 #![no_std]
@@ -7,7 +17,6 @@ mod tests;
 
 extern crate alloc;
 
-use ab_io_type::MAX_ALIGNMENT;
 use alloc::alloc::realloc;
 use alloc::boxed::Box;
 use core::alloc::Layout;
@@ -23,10 +32,6 @@ const {
     assert!(
         align_of::<u128>() == size_of::<u128>(),
         "Size and alignment are both 16 bytes"
-    );
-    assert!(
-        align_of::<u128>() == MAX_ALIGNMENT as usize,
-        "Alignment of u128 is a max alignment"
     );
     assert!(size_of::<u128>() >= size_of::<AtomicU32>());
     assert!(align_of::<u128>() >= align_of::<AtomicU32>());

@@ -257,13 +257,6 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 metadata,
             ))
         }
-        IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => Some((
-            IoTypeDetails {
-                recommended_capacity: 16,
-                alignment: NonZeroU8::new(8).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
     }
 }
 

@@ -1,3 +1,57 @@
+//! Infrastructure for zero-cost zero-copy serialization/deserialization.
+//!
+//! <div class="warning">
+//! This crate only supports little-endian platforms by design.
+//! </div>
+//!
+//! This crate primarily offers the following:
+//! * [`TrivialType`] trait
+//! * [`IoType`] trait
+//! * metadata describing types implementing the above traits (see [`IoTypeMetadataKind`])
+//!
+//! [`IoTypeMetadataKind`]: metadata::IoTypeMetadataKind
+//!
+//! ## `TrivialType`
+//! This trait is implemented for a bunch of built-in types and can be derived for custom types that
+//! contain them (structs and enums). It represents trivial types, which do not contain
+//! uninitialized bytes and are fully represented by their byte representation.
+//!
+//! What this means is that serialization to bytes can be done by simply casting a pointer to a data
+//! structure to an array of bytes. Similarly, deserialization of correctly aligned memory is simply
+//! casting of a pointer back to the data structure. The trait provides a few helper methods for
+//! dealing with serialization/deserialization.
+//!
+//! ## `IoType`
+//! This trait is implemented for all types that implement [`TrivialType`] and for a few additional
+//! custom types that have special properties and are useful for FFI purposes.
+//!
+//! `IoType` data structures can contain optional values or lists of values of a dynamic size. They
+//! are not as composable as `TrivialType` and are usually used as wrappers of the highest level.
+//! This is in contrast to `TrivialType` that is always fixed size and can't have optional data.
+//!
+//! ## Metadata
+//!
+//! The data structures implementing [`TrivialType`] and [`IoType`] traits have the `METADATA`
+//! associated constant (see [`IoTypeMetadataKind`]). This field contains a compact binary
+//! representation of the recursive layout of the type, which can then be decoded by the machine for
+//! FFI purposes or converted into human-readable format for presentation to the user in a somewhat
+//! readable way.
+//!
+//! The metadata contains both the memory layout and the names of data structures and fields.
+//! Metadata can also be compressed into an equivalent layout without field names to shrink the size
+//! of the metadata further when human readability is not necessary. Compressed metadata can also
+//! be hashed to get a "fingerprint" of the data structure, which may be used to distinguish a
+//! compatible FFI interface from an incompatible one based on the data layout, not just the number
+//! of bytes.
+//!
+//! ## Overall
+//!
+//! These traits are designed for zero-cost zero-copy serialization/deserialization. Any correctly
+//! aligned memory (both normal and memory-mapped files with `mmap`) can be interpreted as
+//! ready-to-use data structures without even reading them first.
+//!
+//! Does not require a standard library (`no_std`) or an allocator.
+
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
     cast_maybe_uninit,

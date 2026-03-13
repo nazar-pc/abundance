@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.dependencies]
-ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
+ab-aligned-buffer = { version = "0.1.0", path = "crates/shared/ab-aligned-buffer" }
 ab-archiving = { version = "0.1.0", path = "crates/shared/ab-archiving" }
 ab-blake3 = { version = "0.1.0", path = "crates/shared/ab-blake3" }
 ab-chacha8 = { version = "0.1.0", path = "crates/shared/ab-chacha8" }
@@ -23,7 +23,7 @@ ab-client-consensus-common = { version = "0.0.1", path = "crates/node/ab-client-
 ab-client-database = { version = "0.0.1", path = "crates/node/ab-client-database" }
 ab-client-informer = { version = "0.0.1", path = "crates/node/ab-client-informer" }
 ab-cli-utils = { version = "0.0.1", path = "crates/shared/ab-cli-utils" }
-ab-direct-io-file = { version = "0.0.1", path = "crates/shared/ab-direct-io-file" }
+ab-direct-io-file = { version = "0.1.0", path = "crates/shared/ab-direct-io-file" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
 ab-contract-file = { version = "0.0.1", path = "crates/contracts/core/ab-contract-file" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
@@ -37,10 +37,11 @@ ab-data-retrieval = { version = "0.1.0", path = "crates/shared/ab-data-retrieval
 ab-erasure-coding = { version = "0.1.0", path = "crates/shared/ab-erasure-coding" }
 ab-farmer-components = { version = "0.1.0", path = "crates/farmer/ab-farmer-components" }
 ab-farmer-rpc-primitives = { version = "0.1.0", path = "crates/farmer/ab-farmer-rpc-primitives" }
-ab-io-type = { version = "0.0.1", path = "crates/shared/ab-io-type" }
+ab-io-type = { version = "0.1.0", path = "crates/shared/ab-io-type" }
+ab-io-type-derive = { version = "0.1.0", path = "crates/shared/ab-io-type-derive" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }
-ab-merkle-tree = { version = "0.0.1", path = "crates/shared/ab-merkle-tree" }
+ab-merkle-tree = { version = "0.1.0", path = "crates/shared/ab-merkle-tree" }
 ab-networking = { version = "0.1.0", path = "crates/shared/ab-networking" }
 ab-node-rpc-server = { version = "0.1.0", path = "crates/node/ab-node-rpc-server" }
 ab-proof-of-space = { version = "0.1.0", path = "crates/shared/ab-proof-of-space" }
@@ -57,7 +58,6 @@ ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/a
 ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-native-token" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
-ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 aes = "0.9.0-rc.4"
 anyhow = { version = "1.0.102", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }

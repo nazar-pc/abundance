@@ -1,8 +1,8 @@
 [package]
-name = "ab-trivial-type-derive"
-description = "Implements derive for `TrivialType` on custom data structures"
+name = "ab-io-type-derive"
+description = "Implements derive macros used by `ab-io-type` crate"
 license = "0BSD"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
