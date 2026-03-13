@@ -1,8 +1,10 @@
 [package]
 name = "ab-aligned-buffer"
-description = ""
+description = "Efficient abstraction for memory buffers aligned to 16 bytes (u128) with both owned and shared variants"
+keywords = ["alignment", "aligned", "buffer", "rc", "no-std"]
+repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
@@ -14,7 +16,6 @@ include = [
 all-features = true
 
 [dependencies]
-ab-io-type = { workspace = true }
 stable_deref_trait = { workspace = true }
 yoke = { workspace = true }
 

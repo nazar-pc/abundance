@@ -1,4 +1,8 @@
-//! Optimized and more exotic APIs around BLAKE3
+//! Optimized and more exotic APIs around BLAKE3: `const fn` and GPU-friendly ([rust-gpu])
+//!
+//! [rust-gpu]: https://github.com/rust-gpu/rust-gpu
+//!
+//! Does not require a standard library (`no_std`) or an allocator.
 
 #![no_std]
 

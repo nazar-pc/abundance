@@ -1,4 +1,8 @@
-//! Small GPU-friendly software implementation of ChaCha8
+//! Small GPU-friendly ([rust-gpu]) software implementation of ChaCha8
+//!
+//! [rust-gpu]: https://github.com/rust-gpu/rust-gpu
+//!
+//! Does not require a standard library (`no_std`) or an allocator.
 
 #![no_std]
 

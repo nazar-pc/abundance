@@ -1,7 +1,7 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::unaligned::Unaligned;
 use crate::{DerefWrapper, IoType};
-pub use ab_trivial_type_derive::TrivialType;
+pub use ab_io_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr;
 use core::ptr::NonNull;

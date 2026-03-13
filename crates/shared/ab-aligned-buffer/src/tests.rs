@@ -1,9 +1,8 @@
 use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use ab_io_type::MAX_ALIGNMENT;
 use alloc::vec;
 use core::ops::{Deref, DerefMut};
 
-const EXPECTED_ALIGNMENT: usize = MAX_ALIGNMENT as usize;
+const EXPECTED_ALIGNMENT: usize = align_of::<u128>();
 
 #[test]
 fn basic() {

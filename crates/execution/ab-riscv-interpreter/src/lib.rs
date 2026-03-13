@@ -1,3 +1,21 @@
+//! Composable and generic RISC-V interpreter.
+//!
+//! This interpreter is designed to work with abstractions from [`ab-riscv-primitives`] crate and is
+//! similarly composable with a powerful macro system and trait abstractions over handling of
+//! memory, syscalls, etc.
+//!
+//! [`ab-riscv-primitives`]: ab_riscv_primitives
+//!
+//! The immediate needs dictate the current set of available instructions and extensions. Consider
+//! contributing if you need something not yet available.
+//!
+//! `ab-riscv-interpreter-compliance-tests` crate in the repository contains complementary
+//! compliance tests against <https://github.com/riscv-non-isa/riscv-arch-test> for many
+//! instructions from both base ISA and various extensions on top of the tests contained in this
+//! crate.
+//!
+//! Does not require a standard library (`no_std`) or an allocator.
+
 #![feature(widening_mul)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for

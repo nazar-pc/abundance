@@ -1,24 +1,32 @@
-//! Merkle Tree and related data structures.
+//! High-performance Merkle Tree and related data structures (Merkle Mountain Range, Sparse Merkle
+//! Tree).
 //!
-//! This crate contains several Merkle Tree implementations and related data structures, many of
-//! which are a subset of each other.
+//! This crate contains several high-performance Merkle Tree implementations and related data
+//! structures, many of which are a subset of each other.
 //!
-//! Currently [`BalancedMerkleTree`], [`UnbalancedMerkleTree`] and [`MerkleMountainRange`] and
+//! These implementations can be an order of magnitude faster than traditional implementations by
+//! leveraging the ability of BLAKE3 hash function to hash multiple blocks at once with SIMD.
+//! Traditionally, most Merkle Tree implementations are generic over the hash function with API that
+//! hashes two leaves at a time, which makes it impossible to benefit from the inherent strength of
+//! BLAKE3 hash function.
+//!
+//! Currently [`BalancedMerkleTree`], [`UnbalancedMerkleTree`], [`MerkleMountainRange`] and
 //! [`SparseMerkleTree`] are available.
 //!
 //! [`BalancedMerkleTree`] is an optimized special case of [`UnbalancedMerkleTree`], which is in
-//! turn an optimized version of [`MerkleMountainRange`] and all 3 will return the same results for
+//! turn an optimized version of [`MerkleMountainRange`], and all 3 will return the same results for
 //! identical inputs.
 //!
 //! [`SparseMerkleTree`] is a special kind of Merkle Tree, usually of untractable size, where most
 //! of the leaves are empty (missing). It will also produce the same root as other trees in case the
 //! tree doesn't have any empty leaves, though it is unlikely to happen in practice.
 //!
-//!
 //! [`BalancedMerkleTree`]: balanced::BalancedMerkleTree
 //! [`MerkleMountainRange`]: mmr::MerkleMountainRange
 //! [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
 //! [`SparseMerkleTree`]: sparse::SparseMerkleTree
+//!
+//! Does not require a standard library (`no_std`), most APIs are usable without an allocator.
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
