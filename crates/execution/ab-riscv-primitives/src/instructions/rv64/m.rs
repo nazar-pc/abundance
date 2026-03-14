@@ -1,4 +1,4 @@
-//! M extension
+//! RV64 M extension
 
 #[cfg(test)]
 mod tests;
@@ -53,7 +53,6 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    // M extension
                     (0b000, 0b0000001) => Some(Self::Mul { rd, rs1, rs2 }),
                     (0b001, 0b0000001) => Some(Self::Mulh { rd, rs1, rs2 }),
                     (0b010, 0b0000001) => Some(Self::Mulhsu { rd, rs1, rs2 }),

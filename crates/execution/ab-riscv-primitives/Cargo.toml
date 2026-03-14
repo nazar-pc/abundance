@@ -1,7 +1,7 @@
 [package]
 name = "ab-riscv-primitives"
 description = "Composable RISC-V primitives (instructions, registers) and abstractions around them"
-keywords = ["risc-v", "decoder", "no-std"]
+keywords = ["riscv", "risc-v", "decoder", "no-std"]
 repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
 version = "0.0.1"
