@@ -53,7 +53,7 @@ use core::mem;
 
 /// Used as a key in keyed blake3 hash for inner nodes of Merkle Trees.
 ///
-/// This value is a blake3 hash of as string `merkle-tree-inner-node`.
+/// This value is a blake3 hash of a string `merkle-tree-inner-node`.
 pub const INNER_NODE_DOMAIN_SEPARATOR: [u8; KEY_LEN] =
     ab_blake3::const_hash(b"merkle-tree-inner-node");
 
