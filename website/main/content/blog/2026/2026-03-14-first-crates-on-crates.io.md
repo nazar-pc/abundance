@@ -193,8 +193,7 @@ Give it a try, you might be impressed!
 This crate defines RISC-V instructions, registers, and abstractions around them. It also allows decoding instructions
 into an enum and [supports composition] of base ISA and various instructions for better performance and flexibility. It
 currently focuses on RV64 with extensions Zba, Zbb, Zbc, Zbs, B, Zmmul, M, Zkbc, and Zhn. Any permutation of those can
-be
-used with both RV64I and RV64E base ISA through generics.
+be used with both RV64I and RV64E base ISA through generics.
 
 [supports composition]: ../2026-01-24-making-risc-v-interpreter-faster
 
