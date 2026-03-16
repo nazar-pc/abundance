@@ -216,6 +216,8 @@ pub struct ArchiveBlockOutcome {
     /// There can be zero or more segments created after each block.
     pub archived_segments: Vec<NewArchivedSegment>,
 
+    // TODO: The API for global objects needs to change and be associated with segments rather than
+    //  blocks
     /// The new object mappings for those segments.
     /// There can be zero or more mappings created after each block.
     pub global_objects: Vec<GlobalObject>,

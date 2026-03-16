@@ -24,7 +24,7 @@ bytesize = { workspace = true }
 chacha20 = { workspace = true, features = ["rng"] }
 futures = { workspace = true, features = ["alloc"] }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, features = ["rt", "time"] }
 tracing = { workspace = true }
 
 [lints]
