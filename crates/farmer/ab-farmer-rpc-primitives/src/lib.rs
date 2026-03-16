@@ -15,8 +15,6 @@ use std::time::Duration;
 
 /// Defines a limit for the number of super segments that can be requested over RPC
 pub const MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
-/// Defines a limit for the number of segments that can be requested over RPC
-pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
 // TODO: This is a workaround for https://github.com/paritytech/jsonrpsee/issues/1617 and should be
 //  removed once that issue is resolved
 /// Shard membership expiration

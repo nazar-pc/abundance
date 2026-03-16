@@ -551,7 +551,7 @@ impl Run {
 
         let (block_importing_notification_sender, block_importing_notification_receiver) =
             mpsc::channel(1);
-        let (super_segments_sender, mut super_segments_receiver) = mpsc::channel(0);
+        let (super_segments_sender, super_segments_receiver) = mpsc::channel(0);
         let (block_imported_notification_sender, mut block_imported_notification_receiver) =
             mpsc::channel(1);
         let block_import = BeaconChainBlockImport::<PosTable, _, _>::new(
@@ -606,7 +606,7 @@ impl Run {
             max_pieces_in_sector: 1000,
             new_slot_notification_receiver,
             block_sealing_notification_receiver,
-            archived_segment_notification_receiver,
+            new_super_segment_notification_receiver: super_segments_receiver,
             shard_membership_updates_sender,
             // TODO: Correct values once networking stack is integrated
             dsn_bootstrap_nodes: Vec::new(),
@@ -653,6 +653,8 @@ impl Run {
         tokio::spawn(async move {
             let _from_gossip_sender = from_gossip_sender;
             let mut to_gossip_receiver = to_gossip_receiver.fuse();
+            let mut archived_segment_notification_receiver =
+                archived_segment_notification_receiver.fuse();
             let mut shard_membership_updates_receiver = shard_membership_updates_receiver.fuse();
 
             loop {
@@ -660,10 +662,10 @@ impl Run {
                     _ = to_gossip_receiver.next() => {
                         // TODO
                     }
-                    _ = shard_membership_updates_receiver.next() => {
+                    _ = archived_segment_notification_receiver.next() => {
                         // TODO
                     }
-                    _ = super_segments_receiver.next() => {
+                    _ = shard_membership_updates_receiver.next() => {
                         // TODO
                     }
                 }

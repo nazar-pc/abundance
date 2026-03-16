@@ -209,7 +209,9 @@ fn archiver() {
             Arc::new([shard_segment_root]),
         )
         .unwrap();
-        let segment_proof = super_segment.proof_for_segment(0).unwrap();
+        let segment_proof = super_segment
+            .proof_for_segment(SegmentPosition::ZERO)
+            .unwrap();
         for piece in first_archived_segment.pieces.iter_mut() {
             piece.header.super_segment_index = super_segment.header.index;
             piece.header.segment_position = SegmentPosition::from(0).into();
@@ -352,13 +354,11 @@ fn archiver() {
         let mut expected_segment_index = LocalSegmentIndex::ONE;
         let mut previous_segment_header_hash = first_archived_segment.segment_header.hash();
         for (segment_position, archived_segment) in archived_segments.iter_mut().enumerate() {
-            let segment_proof = super_segment
-                .proof_for_segment(segment_position as u32)
-                .unwrap();
+            let segment_position = SegmentPosition::from(segment_position as u32);
+            let segment_proof = super_segment.proof_for_segment(segment_position).unwrap();
             for piece in archived_segment.pieces.iter_mut() {
                 piece.header.super_segment_index = super_segment.header.index;
-                piece.header.segment_position =
-                    SegmentPosition::from(segment_position as u32).into();
+                piece.header.segment_position = segment_position.into();
                 piece.header.segment_proof = segment_proof;
             }
 
@@ -462,10 +462,12 @@ fn archiver() {
             Arc::new([shard_segment_root]),
         )
         .unwrap();
-        let segment_proof = super_segment.proof_for_segment(0).unwrap();
+        let segment_proof = super_segment
+            .proof_for_segment(SegmentPosition::ZERO)
+            .unwrap();
         for piece in archived_segment.pieces.iter_mut() {
             piece.header.super_segment_index = super_segment.header.index;
-            piece.header.segment_position = SegmentPosition::from(0).into();
+            piece.header.segment_position = SegmentPosition::ZERO.into();
             piece.header.segment_proof = segment_proof;
         }
 

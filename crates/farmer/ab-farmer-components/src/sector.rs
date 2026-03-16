@@ -58,7 +58,8 @@ pub struct SectorMetadata {
     pub pieces_in_sector: u16,
     /// S-bucket sizes in a sector
     pub s_bucket_sizes: Box<[u16; Record::NUM_S_BUCKETS]>,
-    /// Size of the blockchain history at time of sector creation
+    // TODO: Should this be constrained to the last segment of the super segment?
+    /// Size of the blockchain history at the time of sector creation
     pub history_size: HistorySize,
 }
 

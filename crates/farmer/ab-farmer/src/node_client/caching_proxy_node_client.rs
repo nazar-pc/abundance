@@ -5,11 +5,11 @@ use crate::node_client::{NodeClient, NodeClientExt};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{
-    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
 };
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
-    MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
+    MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
 };
 use async_lock::{
     Mutex as AsyncMutex, RwLock as AsyncRwLock,
@@ -29,39 +29,41 @@ const SEGMENT_HEADERS_SYNC_INTERVAL: Duration = Duration::from_secs(1);
 const FARMER_APP_INFO_DEDUPLICATION_WINDOW: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Default)]
-struct SegmentHeaders {
-    segment_headers: Vec<SegmentHeader>,
+struct SuperSegmentHeaders {
+    super_segment_headers: Vec<SuperSegmentHeader>,
     last_synced: Option<Instant>,
 }
 
-impl SegmentHeaders {
-    /// Push a new segment header to the cache, if it is the next segment header.
+impl SuperSegmentHeaders {
+    /// Push a new super segment header to the cache if it is the next super segment header.
     /// Otherwise, skip the push.
-    fn push(&mut self, archived_segment_header: SegmentHeader) {
-        if self.segment_headers.len()
-            == u64::from(archived_segment_header.local_segment_index()) as usize
+    fn push(&mut self, new_segment_header: SuperSegmentHeader) {
+        if self.super_segment_headers.len() as u64 == u64::from(new_segment_header.index.as_inner())
         {
-            self.segment_headers.push(archived_segment_header);
+            self.super_segment_headers.push(new_segment_header);
         }
     }
 
-    /// Get cached segment headers for the given segment indices.
+    /// Get cached super segment headers for the given super segment indices.
     ///
-    /// Returns `None` for segment indices that are not in the cache.
-    fn get_segment_headers(&self, segment_indices: &[SegmentIndex]) -> Vec<Option<SegmentHeader>> {
-        segment_indices
+    /// Returns `None` for super segment indices that are not in the cache.
+    fn get_super_segment_headers(
+        &self,
+        super_segment_indices: &[SuperSegmentIndex],
+    ) -> Vec<Option<SuperSegmentHeader>> {
+        super_segment_indices
             .iter()
-            .map(|segment_index| {
-                self.segment_headers
-                    .get(u64::from(*segment_index) as usize)
+            .map(|super_segment_index| {
+                self.super_segment_headers
+                    .get(u64::from(*super_segment_index) as usize)
                     .copied()
             })
             .collect::<Vec<_>>()
     }
 
-    /// Get the last `limit` segment headers from the cache.
-    fn last_segment_headers(&self, limit: u32) -> Vec<Option<SegmentHeader>> {
-        self.segment_headers
+    /// Get the last `limit` super segment headers from the cache
+    fn last_super_segment_headers(&self, limit: u32) -> Vec<Option<SuperSegmentHeader>> {
+        self.super_segment_headers
             .iter()
             .rev()
             .take(limit as usize)
@@ -71,13 +73,41 @@ impl SegmentHeaders {
             .collect()
     }
 
-    /// Get uncached headers from the node, if we're not rate-limited.
+    // TODO: Maybe caching or more compact storage that points segment indices to super segments
+    //  when this is called thousands of times during replotting?
+    fn super_segment_root_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> Option<SuperSegmentRoot> {
+        let index = self
+            .super_segment_headers
+            .binary_search_by_key(&segment_index, |super_segment_header| {
+                super_segment_header.max_segment_index.as_inner()
+            })
+            .unwrap_or_else(|insert_index| insert_index);
+
+        let super_segment_header = self.super_segment_headers.get(index).copied()?;
+
+        let max_segment_index = super_segment_header.max_segment_index.as_inner();
+        let first_segment_index = max_segment_index
+            - SegmentIndex::from(u64::from(super_segment_header.num_segments))
+            + SegmentIndex::ONE;
+
+        (first_segment_index..=max_segment_index)
+            .contains(&segment_index)
+            .then_some(super_segment_header.root)
+    }
+
+    /// Get uncached headers from the node if we're not rate-limited.
     /// This only requires a read lock.
     ///
-    /// Returns any extra segment headers if the download succeeds, or an error if it fails.
-    /// The caller must write the returned segment headers to the cache, and reset the sync
+    /// Returns any extra super segment headers if the download succeeds, or an error if it fails.
+    /// The caller must write the returned super segment headers to the cache and reset the sync
     /// rate-limit timer.
-    async fn request_uncached_headers<NC>(&self, client: &NC) -> anyhow::Result<Vec<SegmentHeader>>
+    async fn request_uncached_headers<NC>(
+        &self,
+        client: &NC,
+    ) -> anyhow::Result<Vec<SuperSegmentHeader>>
     where
         NC: NodeClient,
     {
@@ -88,42 +118,44 @@ impl SegmentHeaders {
             return Ok(Vec::new());
         }
 
-        let mut extra_segment_headers = Vec::new();
-        let mut segment_index_offset = SegmentIndex::from(self.segment_headers.len() as u64);
-        let segment_index_step = SegmentIndex::from(MAX_SEGMENT_HEADERS_PER_REQUEST as u64);
+        let mut extra_super_segment_headers = Vec::new();
+        let mut super_segment_index_offset =
+            SuperSegmentIndex::from(self.super_segment_headers.len() as u64);
+        let segment_index_step =
+            SuperSegmentIndex::from(MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST as u64);
 
         'outer: loop {
-            let from = segment_index_offset;
-            let to = segment_index_offset + segment_index_step;
-            trace!(%from, %to, "Requesting segment headers");
+            let from = super_segment_index_offset;
+            let to = super_segment_index_offset + segment_index_step;
+            trace!(%from, %to, "Requesting super segment headers");
 
-            for maybe_segment_header in client
-                .segment_headers((from..to).collect::<Vec<_>>())
+            for maybe_super_segment_header in client
+                .super_segment_headers((from..to).collect::<Vec<_>>())
                 .await
                 .map_err(|error| {
                     anyhow::anyhow!(
-                        "Failed to download segment headers {from}..{to} from node: {error}"
+                        "Failed to download super segment headers {from}..{to} from node: {error}"
                     )
                 })?
             {
-                let Some(segment_header) = maybe_segment_header else {
-                    // Reached non-existent segment header
+                let Some(super_segment_header) = maybe_super_segment_header else {
+                    // Reached non-existent super segment header
                     break 'outer;
                 };
 
-                extra_segment_headers.push(segment_header);
+                extra_super_segment_headers.push(super_segment_header);
             }
 
-            segment_index_offset += segment_index_step;
+            super_segment_index_offset += segment_index_step;
         }
 
-        Ok(extra_segment_headers)
+        Ok(extra_super_segment_headers)
     }
 
     /// Write the sync results to the cache, and reset the sync rate-limit timer.
-    fn write_cache(&mut self, extra_segment_headers: Vec<SegmentHeader>) {
-        for segment_header in extra_segment_headers {
-            self.push(segment_header);
+    fn write_cache(&mut self, extra_super_segment_headers: Vec<SuperSegmentHeader>) {
+        for super_segment_header in extra_super_segment_headers {
+            self.push(super_segment_header);
         }
         self.last_synced.replace(Instant::now());
     }
@@ -140,9 +172,9 @@ impl SegmentHeaders {
 pub struct CachingProxyNodeClient<NC> {
     inner: NC,
     slot_info_receiver: watch::Receiver<Option<SlotInfo>>,
-    archived_segment_headers_receiver: watch::Receiver<Option<SegmentHeader>>,
+    new_super_segment_headers_receiver: watch::Receiver<Option<SuperSegmentHeader>>,
     block_sealing_receiver: watch::Receiver<Option<BlockSealInfo>>,
-    segment_headers: Arc<AsyncRwLock<SegmentHeaders>>,
+    super_segment_headers: Arc<AsyncRwLock<SuperSegmentHeaders>>,
     last_farmer_app_info: Arc<AsyncMutex<(FarmerAppInfo, Instant)>>,
     _background_task: Arc<AsyncJoinOnDrop<()>>,
 }
@@ -153,17 +185,19 @@ where
 {
     /// Create a new instance
     pub async fn new(client: NC) -> anyhow::Result<Self> {
-        let mut segment_headers = SegmentHeaders::default();
-        let mut archived_segments_notifications =
-            client.subscribe_archived_segment_headers().await?;
+        let mut super_segment_headers = SuperSegmentHeaders::default();
+        let mut new_super_segments_notifications =
+            client.subscribe_new_super_segment_headers().await?;
 
-        info!("Downloading all segment headers from node...");
+        info!("Downloading all super segment headers from node...");
         // No locking is needed, we are the first and only instance right now.
-        let headers = segment_headers.request_uncached_headers(&client).await?;
-        segment_headers.write_cache(headers);
-        info!("Downloaded all segment headers from node successfully");
+        let headers = super_segment_headers
+            .request_uncached_headers(&client)
+            .await?;
+        super_segment_headers.write_cache(headers);
+        info!("Downloaded all super segment headers from node successfully");
 
-        let segment_headers = Arc::new(AsyncRwLock::new(segment_headers));
+        let super_segment_headers = Arc::new(AsyncRwLock::new(super_segment_headers));
 
         let (slot_info_sender, slot_info_receiver) = watch::channel(None::<SlotInfo>);
         let slot_info_proxy_fut = {
@@ -187,47 +221,30 @@ where
             }
         };
 
-        let (archived_segment_headers_sender, archived_segment_headers_receiver) =
-            watch::channel(None::<SegmentHeader>);
-        let segment_headers_maintenance_fut = {
-            let client = client.clone();
-            let segment_headers = Arc::clone(&segment_headers);
+        let (new_super_segment_headers_sender, new_super_segment_headers_receiver) =
+            watch::channel(None::<SuperSegmentHeader>);
+        let super_segment_headers_maintenance_fut = {
+            let super_segment_headers = Arc::clone(&super_segment_headers);
 
             async move {
-                let mut last_archived_segment_index = None;
-                while let Some(archived_segment_header) =
-                    archived_segments_notifications.next().await
-                {
-                    let segment_index =
-                        SegmentIndex::from(archived_segment_header.local_segment_index());
-                    trace!(
-                        ?archived_segment_header,
-                        "New archived archived segment header notification"
-                    );
+                let mut last_super_segment_index = None;
+                while let Some(new_segment_header) = new_super_segments_notifications.next().await {
+                    let super_segment_index = new_segment_header.index;
+                    trace!(?new_segment_header, "New super segment header notification");
 
-                    while let Err(error) = client
-                        .acknowledge_archived_segment_header(segment_index)
-                        .await
-                    {
-                        warn!(
-                            %error,
-                            "Failed to acknowledge archived segment header, trying again"
-                        );
-                    }
-
-                    if let Some(last_archived_segment_index) = last_archived_segment_index
-                        && last_archived_segment_index >= segment_index
+                    if let Some(last_super_segment_index) = last_super_segment_index
+                        && last_super_segment_index >= super_segment_index
                     {
                         continue;
                     }
-                    last_archived_segment_index.replace(segment_index);
+                    last_super_segment_index.replace(super_segment_index);
 
-                    segment_headers.write().await.push(archived_segment_header);
+                    super_segment_headers.write().await.push(new_segment_header);
 
                     if let Err(error) =
-                        archived_segment_headers_sender.send(Some(archived_segment_header))
+                        new_super_segment_headers_sender.send(Some(new_segment_header))
                     {
-                        warn!(%error, "Failed to proxy archived segment header notification");
+                        warn!(%error, "Failed to proxy new super segment header notification");
                         return;
                     }
                 }
@@ -257,7 +274,7 @@ where
         let background_task = tokio::spawn(async move {
             select! {
                 _ = slot_info_proxy_fut.fuse() => {},
-                _ = segment_headers_maintenance_fut.fuse() => {},
+                _ = super_segment_headers_maintenance_fut.fuse() => {},
                 _ = block_sealing_proxy_fut.fuse() => {},
             }
         });
@@ -265,9 +282,9 @@ where
         let node_client = Self {
             inner: client,
             slot_info_receiver,
-            archived_segment_headers_receiver,
+            new_super_segment_headers_receiver,
             block_sealing_receiver,
-            segment_headers,
+            super_segment_headers,
             last_farmer_app_info,
             _background_task: Arc::new(AsyncJoinOnDrop::new(background_task, true)),
         };
@@ -324,12 +341,12 @@ where
         self.inner.submit_block_seal(block_seal).await
     }
 
-    async fn subscribe_archived_segment_headers(
+    async fn subscribe_new_super_segment_headers(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SuperSegmentHeader> + Send + 'static>>> {
         Ok(Box::pin(
-            WatchStream::new(self.archived_segment_headers_receiver.clone())
-                .filter_map(|maybe_segment_header| async move { maybe_segment_header }),
+            WatchStream::new(self.new_super_segment_headers_receiver.clone())
+                .filter_map(|maybe_super_segment_header| async move { maybe_super_segment_header }),
         ))
     }
 
@@ -337,78 +354,68 @@ where
         &self,
         super_segment_indices: Vec<SuperSegmentIndex>,
     ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
-        // TODO: Local caching for super segment headers like for regular segment headers
-        self.inner
-            .super_segment_headers(super_segment_indices)
-            .await
-    }
-
-    /// Gets segment headers for the given segment indices, updating the cache from the node if
-    /// needed.
-    ///
-    /// Returns `None` for segment indices that are not in the cache.
-    async fn segment_headers(
-        &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
-        let retrieved_segment_headers = self
-            .segment_headers
+        let retrieved_super_segment_headers = self
+            .super_segment_headers
             .read()
             .await
-            .get_segment_headers(&segment_indices);
+            .get_super_segment_headers(&super_segment_indices);
 
-        if retrieved_segment_headers.iter().all(Option::is_some) {
-            Ok(retrieved_segment_headers)
-        } else {
-            // We might be missing a requested segment header.
-            // Sync the cache with the node, applying a rate limit, and return cached segment
-            // headers.
-
-            // If we took a write lock here, a queue of writers could starve all the readers, even
-            // if those writers would be rate-limited. So we take an upgradable read lock for the
-            // rate limit check.
-            let segment_headers = self.segment_headers.upgradable_read_arc().await;
-
-            // Try again after acquiring the upgradeable read lock, in case another caller already
-            // synced the headers.
-            let retrieved_segment_headers = segment_headers.get_segment_headers(&segment_indices);
-            if retrieved_segment_headers.iter().all(Option::is_some) {
-                return Ok(retrieved_segment_headers);
-            }
-
-            // Try to sync the cache with the node.
-            let extra_segment_headers = segment_headers
-                .request_uncached_headers(&self.inner)
-                .await?;
-
-            if extra_segment_headers.is_empty() {
-                // No extra segment headers on the node, or we are rate-limited.
-                // So just return what we have in the cache.
-                return Ok(retrieved_segment_headers);
-            }
-
-            // We need to update the cached segment headers, so take the write lock.
-            let mut segment_headers =
-                AsyncRwLockUpgradableReadGuard::upgrade(segment_headers).await;
-            segment_headers.write_cache(extra_segment_headers);
-
-            // Downgrade the write lock to a read lock to get the updated segment headers for the
-            // query.
-            Ok(AsyncRwLockWriteGuard::downgrade(segment_headers)
-                .get_segment_headers(&segment_indices))
+        if retrieved_super_segment_headers.iter().all(Option::is_some) {
+            return Ok(retrieved_super_segment_headers);
         }
+
+        // We might be missing a requested super segment header.
+        // Sync the cache with the node, apply a rate limit, and return cached super segment
+        // headers.
+
+        // If we took a write lock here, a queue of writers could starve all the readers, even if
+        // those writers are rate-limited. So we take an upgradable read lock for the rate limit
+        // check.
+        let super_segment_headers = self.super_segment_headers.upgradable_read_arc().await;
+
+        // Try again after acquiring the upgradeable read lock, in case another caller already
+        // synced the headers
+        let retrieved_super_segment_headers =
+            super_segment_headers.get_super_segment_headers(&super_segment_indices);
+        if retrieved_super_segment_headers.iter().all(Option::is_some) {
+            return Ok(retrieved_super_segment_headers);
+        }
+
+        // Try to sync the cache with the node
+        let extra_super_segment_headers = super_segment_headers
+            .request_uncached_headers(&self.inner)
+            .await?;
+
+        if extra_super_segment_headers.is_empty() {
+            // No extra super segment headers on the node, or we are rate-limited, so just return
+            // what is in the cache
+            return Ok(retrieved_super_segment_headers);
+        }
+
+        // Need to update the cached super segment headers, so take the write lock
+        let mut super_segment_headers =
+            AsyncRwLockUpgradableReadGuard::upgrade(super_segment_headers).await;
+        super_segment_headers.write_cache(extra_super_segment_headers);
+
+        // Downgrade the write lock to a read lock to get the updated super segment headers for the
+        // query
+        Ok(AsyncRwLockWriteGuard::downgrade(super_segment_headers)
+            .get_super_segment_headers(&super_segment_indices))
+    }
+
+    async fn super_segment_root_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
+        Ok(self
+            .super_segment_headers
+            .read()
+            .await
+            .super_segment_root_for_segment_index(segment_index))
     }
 
     async fn piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
         self.inner.piece(piece_index).await
-    }
-
-    async fn acknowledge_archived_segment_header(
-        &self,
-        _segment_index: SegmentIndex,
-    ) -> anyhow::Result<()> {
-        // Not supported
-        Ok(())
     }
 
     async fn update_shard_membership_info(
@@ -424,24 +431,27 @@ impl<NC> NodeClientExt for CachingProxyNodeClient<NC>
 where
     NC: NodeClientExt,
 {
-    async fn cached_segment_headers(
+    async fn cached_super_segment_headers(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
-        // To avoid remote denial of service, we don't update the cache here, because it is called
-        // from network code.
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
+        // To avoid remote denial of service, we don't update the cache here because it is called
+        // from network code
         Ok(self
-            .segment_headers
+            .super_segment_headers
             .read()
             .await
-            .get_segment_headers(&segment_indices))
+            .get_super_segment_headers(&super_segment_indices))
     }
 
-    async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
+    async fn last_super_segment_headers(
+        &self,
+        limit: u32,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
         Ok(self
-            .segment_headers
+            .super_segment_headers
             .read()
             .await
-            .last_segment_headers(limit))
+            .last_super_segment_headers(limit))
     }
 }

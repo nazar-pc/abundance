@@ -476,8 +476,9 @@ pub struct SolutionVerifyPieceParams {
     pub min_sector_lifetime: HistorySize,
     /// Current size of the history
     pub current_history_size: HistorySize,
-    /// Segment root at `min_sector_lifetime` from sector creation (if exists)
-    pub sector_expiration_check_segment_root: Option<SegmentRoot>,
+    /// Super segment root that contains a segment at `min_sector_lifetime` from sector creation
+    /// (if exists)
+    pub sector_expiration_check_super_segment_root: Option<SuperSegmentRoot>,
 }
 
 /// Parameters for full solution verification
@@ -1066,7 +1067,7 @@ impl Solution {
             recent_history_fraction,
             min_sector_lifetime,
             current_history_size,
-            sector_expiration_check_segment_root,
+            sector_expiration_check_super_segment_root,
         } = piece_check_params;
 
         if &self.history_size > current_history_size {
@@ -1083,10 +1084,12 @@ impl Solution {
             });
         }
 
-        if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root {
+        if let Some(sector_expiration_check_super_segment_root) =
+            sector_expiration_check_super_segment_root
+        {
             let expiration_history_size = match sector_id.derive_expiration_history_size(
                 self.history_size,
-                sector_expiration_check_segment_root,
+                sector_expiration_check_super_segment_root,
                 *min_sector_lifetime,
             ) {
                 Some(expiration_history_size) => expiration_history_size,

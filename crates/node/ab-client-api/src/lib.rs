@@ -11,7 +11,8 @@ use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{
-    LocalSegmentIndex, SegmentHeader, SegmentRoot, SuperSegmentHeader, SuperSegmentIndex,
+    LocalSegmentIndex, SegmentHeader, SegmentIndex, SegmentRoot, SuperSegmentHeader,
+    SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
 use ab_merkle_tree::mmr::MerkleMountainRange;
@@ -296,6 +297,12 @@ pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
     fn get_super_segment_header(
         &self,
         super_segment_index: SuperSegmentIndex,
+    ) -> Option<SuperSegmentHeader>;
+
+    /// Get a single super segment header for a segment index
+    fn get_super_segment_header_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
     ) -> Option<SuperSegmentHeader>;
 }
 

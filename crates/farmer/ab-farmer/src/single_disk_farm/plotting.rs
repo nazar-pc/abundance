@@ -10,7 +10,7 @@ use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
-use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::SectorMetadataChecksummed;
@@ -56,9 +56,9 @@ pub enum PlottingError {
         /// Lower-level error
         error: anyhow::Error,
     },
-    /// Failed to get segment header
-    #[error("Failed to get segment header: {error}")]
-    FailedToGetSegmentHeader {
+    /// Failed to get super segment root
+    #[error("Failed to get super segment root: {error}")]
+    FailedToGetSuperSegmentRoot {
         /// Lower-level error
         error: anyhow::Error,
     },
@@ -765,26 +765,14 @@ where
         metrics,
     } = plotting_scheduler_options;
 
-    // Create a proxy channel with atomically updatable last archived segment that
-    // allows to not buffer messages from RPC subscription, but also access the most
-    // recent value at any time
-    let last_archived_segment = node_client
-        .segment_headers(vec![last_archived_segment_index])
-        .await
-        .map_err(|error| PlottingError::FailedToGetSegmentHeader { error })?
-        .into_iter()
-        .next()
-        .flatten()
-        .ok_or(PlottingError::MissingArchivedSegmentHeader {
-            segment_index: last_archived_segment_index,
-        })?;
+    // Create a proxy channel with atomically updatable last archived segment that allows to not
+    // buffer messages from RPC subscription but also access the most recent value at any time
+    let (new_segment_index_sender, new_segment_index_receiver) =
+        watch::channel(last_archived_segment_index);
 
-    let (archived_segments_sender, archived_segments_receiver) =
-        watch::channel(last_archived_segment);
-
-    let read_archived_segments_notifications_fut = read_archived_segments_notifications(
+    let read_new_super_segments_notifications_fut = read_new_segment_index_notifications(
         &node_client,
-        archived_segments_sender,
+        new_segment_index_sender,
         new_segment_processing_delay,
     );
 
@@ -797,13 +785,13 @@ where
         &node_client,
         &handlers,
         sectors_metadata,
-        archived_segments_receiver,
+        new_segment_index_receiver,
         sectors_to_plot_sender,
         &metrics,
     );
 
     select! {
-        result = read_archived_segments_notifications_fut.fuse() => {
+        result = read_new_super_segments_notifications_fut.fuse() => {
             result
         }
         result = send_plotting_notifications_fut.fuse() => {
@@ -812,38 +800,35 @@ where
     }
 }
 
-async fn read_archived_segments_notifications<NC>(
+async fn read_new_segment_index_notifications<NC>(
     node_client: &NC,
-    archived_segments_sender: watch::Sender<SegmentHeader>,
+    new_super_segments_sender: watch::Sender<SegmentIndex>,
     new_segment_processing_delay: Duration,
 ) -> Result<(), BackgroundTaskError>
 where
     NC: NodeClient,
 {
-    info!("Subscribing to archived segments");
+    info!("Subscribing to new super segments");
 
-    let mut archived_segments_notifications = node_client
-        .subscribe_archived_segment_headers()
+    let mut super_segment_headers_notifications = node_client
+        .subscribe_new_super_segment_headers()
         .await
         .map_err(|error| PlottingError::FailedToSubscribeArchivedSegments { error })?;
 
-    while let Some(segment_header) = archived_segments_notifications.next().await {
-        debug!(?segment_header, "New archived segment");
-        if let Err(error) = node_client
-            .acknowledge_archived_segment_header(segment_header.local_segment_index().into())
-            .await
-        {
-            debug!(%error, "Failed to acknowledge segment header");
-        }
+    while let Some(super_segment_header) = super_segment_headers_notifications.next().await {
+        debug!(?super_segment_header, "New super segment");
 
-        // There is no urgent need to rush replotting sectors immediately and this delay allows for
+        // There is no urgent need to rush replotting sectors immediately, and this delay allows for
         // newly archived pieces to be both cached locally and on other farmers on the network
         let delay = Duration::from_secs(rand::rng().random_range(
             new_segment_processing_delay.as_secs() / 10..=new_segment_processing_delay.as_secs(),
         ));
         tokio::time::sleep(delay).await;
 
-        if archived_segments_sender.send(segment_header).is_err() {
+        if new_super_segments_sender
+            .send(super_segment_header.max_segment_index.as_inner())
+            .is_err()
+        {
             break;
         }
     }
@@ -866,7 +851,7 @@ async fn send_plotting_notifications<NC>(
     node_client: &NC,
     handlers: &Handlers,
     sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
-    mut archived_segments_receiver: watch::Receiver<SegmentHeader>,
+    mut new_segment_index_receiver: watch::Receiver<SegmentIndex>,
     mut sectors_to_plot_sender: mpsc::Sender<SectorToPlot>,
     metrics: &Option<Arc<SingleDiskFarmMetrics>>,
 ) -> Result<(), BackgroundTaskError>
@@ -898,11 +883,7 @@ where
     let mut sectors_to_replot = Vec::with_capacity(usize::from(target_sector_count) / 10);
 
     loop {
-        let segment_index = SegmentIndex::from(
-            archived_segments_receiver
-                .borrow_and_update()
-                .local_segment_index(),
-        );
+        let segment_index = *new_segment_index_receiver.borrow_and_update();
         trace!(%segment_index, "New archived segment received");
 
         let sectors_metadata = sectors_metadata.read().await;
@@ -964,17 +945,13 @@ where
                     %expiration_check_segment_index,
                     "Determined sector expiration check segment index"
                 );
-                let maybe_sector_expiration_check_segment_root = node_client
-                    .segment_headers(vec![expiration_check_segment_index])
+                let maybe_sector_expiration_check_super_segment_root = node_client
+                    .super_segment_root_for_segment_index(expiration_check_segment_index)
                     .await
-                    .map_err(|error| PlottingError::FailedToGetSegmentHeader { error })?
-                    .into_iter()
-                    .next()
-                    .flatten()
-                    .map(|segment_header| segment_header.segment_root);
+                    .map_err(|error| PlottingError::FailedToGetSuperSegmentRoot { error })?;
 
-                if let Some(sector_expiration_check_segment_root) =
-                    maybe_sector_expiration_check_segment_root
+                if let Some(sector_expiration_check_super_segment_root) =
+                    maybe_sector_expiration_check_super_segment_root
                 {
                     let sector_id = SectorId::new(
                         &public_key_hash,
@@ -985,7 +962,7 @@ where
                     let expiration_history_size = sector_id
                         .derive_expiration_history_size(
                             history_size,
-                            &sector_expiration_check_segment_root,
+                            &sector_expiration_check_super_segment_root,
                             min_sector_lifetime,
                         )
                         .expect(
@@ -1085,7 +1062,7 @@ where
             }
         }
 
-        if archived_segments_receiver.changed().await.is_err() {
+        if new_segment_index_receiver.changed().await.is_err() {
             break;
         }
     }

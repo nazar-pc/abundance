@@ -121,7 +121,7 @@ where
         };
 
         (
-            first_block_number.saturating_sub(BlockNumber::ONE),
+            first_block_number.saturating_add(BlockNumber::ONE),
             archiver,
         )
     } else {

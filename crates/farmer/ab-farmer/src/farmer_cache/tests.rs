@@ -2,10 +2,10 @@ use crate::disk_piece_cache::DiskPieceCache;
 use crate::farmer_cache::{FarmerCache, decode_piece_index_from_record_key};
 use crate::node_client::NodeClient;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{
-    HistorySize, LastArchivedBlock, LocalSegmentIndex, SegmentHeader, SegmentIndex,
-    SuperSegmentHeader, SuperSegmentIndex,
+    HistorySize, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
 };
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_components::FarmerProtocolInfo;
@@ -34,9 +34,8 @@ use tempfile::tempdir;
 struct MockNodeClient {
     current_segment_index: Arc<AtomicU64>,
     pieces: Arc<Mutex<HashMap<PieceIndex, Piece>>>,
-    archived_segment_headers_stream_request_sender:
-        mpsc::Sender<oneshot::Sender<mpsc::Receiver<SegmentHeader>>>,
-    acknowledge_archived_segment_header_sender: mpsc::Sender<SegmentIndex>,
+    new_super_segment_headers_stream_request_sender:
+        mpsc::Sender<oneshot::Sender<mpsc::Receiver<SuperSegmentHeader>>>,
 }
 
 #[async_trait]
@@ -86,16 +85,16 @@ impl NodeClient for MockNodeClient {
         unimplemented!()
     }
 
-    async fn subscribe_archived_segment_headers(
+    async fn subscribe_new_super_segment_headers(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SuperSegmentHeader> + Send + 'static>>> {
         let (tx, rx) = oneshot::channel();
-        self.archived_segment_headers_stream_request_sender
+        self.new_super_segment_headers_stream_request_sender
             .clone()
             .send(tx)
             .await
             .unwrap();
-        // Allow to delay segment headers subscription in tests
+        // Allow delaying super segment headers subscription in tests
         let stream = rx.await.unwrap();
         Ok(Box::pin(stream))
     }
@@ -104,13 +103,6 @@ impl NodeClient for MockNodeClient {
         &self,
         _super_segment_indices: Vec<SuperSegmentIndex>,
     ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
-        unimplemented!()
-    }
-
-    async fn segment_headers(
-        &self,
-        _segment_indexes: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         unimplemented!()
     }
 
@@ -128,16 +120,11 @@ impl NodeClient for MockNodeClient {
         ))
     }
 
-    async fn acknowledge_archived_segment_header(
+    async fn super_segment_root_for_segment_index(
         &self,
-        segment_index: SegmentIndex,
-    ) -> anyhow::Result<()> {
-        self.acknowledge_archived_segment_header_sender
-            .clone()
-            .send(segment_index)
-            .await
-            .unwrap();
-        Ok(())
+        _segment_index: SegmentIndex,
+    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
+        unimplemented!()
     }
 
     async fn update_shard_membership_info(
@@ -192,19 +179,14 @@ async fn basic() {
     let current_segment_index = Arc::new(AtomicU64::new(0));
     let pieces = Arc::default();
     let (
-        archived_segment_headers_stream_request_sender,
-        mut archived_segment_headers_stream_request_receiver,
-    ) = mpsc::channel(0);
-    let (
-        acknowledge_archived_segment_header_sender,
-        mut acknowledge_archived_segment_header_receiver,
+        new_super_segment_headers_stream_request_sender,
+        mut new_super_segment_headers_stream_request_receiver,
     ) = mpsc::channel(0);
 
     let node_client = MockNodeClient {
         current_segment_index: Arc::clone(&current_segment_index),
         pieces: Arc::clone(&pieces),
-        archived_segment_headers_stream_request_sender,
-        acknowledge_archived_segment_header_sender,
+        new_super_segment_headers_stream_request_sender,
     };
     let piece_getter = MockPieceGetter {
         pieces: Arc::clone(&pieces),
@@ -291,42 +273,37 @@ async fn basic() {
         current_segment_index.store(1, Ordering::Release);
 
         // Send segment headers receiver such that keep-up sync can start now
-        let (mut archived_segment_headers_sender, archived_segment_headers_receiver) =
-            mpsc::channel(0);
-        archived_segment_headers_stream_request_receiver
+        let (mut super_segment_headers_sender, super_segment_headers_receiver) = mpsc::channel(0);
+        new_super_segment_headers_stream_request_receiver
             .next()
             .await
             .unwrap()
-            .send(archived_segment_headers_receiver)
+            .send(super_segment_headers_receiver)
             .unwrap();
 
-        // Send segment header with the same segment index as "current", so it will have no
+        // Send super segment header with the same segment index as "current", so it will have no
         // side effects, but acknowledgement will indicate that keep-up after initial sync has
         // finished
         {
-            let segment_header = SegmentHeader {
-                segment_index: LocalSegmentIndex::ONE.into(),
-                segment_root: Default::default(),
-                prev_segment_header_hash: [0; 32].into(),
-                last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO.into(),
-                    archived_progress: Default::default(),
-                },
+            let super_segment_header = SuperSegmentHeader {
+                index: SuperSegmentIndex::ZERO.into(),
+                root: SuperSegmentRoot::default(),
+                prev_super_segment_header_hash: Blake3Hash::default(),
+                max_segment_index: SegmentIndex::ONE.into(),
+                target_beacon_chain_block_number: BlockNumber::ZERO.into(),
+                num_segments: 2,
             };
 
-            archived_segment_headers_sender
-                .send(segment_header)
+            super_segment_headers_sender
+                .send(super_segment_header)
                 .await
                 .unwrap();
-
-            // Wait for acknowledgement
-            assert_eq!(
-                acknowledge_archived_segment_header_receiver
-                    .next()
-                    .await
-                    .unwrap(),
-                SegmentIndex::ONE
-            );
+            // Second sending as an acknowledgement that the previous message was processed fully
+            // since there is no explicit acknowledgement
+            super_segment_headers_sender
+                .send(super_segment_header)
+                .await
+                .unwrap();
         }
 
         // One more piece was requested during keep-up after initial sync
@@ -361,36 +338,29 @@ async fn basic() {
             }
         }
 
+        // TODO: The same test with super segment containing more than one segment?
         // Send two more segment headers (one is not enough because for above peer ID there are no
         // pieces for it to store)
         for segment_index in [2, 3] {
-            let segment_header = SegmentHeader {
-                segment_index: LocalSegmentIndex::from(segment_index).into(),
-                segment_root: Default::default(),
-                prev_segment_header_hash: [0; 32].into(),
-                last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO.into(),
-                    archived_progress: Default::default(),
-                },
+            let super_segment_header = SuperSegmentHeader {
+                index: SuperSegmentIndex::from(segment_index).into(),
+                root: SuperSegmentRoot::default(),
+                prev_super_segment_header_hash: Blake3Hash::default(),
+                max_segment_index: SegmentIndex::from(segment_index).into(),
+                target_beacon_chain_block_number: BlockNumber::ZERO.into(),
+                num_segments: 1,
             };
 
-            // Send twice because acknowledgement arrives early, sending twice doesn't have side
-            // effects, but ensures things were processed fully
-            for _ in 0..=1 {
-                archived_segment_headers_sender
-                    .send(segment_header)
-                    .await
-                    .unwrap();
-
-                // Wait for acknowledgement
-                assert_eq!(
-                    acknowledge_archived_segment_header_receiver
-                        .next()
-                        .await
-                        .unwrap(),
-                    SegmentIndex::from(segment_index)
-                );
-            }
+            super_segment_headers_sender
+                .send(super_segment_header)
+                .await
+                .unwrap();
+            // Second sending as an acknowledgement that the previous message was processed fully
+            // since there is no explicit acknowledgement
+            super_segment_headers_sender
+                .send(super_segment_header)
+                .await
+                .unwrap();
 
             current_segment_index.store(segment_index, Ordering::Release);
         }
@@ -491,16 +461,15 @@ async fn basic() {
         // Same state as before, no pieces should be requested during initialization
         assert_eq!(pieces.lock().len(), 0);
 
-        let (mut archived_segment_headers_sender, archived_segment_headers_receiver) =
-            mpsc::channel(0);
-        archived_segment_headers_stream_request_receiver
+        let (mut super_segment_headers_sender, super_segment_headers_receiver) = mpsc::channel(0);
+        new_super_segment_headers_stream_request_receiver
             .next()
             .await
             .unwrap()
-            .send(archived_segment_headers_receiver)
+            .send(super_segment_headers_receiver)
             .unwrap();
         // Make worker exit
-        archived_segment_headers_sender.close().await.unwrap();
+        super_segment_headers_sender.close().await.unwrap();
 
         farmer_cache_worker_exited.await.unwrap();
     }
@@ -511,17 +480,14 @@ async fn duplicate_indices() {
     let current_segment_index = Arc::new(AtomicU64::new(0));
     let pieces = Arc::default();
     let (
-        archived_segment_headers_stream_request_sender,
-        mut archived_segment_headers_stream_request_receiver,
+        new_super_segment_headers_stream_request_sender,
+        mut new_super_segment_headers_stream_request_receiver,
     ) = mpsc::channel(0);
-    let (acknowledge_archived_segment_header_sender, _acknowledge_archived_segment_header_receiver) =
-        mpsc::channel(0);
 
     let node_client = MockNodeClient {
         current_segment_index: Arc::clone(&current_segment_index),
         pieces: Arc::clone(&pieces),
-        archived_segment_headers_stream_request_sender,
-        acknowledge_archived_segment_header_sender,
+        new_super_segment_headers_stream_request_sender,
     };
     let piece_getter = MockPieceGetter {
         pieces: Arc::clone(&pieces),
@@ -568,16 +534,15 @@ async fn duplicate_indices() {
         drop(farmer_cache);
 
         // Make worker exit
-        let (mut archived_segment_headers_sender, archived_segment_headers_receiver) =
-            mpsc::channel(0);
-        archived_segment_headers_stream_request_receiver
+        let (mut super_segment_headers_sender, super_segment_headers_receiver) = mpsc::channel(0);
+        new_super_segment_headers_stream_request_receiver
             .next()
             .await
             .unwrap()
-            .send(archived_segment_headers_receiver)
+            .send(super_segment_headers_receiver)
             .unwrap();
         // Make worker exit
-        archived_segment_headers_sender.close().await.unwrap();
+        super_segment_headers_sender.close().await.unwrap();
 
         farmer_cache_worker_exited.await.unwrap();
     }
@@ -649,16 +614,15 @@ async fn duplicate_indices() {
         drop(farmer_cache);
 
         // Make worker exit
-        let (mut archived_segment_headers_sender, archived_segment_headers_receiver) =
-            mpsc::channel(0);
-        archived_segment_headers_stream_request_receiver
+        let (mut super_segment_headers_sender, super_segment_headers_receiver) = mpsc::channel(0);
+        new_super_segment_headers_stream_request_receiver
             .next()
             .await
             .unwrap()
-            .send(archived_segment_headers_receiver)
+            .send(super_segment_headers_receiver)
             .unwrap();
         // Make worker exit
-        archived_segment_headers_sender.close().await.unwrap();
+        super_segment_headers_sender.close().await.unwrap();
 
         farmer_cache_worker_exited.await.unwrap();
     }
