@@ -17,6 +17,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::PotOutput;
 use ab_core_primitives::segments::SuperSegment;
 use ab_proof_of_space::Table;
+use async_lock::Mutex as AsyncMutex;
 use futures::channel::mpsc;
 use futures::prelude::*;
 use rclite::Arc;
@@ -143,7 +144,7 @@ pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     block_verification: BV,
     importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
     block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
-    super_segments_sender: mpsc::Sender<SuperSegment>,
+    super_segments_sender: AsyncMutex<mpsc::Sender<SuperSegment>>,
     block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
     _pos_table: PhantomData<PosTable>,
 }
@@ -242,7 +243,7 @@ where
             block_verification,
             importing_blocks: ImportingBlocks::new(),
             block_importing_notification_sender,
-            super_segments_sender,
+            super_segments_sender: AsyncMutex::new(super_segments_sender),
             block_import_notification_sender,
             _pos_table: PhantomData,
         }
@@ -333,17 +334,19 @@ where
         let number = header.prefix.number;
         let root = *header.root();
 
-        if let Some(super_segment) = maybe_super_segment
-            && self
+        if let Some(super_segment) = maybe_super_segment {
+            let mut super_segment_sender = self.super_segments_sender.lock().await;
+            if self
                 .chain_info
                 .persist_super_segment_header(super_segment.header)
                 .await
                 .map_err(
                     |error| BeaconChainBlockImportError::PersistSuperSegmentHeaders { error },
                 )?
-            && let Err(error) = self.super_segments_sender.clone().send(super_segment).await
-        {
-            warn!(%error, "Failed to send a super segment notification");
+                && let Err(error) = super_segment_sender.send(super_segment).await
+            {
+                warn!(%error, "Failed to send a super segment notification");
+            }
         }
 
         self.chain_info
