@@ -2,7 +2,7 @@
 
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{BeaconChainInfo, ChainSyncStatus};
-use ab_client_archiving::segment::{ArchivedSegmentNotification, recreate_genesis_segment};
+use ab_client_archiving::task::{ArchivedSegmentNotification, recreate_genesis_segment};
 use ab_client_block_authoring::slot_worker::{
     BlockSealNotification, NewSlotInfo, NewSlotNotification,
 };

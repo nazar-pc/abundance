@@ -1,4 +1,4 @@
-//! Segment archiving.
+//! Segment archiving task.
 //!
 //! Implements archiving process in that converts blockchain history (blocks) into archived history
 //! (segments and pieces).
