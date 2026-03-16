@@ -1,8 +1,8 @@
 pub(crate) mod page_group_header;
 pub(crate) mod storage_item;
 
-use crate::page_group::block::StorageItemBlock;
 use crate::page_group::permanent::StorageItemPermanent;
+use crate::page_group::temporary::StorageItemTemporary;
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemContainer, UniqueStorageItem,
@@ -30,9 +30,9 @@ use tracing::{Instrument, debug, error, info_span};
 pub(crate) enum PageGroupKind {
     /// These pages are stored permanently and are never removed
     Permanent = 0,
-    /// These pages are related to blocks and expire over time as blocks become buried deeper in
+    /// These pages are temporary and are pruned over time as blocks become buried deeper in
     /// blockchain history
-    Block = 1,
+    Temporary = 1,
 }
 
 #[derive(Debug)]
@@ -80,11 +80,11 @@ pub(crate) struct StorageItemHandlerArg<SI> {
 /// Storage item handlers are called on every storage item, storage items are read in the same order
 /// they are defined in this data structure
 #[derive(Debug)]
-pub(crate) struct StorageItemHandlers<P, B> {
+pub(crate) struct StorageItemHandlers<P, T> {
     /// Handler for storage items in permanent storage groups
     pub(crate) permanent: P,
-    /// Handler for storage items in permanent block groups
-    pub(crate) block: B,
+    /// Handler for storage items in temporary storage groups
+    pub(crate) temporary: T,
 }
 
 #[derive(Debug)]
@@ -110,14 +110,14 @@ where
     /// Current database version
     const VERSION: u8 = 0;
 
-    pub(crate) async fn open<SIHP, SIHB>(
+    pub(crate) async fn open<SIHP, SIHT>(
         write_buffer_size: usize,
-        mut storage_item_handlers: StorageItemHandlers<SIHP, SIHB>,
+        mut storage_item_handlers: StorageItemHandlers<SIHP, SIHT>,
         storage_backend: StorageBackend,
     ) -> Result<Self, ClientDatabaseError>
     where
         SIHP: FnMut(StorageItemHandlerArg<StorageItemPermanent>) -> Result<(), ClientDatabaseError>,
-        SIHB: FnMut(StorageItemHandlerArg<StorageItemBlock>) -> Result<(), ClientDatabaseError>,
+        SIHT: FnMut(StorageItemHandlerArg<StorageItemTemporary>) -> Result<(), ClientDatabaseError>,
     {
         let database_id;
         let database_version;
@@ -129,7 +129,7 @@ where
                 next_sequence_number: 0,
                 list: VecDeque::new(),
             },
-            PageGroupKind::Block => PageGroups {
+            PageGroupKind::Temporary => PageGroups {
                 next_sequence_number: 0,
                 list: VecDeque::new(),
             },
@@ -181,7 +181,7 @@ where
                             first_page_offset: 0,
                         });
                 }
-                PageGroupKind::Block => {
+                PageGroupKind::Temporary => {
                     return Err(ClientDatabaseError::NonPermanentFirstPageGroup);
                 }
             }
@@ -252,23 +252,23 @@ where
         .instrument(info_span!("", page_group_kind = ?PageGroupKind::Permanent))
         .await?;
 
-        // Read all block storage groups
+        // Read all temporary storage groups
         let _ = StorageBackendAdapter::read_page_groups(
-            &mut page_groups[PageGroupKind::Block],
+            &mut page_groups[PageGroupKind::Temporary],
             page_group_size,
             &storage_backend,
             buffer,
             |container, page_offset| {
                 let num_pages = container.num_pages();
 
-                (storage_item_handlers.block)(StorageItemHandlerArg {
+                (storage_item_handlers.temporary)(StorageItemHandlerArg {
                     storage_item: container.storage_item,
                     page_offset,
                     num_pages,
                 })
             },
         )
-        .instrument(info_span!("", page_group_kind = ?PageGroupKind::Block))
+        .instrument(info_span!("", page_group_kind = ?PageGroupKind::Temporary))
         .await?;
 
         Ok(Self {

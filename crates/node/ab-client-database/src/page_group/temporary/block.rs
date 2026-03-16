@@ -22,7 +22,7 @@ const {
 }
 
 #[derive(Debug)]
-pub(crate) struct StorageItemBlockBlock {
+pub(crate) struct StorageItemTemporaryBlock {
     pub(crate) header: SharedAlignedBuffer,
     pub(crate) body: SharedAlignedBuffer,
     pub(crate) mmr_with_block: Arc<BlockMerkleMountainRange>,
@@ -30,7 +30,7 @@ pub(crate) struct StorageItemBlockBlock {
     // TODO: State, segment headers
 }
 
-impl StorageItemBlockBlock {
+impl StorageItemTemporaryBlock {
     pub(super) fn total_bytes(&self) -> usize {
         Self::total_bytes_inner(
             self.header.len(),
