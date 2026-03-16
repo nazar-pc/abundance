@@ -15,10 +15,6 @@
 //! archival history received from other network participants. Future segment header might also be
 //! already known in the case of syncing from DSN.
 //!
-//! [`recreate_genesis_segment`] is a bit of a hack and is useful for deriving of the genesis beacon
-//! chain segment that is a special case since we don't have enough data in the blockchain history
-//! itself during genesis to do the archiving.
-//!
 //! [`encode_block`] and [`decode_block`] are symmetric encoding/decoding functions turning
 //! Blocks into bytes and back.
 
@@ -29,12 +25,10 @@ use ab_client_consensus_common::{BlockImportingNotification, ConsensusConstants}
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
-use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
+use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
-use ab_core_primitives::segments::{
-    LocalSegmentIndex, RecordedHistorySegment, SegmentHeader, SuperSegmentIndex,
-};
-use ab_core_primitives::shard::{RealShardKind, ShardIndex};
+use ab_core_primitives::segments::{LocalSegmentIndex, RecordedHistorySegment, SegmentHeader};
+use ab_core_primitives::shard::RealShardKind;
 use ab_erasure_coding::ErasureCoding;
 use bytesize::ByteSize;
 use chacha20::ChaCha8Rng;
@@ -118,33 +112,6 @@ where
     }
 
     None
-}
-
-/// Derive the genesis segment on demand, returns `Ok(None)` in case the genesis block was already
-/// pruned
-pub fn recreate_genesis_segment(
-    owned_genesis_block: &OwnedBeaconChainBlock,
-    erasure_coding: ErasureCoding,
-) -> NewArchivedSegment {
-    let encoded_block = encode_block(owned_genesis_block);
-
-    let block_outcome = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding)
-        .add_block(encoded_block, Vec::new())
-        .expect("Block is never empty and doesn't exceed u32; qed");
-    let mut archived_segment = block_outcome
-        .archived_segments
-        .into_iter()
-        .next()
-        .expect("Genesis block always results in exactly one archived segment; qed");
-
-    for piece in archived_segment.pieces.iter_mut() {
-        piece.header.super_segment_index = SuperSegmentIndex::ZERO.into();
-        // Since there is a single segment in super segment, the proof is empty
-    }
-
-    archived_segment.pieces = archived_segment.pieces.to_shared();
-
-    archived_segment
 }
 
 /// Encode block for archiving purposes
