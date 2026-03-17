@@ -17,12 +17,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
         with:
           submodules: 'true'
 
       - name: Install mdbook with extra preprocessors
-        uses: taiki-e/install-action@90558ad1e179036f31467972b00dec6cb80701fa # 2.66.3
+        uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
         with:
           tool: mdbook@0.5,mdbook-d2@0.3.8
 
@@ -59,7 +59,7 @@ jobs:
         if: ${{ github.repository_owner == 'nazar-pc' }}
 
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # 4.8.2
+        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # 4.8.0
         with:
           branch: gh-pages
           single-commit: true

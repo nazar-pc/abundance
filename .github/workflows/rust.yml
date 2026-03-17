@@ -29,10 +29,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Configure cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
             ~/.cargo/registry
@@ -92,10 +92,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Install protoc (libp2p)
-        uses: taiki-e/install-action@90558ad1e179036f31467972b00dec6cb80701fa # 2.66.3
+        uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
         with:
           tool: protoc
 
@@ -116,7 +116,7 @@ jobs:
         if: runner.os == 'macOS'
 
       - name: Configure cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
             ~/.cargo/registry
@@ -260,10 +260,10 @@ jobs:
 
     steps: &test-steps
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Install cargo-nextest and protoc (libp2p)
-        uses: taiki-e/install-action@90558ad1e179036f31467972b00dec6cb80701fa # 2.66.3
+        uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
         with:
           tool: cargo-nextest,protoc
 
@@ -284,7 +284,7 @@ jobs:
         if: runner.os == 'macOS'
 
       - name: Configure cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
             ~/.cargo/registry
@@ -508,7 +508,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: RISC-V support
         run: |
@@ -522,7 +522,7 @@ jobs:
         if: contains(matrix.target, 'riscv64')
 
       - name: Configure cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
             ~/.cargo/registry
@@ -630,10 +630,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Configure cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
             ~/.cargo/registry
