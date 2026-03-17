@@ -131,12 +131,7 @@ where
             self.chain_info
                 .segment_headers_for_block(block_number)
                 .into_iter()
-                .map(|segment_header| {
-                    (
-                        segment_header.segment_index.as_inner(),
-                        segment_header.segment_root,
-                    )
-                }),
+                .map(|segment_header| (segment_header.index.as_inner(), segment_header.root)),
             // TODO: Real intermediate shard blocks
             iter::empty(),
             checkpoints,

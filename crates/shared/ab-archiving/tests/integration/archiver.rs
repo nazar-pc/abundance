@@ -142,7 +142,7 @@ fn archiver() {
         ArchivedHistorySegment::NUM_PIECES
     );
     assert_eq!(
-        first_archived_segment.segment_header.local_segment_index(),
+        first_archived_segment.segment_header.index.as_inner(),
         LocalSegmentIndex::ZERO
     );
     assert_eq!(
@@ -165,13 +165,10 @@ fn archiver() {
             .iter()
             .all(|piece| piece.header.shard_index.as_inner() == TEST_SHARD_INDEX)
     );
-    assert!(
-        first_archived_segment.pieces.iter().all(|piece| piece
-            .header
-            .local_segment_index
-            .as_inner()
-            == first_archived_segment.segment_header.local_segment_index())
-    );
+    assert!(first_archived_segment.pieces.iter().all(|piece| {
+        piece.header.local_segment_index.as_inner()
+            == first_archived_segment.segment_header.index.as_inner()
+    }));
 
     // All block mappings must appear in the global object mapping
     assert_eq!(object_mapping.len(), block_1_block_objects.len());
@@ -201,7 +198,7 @@ fn archiver() {
             shard_index: TEST_SHARD_INDEX,
             segment_position: SegmentPosition::from(0),
             local_segment_index: LocalSegmentIndex::ZERO,
-            segment_root: first_archived_segment.segment_header.segment_root,
+            segment_root: first_archived_segment.segment_header.root,
         };
         let super_segment = SuperSegment::new(
             &PLACEHOLDER_SUPER_SEGMENT_HEADER,
@@ -304,7 +301,7 @@ fn archiver() {
                 .pieces
                 .iter()
                 .all(|piece| piece.header.local_segment_index.as_inner()
-                    == archived_segment.segment_header.local_segment_index())
+                    == archived_segment.segment_header.index.as_inner())
         );
     }
     {
@@ -326,7 +323,7 @@ fn archiver() {
                 .pieces
                 .iter()
                 .all(|piece| piece.header.local_segment_index.as_inner()
-                    == archived_segment.segment_header.local_segment_index())
+                    == archived_segment.segment_header.index.as_inner())
         );
     }
 
@@ -342,8 +339,8 @@ fn archiver() {
                     |(segment_position, archived_segment)| ShardSegmentRootWithPosition {
                         shard_index: TEST_SHARD_INDEX,
                         segment_position: SegmentPosition::from(segment_position as u32),
-                        local_segment_index: archived_segment.segment_header.local_segment_index(),
-                        segment_root: archived_segment.segment_header.segment_root,
+                        local_segment_index: archived_segment.segment_header.index.as_inner(),
+                        segment_root: archived_segment.segment_header.root,
                     },
                 )
                 .collect(),
@@ -367,7 +364,7 @@ fn archiver() {
                 ArchivedHistorySegment::NUM_PIECES
             );
             assert_eq!(
-                archived_segment.segment_header.local_segment_index(),
+                archived_segment.segment_header.index.as_inner(),
                 expected_segment_index
             );
             assert_eq!(
@@ -454,7 +451,7 @@ fn archiver() {
             shard_index: TEST_SHARD_INDEX,
             segment_position: SegmentPosition::from(0),
             local_segment_index: LocalSegmentIndex::from(3),
-            segment_root: archived_segment.segment_header.segment_root,
+            segment_root: archived_segment.segment_header.root,
         };
         let super_segment = SuperSegment::new(
             &PLACEHOLDER_SUPER_SEGMENT_HEADER,
@@ -509,8 +506,8 @@ fn invalid_usage() {
             TEST_SHARD_INDEX,
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: LocalSegmentIndex::ZERO.into(),
-                segment_root: SegmentRoot::default(),
+                index: LocalSegmentIndex::ZERO.into(),
+                root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO.into(),
@@ -538,8 +535,8 @@ fn invalid_usage() {
             TEST_SHARD_INDEX,
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: LocalSegmentIndex::ZERO.into(),
-                segment_root: SegmentRoot::default(),
+                index: LocalSegmentIndex::ZERO.into(),
+                root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO.into(),
@@ -631,8 +628,8 @@ fn object_on_the_edge_of_segment() {
         offset: RecordedHistorySegment::SIZE as u32
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader {
-                segment_index: LocalSegmentIndex::ZERO.into(),
-                segment_root: Default::default(),
+                index: LocalSegmentIndex::ZERO.into(),
+                root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO.into(),

@@ -557,7 +557,7 @@ impl SegmentHeadersCache {
     fn max_local_segment_index(&self) -> Option<LocalSegmentIndex> {
         self.segment_headers_cache
             .last()
-            .map(|segment_header| segment_header.segment_index.as_inner())
+            .map(|segment_header| segment_header.index.as_inner())
     }
 
     #[inline(always)]
@@ -578,15 +578,14 @@ impl SegmentHeadersCache {
 
         if let Some(last_segment_index) = maybe_last_local_segment_index {
             // Skip already stored segment headers
-            segment_headers.retain(|segment_header| {
-                segment_header.segment_index.as_inner() > last_segment_index
-            });
+            segment_headers
+                .retain(|segment_header| segment_header.index.as_inner() > last_segment_index);
         }
 
         // Check all input segment headers to see which ones are not stored yet and verifying that
         // segment indices are monotonically increasing
         for segment_header in segment_headers.iter().copied() {
-            let local_segment_index = segment_header.local_segment_index();
+            let local_segment_index = segment_header.index.as_inner();
             match maybe_last_local_segment_index {
                 Some(last_local_segment_index) => {
                     if local_segment_index != last_local_segment_index + LocalSegmentIndex::ONE {

@@ -466,14 +466,14 @@ where
         let expected_segment_headers = self.chain_info.segment_headers_for_block(block_number);
         let expected_first_local_segment_index = expected_segment_headers
             .first()
-            .map(|segment_header| segment_header.segment_index.as_inner());
+            .map(|segment_header| segment_header.index.as_inner());
         let correct_first_local_segment_index = expected_first_local_segment_index
             == own_segments
                 .as_ref()
                 .map(|own_segments| own_segments.first_local_segment_index);
         let correct_segment_roots = expected_segment_headers
             .iter()
-            .map(|segment_header| &segment_header.segment_root)
+            .map(|segment_header| &segment_header.root)
             .eq(own_segments
                 .as_ref()
                 .map(|own_segments| own_segments.segment_roots)
@@ -483,7 +483,7 @@ where
                 expected_first_local_segment_index,
                 expected_segment_roots: expected_segment_headers
                     .iter()
-                    .map(|segment_header| segment_header.segment_root)
+                    .map(|segment_header| segment_header.root)
                     .collect(),
                 actual_first_local_segment_index: own_segments
                     .as_ref()

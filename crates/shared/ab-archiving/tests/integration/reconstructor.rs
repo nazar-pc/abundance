@@ -114,7 +114,7 @@ fn basic() {
         );
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::ZERO
         );
         assert_eq!(
@@ -136,7 +136,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![(BlockNumber::from(2), block_2)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::ZERO
         );
         assert_eq!(
@@ -159,7 +159,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::ONE
         );
         assert_eq!(
@@ -181,7 +181,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::ONE
         );
         assert_eq!(
@@ -204,7 +204,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::from(2)
         );
         assert_eq!(
@@ -228,7 +228,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::from(2)
         );
         assert_eq!(
@@ -251,7 +251,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![(BlockNumber::from(3), block_3)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::from(3)
         );
         assert_eq!(
@@ -275,7 +275,7 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().local_segment_index(),
+            contents.segment_header.unwrap().index.as_inner(),
             LocalSegmentIndex::from(3)
         );
         assert_eq!(
