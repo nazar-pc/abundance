@@ -398,22 +398,6 @@ impl Step for LocalSegmentIndex {
     }
 }
 
-// TODO: This is a massive hack that is only present temporarily before super segments are really a
-//  thing
-impl From<LocalSegmentIndex> for SegmentIndex {
-    fn from(value: LocalSegmentIndex) -> Self {
-        Self(value.0)
-    }
-}
-
-// TODO: This is a massive hack that is only present temporarily before super segments are really a
-//  thing
-impl From<SegmentIndex> for LocalSegmentIndex {
-    fn from(value: SegmentIndex) -> Self {
-        Self(value.0)
-    }
-}
-
 impl const From<u64> for LocalSegmentIndex {
     #[inline(always)]
     fn from(value: u64) -> Self {

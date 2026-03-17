@@ -546,15 +546,15 @@ where
     CSS: ChainSyncStatus,
 {
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
-        let last_segment_index = self
+        let max_segment_index = self
             .beacon_chain_info
-            .last_segment_header()
-            .map(|segment_header| segment_header.segment_index.as_inner())
-            .unwrap_or(LocalSegmentIndex::ZERO);
+            .last_super_segment_header()
+            .map(|super_segment_header| super_segment_header.max_segment_index.as_inner())
+            .unwrap_or(SegmentIndex::ZERO);
 
         let consensus_constants = &self.consensus_constants;
         let protocol_info = FarmerProtocolInfo {
-            history_size: HistorySize::from(SegmentIndex::from(last_segment_index)),
+            history_size: HistorySize::from(max_segment_index),
             max_pieces_in_sector: self.max_pieces_in_sector,
             recent_segments: consensus_constants.recent_segments,
             recent_history_fraction: consensus_constants.recent_history_fraction,
