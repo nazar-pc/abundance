@@ -16,7 +16,7 @@ mod private {
     pub struct PhantomRegister<Type>(PhantomData<Type>);
 }
 
-/// General purpose register
+/// GPR (General Purpose Register)
 ///
 /// # Safety
 /// `Self::offset()` must return values in `0..Self::N` range.
@@ -53,8 +53,9 @@ pub const unsafe trait Register:
     fn offset(self) -> usize;
 }
 
-/// A set of RISC-V general purpose registers
+/// A set of RISC-V GPRs (General Purpose Registers)
 #[derive(Debug, Clone, Copy)]
+#[repr(align(16))]
 pub struct Registers<Reg>
 where
     Reg: Register,
@@ -81,6 +82,7 @@ where
     Reg: Register + [const] Eq,
     [(); Reg::N]:,
 {
+    /// Read register value
     #[inline(always)]
     pub fn read(&self, reg: Reg) -> Reg::Type
     where
@@ -95,6 +97,7 @@ where
         *unsafe { self.regs.get_unchecked(reg.offset()) }
     }
 
+    /// Write register value
     #[inline(always)]
     pub fn write(&mut self, reg: Reg, value: Reg::Type)
     where

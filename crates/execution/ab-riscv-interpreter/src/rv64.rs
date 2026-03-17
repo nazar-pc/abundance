@@ -90,8 +90,6 @@ where
 
 /// RV64 interpreter state
 #[derive(Debug)]
-// 16-byte alignment seems faster than 64 (cache line) for some reason, reconsider in the future
-#[repr(align(16))]
 pub struct Rv64InterpreterState<Reg, Memory, IF, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
