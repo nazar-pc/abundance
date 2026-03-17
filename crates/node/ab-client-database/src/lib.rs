@@ -78,7 +78,7 @@ use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
 use ab_core_primitives::segments::{
-    LocalSegmentIndex, SegmentHeader, SuperSegmentHeader, SuperSegmentIndex,
+    LocalSegmentIndex, SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
 };
 use ab_core_primitives::shard::RealShardKind;
 use ab_io_type::trivial_type::TrivialType;
@@ -656,6 +656,30 @@ impl SuperSegmentHeadersCache {
         self.super_segment_headers_cache
             .get(u64::from(local_segment_index) as usize)
             .copied()
+    }
+
+    #[inline(always)]
+    fn get_super_segment_header_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> Option<SuperSegmentHeader> {
+        let index = self
+            .super_segment_headers_cache
+            .binary_search_by_key(&segment_index, |super_segment_header| {
+                super_segment_header.max_segment_index.as_inner()
+            })
+            .unwrap_or_else(|insert_index| insert_index);
+
+        let super_segment_header = self.super_segment_headers_cache.get(index).copied()?;
+
+        let max_segment_index = super_segment_header.max_segment_index.as_inner();
+        let first_segment_index = max_segment_index
+            - SegmentIndex::from(u64::from(super_segment_header.num_segments))
+            + SegmentIndex::ONE;
+
+        (first_segment_index..=max_segment_index)
+            .contains(&segment_index)
+            .then_some(super_segment_header)
     }
 
     /// Returns actually added super segments (some might have been skipped)
@@ -1329,6 +1353,19 @@ where
         state
             .super_segment_headers_cache
             .get_super_segment_header(super_segment_index)
+    }
+
+    fn get_super_segment_header_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> Option<SuperSegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // most locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        state
+            .super_segment_headers_cache
+            .get_super_segment_header_for_segment_index(segment_index)
     }
 }
 

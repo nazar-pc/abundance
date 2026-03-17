@@ -1,19 +1,19 @@
 //! Node client abstraction
 //!
-//! During farmer operation it needs to communicate with node, for example to receive slot
+//! During farmer operation it needs to communicate with a node, for example, to receive slot
 //! notifications and send solutions to seal blocks.
 //!
-//! Implementation is abstracted away behind a trait to allow various implementation depending on
-//! use case. Implementation may connect to node via RPC directly, through some kind of networked
-//! middleware or even wired without network directly if node and farmer are both running in the
-//! same process.
+//! Implementation is abstracted away behind a trait to allow various implementations depending on
+//! the use case. Implementation may connect to a node via RPC directly, through some kind of
+//! networked middleware, or even wired without a network directly if node and farmer are both
+//! running in the same process.
 
 pub mod caching_proxy_node_client;
 pub mod rpc_node_client;
 
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{
-    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
 };
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
@@ -49,10 +49,10 @@ pub trait NodeClient: fmt::Debug + Send + Sync + 'static {
     /// Submit a block seal
     async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()>;
 
-    /// Subscribe to archived segment headers
-    async fn subscribe_archived_segment_headers(
+    /// Subscribe to new super segment headers
+    async fn subscribe_new_super_segment_headers(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>>;
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SuperSegmentHeader> + Send + 'static>>>;
 
     /// Get super segment headers
     async fn super_segment_headers(
@@ -60,20 +60,14 @@ pub trait NodeClient: fmt::Debug + Send + Sync + 'static {
         super_segment_indices: Vec<SuperSegmentIndex>,
     ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>>;
 
-    /// Get segment headers
-    async fn segment_headers(
-        &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>>;
-
-    /// Get piece by index.
-    async fn piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>>;
-
-    /// Acknowledge segment header.
-    async fn acknowledge_archived_segment_header(
+    /// Get super segment root for a segment index
+    async fn super_segment_root_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> anyhow::Result<()>;
+    ) -> anyhow::Result<Option<SuperSegmentRoot>>;
+
+    /// Get piece by index
+    async fn piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>>;
 
     // TODO: Move into `NodeClientExt`?
     /// Must be called while there is an active `shard_membership_entropy_update` subscription
@@ -87,19 +81,22 @@ pub trait NodeClient: fmt::Debug + Send + Sync + 'static {
 /// useful for an app
 #[async_trait]
 pub trait NodeClientExt: NodeClient {
-    /// Get the cached segment headers for the given segment indices.
-    /// If there is a cache, it is not updated, to avoid remote denial of service.
+    /// Get the cached super segment headers for the given super segment indices.
+    /// If there is a cache, it is not updated to avoid remote denial of service.
     ///
-    /// Returns `None` for segment indices that are not in the cache.
-    async fn cached_segment_headers(
+    /// Returns `None` for super segment indices that are not in the cache.
+    async fn cached_super_segment_headers(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>>;
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>>;
 
-    /// Get up to `limit` most recent segment headers.
-    /// If there is a cache, it is not updated, to avoid remote denial of service.
+    /// Get up to `limit` most recent super segment headers.
+    /// If there is a cache, it is not updated to avoid remote denial of service.
     ///
-    /// If the node or cache has less than `limit` segment headers, the returned vector will be
-    /// shorter. Each returned segment header is wrapped in `Some`.
-    async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>>;
+    /// If the node or cache has less than `limit` super segment headers, the returned vector will
+    /// be shorter. Each returned super segment header is wrapped in `Some`.
+    async fn last_super_segment_headers(
+        &self,
+        limit: u32,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>>;
 }

@@ -69,6 +69,14 @@ pub enum BeaconChainBlockVerificationError {
         /// Expected super segment index
         index: SuperSegmentIndex,
     },
+    /// Invalid history size
+    #[error("Invalid history size {history_size} (current {current_history_size})")]
+    InvalidHistorySize {
+        /// History size in the solution
+        history_size: HistorySize,
+        /// Current history size
+        current_history_size: HistorySize,
+    },
     /// Invalid super segment root
     #[error("Invalid super segment root: expected {expected:?}, actual {actual:?}")]
     InvalidSuperSegmentRoot {
@@ -672,22 +680,21 @@ where
                         solution_super_segment_header.root,
                     )
                 };
-            // TODO: Unlock this once farmer has better access to super segments and replace history
-            //  size with super segment index in the solution
-            // let sector_expiration_check_segment_root = self
-            //     .chain_info
-            //     .get_segment_header(
-            //         consensus_info
-            //             .solution
-            //             .history_size
-            //             .sector_expiration_check(self.consensus_constants.min_sector_lifetime)
-            //             .ok_or(BeaconChainBlockVerificationError::InvalidHistorySize {
-            //                 history_size: consensus_info.solution.history_size,
-            //                 current_history_size,
-            //             })?
-            //             .segment_index(),
-            //     )
-            //     .map(|segment_header| segment_header.segment_root);
+
+            let sector_expiration_check_super_segment_root = self
+                .chain_info
+                .get_super_segment_header_for_segment_index(
+                    consensus_info
+                        .solution
+                        .history_size
+                        .sector_expiration_check(self.consensus_constants.min_sector_lifetime)
+                        .ok_or(BeaconChainBlockVerificationError::InvalidHistorySize {
+                            history_size: consensus_info.solution.history_size,
+                            current_history_size,
+                        })?
+                        .segment_index(),
+                )
+                .map(|super_segment_header| super_segment_header.root);
 
             consensus_info
                 .solution
@@ -700,8 +707,7 @@ where
                     recent_history_fraction: self.consensus_constants.recent_history_fraction,
                     min_sector_lifetime: self.consensus_constants.min_sector_lifetime,
                     current_history_size,
-                    // TODO: Expiration check
-                    sector_expiration_check_segment_root: None,
+                    sector_expiration_check_super_segment_root,
                 })
                 .map_err(BeaconChainBlockVerificationError::from)?;
         }

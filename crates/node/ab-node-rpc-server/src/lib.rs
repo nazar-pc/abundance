@@ -2,7 +2,10 @@
 
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{BeaconChainInfo, ChainSyncStatus};
-use ab_client_archiving::segment::{ArchivedSegmentNotification, recreate_genesis_segment};
+use ab_client_archiving::recreate::{
+    RecreateSegmentError, RecreateSegmentSuperSegmentDetails, recreate_genesis_segment,
+    recreate_segment,
+};
 use ab_client_block_authoring::slot_worker::{
     BlockSealNotification, NewSlotInfo, NewSlotNotification,
 };
@@ -13,37 +16,41 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{
-    HistorySize, LocalSegmentIndex, SegmentHeader, SegmentIndex, SuperSegmentHeader,
-    SuperSegmentIndex,
+    HistorySize, LocalSegmentIndex, SegmentIndex, SuperSegment, SuperSegmentHeader,
+    SuperSegmentIndex, SuperSegmentRoot,
 };
+use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
-    MAX_SEGMENT_HEADERS_PER_REQUEST, MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST,
-    SHARD_MEMBERSHIP_EXPIRATION, SlotInfo, SolutionResponse,
+    MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST, SHARD_MEMBERSHIP_EXPIRATION, SlotInfo, SolutionResponse,
 };
 use ab_networking::libp2p::Multiaddr;
+use async_lock::Mutex as AsyncMutex;
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, StreamExt, select};
 use jsonrpsee::core::{SubscriptionResult, async_trait};
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::server::{Server, ServerConfig};
-use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, SubscriptionId};
+use jsonrpsee::tokio::task::{JoinError, spawn_blocking};
+use jsonrpsee::tokio::time::MissedTickBehavior;
+use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 use jsonrpsee::{
     ConnectionId, Extensions, PendingSubscriptionSink, SubscriptionSink, TrySendError,
 };
 use parking_lot::Mutex;
-use replace_with::replace_with_or_abort;
 use schnellru::{ByLength, LruMap};
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
+use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::net::SocketAddr;
-use std::sync::{Arc, Weak};
-use std::time::Instant;
-use tracing::{debug, error, info, warn};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tracing::{error, info, warn};
+
+const CACHED_SUPER_SEGMENTS_CAPACITY: usize = 5;
+const CACHED_ARCHIVED_SEGMENT_TIMEOUT: Duration = Duration::from_mins(1);
 
 /// Top-level error type for the RPC handler.
 #[derive(Debug, thiserror::Error)]
@@ -54,21 +61,30 @@ pub enum Error {
         /// Slot number
         slot: SlotNumber,
     },
-    /// Segment headers length exceeded the limit
+    /// Super segment headers length exceeded the limit
     #[error(
-        "Segment headers length exceeded the limit: {actual}/{MAX_SEGMENT_HEADERS_PER_REQUEST}"
+        "Super segment headers length exceeded the limit: \
+        {actual}/{MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST}"
     )]
-    SegmentHeadersLengthExceeded {
-        /// Requested number of segment headers/indices
+    SuperSegmentHeadersLengthExceeded {
+        /// Requested number of super segment headers/indices
         actual: usize,
     },
+    /// Failed to recreate segment
+    #[error("Failed to recreate segment: {0}")]
+    FailedToRecreateSegment(#[from] RecreateSegmentError),
+    /// Blocking task join error
+    #[error("Blocking task join error: {0}")]
+    BlockingTaskJoinError(#[from] JoinError),
 }
 
 impl From<Error> for ErrorObjectOwned {
     fn from(error: Error) -> Self {
         let code = match &error {
             Error::SolutionWasIgnored { .. } => 0,
-            Error::SegmentHeadersLengthExceeded { .. } => 1,
+            Error::SuperSegmentHeadersLengthExceeded { .. } => 1,
+            Error::FailedToRecreateSegment(_) => 2,
+            Error::BlockingTaskJoinError(_) => 3,
         };
 
         ErrorObject::owned(code, error.to_string(), None::<()>)
@@ -104,13 +120,13 @@ pub trait FarmerRpcApi {
     #[method(name = "submitBlockSeal")]
     fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error>;
 
-    /// Archived segment header subscription
+    /// New super segment header subscription
     #[subscription(
-        name = "subscribeArchivedSegmentHeader" => "archived_segment_header",
-        unsubscribe = "unsubscribeArchivedSegmentHeader",
-        item = SegmentHeader,
+        name = "subscribeNewSuperSegmentHeader" => "new_super_segment_header",
+        unsubscribe = "unsubscribeNewSuperSegmentHeader",
+        item = SuperSegmentHeader,
     )]
-    async fn subscribe_archived_segment_header(&self) -> SubscriptionResult;
+    async fn subscribe_new_super_segment_header(&self) -> SubscriptionResult;
 
     #[method(name = "superSegmentHeaders")]
     async fn super_segment_headers(
@@ -118,23 +134,20 @@ pub trait FarmerRpcApi {
         super_segment_indices: Vec<SuperSegmentIndex>,
     ) -> Result<Vec<Option<SuperSegmentHeader>>, Error>;
 
-    #[method(name = "segmentHeaders")]
-    async fn segment_headers(
+    #[method(name = "lastSuperSegmentHeaders")]
+    async fn last_super_segment_headers(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> Result<Vec<Option<SegmentHeader>>, Error>;
+        limit: u32,
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error>;
 
-    #[method(name = "piece", blocking)]
-    fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error>;
-
-    #[method(name = "acknowledgeArchivedSegmentHeader")]
-    async fn acknowledge_archived_segment_header(
+    #[method(name = "superSegmentRootForSegmentIndex")]
+    async fn super_segment_root_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<(), Error>;
+    ) -> Result<Option<SuperSegmentRoot>, Error>;
 
-    #[method(name = "lastSegmentHeaders")]
-    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error>;
+    #[method(name = "piece")]
+    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error>;
 
     #[method(name = "updateShardMembershipInfo", with_extensions)]
     async fn update_shard_membership_info(
@@ -144,36 +157,51 @@ pub trait FarmerRpcApi {
 }
 
 #[derive(Debug, Default)]
-struct ArchivedSegmentHeaderAcknowledgementSenders {
-    segment_index: SegmentIndex,
-    senders: HashMap<SubscriptionId<'static>, mpsc::Sender<()>>,
-}
-
-#[derive(Debug, Default)]
 struct BlockSignatureSenders {
     current_pre_seal_hash: Blake3Hash,
     senders: Vec<oneshot::Sender<OwnedBlockHeaderSeal>>,
 }
 
-/// In-memory cache of last archived segment, such that when request comes back right after
-/// archived segment notification, RPC server is able to answer quickly.
-///
-/// We store weak reference, such that archived segment is not persisted for longer than
-/// necessary occupying RAM.
 #[derive(Debug)]
-enum CachedArchivedSegment {
-    /// Special case for genesis segment when requested over RPC
-    Genesis(Arc<NewArchivedSegment>),
-    Weak(Weak<NewArchivedSegment>),
+struct CachedSuperSegments {
+    super_segments: VecDeque<SuperSegment>,
 }
 
-impl CachedArchivedSegment {
-    fn get(&self) -> Option<Arc<NewArchivedSegment>> {
-        match self {
-            CachedArchivedSegment::Genesis(archived_segment) => Some(Arc::clone(archived_segment)),
-            CachedArchivedSegment::Weak(weak_archived_segment) => weak_archived_segment.upgrade(),
+impl Default for CachedSuperSegments {
+    fn default() -> Self {
+        Self {
+            super_segments: VecDeque::with_capacity(CACHED_SUPER_SEGMENTS_CAPACITY),
         }
     }
+}
+
+impl CachedSuperSegments {
+    fn get_for_segment_index(&self, segment_index: SegmentIndex) -> Option<&SuperSegment> {
+        self.super_segments.iter().find(|super_segment| {
+            let max_segment_index = super_segment.header.max_segment_index.as_inner();
+            let first_segment_index = max_segment_index
+                - SegmentIndex::from(u64::from(super_segment.header.num_segments))
+                + SegmentIndex::ONE;
+
+            (first_segment_index..=max_segment_index).contains(&segment_index)
+        })
+    }
+
+    fn add(&mut self, super_segment: SuperSegment) {
+        if self.super_segments.len() == CACHED_SUPER_SEGMENTS_CAPACITY {
+            self.super_segments.pop_front();
+        }
+
+        self.super_segments.push_back(super_segment);
+    }
+}
+
+/// Temporary in-memory cache of the last archived segment
+#[derive(Debug)]
+struct CachedArchivedSegment {
+    segment_index: SegmentIndex,
+    segment: NewArchivedSegment,
+    last_used_at: Instant,
 }
 
 #[derive(Debug)]
@@ -202,8 +230,8 @@ pub struct FarmerRpcConfig<BCI, CSS> {
     pub new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
     /// Block sealing notifications
     pub block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
-    /// Archived segment notifications
-    pub archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
+    /// Super segment notifications
+    pub new_super_segment_notification_receiver: mpsc::Receiver<SuperSegment>,
     /// Shard membership updates
     pub shard_membership_updates_sender: mpsc::Sender<Vec<FarmerShardMembershipInfo>>,
     /// DSN bootstrap nodes
@@ -227,15 +255,14 @@ where
     rpc: Option<FarmerRpc<BCI, CSS>>,
     new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
     block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
-    archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
+    new_super_segment_notification_receiver: mpsc::Receiver<SuperSegment>,
     solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
     block_sealing_senders: Arc<Mutex<BlockSignatureSenders>>,
-    cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
-    archived_segment_acknowledgement_senders:
-        Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
     slot_info_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
     block_sealing_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
-    archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    new_super_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    cached_archived_segment: Arc<AsyncMutex<Option<CachedArchivedSegment>>>,
+    cached_super_segments: Arc<Mutex<CachedSuperSegments>>,
 }
 
 impl<BCI, CSS> FarmerRpcWorker<BCI, CSS>
@@ -266,8 +293,9 @@ where
             solution_response_senders_capacity,
         ))));
         let block_sealing_senders = Arc::default();
+        let new_super_segment_header_subscriptions = Arc::default();
         let cached_archived_segment = Arc::default();
-        let archived_segment_header_subscriptions = Arc::default();
+        let cached_super_segments = Arc::default();
 
         let rpc = FarmerRpc {
             genesis_block: config.genesis_block,
@@ -275,16 +303,16 @@ where
             block_sealing_senders: Arc::clone(&block_sealing_senders),
             dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
             beacon_chain_info: config.beacon_chain_info,
-            cached_archived_segment: Arc::clone(&cached_archived_segment),
-            archived_segment_acknowledgement_senders: Arc::default(),
             chain_sync_status: config.chain_sync_status,
             consensus_constants: config.consensus_constants,
             max_pieces_in_sector: config.max_pieces_in_sector,
             slot_info_subscriptions: Arc::clone(&slot_info_subscriptions),
             block_sealing_subscriptions: Arc::clone(&block_sealing_subscriptions),
-            archived_segment_header_subscriptions: Arc::clone(
-                &archived_segment_header_subscriptions,
+            new_super_segment_header_subscriptions: Arc::clone(
+                &new_super_segment_header_subscriptions,
             ),
+            cached_archived_segment: Arc::clone(&cached_archived_segment),
+            cached_super_segments: Arc::clone(&cached_super_segments),
             shard_membership_connections: Arc::default(),
             shard_membership_updates_sender: config.shard_membership_updates_sender,
             erasure_coding: config.erasure_coding,
@@ -295,14 +323,14 @@ where
             rpc: Some(rpc),
             new_slot_notification_receiver: config.new_slot_notification_receiver,
             block_sealing_notification_receiver: config.block_sealing_notification_receiver,
-            archived_segment_notification_receiver: config.archived_segment_notification_receiver,
+            new_super_segment_notification_receiver: config.new_super_segment_notification_receiver,
             solution_response_senders,
             block_sealing_senders,
-            cached_archived_segment,
-            archived_segment_acknowledgement_senders: Arc::new(Default::default()),
             slot_info_subscriptions,
             block_sealing_subscriptions,
-            archived_segment_header_subscriptions,
+            new_super_segment_header_subscriptions,
+            cached_archived_segment,
+            cached_super_segments,
         })
     }
 
@@ -311,6 +339,11 @@ where
         let server = self.server.take().expect("Called only once from here; qed");
         let rpc = self.rpc.take().expect("Called only once from here; qed");
         let mut server_fut = server.start(rpc.into_rpc()).stopped().boxed().fuse();
+
+        // Also send periodic updates in addition to the subscription response
+        let mut archived_segment_cache_cleanup_interval =
+            tokio::time::interval(CACHED_ARCHIVED_SEGMENT_TIMEOUT);
+        archived_segment_cache_cleanup_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         loop {
             select! {
@@ -329,12 +362,20 @@ where
 
                     self.handle_block_sealing_notification(block_sealing_notification).await;
                 }
-                maybe_archived_segment_notification = self.archived_segment_notification_receiver.next() => {
-                    let Some(archived_segment_notification) = maybe_archived_segment_notification else {
+                maybe_new_super_segment = self.new_super_segment_notification_receiver.next() => {
+                    let Some(new_super_segment) = maybe_new_super_segment else {
                         break;
                     };
 
-                    self.handle_archived_segment_notification(archived_segment_notification).await;
+                    self.handle_new_super_segment(new_super_segment).await;
+                }
+                _ = archived_segment_cache_cleanup_interval.tick().fuse() => {
+                    if let Some(mut maybe_cached_archived_segment) = self.cached_archived_segment.try_lock()
+                        && let Some(cached_archived_segment) = maybe_cached_archived_segment.as_ref()
+                        && cached_archived_segment.last_used_at.elapsed() >= CACHED_ARCHIVED_SEGMENT_TIMEOUT
+                    {
+                        maybe_cached_archived_segment.take();
+                    }
                 }
             }
         }
@@ -444,96 +485,26 @@ where
         });
     }
 
-    async fn handle_archived_segment_notification(
-        &mut self,
-        archived_segment_notification: ArchivedSegmentNotification,
-    ) {
-        let ArchivedSegmentNotification {
-            mut archived_segment,
-            acknowledgement_sender,
-        } = archived_segment_notification;
+    async fn handle_new_super_segment(&mut self, super_segment: SuperSegment) {
+        // This will be sent to the farmer
+        let super_segment_header = serde_json::value::to_raw_value(&super_segment.header)
+            .expect("Serialization of super segment info never fails; qed");
 
-        let segment_index =
-            SegmentIndex::from(archived_segment.segment_header.local_segment_index());
+        self.cached_super_segments.lock().add(super_segment);
 
-        // TODO: Combine `archived_segment_header_subscriptions` and
-        //  `archived_segment_acknowledgement_senders` under the same lock to avoid potential
-        //  accidental deadlock with future changed
-        self.archived_segment_header_subscriptions
+        self.new_super_segment_header_subscriptions
             .lock()
             .retain_mut(|sink| {
                 let subscription_id = sink.subscription_id();
 
-                // Store acknowledgment sender so that we can retrieve it when acknowledgment
-                // comes from the farmer
-                let mut archived_segment_acknowledgement_senders =
-                    self.archived_segment_acknowledgement_senders.lock();
-
-                if archived_segment_acknowledgement_senders.segment_index != segment_index {
-                    archived_segment_acknowledgement_senders.segment_index = segment_index;
-                    archived_segment_acknowledgement_senders.senders.clear();
-                }
-
-                // TODO: This is a temporary hack while there is only beacon chain. Local segments
-                //  will require special caching on the farmer before super segment is created and
-                //  both global segment index and segment proof are known
-                {
-                    let archived_segment = Arc::make_mut(&mut archived_segment);
-
-                    for piece in archived_segment.pieces.iter_mut() {
-                        piece.header.super_segment_index = SuperSegmentIndex::from(u64::from(
-                            archived_segment.segment_header.segment_index.as_inner(),
-                        ))
-                        .into();
-                        // Since there is a single segment in super segment, the proof is empty
-                    }
-
-                    replace_with_or_abort(&mut archived_segment.pieces, |pieces| {
-                        pieces.to_shared()
-                    });
-                }
-
-                self.cached_archived_segment
-                    .lock()
-                    .replace(CachedArchivedSegment::Weak(Arc::downgrade(
-                        &archived_segment,
-                    )));
-
-                let maybe_archived_segment_header = match archived_segment_acknowledgement_senders
-                    .senders
-                    .entry(subscription_id.clone())
-                {
-                    Entry::Occupied(_) => {
-                        // No need to do anything, a farmer is processing a request
-                        None
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(acknowledgement_sender.clone());
-
-                        // This will be sent to the farmer
-                        Some(archived_segment.segment_header)
-                    }
-                };
-
-                // This will be sent to the farmer
-                let maybe_archived_segment_header =
-                    serde_json::value::to_raw_value(&maybe_archived_segment_header)
-                        .expect("Serialization of archived segment info never fails; qed");
-
-                match sink.try_send(maybe_archived_segment_header) {
+                match sink.try_send(super_segment_header.clone()) {
                     Ok(()) => true,
                     Err(error) => match error {
-                        TrySendError::Closed(_) => {
-                            // Remove closed receivers
-                            archived_segment_acknowledgement_senders
-                                .senders
-                                .remove(&subscription_id);
-                            false
-                        }
+                        TrySendError::Closed(_) => false,
                         TrySendError::Full(_) => {
                             warn!(
                                 ?subscription_id,
-                                "Block seal info receiver is too slow, dropping notification"
+                                "Super segment receiver is too slow, dropping notification"
                             );
                             true
                         }
@@ -555,15 +526,14 @@ where
     block_sealing_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
     beacon_chain_info: BCI,
-    cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
-    archived_segment_acknowledgement_senders:
-        Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
     chain_sync_status: CSS,
     consensus_constants: ConsensusConstants,
     max_pieces_in_sector: u16,
     slot_info_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
     block_sealing_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
-    archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    new_super_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    cached_archived_segment: Arc<AsyncMutex<Option<CachedArchivedSegment>>>,
+    cached_super_segments: Arc<Mutex<CachedSuperSegments>>,
     shard_membership_connections: Arc<Mutex<ShardMembershipConnections>>,
     shard_membership_updates_sender: mpsc::Sender<Vec<FarmerShardMembershipInfo>>,
     erasure_coding: ErasureCoding,
@@ -658,99 +628,16 @@ where
         Ok(())
     }
 
-    async fn subscribe_archived_segment_header(
+    async fn subscribe_new_super_segment_header(
         &self,
         pending: PendingSubscriptionSink,
     ) -> SubscriptionResult {
         let subscription = pending.accept().await?;
-        self.archived_segment_header_subscriptions
+        self.new_super_segment_header_subscriptions
             .lock()
             .push(subscription);
 
         Ok(())
-    }
-
-    async fn acknowledge_archived_segment_header(
-        &self,
-        segment_index: SegmentIndex,
-    ) -> Result<(), Error> {
-        let archived_segment_acknowledgement_senders =
-            self.archived_segment_acknowledgement_senders.clone();
-
-        let maybe_sender = {
-            let mut archived_segment_acknowledgement_senders_guard =
-                archived_segment_acknowledgement_senders.lock();
-
-            (archived_segment_acknowledgement_senders_guard.segment_index == segment_index)
-                .then(|| {
-                    let last_key = archived_segment_acknowledgement_senders_guard
-                        .senders
-                        .keys()
-                        .next()
-                        .cloned()?;
-
-                    archived_segment_acknowledgement_senders_guard
-                        .senders
-                        .remove(&last_key)
-                })
-                .flatten()
-        };
-
-        if let Some(mut sender) = maybe_sender
-            && let Err(error) = sender.try_send(())
-            && !error.is_disconnected()
-        {
-            warn!(%error, "Failed to acknowledge archived segment");
-        }
-
-        debug!(%segment_index, "Acknowledged archived segment.");
-
-        Ok(())
-    }
-
-    // Note: this RPC uses the cached archived segment, which is only updated by archived segments
-    // subscriptions
-    fn piece(&self, requested_piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
-        let archived_segment = {
-            let mut cached_archived_segment = self.cached_archived_segment.lock();
-
-            match cached_archived_segment
-                .as_ref()
-                .and_then(CachedArchivedSegment::get)
-            {
-                Some(archived_segment) => archived_segment,
-                None => {
-                    if requested_piece_index > SegmentIndex::ZERO.last_piece_index() {
-                        return Ok(None);
-                    }
-
-                    debug!(%requested_piece_index, "Re-creating the genesis segment on demand");
-
-                    // Re-create the genesis segment on demand
-                    let archived_segment = Arc::new(recreate_genesis_segment(
-                        &self.genesis_block,
-                        self.erasure_coding.clone(),
-                    ));
-
-                    cached_archived_segment.replace(CachedArchivedSegment::Genesis(Arc::clone(
-                        &archived_segment,
-                    )));
-
-                    archived_segment
-                }
-            }
-        };
-
-        if requested_piece_index.segment_index()
-            == SegmentIndex::from(archived_segment.segment_header.local_segment_index())
-        {
-            return Ok(archived_segment
-                .pieces
-                .pieces()
-                .nth(usize::from(requested_piece_index.position())));
-        }
-
-        Ok(None)
     }
 
     async fn super_segment_headers(
@@ -763,7 +650,7 @@ where
                 super_segment_indices.len()
             );
 
-            return Err(Error::SegmentHeadersLengthExceeded {
+            return Err(Error::SuperSegmentHeadersLengthExceeded {
                 actual: super_segment_indices.len(),
             });
         };
@@ -777,57 +664,179 @@ where
             .collect())
     }
 
-    async fn segment_headers(
+    async fn last_super_segment_headers(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> Result<Vec<Option<SegmentHeader>>, Error> {
-        if segment_indices.len() > MAX_SEGMENT_HEADERS_PER_REQUEST {
-            error!(
-                "`segment_indices` length exceed the limit: {} ",
-                segment_indices.len()
-            );
-
-            return Err(Error::SegmentHeadersLengthExceeded {
-                actual: segment_indices.len(),
-            });
-        };
-
-        Ok(segment_indices
-            .into_iter()
-            .map(|segment_index| {
-                self.beacon_chain_info
-                    .get_segment_header(segment_index.into())
-            })
-            .collect())
-    }
-
-    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error> {
-        if limit as usize > MAX_SEGMENT_HEADERS_PER_REQUEST {
+        limit: u32,
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error> {
+        if limit as usize > MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST {
             error!(
                 "Request limit ({}) exceed the server limit: {} ",
-                limit, MAX_SEGMENT_HEADERS_PER_REQUEST
+                limit, MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST
             );
 
-            return Err(Error::SegmentHeadersLengthExceeded {
+            return Err(Error::SuperSegmentHeadersLengthExceeded {
                 actual: limit as usize,
             });
         };
 
-        let last_segment_index = self
+        let last_super_segment_index = self
             .beacon_chain_info
-            .last_segment_header()
-            .map(|segment_header| segment_header.segment_index.as_inner())
-            .unwrap_or(LocalSegmentIndex::ZERO);
+            .last_super_segment_header()
+            .map(|super_segment_header| super_segment_header.index.as_inner())
+            .unwrap_or(SuperSegmentIndex::ZERO);
 
-        let mut last_segment_headers = (LocalSegmentIndex::ZERO..=last_segment_index)
+        let mut last_super_segment_headers = (SuperSegmentIndex::ZERO..=last_super_segment_index)
             .rev()
             .take(limit as usize)
-            .map(|segment_index| self.beacon_chain_info.get_segment_header(segment_index))
+            .map(|super_segment_index| {
+                self.beacon_chain_info
+                    .get_super_segment_header(super_segment_index)
+            })
             .collect::<Vec<_>>();
 
-        last_segment_headers.reverse();
+        last_super_segment_headers.reverse();
 
-        Ok(last_segment_headers)
+        Ok(last_super_segment_headers)
+    }
+
+    async fn super_segment_root_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> Result<Option<SuperSegmentRoot>, Error> {
+        Ok(self
+            .beacon_chain_info
+            .get_super_segment_header_for_segment_index(segment_index)
+            .map(|super_segment_header| super_segment_header.root))
+    }
+
+    // Note: this RPC uses the cached archived segment, which is only updated by archived segments
+    // subscriptions
+    async fn piece(&self, requested_piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
+        let segment_index = requested_piece_index.segment_index();
+        let cached_archived_segment = &mut *self.cached_archived_segment.lock().await;
+
+        if let Some(cached_archived_segment) = cached_archived_segment
+            && cached_archived_segment.segment_index == segment_index
+        {
+            cached_archived_segment.last_used_at = Instant::now();
+
+            return Ok(cached_archived_segment
+                .segment
+                .pieces
+                .pieces()
+                .nth(usize::from(requested_piece_index.position())));
+        }
+
+        if segment_index == SegmentIndex::ZERO {
+            let segment = spawn_blocking({
+                let genesis_block = self.genesis_block.clone();
+                let erasure_coding = self.erasure_coding.clone();
+
+                move || recreate_genesis_segment(&genesis_block, erasure_coding)
+            })
+            .await?;
+            let cached_archived_segment = cached_archived_segment.insert(CachedArchivedSegment {
+                segment_index: SegmentIndex::ZERO,
+                segment,
+                last_used_at: Instant::now(),
+            });
+
+            return Ok(cached_archived_segment
+                .segment
+                .pieces
+                .pieces()
+                .nth(usize::from(requested_piece_index.position())));
+        }
+
+        let (super_segment_index, shard_segment_root_with_position, segment_proof) = {
+            let cached_super_segments = self.cached_super_segments.lock();
+            let Some(super_segment) = cached_super_segments.get_for_segment_index(segment_index)
+            else {
+                return Ok(None);
+            };
+
+            let Some(shard_segment_root_with_position) = super_segment
+                .segment_roots
+                .iter()
+                .nth_back(u64::from(
+                    super_segment.header.max_segment_index.as_inner() - segment_index,
+                ) as usize)
+                .copied()
+            else {
+                error!(
+                    %requested_piece_index,
+                    %segment_index,
+                    super_segment_header = ?super_segment.header,
+                    "Failed to find segment index inside super segment, this should never happen"
+                );
+                return Ok(None);
+            };
+
+            let segment_position = shard_segment_root_with_position.segment_position;
+
+            let Some(segment_proof) = super_segment.proof_for_segment(segment_position) else {
+                error!(
+                    %requested_piece_index,
+                    %segment_index,
+                    %segment_position,
+                    super_segment_header = ?super_segment.header,
+                    "Failed to get segment proof for segment position, this should never happen"
+                );
+
+                return Ok(None);
+            };
+
+            (
+                super_segment.header.index.as_inner(),
+                shard_segment_root_with_position,
+                segment_proof,
+            )
+        };
+
+        let recreate_segment_super_segment_details = RecreateSegmentSuperSegmentDetails {
+            super_segment_index,
+            segment_position: shard_segment_root_with_position.segment_position,
+            segment_proof,
+        };
+
+        if shard_segment_root_with_position.shard_index != ShardIndex::BEACON_CHAIN {
+            // TODO: There will be a need for chain info instances of all live shards to re-derive
+            //  segments here, but there is just a beacon chain here for now
+            unimplemented!("Shard segments for non-beacon chain shards are not supported yet");
+        }
+
+        let last_archived_segment = shard_segment_root_with_position
+            .local_segment_index
+            .checked_sub(LocalSegmentIndex::ONE)
+            .and_then(|last_segment_index| {
+                self.beacon_chain_info
+                    .get_segment_header(last_segment_index)
+            });
+
+        let maybe_segment = recreate_segment(
+            last_archived_segment,
+            &self.beacon_chain_info,
+            self.erasure_coding.clone(),
+            &recreate_segment_super_segment_details,
+            |_| Vec::new(),
+        )
+        .await?;
+
+        let Some(segment) = maybe_segment else {
+            return Ok(None);
+        };
+
+        let cached_archived_segment = cached_archived_segment.insert(CachedArchivedSegment {
+            segment_index,
+            segment,
+            last_used_at: Instant::now(),
+        });
+
+        Ok(cached_archived_segment
+            .segment
+            .pieces
+            .pieces()
+            .nth(usize::from(requested_piece_index.position())))
     }
 
     async fn update_shard_membership_info(
@@ -847,7 +856,7 @@ where
             shard_membership_connections
                 .connections
                 .retain(|_connection_id, state| {
-                    state.last_update.elapsed() >= SHARD_MEMBERSHIP_EXPIRATION
+                    state.last_update.elapsed() < SHARD_MEMBERSHIP_EXPIRATION
                 });
 
             shard_membership_connections.connections.insert(

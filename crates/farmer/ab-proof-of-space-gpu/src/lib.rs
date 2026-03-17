@@ -8,10 +8,7 @@
 #![cfg_attr(target_arch = "spirv", feature(bigint_helper_methods))]
 #![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
-#![cfg_attr(
-    all(test, not(target_arch = "spirv")),
-    feature(const_convert, maybe_uninit_fill)
-)]
+#![cfg_attr(all(test, not(target_arch = "spirv")), feature(maybe_uninit_fill))]
 
 #[cfg(not(target_arch = "spirv"))]
 mod host;

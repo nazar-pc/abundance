@@ -2,7 +2,7 @@ use ab_farmer::KNOWN_PEERS_CACHE_SIZE;
 use ab_farmer::farm::plotted_pieces::PlottedPieces;
 use ab_farmer::farmer_cache::FarmerCaches;
 use ab_farmer::node_client::NodeClientExt;
-use ab_farmer_rpc_primitives::MAX_SEGMENT_HEADERS_PER_REQUEST;
+use ab_farmer_rpc_primitives::MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST;
 use ab_networking::libp2p::Multiaddr;
 use ab_networking::libp2p::identity::Keypair;
 use ab_networking::libp2p::multiaddr::Protocol;
@@ -14,7 +14,8 @@ use ab_networking::protocols::request_response::handlers::piece_by_index::{
     PieceByIndexRequest, PieceByIndexRequestHandler, PieceByIndexResponse,
 };
 use ab_networking::protocols::request_response::handlers::segment_header::{
-    SegmentHeaderBySegmentIndexesRequestHandler, SegmentHeaderRequest, SegmentHeaderResponse,
+    SuperSegmentHeaderBySegmentIndexesRequestHandler, SuperSegmentHeaderRequest,
+    SuperSegmentHeaderResponse,
 };
 use ab_networking::utils::multihash::ToMultihash;
 use ab_networking::utils::strip_peer_id;
@@ -34,10 +35,10 @@ use std::path::Path;
 use std::sync::{Arc, Weak};
 use tracing::{Instrument, debug, error, info, warn};
 
-/// How many segment headers can be requested at a time.
+/// How many super segment headers can be requested at a time.
 ///
 /// Must be the same as RPC limit since all requests go to the node anyway.
-const SEGMENT_HEADERS_LIMIT: u32 = MAX_SEGMENT_HEADERS_PER_REQUEST as u32;
+const SUPER_SEGMENT_HEADERS_LIMIT: u32 = MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST as u32;
 
 /// Configuration for network stack
 #[derive(Debug, Parser)]
@@ -226,24 +227,26 @@ where
                 }
                 .in_current_span()
             }),
-            SegmentHeaderBySegmentIndexesRequestHandler::create(move |peer_id, req| {
+            SuperSegmentHeaderBySegmentIndexesRequestHandler::create(move |peer_id, req| {
                 debug!(%peer_id, ?req, "Segment headers request received.");
 
                 let node_client = node_client.clone();
 
                 async move {
                     let internal_result = match req {
-                        SegmentHeaderRequest::SegmentIndexes { segment_indexes } => {
-                            let segment_indexes = Arc::unwrap_or_clone(segment_indexes);
+                        SuperSegmentHeaderRequest::SuperSegmentIndices {
+                            super_segment_indices,
+                        } => {
+                            let super_segment_indices = Arc::unwrap_or_clone(super_segment_indices);
 
-                            if segment_indexes.len() > SEGMENT_HEADERS_LIMIT as usize {
+                            if super_segment_indices.len() > SUPER_SEGMENT_HEADERS_LIMIT as usize {
                                 debug!(
                                     %peer_id,
-                                    segment_indexes_count = %segment_indexes.len(),
-                                    %SEGMENT_HEADERS_LIMIT,
-                                    first_segment_index = ?segment_indexes.first(),
-                                    last_segment_index = ?segment_indexes.last(),
-                                    "segment_indexes length exceed the limit",
+                                    super_segment_indexes_count = %super_segment_indices.len(),
+                                    %SUPER_SEGMENT_HEADERS_LIMIT,
+                                    first_super_segment_index = ?super_segment_indices.first(),
+                                    last_super_segment_index = ?super_segment_indices.last(),
+                                    "`super_segment_indices` length exceed the limit",
                                 );
 
                                 return None;
@@ -251,43 +254,47 @@ where
 
                             debug!(
                                 %peer_id,
-                                segment_indexes_count = %segment_indexes.len(),
-                                first_segment_index = ?segment_indexes.first(),
-                                last_segment_index = ?segment_indexes.last(),
-                                "Segment headers request received.",
+                                super_segment_indexes_count = %super_segment_indices.len(),
+                                first_super_segment_index = ?super_segment_indices.first(),
+                                last_super_segment_index = ?super_segment_indices.last(),
+                                "Super segment headers request received",
                             );
 
                             // To avoid remote denial of service, we don't update the cache in
-                            // response to any network requests.
-                            node_client.cached_segment_headers(segment_indexes).await
+                            // response to any network requests
+                            node_client
+                                .cached_super_segment_headers(super_segment_indices)
+                                .await
                         }
-                        SegmentHeaderRequest::LastSegmentHeaders { mut limit } => {
-                            if limit > SEGMENT_HEADERS_LIMIT {
+                        SuperSegmentHeaderRequest::LastSuperSegmentHeaders { mut limit } => {
+                            if limit > SUPER_SEGMENT_HEADERS_LIMIT {
                                 debug!(
                                     %peer_id,
                                     %limit,
-                                    %SEGMENT_HEADERS_LIMIT,
-                                    "Segment header number exceeded the limit.",
+                                    %SUPER_SEGMENT_HEADERS_LIMIT,
+                                    "Super segment header number exceeded the limit",
                                 );
 
-                                limit = SEGMENT_HEADERS_LIMIT;
+                                limit = SUPER_SEGMENT_HEADERS_LIMIT;
                             }
-                            node_client.last_segment_headers(limit).await
+                            node_client.last_super_segment_headers(limit).await
                         }
                     };
 
                     match internal_result {
-                        Ok(segment_headers) => segment_headers
+                        Ok(super_segment_headers) => super_segment_headers
                             .into_iter()
                             .inspect(|maybe_segment_header| {
                                 if maybe_segment_header.is_none() {
-                                    error!("Received empty optional segment header!");
+                                    error!("Received empty optional super segment header!");
                                 }
                             })
                             .collect::<Option<Vec<_>>>()
-                            .map(|segment_headers| SegmentHeaderResponse { segment_headers }),
+                            .map(|super_segment_headers| SuperSegmentHeaderResponse {
+                                super_segment_headers,
+                            }),
                         Err(error) => {
-                            error!(%error, "Failed to get segment headers from cache");
+                            error!(%error, "Failed to get super segment headers from cache");
 
                             None
                         }

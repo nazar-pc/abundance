@@ -7,7 +7,7 @@ use crate::hashes::Blake3Hash;
 use crate::nano_u256::NanoU256;
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
-use crate::segments::{HistorySize, SegmentRoot};
+use crate::segments::{HistorySize, SuperSegmentRoot};
 use crate::solutions::ShardCommitmentHash;
 use ab_blake3::{single_block_hash, single_block_keyed_hash};
 use ab_io_type::trivial_type::TrivialType;
@@ -251,7 +251,7 @@ impl SectorId {
     pub fn derive_expiration_history_size(
         &self,
         history_size: HistorySize,
-        sector_expiration_check_segment_root: &SegmentRoot,
+        sector_expiration_check_super_segment_root: &SuperSegmentRoot,
         min_sector_lifetime: HistorySize,
     ) -> Option<HistorySize> {
         let sector_expiration_check_history_size = history_size
@@ -259,8 +259,10 @@ impl SectorId {
             .as_non_zero_u64();
 
         let input_hash = NanoU256::from_le_bytes(
-            single_block_hash([*self.0, **sector_expiration_check_segment_root].as_flattened())
-                .expect("Less than a single block worth of bytes; qed"),
+            single_block_hash(
+                [*self.0, **sector_expiration_check_super_segment_root].as_flattened(),
+            )
+            .expect("Less than a single block worth of bytes; qed"),
         );
 
         let last_possible_expiration = min_sector_lifetime

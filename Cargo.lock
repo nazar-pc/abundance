@@ -664,14 +664,14 @@ dependencies = [
  "ab-farmer-components",
  "ab-farmer-rpc-primitives",
  "ab-networking",
+ "async-lock",
  "futures",
  "jsonrpsee",
  "parking_lot 0.12.5",
- "replace_with",
  "schnellru",
- "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
 ]
 

@@ -223,6 +223,11 @@ impl From<SegmentPosition> for u64 {
     }
 }
 
+impl SegmentPosition {
+    /// Zero position
+    pub const ZERO: Self = Self(0);
+}
+
 /// Shard segment root with position
 #[derive(Debug, Clone, Copy, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
@@ -249,7 +254,7 @@ impl ShardSegmentRootWithPosition {
 }
 
 /// Super segment header
-#[derive(Debug, Clone, Copy, TrivialType)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -327,7 +332,7 @@ impl SuperSegment {
     }
 
     /// Produce a proof for a segment in the super segment at a given position
-    pub fn proof_for_segment(&self, segment_position: u32) -> Option<SegmentProof> {
+    pub fn proof_for_segment(&self, segment_position: SegmentPosition) -> Option<SegmentProof> {
         // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
         //  allows the code to compile. Constant 1048575 is hardcoded here and below for compilation
         //  to succeed.
@@ -341,7 +346,7 @@ impl SuperSegment {
                 single_block_hash(shard_segment_root.as_bytes())
                     .expect("Less than a single block worth of bytes; qed")
             }),
-            segment_position as usize,
+            u32::from(segment_position) as usize,
             segment_proof.as_uninit_repr(),
         )?;
 

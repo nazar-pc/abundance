@@ -474,8 +474,8 @@ where
                         futures_timer::Delay::new(BLOCK_SEALING_TIMEOUT),
                         Box::pin(forward_signature_fut),
                     )
-                    .map(|_| ())
-                    .boxed(),
+                        .map(|_| ())
+                        .boxed(),
                 );
 
                 // This will be sent to the farmer
@@ -646,7 +646,6 @@ where
         Ok(())
     }
 
-    // Note: this RPC uses the cached archived segment, which is only updated by archived segments subscriptions
     fn piece(
         &self,
         ext: &Extensions,

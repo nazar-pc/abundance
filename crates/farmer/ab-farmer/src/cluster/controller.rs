@@ -19,7 +19,7 @@ use crate::farmer_cache::FarmerCache;
 use crate::node_client::NodeClient;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{
-    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
 };
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_rpc_primitives::{
@@ -93,21 +93,21 @@ impl GenericBroadcast for ClusterControllerBlockSealingBroadcast {
     const SUBJECT: &'static str = "ab.controller.block-sealing-info";
 }
 
-/// Broadcast with archived segment headers by controllers
+/// Broadcast with new super segment headers by controllers
 #[derive(Debug, Clone, Encode, Decode)]
-struct ClusterControllerArchivedSegmentHeaderBroadcast {
-    archived_segment_header: SegmentHeader,
+struct ClusterControllerNewSuperSegmentHeaderBroadcast {
+    new_super_segment_header: SuperSegmentHeader,
 }
 
-impl GenericBroadcast for ClusterControllerArchivedSegmentHeaderBroadcast {
-    const SUBJECT: &'static str = "ab.controller.archived-segment-header";
+impl GenericBroadcast for ClusterControllerNewSuperSegmentHeaderBroadcast {
+    const SUBJECT: &'static str = "ab.controller.new-super-segment-header";
 
     fn deterministic_message_id(&self) -> Option<HeaderValue> {
         // TODO: Depending on answer in `https://github.com/nats-io/nats.docs/issues/663` this might
-        //  be simplified to just a segment index
+        //  be simplified to just a super segment index
         Some(HeaderValue::from(format!(
-            "archived-segment-{}",
-            self.archived_segment_header.segment_index
+            "new-super-segment-{}",
+            self.new_super_segment_header.index
         )))
     }
 }
@@ -152,15 +152,15 @@ impl GenericRequest for ClusterControllerSuperSegmentHeadersRequest {
     type Response = Vec<Option<SuperSegmentHeader>>;
 }
 
-/// Request segment headers with specified segment indices
+/// Request super segment root for a specified segment index
 #[derive(Debug, Clone, Encode, Decode)]
-struct ClusterControllerSegmentHeadersRequest {
-    segment_indices: Vec<SegmentIndex>,
+struct ClusterControllerSuperSegmentRootForSegmentIndexRequest {
+    segment_index: SegmentIndex,
 }
 
-impl GenericRequest for ClusterControllerSegmentHeadersRequest {
-    const SUBJECT: &'static str = "ab.controller.segment-headers";
-    type Response = Vec<Option<SegmentHeader>>;
+impl GenericRequest for ClusterControllerSuperSegmentRootForSegmentIndexRequest {
+    const SUBJECT: &'static str = "ab.controller.super-segment-root-for-segment-index";
+    type Response = Option<SuperSegmentRoot>;
 }
 
 /// Find piece with specified index in cache
@@ -550,32 +550,32 @@ impl NodeClient for ClusterNodeClient {
             .await?)
     }
 
-    async fn subscribe_archived_segment_headers(
+    async fn subscribe_new_super_segment_headers(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SuperSegmentHeader> + Send + 'static>>> {
         let subscription = self
             .nats_client
-            .subscribe_to_broadcasts::<ClusterControllerArchivedSegmentHeaderBroadcast>(None, None)
+            .subscribe_to_broadcasts::<ClusterControllerNewSuperSegmentHeaderBroadcast>(None, None)
             .await?
             .filter_map({
-                let mut last_archived_segment_index = None;
+                let mut last_super_segment_index = None;
 
                 move |broadcast| {
-                    let archived_segment_header = broadcast.archived_segment_header;
-                    let segment_index = archived_segment_header.local_segment_index();
+                    let new_super_segment_header = broadcast.new_super_segment_header;
+                    let super_segment_index = new_super_segment_header.index.as_inner();
 
-                    let maybe_archived_segment_header = if let Some(last_archived_segment_index) =
-                        last_archived_segment_index
-                        && last_archived_segment_index >= segment_index
+                    let maybe_super_segment_header = if let Some(last_super_segment_index) =
+                        last_super_segment_index
+                        && last_super_segment_index >= super_segment_index
                     {
                         None
                     } else {
-                        last_archived_segment_index.replace(segment_index);
+                        last_super_segment_index.replace(super_segment_index);
 
-                        Some(archived_segment_header)
+                        Some(new_super_segment_header)
                     };
 
-                    async move { maybe_archived_segment_header }
+                    async move { maybe_super_segment_header }
                 }
             });
 
@@ -597,14 +597,14 @@ impl NodeClient for ClusterNodeClient {
             .await?)
     }
 
-    async fn segment_headers(
+    async fn super_segment_root_for_segment_index(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
+        segment_index: SegmentIndex,
+    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
         Ok(self
             .nats_client
             .request(
-                &ClusterControllerSegmentHeadersRequest { segment_indices },
+                &ClusterControllerSuperSegmentRootForSegmentIndexRequest { segment_index },
                 None,
             )
             .await?)
@@ -615,14 +615,6 @@ impl NodeClient for ClusterNodeClient {
             .nats_client
             .request(&ClusterControllerPieceRequest { piece_index }, None)
             .await?)
-    }
-
-    async fn acknowledge_archived_segment_header(
-        &self,
-        _segment_index: SegmentIndex,
-    ) -> anyhow::Result<()> {
-        // Acknowledgement is unnecessary/unsupported
-        Ok(())
     }
 
     async fn update_shard_membership_info(
@@ -659,7 +651,7 @@ where
             result = block_sealing_broadcaster(nats_client, node_client, instance).fuse() => {
                 result
             },
-            result = archived_segment_headers_broadcaster(nats_client, node_client, instance).fuse() => {
+            result = new_super_segment_headers_broadcaster(nats_client, node_client, instance).fuse() => {
                 result
             },
             result = solution_response_forwarder(nats_client, node_client, instance).fuse() => {
@@ -674,7 +666,7 @@ where
             result = super_segment_headers_responder(nats_client, node_client).fuse() => {
                 result
             },
-            result = segment_headers_responder(nats_client, node_client).fuse() => {
+            result = super_segment_root_for_segment_index_responder(nats_client, node_client).fuse() => {
                 result
             },
             result = find_piece_responder(nats_client, farmer_caches).fuse() => {
@@ -698,7 +690,7 @@ where
             result = super_segment_headers_responder(nats_client, node_client).fuse() => {
                 result
             },
-            result = segment_headers_responder(nats_client, node_client).fuse() => {
+            result = super_segment_root_for_segment_index_responder(nats_client, node_client).fuse() => {
                 result
             },
             result = find_piece_responder(nats_client, farmer_caches).fuse() => {
@@ -782,7 +774,7 @@ where
     Ok(())
 }
 
-async fn archived_segment_headers_broadcaster<NC>(
+async fn new_super_segment_headers_broadcaster<NC>(
     nats_client: &NatsClient,
     node_client: &NC,
     instance: &str,
@@ -790,36 +782,29 @@ async fn archived_segment_headers_broadcaster<NC>(
 where
     NC: NodeClient,
 {
-    let mut archived_segments_notifications = node_client
-        .subscribe_archived_segment_headers()
+    let mut new_super_segments_notifications = node_client
+        .subscribe_new_super_segment_headers()
         .await
         .map_err(|error| {
-            anyhow!("Failed to subscribe to archived segment header notifications: {error}")
+            anyhow!("Failed to subscribe to new super segment header notifications: {error}")
         })?;
 
-    while let Some(archived_segment_header) = archived_segments_notifications.next().await {
+    while let Some(new_super_segment_header) = new_super_segments_notifications.next().await {
         trace!(
-            ?archived_segment_header,
-            "New archived archived segment header notification"
+            ?new_super_segment_header,
+            "New archived new super segment header notification"
         );
-
-        node_client
-            .acknowledge_archived_segment_header(
-                archived_segment_header.local_segment_index().into(),
-            )
-            .await
-            .map_err(|error| anyhow!("Failed to acknowledge archived segment header: {error}"))?;
 
         if let Err(error) = nats_client
             .broadcast(
-                &ClusterControllerArchivedSegmentHeaderBroadcast {
-                    archived_segment_header,
+                &ClusterControllerNewSuperSegmentHeaderBroadcast {
+                    new_super_segment_header,
                 },
                 instance,
             )
             .await
         {
-            warn!(%error, "Failed to broadcast archived segment header info");
+            warn!(%error, "Failed to broadcast new super segment header info");
         }
     }
 
@@ -940,7 +925,7 @@ where
         .await
 }
 
-async fn segment_headers_responder<NC>(
+async fn super_segment_root_for_segment_index_responder<NC>(
     nats_client: &NatsClient,
     node_client: &NC,
 ) -> anyhow::Result<()>
@@ -951,12 +936,16 @@ where
         .request_responder(
             None,
             Some("ab.controller".to_string()),
-            |ClusterControllerSegmentHeadersRequest { segment_indices }| async move {
+            |ClusterControllerSuperSegmentRootForSegmentIndexRequest { segment_index }| async move {
                 node_client
-                    .segment_headers(segment_indices.clone())
+                    .super_segment_root_for_segment_index(segment_index)
                     .await
                     .inspect_err(|error| {
-                        warn!(%error, ?segment_indices, "Failed to get segment headers");
+                        warn!(
+                            %error,
+                            %segment_index,
+                            "Failed to get super segment root for segment index"
+                        );
                     })
                     .ok()
             },

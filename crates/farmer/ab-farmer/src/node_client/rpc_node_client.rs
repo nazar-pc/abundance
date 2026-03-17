@@ -3,7 +3,7 @@
 use crate::node_client::{NodeClient, NodeClientExt};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{
-    SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
 };
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
@@ -101,7 +101,6 @@ impl NodeClient for RpcNodeClient {
         )))
     }
 
-    /// Submit a block seal
     async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()> {
         Ok(self
             .client
@@ -109,20 +108,20 @@ impl NodeClient for RpcNodeClient {
             .await?)
     }
 
-    async fn subscribe_archived_segment_headers(
+    async fn subscribe_new_super_segment_headers(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SuperSegmentHeader> + Send + 'static>>> {
         let subscription = self
             .client
             .subscribe(
-                "subscribeArchivedSegmentHeader",
+                "subscribeNewSuperSegmentHeader",
                 rpc_params![],
-                "unsubscribeArchivedSegmentHeader",
+                "unsubscribeNewSuperSegmentHeader",
             )
             .await?;
 
         Ok(Box::pin(subscription.filter_map(
-            |archived_segment_header_result| async move { archived_segment_header_result.ok() },
+            |new_super_segment_header_result| async move { new_super_segment_header_result.ok() },
         )))
     }
 
@@ -136,13 +135,16 @@ impl NodeClient for RpcNodeClient {
             .await?)
     }
 
-    async fn segment_headers(
+    async fn super_segment_root_for_segment_index(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
+        segment_index: SegmentIndex,
+    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
         Ok(self
             .client
-            .request("segmentHeaders", rpc_params![&segment_indices])
+            .request(
+                "superSegmentRootForSegmentIndex",
+                rpc_params![&segment_index],
+            )
             .await?)
     }
 
@@ -158,19 +160,6 @@ impl NodeClient for RpcNodeClient {
         Ok(piece_fut.await??)
     }
 
-    async fn acknowledge_archived_segment_header(
-        &self,
-        segment_index: SegmentIndex,
-    ) -> anyhow::Result<()> {
-        Ok(self
-            .client
-            .request(
-                "acknowledgeArchivedSegmentHeader",
-                rpc_params![&segment_index],
-            )
-            .await?)
-    }
-
     async fn update_shard_membership_info(
         &self,
         info: FarmerShardMembershipInfo,
@@ -184,17 +173,20 @@ impl NodeClient for RpcNodeClient {
 
 #[async_trait]
 impl NodeClientExt for RpcNodeClient {
-    async fn cached_segment_headers(
+    async fn cached_super_segment_headers(
         &self,
-        segment_indices: Vec<SegmentIndex>,
-    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
-        self.segment_headers(segment_indices).await
+        super_segment_indices: Vec<SuperSegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
+        self.super_segment_headers(super_segment_indices).await
     }
 
-    async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
+    async fn last_super_segment_headers(
+        &self,
+        limit: u32,
+    ) -> anyhow::Result<Vec<Option<SuperSegmentHeader>>> {
         Ok(self
             .client
-            .request("lastSegmentHeaders", rpc_params![limit])
+            .request("lastSuperSegmentHeaders", rpc_params![limit])
             .await?)
     }
 }

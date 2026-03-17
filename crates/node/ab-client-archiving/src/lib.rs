@@ -1,4 +1,4 @@
-//! Consensus archiver responsible for archival of blockchain history, it is driven by the block
-//! import pipeline.
+//! Consensus archiver responsible for archival of blockchain history
 
-pub mod segment;
+pub mod recreate;
+pub mod task;

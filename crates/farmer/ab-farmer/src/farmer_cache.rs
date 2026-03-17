@@ -16,7 +16,7 @@ use crate::farmer_cache::piece_cache_state::PieceCachesState;
 use crate::node_client::NodeClient;
 use crate::utils::run_future_in_dedicated_thread;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::segments::SegmentIndex;
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_networking::KeyWithDistance;
 use ab_networking::libp2p::PeerId;
@@ -183,18 +183,19 @@ where
             return;
         }
 
-        let mut segment_headers_notifications =
-            match self.node_client.subscribe_archived_segment_headers().await {
-                Ok(segment_headers_notifications) => segment_headers_notifications,
-                Err(error) => {
-                    error!(%error, "Failed to subscribe to archived segments notifications");
-                    return;
-                }
-            };
+        let mut super_segment_headers_notifications = match self
+            .node_client
+            .subscribe_new_super_segment_headers()
+            .await
+        {
+            Ok(super_segment_headers_notifications) => super_segment_headers_notifications,
+            Err(error) => {
+                error!(%error, "Failed to subscribe to new super segment headers notifications");
+                return;
+            }
+        };
 
-        // Keep up with segment indices that were potentially created since reinitialization,
-        // depending on the size of the diff this may pause block production for a while (due to
-        // subscription we have created above)
+        // Keep up with segment indices that were potentially created since reinitialization
         self.keep_up_after_initial_sync(&piece_getter, &mut last_segment_index_internal)
             .await;
 
@@ -208,9 +209,15 @@ where
 
                     self.handle_command(command, &piece_getter, &mut last_segment_index_internal).await;
                 }
-                maybe_segment_header = segment_headers_notifications.next().fuse() => {
-                    if let Some(segment_header) = maybe_segment_header {
-                        self.process_segment_header(&piece_getter, segment_header, &mut last_segment_index_internal).await;
+                maybe_super_segment_header = super_segment_headers_notifications.next().fuse() => {
+                    if let Some(super_segment_header) = maybe_super_segment_header {
+                        self
+                            .process_new_segment_index(
+                                &piece_getter,
+                                super_segment_header.max_segment_index.as_inner(),
+                                &mut last_segment_index_internal
+                            )
+                            .await;
                     } else {
                         // Keep-up sync only ends with subscription, which lasts for duration of an
                         // instance
@@ -718,142 +725,133 @@ where
         info!("Finished piece cache synchronization");
     }
 
-    async fn process_segment_header<PG>(
+    async fn process_new_segment_index<PG>(
         &self,
         piece_getter: &PG,
-        segment_header: SegmentHeader,
+        segment_index: SegmentIndex,
         last_segment_index_internal: &mut SegmentIndex,
     ) where
         PG: PieceGetter,
     {
-        let segment_index = SegmentIndex::from(segment_header.local_segment_index());
-        debug!(%segment_index, "Starting to process newly archived segment");
+        debug!(
+            %last_segment_index_internal,
+            %segment_index,
+            "Starting to process new segment index"
+        );
 
-        if *last_segment_index_internal < segment_index {
-            debug!(%segment_index, "Downloading potentially useful pieces");
+        let segment_index_range =
+            (*last_segment_index_internal + SegmentIndex::ONE)..=segment_index;
 
-            // We do not insert pieces into cache/heap yet, so we don't know if all of these pieces
-            // will be included, but there is a good chance they will be, and we want to acknowledge
-            // new segment header as soon as possible
-            let pieces_to_maybe_include = segment_index
-                .segment_piece_indexes()
-                .into_iter()
-                .map(|piece_index| async move {
-                    let should_store_in_piece_cache = self
-                        .piece_caches
-                        .read()
-                        .await
-                        .should_include_key(self.peer_id, piece_index);
+        if segment_index_range.is_empty() {
+            return;
+        }
 
-                    let key = RecordKey::from(piece_index.to_multihash());
-                    let should_store_in_plot_cache =
-                        self.plot_caches.should_store(piece_index, &key).await;
+        debug!(
+            ?segment_index_range,
+            "Downloading potentially useful pieces"
+        );
 
-                    if !(should_store_in_piece_cache || should_store_in_plot_cache) {
-                        trace!(%piece_index, "Piece doesn't need to be cached #1");
+        // TODO: Download local pieces first, then download other pieces only after some delay, so
+        //  other farmers on the network have enough time to store their pieces too
 
-                        return None;
-                    }
-
-                    let maybe_piece_result =
-                        self.node_client
-                            .piece(piece_index)
-                            .await
-                            .inspect_err(|error| {
-                                debug!(
-                                    %error,
-                                    %segment_index,
-                                    %piece_index,
-                                    "Failed to retrieve piece from node right after archiving"
-                                );
-                            });
-
-                    if let Ok(Some(piece)) = maybe_piece_result {
-                        return Some((piece_index, piece));
-                    }
-
-                    match piece_getter.get_piece(piece_index).await {
-                        Ok(Some(piece)) => Some((piece_index, piece)),
-                        Ok(None) => {
-                            warn!(
-                                %segment_index,
-                                %piece_index,
-                                "Failed to retrieve piece right after archiving"
-                            );
-
-                            None
-                        }
-                        Err(error) => {
-                            warn!(
-                                %error,
-                                %segment_index,
-                                %piece_index,
-                                "Failed to retrieve piece right after archiving"
-                            );
-
-                            None
-                        }
-                    }
-                })
-                .collect::<FuturesUnordered<_>>()
-                .filter_map(|maybe_piece| async move { maybe_piece })
-                .collect::<Vec<_>>()
-                .await;
-
-            debug!(%segment_index, "Downloaded potentially useful pieces");
-
-            self.acknowledge_archived_segment_processing(segment_index)
-                .await;
-
-            // Go through potentially matching pieces again now that segment was acknowledged and
-            // try to persist them if necessary
-            for (piece_index, piece) in pieces_to_maybe_include {
-                if !self
-                    .plot_caches
-                    .store_additional_piece(piece_index, &piece)
-                    .await
-                {
-                    trace!(%piece_index, "Piece could not be cached in plot cache");
-                }
-
-                if !self
+        // We do not insert pieces into cache/heap yet, so we don't know if all of these pieces will
+        // be included, but there is a good chance they will be
+        let pieces_to_maybe_include = segment_index_range
+            .flat_map(|segment_index| segment_index.segment_piece_indexes())
+            .map(|piece_index| async move {
+                let should_store_in_piece_cache = self
                     .piece_caches
                     .read()
                     .await
-                    .should_include_key(self.peer_id, piece_index)
-                {
-                    trace!(%piece_index, "Piece doesn't need to be cached #2");
+                    .should_include_key(self.peer_id, piece_index);
 
-                    continue;
+                let key = RecordKey::from(piece_index.to_multihash());
+                let should_store_in_plot_cache =
+                    self.plot_caches.should_store(piece_index, &key).await;
+
+                if !(should_store_in_piece_cache || should_store_in_plot_cache) {
+                    trace!(%piece_index, "Piece doesn't need to be cached #1");
+
+                    return None;
                 }
 
-                trace!(%piece_index, "Piece needs to be cached #1");
+                let maybe_piece_result =
+                    self.node_client
+                        .piece(piece_index)
+                        .await
+                        .inspect_err(|error| {
+                            debug!(
+                                %error,
+                                %segment_index,
+                                %piece_index,
+                                "Failed to retrieve piece from node right after archiving"
+                            );
+                        });
 
-                self.persist_piece_in_cache(piece_index, piece).await;
+                if let Ok(Some(piece)) = maybe_piece_result {
+                    return Some((piece_index, piece));
+                }
+
+                match piece_getter.get_piece(piece_index).await {
+                    Ok(Some(piece)) => Some((piece_index, piece)),
+                    Ok(None) => {
+                        warn!(
+                            %segment_index,
+                            %piece_index,
+                            "Failed to retrieve piece right after archiving"
+                        );
+
+                        None
+                    }
+                    Err(error) => {
+                        warn!(
+                            %error,
+                            %segment_index,
+                            %piece_index,
+                            "Failed to retrieve piece right after archiving"
+                        );
+
+                        None
+                    }
+                }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .filter_map(|maybe_piece| async move { maybe_piece })
+            .collect::<Vec<_>>()
+            .await;
+
+        debug!(%segment_index, "Downloaded potentially useful pieces");
+
+        // Go through potentially matching pieces again now that segment was acknowledged and try to
+        // persist them if necessary
+        for (piece_index, piece) in pieces_to_maybe_include {
+            if !self
+                .plot_caches
+                .store_additional_piece(piece_index, &piece)
+                .await
+            {
+                trace!(%piece_index, "Piece could not be cached in plot cache");
             }
 
-            *last_segment_index_internal = segment_index;
-        } else {
-            self.acknowledge_archived_segment_processing(segment_index)
-                .await;
+            if !self
+                .piece_caches
+                .read()
+                .await
+                .should_include_key(self.peer_id, piece_index)
+            {
+                trace!(%piece_index, "Piece doesn't need to be cached #2");
+
+                continue;
+            }
+
+            trace!(%piece_index, "Piece needs to be cached #1");
+
+            self.persist_piece_in_cache(piece_index, piece).await;
         }
 
-        debug!(%segment_index, "Finished processing newly archived segment");
-    }
+        *last_segment_index_internal = segment_index;
 
-    async fn acknowledge_archived_segment_processing(&self, segment_index: SegmentIndex) {
-        match self
-            .node_client
-            .acknowledge_archived_segment_header(segment_index)
-            .await
-        {
-            Ok(()) => {
-                debug!(%segment_index, "Acknowledged archived segment");
-            }
-            Err(error) => {
-                error!(%segment_index, ?error, "Failed to acknowledge archived segment");
-            }
-        };
+        debug!(%segment_index, "Finished processing new segment indices");
     }
 
     async fn keep_up_after_initial_sync<PG>(
