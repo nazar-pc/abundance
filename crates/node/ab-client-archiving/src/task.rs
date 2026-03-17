@@ -73,7 +73,7 @@ where
     Block: GenericOwnedBlock,
     CI: ChainInfo<Block>,
 {
-    let max_local_segment_index = chain_info.last_segment_header()?.segment_index.as_inner();
+    let max_local_segment_index = chain_info.last_segment_header()?.index.as_inner();
 
     if max_local_segment_index == LocalSegmentIndex::ZERO {
         // Just genesis, nothing else to check
@@ -598,7 +598,7 @@ async fn send_archived_segment_notification(
     archived_segment_notification_sender: &mut mpsc::Sender<ArchivedSegmentNotification>,
     archived_segment: NewArchivedSegment,
 ) {
-    let segment_index = archived_segment.segment_header.segment_index;
+    let segment_index = archived_segment.segment_header.index;
     let (acknowledgement_sender, mut acknowledgement_receiver) = mpsc::channel(1);
     // Keep `archived_segment` around until all acknowledgements are received since some receivers
     // might use weak references

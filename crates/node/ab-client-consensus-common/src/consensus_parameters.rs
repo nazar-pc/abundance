@@ -421,7 +421,7 @@ where
         Ok(self
             .get_segment_header(LocalSegmentIndex::ZERO)
             .ok_or(DeriveSuperSegmentForBlockError::GenesisBeaconChainSegmentHeaderNotFound)?
-            .segment_root)
+            .root)
     }
 
     #[inline]
@@ -433,8 +433,8 @@ where
             .into_iter()
             .map(|segment_header| ShardSegmentRoot {
                 shard_index: ShardIndex::BEACON_CHAIN,
-                segment_index: segment_header.segment_index.as_inner(),
-                segment_root: segment_header.segment_root,
+                segment_index: segment_header.index.as_inner(),
+                segment_root: segment_header.root,
             })
     }
 

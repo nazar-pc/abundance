@@ -821,9 +821,9 @@ impl LastArchivedBlock {
 #[repr(C)]
 pub struct SegmentHeader {
     /// Local segment index
-    pub segment_index: Unaligned<LocalSegmentIndex>,
+    pub index: Unaligned<LocalSegmentIndex>,
     /// Root of roots of all records in a segment.
-    pub segment_root: SegmentRoot,
+    pub root: SegmentRoot,
     /// Hash of the segment header of the previous segment
     pub prev_segment_header_hash: Blake3Hash,
     /// Last archived block
@@ -841,12 +841,6 @@ impl SegmentHeader {
             single_chunk_hash(self.as_bytes())
                 .expect("Less than a single chunk worth of bytes; qed"),
         )
-    }
-
-    /// Get local segment index (unwrap `Unaligned`)
-    #[inline(always)]
-    pub const fn local_segment_index(&self) -> LocalSegmentIndex {
-        self.segment_index.as_inner()
     }
 }
 

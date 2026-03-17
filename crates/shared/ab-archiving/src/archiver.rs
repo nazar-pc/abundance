@@ -294,7 +294,7 @@ impl Archiver {
     ) -> Result<Self, ArchiverInstantiationError> {
         let mut archiver = Self::new(shard_index, erasure_coding);
 
-        archiver.segment_index = segment_header.local_segment_index() + LocalSegmentIndex::ONE;
+        archiver.segment_index = segment_header.index.as_inner() + LocalSegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
         archiver.last_archived_block = Some(segment_header.last_archived_block);
 
@@ -727,8 +727,8 @@ impl Archiver {
 
         // Now produce segment header
         let segment_header = SegmentHeader {
-            segment_index: self.segment_index.into(),
-            segment_root,
+            index: self.segment_index.into(),
+            root: segment_root,
             prev_segment_header_hash: self.prev_segment_header_hash,
             last_archived_block: self
                 .last_archived_block
@@ -742,8 +742,8 @@ impl Archiver {
             .for_each(|(piece, record_proof)| {
                 piece.header = PieceHeader {
                     shard_index: self.shard_index.into(),
-                    local_segment_index: segment_header.segment_index,
-                    segment_root: segment_header.segment_root,
+                    local_segment_index: segment_header.index,
+                    segment_root: segment_header.root,
                     record_proof: RecordProof::from(record_proof),
                     ..piece.header
                 };
