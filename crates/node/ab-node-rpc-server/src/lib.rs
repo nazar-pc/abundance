@@ -856,7 +856,7 @@ where
             shard_membership_connections
                 .connections
                 .retain(|_connection_id, state| {
-                    state.last_update.elapsed() >= SHARD_MEMBERSHIP_EXPIRATION
+                    state.last_update.elapsed() < SHARD_MEMBERSHIP_EXPIRATION
                 });
 
             shard_membership_connections.connections.insert(
