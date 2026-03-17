@@ -1,4 +1,3 @@
-use crate::ContractRegister;
 use ab_riscv_interpreter::rv64::b::zbc::zbc_helpers;
 use ab_riscv_interpreter::{
     ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
@@ -62,7 +61,7 @@ impl<Reg> const Instruction for PopularInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Reg = ContractRegister;
+    type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -131,7 +130,7 @@ impl<Reg> const Instruction for NotPopularInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Reg = ContractRegister;
+    type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -193,7 +192,7 @@ impl<Reg> const Instruction for ContractInstructionPrototype<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Reg = ContractRegister;
+    type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
