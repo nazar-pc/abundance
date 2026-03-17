@@ -86,18 +86,16 @@ use core::ptr::NonNull;
 /// `u128`)
 pub const MAX_ALIGNMENT: u8 = 16;
 
+// Only little-endian platforms are supported. On big-endian platforms the byte order differs,
+// so `TrivialType` values cannot be transferred simply by sending their raw struct bytes
+// between host and guest environments
+#[cfg(not(target_endian = "little"))]
+compile_error!("Only little-endian platforms are supported");
+
 const {
     assert!(
         size_of::<usize>() >= size_of::<u32>(),
         "At least 32-bit platform required"
-    );
-
-    // Only support little-endian environments, in big-endian byte order will be different, and
-    // it'll not be possible to simply send bytes of data structures that implement `TrivialType`
-    // from host to guest environment
-    assert!(
-        u16::from_ne_bytes(1u16.to_le_bytes()) == 1u16,
-        "Only little-endian platform is supported"
     );
 
     // Max alignment is expected to match that of `u128`
