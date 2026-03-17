@@ -40,9 +40,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-        # Cache on Windows is so slow, it is faster without it, see many reports like
-        # https://github.com/actions/runner-images/issues/7320
-        if: runner.os != 'Windows'
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -124,9 +121,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-        # Cache on Windows is so slow, it is faster without it, see many reports like
-        # https://github.com/actions/runner-images/issues/7320
-        if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
         if: runner.os == 'Linux' && matrix.target == ''
@@ -292,9 +286,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-        # Cache on Windows is so slow, it is faster without it, see many reports like
-        # https://github.com/actions/runner-images/issues/7320
-        if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
         if: runner.os == 'Linux' && matrix.target == ''
@@ -530,9 +521,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-        # Cache on Windows is so slow, it is faster without it, see many reports like
-        # https://github.com/actions/runner-images/issues/7320
-        if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
         if: runner.os == 'Linux' && matrix.target == ''
