@@ -2,12 +2,15 @@ extern crate alloc;
 
 use crate::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use crate::{
-    Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{EReg, Registers};
+use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -184,9 +187,78 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
+pub(super) struct ExtRegs {
+    csrs: BTreeMap<u16, u64>,
+    prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
+    prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError<&'static str>>,
+}
+
+impl Default for ExtRegs {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            csrs: BTreeMap::new(),
+            prepare_csr_read: |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
+            prepare_csr_write: |csr_index, _| Err(CsrError::IllegalWrite { csr_index }),
+        }
+    }
+}
+
+impl Csrs<EReg<u64>, &'static str> for ExtRegs {
+    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError<&'static str>> {
+        self.csrs
+            .get(&csr_index)
+            .copied()
+            .ok_or(CsrError::IllegalRead { csr_index })
+    }
+
+    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError<&'static str>> {
+        let stored_value = self
+            .csrs
+            .get_mut(&csr_index)
+            .ok_or(CsrError::IllegalWrite { csr_index })?;
+        *stored_value = value;
+        Ok(())
+    }
+
+    fn process_csr_read(
+        &self,
+        csr_index: u16,
+        raw_value: u64,
+    ) -> Result<u64, CsrError<&'static str>> {
+        (self.prepare_csr_read)(csr_index, raw_value)
+    }
+
+    fn process_csr_write(
+        &self,
+        csr_index: u16,
+        write_value: u64,
+    ) -> Result<u64, CsrError<&'static str>> {
+        (self.prepare_csr_write)(csr_index, write_value)
+    }
+}
+
+impl ExtRegs {
+    pub(super) fn set_prepare_csr_read_write(
+        &mut self,
+        prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
+        prepare_csr_write: fn(
+            csr_index: u16,
+            write_value: u64,
+        ) -> Result<u64, CsrError<&'static str>>,
+    ) {
+        self.prepare_csr_read = prepare_csr_read;
+        self.prepare_csr_write = prepare_csr_write;
+    }
+
+    pub(super) fn init_csr(&mut self, csr_index: u16, value: u64) {
+        self.csrs.insert(csr_index, value);
+    }
+}
+
 pub(super) type TestInterpreterState<Instruction> = Rv64InterpreterState<
     EReg<u64>,
-    (),
+    ExtRegs,
     TestMemory,
     TestInstructionFetcher<Instruction>,
     TestInstructionHandler,
@@ -201,7 +273,7 @@ where
 {
     Rv64InterpreterState {
         regs: Registers::default(),
-        ext_regs: (),
+        ext_regs: ExtRegs::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(
             instructions.into(),
@@ -210,6 +282,7 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
+        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     }
 }

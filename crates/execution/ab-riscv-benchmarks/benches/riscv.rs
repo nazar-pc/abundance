@@ -14,6 +14,7 @@ use ab_riscv_benchmarks::host_utils::{
 use ab_riscv_interpreter::BasicInstructionFetcher;
 use ab_riscv_interpreter::rv64::Rv64InterpreterState;
 use ab_riscv_primitives::instructions::Instruction;
+use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_dalek::{Signer, SigningKey};
@@ -120,6 +121,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     };
 
@@ -149,6 +151,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     };
 

@@ -5,6 +5,7 @@ use ab_riscv_interpreter::{
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{Reg, Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
@@ -209,6 +210,7 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
+        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     }
 }

@@ -6,6 +6,7 @@ pub mod m;
 mod test_utils;
 #[cfg(test)]
 mod tests;
+pub mod zicsr;
 pub mod zk;
 
 use crate::{
@@ -14,6 +15,7 @@ use crate::{
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
@@ -71,6 +73,8 @@ where
     pub instruction_fetcher: IF,
     /// System instruction handler
     pub system_instruction_handler: InstructionHandler,
+    /// Current privilege level
+    pub privilege_level: PrivilegeLevel,
     #[doc(hidden)]
     pub _phantom: PhantomData<CustomError>,
 }
@@ -83,6 +87,7 @@ where
     IF: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     /// Set program counter
+    #[inline(always)]
     pub fn set_pc(
         &mut self,
         pc: Reg::Type,

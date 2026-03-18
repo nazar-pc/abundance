@@ -26,11 +26,13 @@
 pub mod rv64;
 
 use ab_riscv_primitives::instructions::Instruction;
+use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::Register;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
-type Address<I> = <<I as Instruction>::Reg as Register>::Type;
+type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
+type Address<I> = RegisterType<I>;
 
 /// Errors for [`VirtualMemory`]
 #[derive(Debug, thiserror::Error)]
@@ -162,6 +164,9 @@ pub enum ExecutionError<Address, I, CustomError> {
         /// Instruction that caused the error
         instruction: u32,
     },
+    /// CSR error
+    #[error("CSR error: {0}")]
+    CsrError(#[from] CsrError<CustomError>),
     /// Custom error
     #[error("Custom error: {0}")]
     Custom(CustomError),
@@ -192,6 +197,7 @@ impl<Address, BI, CustomError> ExecutionError<Address, BI, CustomError> {
                 address,
                 instruction,
             },
+            Self::CsrError(error) => ExecutionError::CsrError(error),
             Self::Custom(error) => ExecutionError::Custom(error),
         }
     }
@@ -308,11 +314,152 @@ where
     }
 }
 
+/// CSR error
+#[derive(Debug, thiserror::Error)]
+pub enum CsrError<CustomError> {
+    /// Read only CSR
+    #[error("Read only CSR {csr_index:#x}")]
+    ReadOnly {
+        /// Index of CSR where write was attempted
+        csr_index: u16,
+    },
+    /// Illegal read access
+    #[error("Illegal read access to CSR {csr_index:#x}")]
+    IllegalRead {
+        /// Index of the accessed CSR
+        csr_index: u16,
+    },
+    /// Illegal write access
+    #[error("Illegal write access to CSR {csr_index:#x}")]
+    IllegalWrite {
+        /// Index of the accessed CSR
+        csr_index: u16,
+    },
+    /// Unknown CSR
+    #[error("Unknown CSR {csr_index:#x}")]
+    Unknown {
+        /// Index of the accessed CSR
+        csr_index: u16,
+    },
+    /// Insufficient privilege level
+    #[error(
+        "Insufficient privilege level for CSR {csr_index:#x}: required {required:?}, \
+        current {current:?}"
+    )]
+    InsufficientPrivilege {
+        /// Index of the accessed CSR
+        csr_index: u16,
+        /// Required privilege level
+        required: PrivilegeLevel,
+        /// Current privilege level
+        current: PrivilegeLevel,
+    },
+    /// Custom error
+    #[error("Custom error: {0}")]
+    Custom(CustomError),
+}
+
+/// CSRs (Control and Status Registers)
+pub trait Csrs<Reg, CustomError>
+where
+    Reg: Register,
+{
+    /// Reads register value
+    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>>;
+
+    /// Writes register value
+    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>>;
+
+    /// Process CSR read.
+    ///
+    /// Must proxy calls to [`ExecutableInstruction::prepare_csr_read()`] of the root instruction
+    /// and return the output value on success. The method is present on `Csrs` to break cycles in
+    /// the type system.
+    fn process_csr_read(
+        &self,
+        csr_index: u16,
+        raw_value: Reg::Type,
+    ) -> Result<Reg::Type, CsrError<CustomError>>;
+
+    /// Process CSR write.
+    ///
+    /// Must proxy calls to [`ExecutableInstruction::prepare_csr_write()`] of the root instruction
+    /// and return the output value on success.
+    /// The method is present on `Csrs` to break cycles in the type system.
+    fn process_csr_write(
+        &self,
+        csr_index: u16,
+        write_value: Reg::Type,
+    ) -> Result<Reg::Type, CsrError<CustomError>>;
+}
+
 /// Trait for executable instructions
 pub trait ExecutableInstruction<State, CustomError>
 where
     Self: Instruction,
 {
+    /// Prepare CSR read.
+    ///
+    /// This method is called on each extension one by one with the `raw_value` (contents of the
+    /// corresponding CSR register) and initially zero-initialized `output_value`. In return value
+    /// every extension can accept (`Ok(true)`), ignore (`Ok(false)`) or reject (`Err(CsrError)`)
+    /// read request. For accepted reads the extension must update `output_value` accordingly, which
+    /// will be the value used by the `Zicsr` extension handler.
+    ///
+    /// Some extensions will just copy raw value to output value, others will copy only some bits or
+    /// zero some bits of the raw value, as required by the specification.
+    ///
+    /// If no extension returns `Ok(true)`, the read operation is implicitly rejected as illegal
+    /// access.
+    fn prepare_csr_read<C>(
+        csrs: &C,
+        csr_index: u16,
+        raw_value: RegisterType<Self>,
+        output_value: &mut RegisterType<Self>,
+    ) -> Result<bool, CsrError<CustomError>>
+    where
+        C: Csrs<Self::Reg, CustomError>,
+    {
+        // These are for cleaner trait API without leading `_` on arguments
+        let _ = csrs;
+        let _ = csr_index;
+        let _ = raw_value;
+        let _ = output_value;
+        // The default implementation is to not allow anything
+        Ok(false)
+    }
+
+    /// Prepare CSR write.
+    ///
+    /// This method is called on each extension one by one with `write_value` being prepared by the
+    /// `Zicsr` extension handler. In return value every extension can accept (`Ok(true)`), ignore
+    /// (`Ok(false)`) or reject (`Err(CsrError)`) write request. For accepted writes the extension
+    /// must update `output_value` accordingly, which will be written to the corresponding CSR
+    /// register.
+    ///
+    /// Some extensions will just copy write value to output value, others will copy some bits or
+    /// zero some bits of the write value, as required by the specification.
+    ///
+    /// If no extension returns `Ok(true)`, the write operation is implicitly rejected as illegal
+    /// access.
+    fn prepare_csr_write<C>(
+        csrs: &C,
+        csr_index: u16,
+        write_value: RegisterType<Self>,
+        output_value: &mut RegisterType<Self>,
+    ) -> Result<bool, CsrError<CustomError>>
+    where
+        C: Csrs<Self::Reg, CustomError>,
+    {
+        // These are for cleaner trait API without leading `_` on arguments
+        let _ = csrs;
+        let _ = csr_index;
+        let _ = write_value;
+        let _ = output_value;
+        // The default implementation is to not allow anything
+        Ok(false)
+    }
+
     /// Execute instruction
     fn execute(
         self,
