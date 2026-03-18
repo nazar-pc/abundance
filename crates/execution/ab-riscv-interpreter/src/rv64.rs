@@ -6,6 +6,7 @@ pub mod m;
 mod test_utils;
 #[cfg(test)]
 mod tests;
+pub mod zicsr;
 pub mod zk;
 
 use crate::{
@@ -14,6 +15,7 @@ use crate::{
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
@@ -51,72 +53,41 @@ where
     }
 }
 
-/// Basic system instruction handler that does nothing on `ebreak` and returns an error on `ecall`.
-#[derive(Debug, Clone, Copy)]
-pub struct BasicRv64SystemInstructionHandler<Reg> {
-    _phantom: PhantomData<Reg>,
-}
-
-impl<Reg> Default for BasicRv64SystemInstructionHandler<Reg> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
-    for BasicRv64SystemInstructionHandler<Rv64Instruction<Reg>>
-where
-    Reg: Register<Type = u64>,
-    [(); Reg::N]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-{
-    #[inline(always)]
-    fn handle_ecall(
-        &mut self,
-        _regs: &mut Registers<Reg>,
-        _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Rv64Instruction<Reg>, CustomError>> {
-        let instruction = Rv64Instruction::Ecall;
-        Err(ExecutionError::UnsupportedInstruction {
-            address: program_counter.get_pc() - Reg::Type::from(instruction.size()),
-            instruction,
-        })
-    }
-}
-
 /// RV64 interpreter state
 #[derive(Debug)]
-// 16-byte alignment seems faster than 64 (cache line) for some reason, reconsider in the future
-#[repr(align(16))]
-pub struct Rv64InterpreterState<Reg, Memory, IF, InstructionHandler, CustomError>
+pub struct Rv64InterpreterState<Reg, ExtRegs, Memory, IF, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
 {
     /// General purpose registers
     pub regs: Registers<Reg>,
+    /// Extended registers.
+    ///
+    /// Extensions that use extended registers will have additional constraints on `ExtRegs`. If no
+    /// such extension is used, `()` can be used as a placeholder.
+    pub ext_regs: ExtRegs,
     /// Memory
     pub memory: Memory,
     /// Instruction fetcher
     pub instruction_fetcher: IF,
     /// System instruction handler
     pub system_instruction_handler: InstructionHandler,
+    /// Current privilege level
+    pub privilege_level: PrivilegeLevel,
     #[doc(hidden)]
     pub _phantom: PhantomData<CustomError>,
 }
 
-impl<Reg, Memory, IF, InstructionHandler, CustomError>
-    Rv64InterpreterState<Reg, Memory, IF, InstructionHandler, CustomError>
+impl<Reg, ExtRegs, Memory, IF, InstructionHandler, CustomError>
+    Rv64InterpreterState<Reg, ExtRegs, Memory, IF, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
     IF: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     /// Set program counter
+    #[inline(always)]
     pub fn set_pc(
         &mut self,
         pc: Reg::Type,
@@ -126,9 +97,9 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64Instruction<Reg>
 where
@@ -141,7 +112,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
         match self {
             Self::Add { rd, rs1, rs2 } => {

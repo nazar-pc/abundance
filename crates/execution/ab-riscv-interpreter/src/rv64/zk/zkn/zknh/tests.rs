@@ -13,7 +13,7 @@ fn test_sha256_sig0_simple() {
 
     execute(&mut state).unwrap();
 
-    // sha256sig0 on lower 32 bits 0x12345678 → 0xe7fce6ee (bit 31 set → sign-extended)
+    // sha256sig0 on lower 32 bits 0x12345678 -> 0xe7fce6ee (bit 31 set -> sign-extended)
     assert_eq!(state.regs.read(EReg::A2), 0xffff_ffff_e7fc_e6eeu64);
 }
 
@@ -57,7 +57,7 @@ fn test_sha256_sig1_sign_extend() {
 
     execute(&mut state).unwrap();
 
-    // sha256sig1 on 0x12345678 → 0xa1f78649 (bit 31 set → sign-extended)
+    // sha256sig1 on 0x12345678 -> 0xa1f78649 (bit 31 set -> sign-extended)
     assert_eq!(state.regs.read(EReg::A2), 0xffff_ffff_a1f7_8649u64);
 }
 
@@ -72,7 +72,7 @@ fn test_sha512_sig0_simple() {
 
     execute(&mut state).unwrap();
 
-    // sha512sig0(0x1234567890abcdef) → 0x662c77c6c1e41aa1
+    // sha512sig0(0x1234567890abcdef) -> 0x662c77c6c1e41aa1
     assert_eq!(state.regs.read(EReg::A2), 0x662c_77c6_c1e4_1aa1u64);
 }
 

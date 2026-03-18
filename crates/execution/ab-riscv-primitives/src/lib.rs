@@ -31,4 +31,5 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 
 pub mod instructions;
+pub mod privilege;
 pub mod registers;
