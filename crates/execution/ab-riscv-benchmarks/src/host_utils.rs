@@ -370,6 +370,7 @@ where
 pub fn execute<Memory, IF>(
     state: &mut Rv64InterpreterState<
         <ContractInstruction as Instruction>::Reg,
+        (),
         Memory,
         IF,
         NoopRv64SystemInstructionHandler<

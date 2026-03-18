@@ -185,6 +185,7 @@ impl<I> TestInstructionFetcher<I> {
 
 pub(super) type TestInterpreterState<Instruction> = Rv64InterpreterState<
     Reg<u64>,
+    (),
     TestMemory,
     TestInstructionFetcher<Instruction>,
     TestInstructionHandler,
@@ -199,6 +200,7 @@ where
 {
     Rv64InterpreterState {
         regs: Registers::default(),
+        ext_regs: (),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(
             instructions.into(),

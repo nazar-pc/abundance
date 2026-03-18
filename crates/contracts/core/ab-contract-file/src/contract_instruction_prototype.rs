@@ -90,9 +90,9 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for PopularInstruction<Reg>
 where
@@ -105,7 +105,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }
@@ -159,9 +159,9 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for NotPopularInstruction<Reg>
 where
@@ -173,7 +173,7 @@ where
 {
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }
@@ -226,9 +226,9 @@ where
     }
 }
 
-impl<Reg, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for ContractInstructionPrototype<Reg>
 where
@@ -241,7 +241,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
         match self {
             Self::Popular(instructions) => instructions

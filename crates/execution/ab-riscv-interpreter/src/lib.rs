@@ -97,7 +97,7 @@ pub trait VirtualMemory {
 
 /// Program counter errors
 #[derive(Debug, thiserror::Error)]
-pub enum ProgramCounterError<Address, Custom> {
+pub enum ProgramCounterError<Address, CustomError> {
     /// Unaligned instruction
     #[error("Unaligned instruction at address {address}")]
     UnalignedInstruction {
@@ -109,7 +109,7 @@ pub enum ProgramCounterError<Address, Custom> {
     MemoryAccess(#[from] VirtualMemoryError),
     /// Custom error
     #[error("Custom error: {0}")]
-    Custom(Custom),
+    Custom(CustomError),
 }
 
 /// Generic program counter
@@ -127,16 +127,16 @@ pub trait ProgramCounter<Address, Memory, CustomError> {
 
 /// Execution errors
 #[derive(Debug, thiserror::Error)]
-pub enum ExecutionError<Address, I, Custom> {
+pub enum ExecutionError<Address, I, CustomError> {
     /// Unaligned instruction fetch
-    #[error("Unaligned instruction fetch at address {address}")]
+    #[error("Unaligned instruction fetch at address {address:#x}")]
     UnalignedInstructionFetch {
         /// Address of the unaligned instruction fetch
         address: Address,
     },
     /// Program counter error
     #[error("Program counter error: {0}")]
-    ProgramCounter(#[from] ProgramCounterError<Address, Custom>),
+    ProgramCounter(#[from] ProgramCounterError<Address, CustomError>),
     /// Memory access error
     #[error("Memory access error: {0}")]
     MemoryAccess(#[from] VirtualMemoryError),
@@ -164,13 +164,13 @@ pub enum ExecutionError<Address, I, Custom> {
     },
     /// Custom error
     #[error("Custom error: {0}")]
-    Custom(Custom),
+    Custom(CustomError),
 }
 
-impl<Address, BI, Custom> ExecutionError<Address, BI, Custom> {
+impl<Address, BI, CustomError> ExecutionError<Address, BI, CustomError> {
     /// Map instruction type
     #[inline]
-    pub fn map_instruction<I>(self, map: fn(BI) -> I) -> ExecutionError<Address, I, Custom> {
+    pub fn map_instruction<I>(self, map: fn(BI) -> I) -> ExecutionError<Address, I, CustomError> {
         match self {
             Self::UnalignedInstructionFetch { address } => {
                 ExecutionError::UnalignedInstructionFetch { address }
