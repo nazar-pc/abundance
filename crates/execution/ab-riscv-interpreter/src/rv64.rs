@@ -51,43 +51,6 @@ where
     }
 }
 
-/// Basic system instruction handler that does nothing on `ebreak` and returns an error on `ecall`.
-#[derive(Debug, Clone, Copy)]
-pub struct BasicRv64SystemInstructionHandler<Reg> {
-    _phantom: PhantomData<Reg>,
-}
-
-impl<Reg> Default for BasicRv64SystemInstructionHandler<Reg> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
-    for BasicRv64SystemInstructionHandler<Rv64Instruction<Reg>>
-where
-    Reg: Register<Type = u64>,
-    [(); Reg::N]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-{
-    #[inline(always)]
-    fn handle_ecall(
-        &mut self,
-        _regs: &mut Registers<Reg>,
-        _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Rv64Instruction<Reg>, CustomError>> {
-        let instruction = Rv64Instruction::Ecall;
-        Err(ExecutionError::UnsupportedInstruction {
-            address: program_counter.get_pc() - Reg::Type::from(instruction.size()),
-            instruction,
-        })
-    }
-}
-
 /// RV64 interpreter state
 #[derive(Debug)]
 pub struct Rv64InterpreterState<Reg, Memory, IF, InstructionHandler, CustomError>
