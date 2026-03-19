@@ -13,9 +13,9 @@ use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
+        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64BInstruction<Reg>
 where
@@ -25,7 +25,14 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut Rv64InterpreterState<
+            Reg,
+            ExtState,
+            Memory,
+            PC,
+            InstructionHandler,
+            CustomError,
+        >,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }

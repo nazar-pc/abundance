@@ -187,14 +187,14 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
-pub(super) struct ExtRegs {
+pub(super) struct ExtState {
     privilege_level: PrivilegeLevel,
     csrs: BTreeMap<u16, u64>,
     prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
     prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError<&'static str>>,
 }
 
-impl Default for ExtRegs {
+impl Default for ExtState {
     #[inline(always)]
     fn default() -> Self {
         Self {
@@ -206,7 +206,7 @@ impl Default for ExtRegs {
     }
 }
 
-impl Csrs<EReg<u64>, &'static str> for ExtRegs {
+impl Csrs<EReg<u64>, &'static str> for ExtState {
     fn privilege_level(&self) -> PrivilegeLevel {
         self.privilege_level
     }
@@ -244,7 +244,7 @@ impl Csrs<EReg<u64>, &'static str> for ExtRegs {
     }
 }
 
-impl ExtRegs {
+impl ExtState {
     pub(super) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
         self.privilege_level = privilege_level;
     }
@@ -268,7 +268,7 @@ impl ExtRegs {
 
 pub(super) type TestInterpreterState<Instruction> = Rv64InterpreterState<
     EReg<u64>,
-    ExtRegs,
+    ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
     TestInstructionHandler,
@@ -283,7 +283,7 @@ where
 {
     Rv64InterpreterState {
         regs: Registers::default(),
-        ext_regs: ExtRegs::default(),
+        ext_state: ExtState::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(
             instructions.into(),

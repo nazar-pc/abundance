@@ -54,18 +54,19 @@ where
 
 /// RV64 interpreter state
 #[derive(Debug)]
-pub struct Rv64InterpreterState<Reg, ExtRegs, Memory, IF, InstructionHandler, CustomError>
+pub struct Rv64InterpreterState<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
 {
     /// General purpose registers
     pub regs: Registers<Reg>,
-    /// Extended registers.
+    /// Extended state.
     ///
-    /// Extensions that use extended registers will have additional constraints on `ExtRegs`. If no
-    /// such extension is used, `()` can be used as a placeholder.
-    pub ext_regs: ExtRegs,
+    /// Extensions might use this to place additional constraints on `ExtState` to require
+    /// additional registers or other resources. If no such extension is used, `()` can be used as
+    /// a placeholder.
+    pub ext_state: ExtState,
     /// Memory
     pub memory: Memory,
     /// Instruction fetcher
@@ -76,8 +77,8 @@ where
     pub _phantom: PhantomData<CustomError>,
 }
 
-impl<Reg, ExtRegs, Memory, IF, InstructionHandler, CustomError>
-    Rv64InterpreterState<Reg, ExtRegs, Memory, IF, InstructionHandler, CustomError>
+impl<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
+    Rv64InterpreterState<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
@@ -94,9 +95,9 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
+        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64Instruction<Reg>
 where
@@ -109,7 +110,14 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut Rv64InterpreterState<
+            Reg,
+            ExtState,
+            Memory,
+            PC,
+            InstructionHandler,
+            CustomError,
+        >,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
         match self {
             Self::Add { rd, rs1, rs2 } => {

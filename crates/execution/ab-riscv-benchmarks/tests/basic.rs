@@ -92,7 +92,7 @@ where
 
             let mut state = Rv64InterpreterState {
                 regs,
-                ext_regs: (),
+                ext_state: (),
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
@@ -128,7 +128,7 @@ where
 
             let mut state = Rv64InterpreterState {
                 regs,
-                ext_regs: (),
+                ext_state: (),
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),

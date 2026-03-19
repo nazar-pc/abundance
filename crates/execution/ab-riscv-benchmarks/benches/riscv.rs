@@ -109,7 +109,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut lazy_state = Rv64InterpreterState {
         regs: Registers::default(),
-        ext_regs: (),
+        ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
         // and contract ends with a jump
@@ -125,7 +125,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut eager_state = Rv64InterpreterState {
         regs: Registers::default(),
-        ext_regs: (),
+        ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address
         instruction_fetcher: unsafe {
