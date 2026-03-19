@@ -1335,7 +1335,7 @@ fn test_reserved_privilege_csr() {
         rs1: EReg::A0,
         csr: RESERVED_PRIV_CSR,
     }]);
-    state.ext_regs.init_csr(RESERVED_PRIV_CSR, 0);
+    // Do not initialize unknown CSR
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
@@ -1344,7 +1344,7 @@ fn test_reserved_privilege_csr() {
 
     assert_matches!(
         execute(&mut state),
-        Err(ExecutionError::CsrError(CsrError::Unknown {
+        Err(ExecutionError::CsrError(CsrError::IllegalRead {
             csr_index: RESERVED_PRIV_CSR
         }))
     );

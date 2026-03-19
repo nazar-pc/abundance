@@ -185,7 +185,7 @@ where
 
 /// CSR privilege level check helper.
 ///
-/// Returns `Err` if `current` is below the privilege level encoded in `csr_index` bits `[9:8]`
+/// Returns `Err` if `current` is below the privilege level encoded in `csr_index` bits `[9:8]`.
 #[inline(always)]
 pub fn check_csr_privilege_level<Reg, C, CustomError>(
     csrs: &C,
@@ -198,8 +198,12 @@ where
 {
     let current = csrs.privilege_level();
     let required_bits = ((csr_index >> 8) & 0b11) as u8;
-    let required =
-        PrivilegeLevel::from_bits(required_bits).ok_or(CsrError::Unknown { csr_index })?;
+    // Privilege level uses two bits. Using machine value as a placeholder (`0b11`) allows the
+    // compiler to optimize this whole function away if `csrs.privilege_level()` returns fixed
+    // `PrivilegeLevel::Machine` value, which is the most common case since `0b11` is larger or
+    // equal than any other 2-bit value. Invalid level will still be rejected at a later stage as
+    // unknown CSR.
+    let required = PrivilegeLevel::from_bits(required_bits).unwrap_or(PrivilegeLevel::Machine);
 
     if current >= required {
         Ok(())
