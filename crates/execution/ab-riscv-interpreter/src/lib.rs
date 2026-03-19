@@ -364,6 +364,12 @@ pub trait Csrs<Reg, CustomError>
 where
     Reg: Register,
 {
+    /// Current privilege level
+    #[inline(always)]
+    fn privilege_level(&self) -> PrivilegeLevel {
+        PrivilegeLevel::Machine
+    }
+
     /// Reads register value
     fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>>;
 

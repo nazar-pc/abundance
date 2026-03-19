@@ -15,7 +15,6 @@ use crate::{
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
@@ -73,8 +72,6 @@ where
     pub instruction_fetcher: IF,
     /// System instruction handler
     pub system_instruction_handler: InstructionHandler,
-    /// Current privilege level
-    pub privilege_level: PrivilegeLevel,
     #[doc(hidden)]
     pub _phantom: PhantomData<CustomError>,
 }

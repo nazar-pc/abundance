@@ -188,6 +188,7 @@ impl<I> TestInstructionFetcher<I> {
 }
 
 pub(super) struct ExtRegs {
+    privilege_level: PrivilegeLevel,
     csrs: BTreeMap<u16, u64>,
     prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
     prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError<&'static str>>,
@@ -197,6 +198,7 @@ impl Default for ExtRegs {
     #[inline(always)]
     fn default() -> Self {
         Self {
+            privilege_level: PrivilegeLevel::Machine,
             csrs: BTreeMap::new(),
             prepare_csr_read: |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
             prepare_csr_write: |csr_index, _| Err(CsrError::IllegalWrite { csr_index }),
@@ -205,6 +207,10 @@ impl Default for ExtRegs {
 }
 
 impl Csrs<EReg<u64>, &'static str> for ExtRegs {
+    fn privilege_level(&self) -> PrivilegeLevel {
+        self.privilege_level
+    }
+
     fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError<&'static str>> {
         self.csrs
             .get(&csr_index)
@@ -239,6 +245,10 @@ impl Csrs<EReg<u64>, &'static str> for ExtRegs {
 }
 
 impl ExtRegs {
+    pub(super) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
+        self.privilege_level = privilege_level;
+    }
+
     pub(super) fn set_prepare_csr_read_write(
         &mut self,
         prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
@@ -282,7 +292,6 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
-        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     }
 }

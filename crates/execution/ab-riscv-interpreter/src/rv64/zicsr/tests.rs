@@ -960,7 +960,7 @@ fn test_csrrw_last_writable_address_succeeds() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x20u64);
 
     execute(&mut state).unwrap();
@@ -980,7 +980,7 @@ fn test_csrrw_first_read_only_address_is_rejected() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x20u64);
 
     assert!(execute(&mut state).is_err());
@@ -1016,7 +1016,7 @@ fn test_priv_user_csr_accessible_from_user_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1033,7 +1033,9 @@ fn test_priv_user_csr_accessible_from_supervisor_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_regs
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1050,7 +1052,7 @@ fn test_priv_user_csr_accessible_from_machine_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1069,7 +1071,7 @@ fn test_priv_supervisor_csr_rejected_from_user_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
@@ -1087,7 +1089,9 @@ fn test_priv_supervisor_csr_accessible_from_supervisor_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_regs
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1104,7 +1108,7 @@ fn test_priv_supervisor_csr_accessible_from_machine_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1123,7 +1127,7 @@ fn test_priv_machine_csr_rejected_from_user_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
@@ -1141,7 +1145,9 @@ fn test_priv_machine_csr_rejected_from_supervisor_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_regs
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
@@ -1159,7 +1165,7 @@ fn test_priv_machine_csr_accessible_from_machine_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1180,7 +1186,7 @@ fn test_priv_check_fires_before_csr_is_read_or_written() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1234u64);
 
     let _ = execute(&mut state);
@@ -1203,7 +1209,9 @@ fn test_csrrs_privilege_check() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_regs
+        .set_privilege_level(PrivilegeLevel::Supervisor);
 
     assert!(execute(&mut state).is_err());
     assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
@@ -1220,7 +1228,9 @@ fn test_csrrc_privilege_check() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_regs
+        .set_privilege_level(PrivilegeLevel::Supervisor);
 
     assert!(execute(&mut state).is_err());
     assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
@@ -1237,7 +1247,7 @@ fn test_csrrwi_privilege_check() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
 
     assert!(execute(&mut state).is_err());
     assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
@@ -1254,7 +1264,7 @@ fn test_csrrsi_privilege_check() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
 
     assert!(execute(&mut state).is_err());
     assert_eq!(state.ext_regs.read_csr(S_CSR).unwrap(), 0xDEAD);
@@ -1271,7 +1281,7 @@ fn test_csrrci_privilege_check() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
 
     assert!(execute(&mut state).is_err());
     assert_eq!(state.ext_regs.read_csr(S_CSR).unwrap(), 0xDEAD);
@@ -1291,7 +1301,9 @@ fn test_reserved_privilege_csr_rejected_from_supervisor_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_regs
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
@@ -1309,7 +1321,7 @@ fn test_reserved_privilege_csr_rejected_from_user_mode() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
@@ -1327,7 +1339,7 @@ fn test_reserved_privilege_csr() {
     state
         .ext_regs
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_regs.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert_matches!(

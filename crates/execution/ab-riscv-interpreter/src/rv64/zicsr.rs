@@ -39,7 +39,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_regs, csr)?;
 
                 let write_value = state.regs.read(rs1);
 
@@ -65,7 +65,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_regs, csr)?;
 
                 let rs1_value = state.regs.read(rs1);
 
@@ -91,7 +91,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_regs, csr)?;
 
                 let rs1_value = state.regs.read(rs1);
 
@@ -116,7 +116,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_regs, csr)?;
 
                 let write_value = zimm as u64;
 
@@ -141,7 +141,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_regs, csr)?;
 
                 let raw_value = state.ext_regs.read_csr(csr)?;
                 let read_output = state.ext_regs.process_csr_read(csr, raw_value)?;
@@ -165,7 +165,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_regs, csr)?;
 
                 let raw_value = state.ext_regs.read_csr(csr)?;
                 let read_output = state.ext_regs.process_csr_read(csr, raw_value)?;
@@ -187,10 +187,16 @@ where
 ///
 /// Returns `Err` if `current` is below the privilege level encoded in `csr_index` bits `[9:8]`
 #[inline(always)]
-pub fn check_csr_privilege_level<CustomError>(
-    current: PrivilegeLevel,
+pub fn check_csr_privilege_level<Reg, C, CustomError>(
+    csrs: &C,
     csr_index: u16,
-) -> Result<(), CsrError<CustomError>> {
+) -> Result<(), CsrError<CustomError>>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+    C: Csrs<Reg, CustomError>,
+{
+    let current = csrs.privilege_level();
     let required_bits = ((csr_index >> 8) & 0b11) as u8;
     let required =
         PrivilegeLevel::from_bits(required_bits).ok_or(CsrError::Unknown { csr_index })?;
