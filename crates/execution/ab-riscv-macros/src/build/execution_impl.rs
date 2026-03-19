@@ -134,9 +134,15 @@ pub(super) fn process_execution_impl(
             return Some(Ok(()));
         };
 
-        // TODO: This can probably be refactored as an iterator without collecting into a vector
-        //  first
+        // TODO: This should be changed to recursively combine all fundamental extensions instead of
+        //  combined ones instead, such that extension D that depends two extensions B and C that
+        //  both depend on the same extension A will get A included in D once rather than twice.
+        //  This is caused by `get_known_enum_execution_impl` returning final extension
+        //  implementation and not its original state as defined in the source code. Essentially, in
+        //  addition to the final version, the original body of the implementation needs to be
+        //  retained and used.
         let mut all_blocks = Vec::new();
+        let mut all_where_predicates = Vec::new();
         {
             let mut all_dependencies = HashSet::new();
             all_dependencies.insert(enum_name.clone());
@@ -172,6 +178,13 @@ pub(super) fn process_execution_impl(
                             .block;
 
                     all_blocks.push(block);
+                    if let Some(where_clause) = &dependency_enum_execution_impl
+                        .item_impl
+                        .generics
+                        .where_clause
+                    {
+                        all_where_predicates.extend(where_clause.predicates.iter().cloned());
+                    }
                     new_dependencies
                         .extend(dependency_enum_definition.dependencies.iter().cloned());
                 }
@@ -207,6 +220,26 @@ pub(super) fn process_execution_impl(
             }
         }})
         .expect("Generated code is valid; qed");
+
+        if let Some(where_clause) = &mut item_impl.generics.where_clause {
+            let mut already_inserted = where_clause
+                .predicates
+                .iter()
+                .cloned()
+                .collect::<HashSet<_>>();
+            for predicate in all_where_predicates {
+                if already_inserted.contains(&predicate) {
+                    continue;
+                }
+                already_inserted.insert(predicate.clone());
+                where_clause.predicates.push(predicate);
+            }
+        } else {
+            Err(anyhow::anyhow!(
+                "Missing where clause on `#[instruction_execution] impl Instruction for \
+                {enum_name}`"
+            ))?;
+        }
 
         // Only remove after successful processing, so that the function can be called repeatedly
         // with the same input if the implementation is still pending
