@@ -1,7 +1,7 @@
-use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use ab_riscv_interpreter::{
     BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
+    InterpreterState, ProgramCounter, ProgramCounterError, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
@@ -131,7 +131,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &mut TestMemory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, I, &'static str>> {
+    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, &'static str>> {
         if self.pc == self.return_trap_address {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
         }
@@ -150,7 +150,7 @@ where
 
 pub(super) struct TestInstructionHandler;
 
-impl<I> Rv64SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
+impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
     for TestInstructionHandler
 where
     I: Instruction<Reg = Reg<u64>>,
@@ -161,11 +161,10 @@ where
         _regs: &mut Registers<Reg<u64>>,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64, Rv64Instruction<Reg<u64>>, &'static str>> {
-        let instruction = Rv64Instruction::Ecall;
-        Err(ExecutionError::UnsupportedInstruction {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64, &'static str>> {
+        let instruction = Rv64Instruction::<Reg<u64>>::Ecall;
+        Err(ExecutionError::EcallUnsupported {
             address: program_counter.get_pc() - u64::from(instruction.size()),
-            instruction,
         })
     }
 }
@@ -183,7 +182,7 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
-pub(super) type TestInterpreterState<Instruction> = Rv64InterpreterState<
+pub(super) type TestInterpreterState<Instruction> = InterpreterState<
     Reg<u64>,
     (),
     TestMemory,
@@ -198,7 +197,7 @@ pub(super) fn initialize_state<Instruction, Instructions>(
 where
     Instructions: Into<Vec<Instruction>>,
 {
-    Rv64InterpreterState {
+    InterpreterState {
         regs: Registers::default(),
         ext_state: (),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
@@ -215,7 +214,7 @@ where
 
 pub(super) fn execute<I>(
     state: &mut TestInterpreterState<I>,
-) -> Result<(), ExecutionError<Address<I>, I, &'static str>>
+) -> Result<(), ExecutionError<Address<I>, &'static str>>
 where
     I: Instruction<Reg = Reg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
 {

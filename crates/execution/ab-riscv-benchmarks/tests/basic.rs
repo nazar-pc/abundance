@@ -11,8 +11,7 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
     NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::BasicInstructionFetcher;
-use ab_riscv_interpreter::rv64::Rv64InterpreterState;
+use ab_riscv_interpreter::{BasicInstructionFetcher, InterpreterState};
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use ed25519_dalek::{Signer, SigningKey};
@@ -90,7 +89,7 @@ where
             // SAFETY: Program counter and code are trusted
             let instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
 
-            let mut state = Rv64InterpreterState {
+            let mut state = InterpreterState {
                 regs,
                 ext_state: (),
                 memory,
@@ -126,7 +125,7 @@ where
                 )
             };
 
-            let mut state = Rv64InterpreterState {
+            let mut state = InterpreterState {
                 regs,
                 ext_state: (),
                 memory,

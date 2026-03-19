@@ -1,7 +1,9 @@
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 use ab_riscv_interpreter::rv64::b::zbc::clmul_internal;
-use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
-use ab_riscv_interpreter::{ExecutableInstruction, ExecutionError, ProgramCounter, VirtualMemory};
+use ab_riscv_interpreter::{
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
+    SystemInstructionHandler, VirtualMemory,
+};
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::b::zba::Rv64ZbaInstruction;
@@ -53,7 +55,7 @@ where
 #[instruction_execution]
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for FullRv64BInstruction<Reg>
 where
@@ -61,19 +63,12 @@ where
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
 {
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<
-            Reg,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        >,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }
 }

@@ -3,8 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::rv64::Rv64InterpreterState;
-use crate::{ExecutableInstruction, ExecutionError};
+use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::registers::general_purpose::Register;
@@ -13,7 +12,7 @@ use core::ops::ControlFlow;
 #[instruction_execution]
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64ZbsInstruction<Reg>
 where
@@ -23,15 +22,8 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<
-            Reg,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        >,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Bset { rd, rs1, rs2 } => {
                 // Only the bottom 6 bits for RV64

@@ -3,8 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::rv64::Rv64InterpreterState;
-use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError};
+use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv64::zicsr::Rv64ZicsrInstruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
@@ -14,7 +13,7 @@ use core::ops::ControlFlow;
 #[instruction_execution]
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64ZicsrInstruction<Reg>
 where
@@ -25,15 +24,8 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<
-            Reg,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        >,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // Atomic read/write CSR.
             //

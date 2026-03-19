@@ -1,8 +1,10 @@
 use crate::ContractRegister;
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 use ab_riscv_interpreter::rv64::b::zbc::clmul_internal;
-use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
-use ab_riscv_interpreter::{ExecutableInstruction, ExecutionError, ProgramCounter, VirtualMemory};
+use ab_riscv_interpreter::{
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
+    SystemInstructionHandler, VirtualMemory,
+};
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
@@ -92,7 +94,7 @@ where
 #[instruction_execution]
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for PopularInstruction<Reg>
 where
@@ -100,20 +102,13 @@ where
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<
-            Reg,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        >,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }
 }
@@ -168,7 +163,7 @@ where
 #[instruction_execution]
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for NotPopularInstruction<Reg>
 where
@@ -176,19 +171,12 @@ where
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
 {
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<
-            Reg,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        >,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }
 }
@@ -242,7 +230,7 @@ where
 
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for ContractInstructionPrototype<Reg>
 where
@@ -250,27 +238,16 @@ where
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<
-            Reg,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        >,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
-            Self::Popular(instructions) => instructions
-                .execute(state)
-                .map_err(|error| error.map_instruction(Self::Popular)),
-            Self::NotPopular(instructions) => instructions
-                .execute(state)
-                .map_err(|error| error.map_instruction(Self::NotPopular)),
+            Self::Popular(instructions) => instructions.execute(state),
+            Self::NotPopular(instructions) => instructions.execute(state),
         }
     }
 }
