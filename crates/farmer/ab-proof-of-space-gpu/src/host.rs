@@ -95,7 +95,7 @@ impl Device {
         NOQ: Fn(DeviceType) -> NonZeroU8,
     {
         let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
-        let instance = Instance::new(&InstanceDescriptor {
+        let instance = Instance::new(InstanceDescriptor {
             backends,
             flags: if cfg!(debug_assertions) {
                 InstanceFlags::debugging().with_env()
@@ -104,6 +104,7 @@ impl Device {
             },
             memory_budget_thresholds: MemoryBudgetThresholds::default(),
             backend_options: BackendOptions::from_env_or_default(),
+            display: None,
         });
 
         let adapters = instance.enumerate_adapters(backends).await;
@@ -846,7 +847,7 @@ fn bind_group_and_pipeline_compute_f1(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some("compute_f1"),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
@@ -918,7 +919,7 @@ fn bind_group_and_pipeline_sort_buckets(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some("sort_buckets"),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
@@ -1019,7 +1020,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_f2(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some("find_matches_and_compute_f2"),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
@@ -1148,7 +1149,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some(&label),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
@@ -1254,7 +1255,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some("find_matches_and_compute_f7"),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
@@ -1400,7 +1401,7 @@ fn bind_group_and_pipeline_find_proofs(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some("find_proofs"),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
