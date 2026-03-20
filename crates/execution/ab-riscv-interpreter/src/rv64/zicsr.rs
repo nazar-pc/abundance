@@ -3,8 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::rv64::Rv64InterpreterState;
-use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError};
+use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv64::zicsr::Rv64ZicsrInstruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
@@ -12,21 +11,21 @@ use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64ZicsrInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    ExtRegs: Csrs<Reg, CustomError>,
+    ExtState: Csrs<Reg, CustomError>,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut Rv64InterpreterState<Reg, ExtRegs, Memory, PC, InstructionHandler, CustomError>,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // Atomic read/write CSR.
             //
@@ -39,19 +38,19 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let write_value = state.regs.read(rs1);
 
                 // Per spec: if `rd == x0`, the CSR read (and its side effects) must not occur
                 if !rd.is_zero() {
-                    let raw_value = state.ext_regs.read_csr(csr)?;
-                    let output_value = state.ext_regs.process_csr_read(csr, raw_value)?;
+                    let raw_value = state.ext_state.read_csr(csr)?;
+                    let output_value = state.ext_state.process_csr_read(csr, raw_value)?;
                     state.regs.write(rd, output_value);
                 }
 
-                let output_value = state.ext_regs.process_csr_write(csr, write_value)?;
-                state.ext_regs.write_csr(csr, output_value)?;
+                let output_value = state.ext_state.process_csr_write(csr, write_value)?;
+                state.ext_state.write_csr(csr, output_value)?;
             }
 
             // Atomic read and set bits in CSR.
@@ -65,18 +64,18 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let rs1_value = state.regs.read(rs1);
 
-                let raw_value = state.ext_regs.read_csr(csr)?;
-                let read_output = state.ext_regs.process_csr_read(csr, raw_value)?;
+                let raw_value = state.ext_state.read_csr(csr)?;
+                let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
                 state.regs.write(rd, read_output);
 
                 if !rs1.is_zero() {
                     let write_value = raw_value | rs1_value;
-                    let write_output = state.ext_regs.process_csr_write(csr, write_value)?;
-                    state.ext_regs.write_csr(csr, write_output)?;
+                    let write_output = state.ext_state.process_csr_write(csr, write_value)?;
+                    state.ext_state.write_csr(csr, write_output)?;
                 }
             }
 
@@ -91,18 +90,18 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let rs1_value = state.regs.read(rs1);
 
-                let raw_value = state.ext_regs.read_csr(csr)?;
-                let read_output = state.ext_regs.process_csr_read(csr, raw_value)?;
+                let raw_value = state.ext_state.read_csr(csr)?;
+                let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
                 state.regs.write(rd, read_output);
 
                 if !rs1.is_zero() {
                     let write_value = raw_value & !rs1_value;
-                    let write_output = state.ext_regs.process_csr_write(csr, write_value)?;
-                    state.ext_regs.write_csr(csr, write_output)?;
+                    let write_output = state.ext_state.process_csr_write(csr, write_value)?;
+                    state.ext_state.write_csr(csr, write_output)?;
                 }
             }
 
@@ -116,18 +115,18 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let write_value = zimm as u64;
 
                 if !rd.is_zero() {
-                    let raw_value = state.ext_regs.read_csr(csr)?;
-                    let output_value = state.ext_regs.process_csr_read(csr, raw_value)?;
+                    let raw_value = state.ext_state.read_csr(csr)?;
+                    let output_value = state.ext_state.process_csr_read(csr, raw_value)?;
                     state.regs.write(rd, output_value);
                 }
 
-                let output_value = state.ext_regs.process_csr_write(csr, write_value)?;
-                state.ext_regs.write_csr(csr, output_value)?;
+                let output_value = state.ext_state.process_csr_write(csr, write_value)?;
+                state.ext_state.write_csr(csr, output_value)?;
             }
 
             // Atomic read and set bits in CSR immediate.
@@ -141,16 +140,16 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_state, csr)?;
 
-                let raw_value = state.ext_regs.read_csr(csr)?;
-                let read_output = state.ext_regs.process_csr_read(csr, raw_value)?;
+                let raw_value = state.ext_state.read_csr(csr)?;
+                let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
                 state.regs.write(rd, read_output);
 
                 if zimm != 0 {
                     let write_value = raw_value | (zimm as u64);
-                    let write_output = state.ext_regs.process_csr_write(csr, write_value)?;
-                    state.ext_regs.write_csr(csr, write_output)?;
+                    let write_output = state.ext_state.process_csr_write(csr, write_value)?;
+                    state.ext_state.write_csr(csr, write_output)?;
                 }
             }
 
@@ -165,16 +164,16 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(state.privilege_level, csr)?;
+                check_csr_privilege_level(&state.ext_state, csr)?;
 
-                let raw_value = state.ext_regs.read_csr(csr)?;
-                let read_output = state.ext_regs.process_csr_read(csr, raw_value)?;
+                let raw_value = state.ext_state.read_csr(csr)?;
+                let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
                 state.regs.write(rd, read_output);
 
                 if zimm != 0 {
                     let write_value = raw_value & !(zimm as u64);
-                    let write_output = state.ext_regs.process_csr_write(csr, write_value)?;
-                    state.ext_regs.write_csr(csr, write_output)?;
+                    let write_output = state.ext_state.process_csr_write(csr, write_value)?;
+                    state.ext_state.write_csr(csr, write_output)?;
                 }
             }
         }
@@ -185,15 +184,25 @@ where
 
 /// CSR privilege level check helper.
 ///
-/// Returns `Err` if `current` is below the privilege level encoded in `csr_index` bits `[9:8]`
+/// Returns `Err` if `current` is below the privilege level encoded in `csr_index` bits `[9:8]`.
 #[inline(always)]
-pub fn check_csr_privilege_level<CustomError>(
-    current: PrivilegeLevel,
+pub fn check_csr_privilege_level<Reg, C, CustomError>(
+    csrs: &C,
     csr_index: u16,
-) -> Result<(), CsrError<CustomError>> {
+) -> Result<(), CsrError<CustomError>>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+    C: Csrs<Reg, CustomError>,
+{
+    let current = csrs.privilege_level();
     let required_bits = ((csr_index >> 8) & 0b11) as u8;
-    let required =
-        PrivilegeLevel::from_bits(required_bits).ok_or(CsrError::Unknown { csr_index })?;
+    // Privilege level uses two bits. Using machine value as a placeholder (`0b11`) allows the
+    // compiler to optimize this whole function away if `csrs.privilege_level()` returns fixed
+    // `PrivilegeLevel::Machine` value, which is the most common case since `0b11` is larger or
+    // equal than any other 2-bit value. Invalid level will still be rejected at a later stage as
+    // unknown CSR.
+    let required = PrivilegeLevel::from_bits(required_bits).unwrap_or(PrivilegeLevel::Machine);
 
     if current >= required {
         Ok(())

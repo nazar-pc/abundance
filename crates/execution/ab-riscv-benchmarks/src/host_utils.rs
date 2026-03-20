@@ -5,10 +5,10 @@ use ab_contract_file::ContractInstruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use ab_riscv_interpreter::{
     BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
+    InterpreterState, ProgramCounter, ProgramCounterError, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
@@ -288,10 +288,8 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &mut Memory,
-    ) -> Result<
-        FetchInstructionResult<ContractInstruction>,
-        ExecutionError<u64, ContractInstruction, &'static str>,
-    > {
+    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, &'static str>>
+    {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -345,7 +343,7 @@ impl<Reg> Default for NoopRv64SystemInstructionHandler<Reg> {
     }
 }
 
-impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
+impl<Reg, Memory, PC, CustomError> SystemInstructionHandler<Reg, Memory, PC, CustomError>
     for NoopRv64SystemInstructionHandler<Rv64Instruction<Reg>>
 where
     Reg: Register<Type = u64>,
@@ -357,7 +355,7 @@ where
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64, Rv64Instruction<Reg>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64, CustomError>> {
         // SAFETY: Contracts are statically known to not contain `ecall` instructions
         // unsafe { unreachable_unchecked() }
         // For some known reason this is faster than `unreachable_unchecked()`
@@ -368,7 +366,7 @@ where
 /// Execute [`ContractInstruction`]s
 #[expect(clippy::type_complexity)]
 pub fn execute<Memory, IF>(
-    state: &mut Rv64InterpreterState<
+    state: &mut InterpreterState<
         <ContractInstruction as Instruction>::Reg,
         (),
         Memory,
@@ -378,7 +376,7 @@ pub fn execute<Memory, IF>(
         >,
         &'static str,
     >,
-) -> Result<(), ExecutionError<u64, ContractInstruction, &'static str>>
+) -> Result<(), ExecutionError<u64, &'static str>>
 where
     Memory: VirtualMemory,
     IF: InstructionFetcher<ContractInstruction, Memory, &'static str>,

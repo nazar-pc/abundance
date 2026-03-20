@@ -11,10 +11,8 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
     NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::BasicInstructionFetcher;
-use ab_riscv_interpreter::rv64::Rv64InterpreterState;
+use ab_riscv_interpreter::{BasicInstructionFetcher, InterpreterState};
 use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_dalek::{Signer, SigningKey};
@@ -108,9 +106,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
 
-    let mut lazy_state = Rv64InterpreterState {
+    let mut lazy_state = InterpreterState {
         regs: Registers::default(),
-        ext_regs: (),
+        ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
         // and contract ends with a jump
@@ -121,13 +119,12 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     };
 
-    let mut eager_state = Rv64InterpreterState {
+    let mut eager_state = InterpreterState {
         regs: Registers::default(),
-        ext_regs: (),
+        ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address
         instruction_fetcher: unsafe {
@@ -151,7 +148,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-        privilege_level: PrivilegeLevel::Machine,
         _phantom: PhantomData,
     };
 

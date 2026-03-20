@@ -61,12 +61,12 @@ fn test_csrrw_reads_old_value_into_rd() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xDEAD_BEEF).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xDEAD_BEEF).unwrap();
     state.regs.write(EReg::A0, 0x1234_5678u64);
 
     execute(&mut state).unwrap();
@@ -81,17 +81,17 @@ fn test_csrrw_writes_rs1_to_csr() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xDEAD_BEEF).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xDEAD_BEEF).unwrap();
     state.regs.write(EReg::A0, 0x1234_5678u64);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0x1234_5678);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0x1234_5678);
 }
 
 #[test]
@@ -101,18 +101,18 @@ fn test_csrrw_rd_zero_skips_read_no_side_effects() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xAAAA_BBBB).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xAAAA_BBBB).unwrap();
     state.regs.write(EReg::A0, 0xCCCC_DDDDu64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::Zero), 0);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xCCCC_DDDD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xCCCC_DDDD);
 }
 
 #[test]
@@ -122,18 +122,18 @@ fn test_csrrw_all_ones() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0u64).unwrap();
     state.regs.write(EReg::A0, u64::MAX);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A1), 0);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), u64::MAX);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), u64::MAX);
 }
 
 #[test]
@@ -143,20 +143,20 @@ fn test_csrrw_overwrites_completely() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state
-        .ext_regs
+        .ext_state
         .write_csr(U_CSR, 0xFFFF_FFFF_FFFF_FFFFu64)
         .unwrap();
     state.regs.write(EReg::A0, 0u64);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0);
 }
 
 // CSRRS
@@ -168,12 +168,12 @@ fn test_csrrs_reads_old_value_into_rd() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0x00FF_00FFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0x00FF_00FFu64).unwrap();
     state.regs.write(EReg::A0, 0xFF00_FF00u64);
 
     execute(&mut state).unwrap();
@@ -188,17 +188,17 @@ fn test_csrrs_sets_bits() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0x00FF_00FFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0x00FF_00FFu64).unwrap();
     state.regs.write(EReg::A0, 0xFF00_FF00u64);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xFFFF_FFFF);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xFFFF_FFFF);
 }
 
 #[test]
@@ -208,17 +208,17 @@ fn test_csrrs_rs1_zero_no_write() {
         rs1: EReg::Zero,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xCAFE_BABEu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xCAFE_BABEu64).unwrap();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xCAFE_BABE);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xCAFE_BABE);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xCAFE_BABE);
 }
 
 #[test]
@@ -228,13 +228,13 @@ fn test_csrrs_idempotent_when_bits_already_set() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state
-        .ext_regs
+        .ext_state
         .write_csr(U_CSR, 0xFFFF_FFFF_FFFF_FFFFu64)
         .unwrap();
     state.regs.write(EReg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
@@ -242,7 +242,7 @@ fn test_csrrs_idempotent_when_bits_already_set() {
     execute(&mut state).unwrap();
 
     assert_eq!(
-        state.ext_regs.read_csr(U_CSR).unwrap(),
+        state.ext_state.read_csr(U_CSR).unwrap(),
         0xFFFF_FFFF_FFFF_FFFF
     );
 }
@@ -256,12 +256,12 @@ fn test_csrrc_reads_old_value_into_rd() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
     state.regs.write(EReg::A0, 0x0F0F_0F0Fu64);
 
     execute(&mut state).unwrap();
@@ -276,18 +276,18 @@ fn test_csrrc_clears_bits() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
     state.regs.write(EReg::A0, 0x0F0F_0F0Fu64);
 
     execute(&mut state).unwrap();
 
     // 0xFFFF_FFFF & !0x0F0F_0F0F = 0xF0F0_F0F0
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xF0F0_F0F0);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xF0F0_F0F0);
 }
 
 #[test]
@@ -297,17 +297,17 @@ fn test_csrrc_rs1_zero_no_write() {
         rs1: EReg::Zero,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xDEAD_C0DEu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xDEAD_C0DEu64).unwrap();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xDEAD_C0DE);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD_C0DE);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD_C0DE);
 }
 
 #[test]
@@ -317,20 +317,20 @@ fn test_csrrc_clears_all_bits() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state
-        .ext_regs
+        .ext_state
         .write_csr(U_CSR, 0xFFFF_FFFF_FFFF_FFFFu64)
         .unwrap();
     state.regs.write(EReg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0);
 }
 
 #[test]
@@ -340,17 +340,17 @@ fn test_csrrc_idempotent_when_bits_already_clear() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0u64).unwrap();
     state.regs.write(EReg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0);
 }
 
 // CSRRWI
@@ -362,12 +362,12 @@ fn test_csrrwi_reads_old_value_into_rd() {
         zimm: 0b11111,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xABCD_EF01u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xABCD_EF01u64).unwrap();
 
     execute(&mut state).unwrap();
 
@@ -381,20 +381,20 @@ fn test_csrrwi_writes_zimm_zero_extended() {
         zimm: 0b11111,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state
-        .ext_regs
+        .ext_state
         .write_csr(U_CSR, 0xFFFF_FFFF_FFFF_FFFFu64)
         .unwrap();
 
     execute(&mut state).unwrap();
 
     // zimm is 5-bit zero-extended to 64 bits
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b11111u64);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b11111u64);
 }
 
 #[test]
@@ -404,17 +404,17 @@ fn test_csrrwi_rd_zero_skips_read() {
         zimm: 0b00101,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::Zero), 0);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b00101);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b00101);
 }
 
 #[test]
@@ -424,17 +424,17 @@ fn test_csrrwi_zimm_zero_writes_zero() {
         zimm: 0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xFFFF_FFFFu64).unwrap();
 
     execute(&mut state).unwrap();
 
     // zimm=0 is still a write (csrrwi always writes, unlike csrrsi/csrrci)
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0);
 }
 
 #[test]
@@ -444,16 +444,16 @@ fn test_csrrwi_max_zimm() {
         zimm: 31,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0u64).unwrap();
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 31);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 31);
 }
 
 // CSRRSI
@@ -465,12 +465,12 @@ fn test_csrrsi_reads_old_value_into_rd() {
         zimm: 0b00001,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xF0F0_F0F0u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xF0F0_F0F0u64).unwrap();
 
     execute(&mut state).unwrap();
 
@@ -484,16 +484,16 @@ fn test_csrrsi_sets_bits() {
         zimm: 0b00111,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0u64).unwrap();
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b00111);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b00111);
 }
 
 #[test]
@@ -503,17 +503,17 @@ fn test_csrrsi_zimm_zero_no_write() {
         zimm: 0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xBEEF_CAFEu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xBEEF_CAFEu64).unwrap();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xBEEF_CAFE);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xBEEF_CAFE);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xBEEF_CAFE);
 }
 
 #[test]
@@ -523,20 +523,20 @@ fn test_csrrsi_does_not_clear_existing_bits() {
         zimm: 0b10101,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state
-        .ext_regs
+        .ext_state
         .write_csr(U_CSR, 0xFFFF_FFFF_FFFF_FF00u64)
         .unwrap();
 
     execute(&mut state).unwrap();
 
     assert_eq!(
-        state.ext_regs.read_csr(U_CSR).unwrap(),
+        state.ext_state.read_csr(U_CSR).unwrap(),
         0xFFFF_FFFF_FFFF_FF15
     );
 }
@@ -550,12 +550,12 @@ fn test_csrrci_reads_old_value_into_rd() {
         zimm: 0b00001,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0x1234_5678u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0x1234_5678u64).unwrap();
 
     execute(&mut state).unwrap();
 
@@ -569,13 +569,13 @@ fn test_csrrci_clears_bits() {
         zimm: 0b11111,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state
-        .ext_regs
+        .ext_state
         .write_csr(U_CSR, 0xFFFF_FFFF_FFFF_FFFFu64)
         .unwrap();
 
@@ -583,7 +583,7 @@ fn test_csrrci_clears_bits() {
 
     // Only the low 5 bits are cleared
     assert_eq!(
-        state.ext_regs.read_csr(U_CSR).unwrap(),
+        state.ext_state.read_csr(U_CSR).unwrap(),
         0xFFFF_FFFF_FFFF_FFE0
     );
 }
@@ -595,17 +595,17 @@ fn test_csrrci_zimm_zero_no_write() {
         zimm: 0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xDEAD_BEEFu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xDEAD_BEEFu64).unwrap();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xDEAD_BEEF);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD_BEEF);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD_BEEF);
 }
 
 #[test]
@@ -615,16 +615,16 @@ fn test_csrrci_does_not_set_new_bits() {
         zimm: 0b10101,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0u64).unwrap();
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0);
 }
 
 #[test]
@@ -634,17 +634,17 @@ fn test_csrrci_partial_clear() {
         zimm: 0b01010,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0b11111u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0b11111u64).unwrap();
 
     execute(&mut state).unwrap();
 
     // 0b11111 & !0b01010 = 0b10101
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b10101);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b10101);
 }
 
 // Cross-instruction: rd=x0 hardwiring
@@ -656,18 +656,18 @@ fn test_csrrs_rd_zero_still_reads_no_gp_write() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0b0000_0001u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0b0000_0001u64).unwrap();
     state.regs.write(EReg::A0, 0b0000_0010u64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::Zero), 0);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b0000_0011);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b0000_0011);
 }
 
 #[test]
@@ -677,18 +677,18 @@ fn test_csrrc_rd_zero_still_reads_no_gp_write() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0b1111u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0b1111u64).unwrap();
     state.regs.write(EReg::A0, 0b0011u64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::Zero), 0);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b1100);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b1100);
 }
 
 // Atomicity: rd/rs1 aliasing
@@ -700,18 +700,18 @@ fn test_csrrw_rd_rs1_alias() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0xAAAAu64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0xAAAAu64).unwrap();
     state.regs.write(EReg::A0, 0xBBBBu64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A0), 0xAAAA);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xBBBB);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xBBBB);
 }
 
 #[test]
@@ -721,18 +721,18 @@ fn test_csrrs_rd_rs1_alias() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0b0101u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0b0101u64).unwrap();
     state.regs.write(EReg::A0, 0b1010u64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A0), 0b0101);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b1111);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b1111);
 }
 
 #[test]
@@ -742,18 +742,18 @@ fn test_csrrc_rd_rs1_alias() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
-    state.ext_regs.write_csr(U_CSR, 0b1111u64).unwrap();
+    state.ext_state.write_csr(U_CSR, 0b1111u64).unwrap();
     state.regs.write(EReg::A0, 0b0011u64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A0), 0b1111);
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0b1100);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0b1100);
 }
 
 // Read-only CSR enforcement (bits[11:10] == 0b11)
@@ -765,9 +765,9 @@ fn test_csrrw_read_only_csr_is_rejected() {
         rs1: EReg::A0,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x1234);
+    state.ext_state.init_csr(RO_CSR, 0x1234);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state.regs.write(EReg::A0, 0xFFFFu64);
@@ -775,7 +775,7 @@ fn test_csrrw_read_only_csr_is_rejected() {
     let result = execute(&mut state);
 
     assert!(result.is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x1234);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
 #[test]
@@ -785,15 +785,15 @@ fn test_csrrwi_read_only_csr_is_rejected() {
         zimm: 1,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x1234);
+    state.ext_state.init_csr(RO_CSR, 0x1234);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     let result = execute(&mut state);
 
     assert!(result.is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x1234);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
 #[test]
@@ -803,9 +803,9 @@ fn test_csrrs_read_only_csr_with_nonzero_rs1_is_rejected() {
         rs1: EReg::A0,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x1234);
+    state.ext_state.init_csr(RO_CSR, 0x1234);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state.regs.write(EReg::A0, 0b1u64);
@@ -813,7 +813,7 @@ fn test_csrrs_read_only_csr_with_nonzero_rs1_is_rejected() {
     let result = execute(&mut state);
 
     assert!(result.is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x1234);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
 #[test]
@@ -823,9 +823,9 @@ fn test_csrrc_read_only_csr_with_nonzero_rs1_is_rejected() {
         rs1: EReg::A0,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x1234);
+    state.ext_state.init_csr(RO_CSR, 0x1234);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     state.regs.write(EReg::A0, 0b1u64);
@@ -833,7 +833,7 @@ fn test_csrrc_read_only_csr_with_nonzero_rs1_is_rejected() {
     let result = execute(&mut state);
 
     assert!(result.is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x1234);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
 #[test]
@@ -843,15 +843,15 @@ fn test_csrrsi_read_only_csr_with_nonzero_zimm_is_rejected() {
         zimm: 1,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x1234);
+    state.ext_state.init_csr(RO_CSR, 0x1234);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     let result = execute(&mut state);
 
     assert!(result.is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x1234);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
 #[test]
@@ -861,15 +861,15 @@ fn test_csrrci_read_only_csr_with_nonzero_zimm_is_rejected() {
         zimm: 1,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x1234);
+    state.ext_state.init_csr(RO_CSR, 0x1234);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     let result = execute(&mut state);
 
     assert!(result.is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x1234);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
 // Read-only CSR with a no-write access pattern is legal per spec.
@@ -882,15 +882,15 @@ fn test_csrrs_read_only_csr_with_rs1_zero_is_legal() {
         rs1: EReg::Zero,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0xABCD);
+    state.ext_state.init_csr(RO_CSR, 0xABCD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xABCD);
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0xABCD);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0xABCD);
 }
 
 #[test]
@@ -900,15 +900,15 @@ fn test_csrrc_read_only_csr_with_rs1_zero_is_legal() {
         rs1: EReg::Zero,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0xABCD);
+    state.ext_state.init_csr(RO_CSR, 0xABCD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xABCD);
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0xABCD);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0xABCD);
 }
 
 #[test]
@@ -918,15 +918,15 @@ fn test_csrrsi_read_only_csr_with_zimm_zero_is_legal() {
         zimm: 0,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0xABCD);
+    state.ext_state.init_csr(RO_CSR, 0xABCD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xABCD);
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0xABCD);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0xABCD);
 }
 
 #[test]
@@ -936,15 +936,15 @@ fn test_csrrci_read_only_csr_with_zimm_zero_is_legal() {
         zimm: 0,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0xABCD);
+    state.ext_state.init_csr(RO_CSR, 0xABCD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A2), 0xABCD);
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0xABCD);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0xABCD);
 }
 
 // Precise address-space boundary between writable and read-only.
@@ -956,17 +956,17 @@ fn test_csrrw_last_writable_address_succeeds() {
         rs1: EReg::A0,
         csr: LAST_WRITABLE_CSR,
     }]);
-    state.ext_regs.init_csr(LAST_WRITABLE_CSR, 0x10);
+    state.ext_state.init_csr(LAST_WRITABLE_CSR, 0x10);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_state.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x20u64);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(EReg::A1), 0x10);
-    assert_eq!(state.ext_regs.read_csr(LAST_WRITABLE_CSR).unwrap(), 0x20);
+    assert_eq!(state.ext_state.read_csr(LAST_WRITABLE_CSR).unwrap(), 0x20);
 }
 
 #[test]
@@ -976,15 +976,15 @@ fn test_csrrw_first_read_only_address_is_rejected() {
         rs1: EReg::A0,
         csr: RO_CSR,
     }]);
-    state.ext_regs.init_csr(RO_CSR, 0x10);
+    state.ext_state.init_csr(RO_CSR, 0x10);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_state.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x20u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(RO_CSR).unwrap(), 0x10);
+    assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x10);
 }
 
 // Privilege level enforcement
@@ -1012,11 +1012,11 @@ fn test_priv_user_csr_accessible_from_user_mode() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1029,11 +1029,13 @@ fn test_priv_user_csr_accessible_from_supervisor_mode() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_state
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1046,11 +1048,11 @@ fn test_priv_user_csr_accessible_from_machine_mode() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_state.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1065,15 +1067,15 @@ fn test_priv_supervisor_csr_rejected_from_user_mode() {
         rs1: EReg::A0,
         csr: S_CSR,
     }]);
-    state.ext_regs.init_csr(S_CSR, 0xDEAD);
+    state.ext_state.init_csr(S_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(S_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(S_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1083,11 +1085,13 @@ fn test_priv_supervisor_csr_accessible_from_supervisor_mode() {
         rs1: EReg::A0,
         csr: S_CSR,
     }]);
-    state.ext_regs.init_csr(S_CSR, 0);
+    state.ext_state.init_csr(S_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_state
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1100,11 +1104,11 @@ fn test_priv_supervisor_csr_accessible_from_machine_mode() {
         rs1: EReg::A0,
         csr: S_CSR,
     }]);
-    state.ext_regs.init_csr(S_CSR, 0);
+    state.ext_state.init_csr(S_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_state.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1119,15 +1123,15 @@ fn test_priv_machine_csr_rejected_from_user_mode() {
         rs1: EReg::A0,
         csr: M_CSR,
     }]);
-    state.ext_regs.init_csr(M_CSR, 0xDEAD);
+    state.ext_state.init_csr(M_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(M_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1137,15 +1141,17 @@ fn test_priv_machine_csr_rejected_from_supervisor_mode() {
         rs1: EReg::A0,
         csr: M_CSR,
     }]);
-    state.ext_regs.init_csr(M_CSR, 0xDEAD);
+    state.ext_state.init_csr(M_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_state
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(M_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1155,11 +1161,11 @@ fn test_priv_machine_csr_accessible_from_machine_mode() {
         rs1: EReg::A0,
         csr: M_CSR,
     }]);
-    state.ext_regs.init_csr(M_CSR, 0);
+    state.ext_state.init_csr(M_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_state.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     execute(&mut state).unwrap();
@@ -1176,18 +1182,18 @@ fn test_priv_check_fires_before_csr_is_read_or_written() {
         rs1: EReg::A0,
         csr: S_CSR,
     }]);
-    state.ext_regs.init_csr(S_CSR, 0xBEEF);
+    state.ext_state.init_csr(S_CSR, 0xBEEF);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1234u64);
 
     let _ = execute(&mut state);
 
     // Neither the general-purpose register nor the CSR must have been modified.
     assert_eq!(state.regs.read(EReg::A2), 0);
-    assert_eq!(state.ext_regs.read_csr(S_CSR).unwrap(), 0xBEEF);
+    assert_eq!(state.ext_state.read_csr(S_CSR).unwrap(), 0xBEEF);
 }
 
 // Per-instruction privilege check coverage (one failing case each).
@@ -1199,14 +1205,16 @@ fn test_csrrs_privilege_check() {
         rs1: EReg::Zero,
         csr: M_CSR,
     }]);
-    state.ext_regs.init_csr(M_CSR, 0xDEAD);
+    state.ext_state.init_csr(M_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_state
+        .set_privilege_level(PrivilegeLevel::Supervisor);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(M_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1216,14 +1224,16 @@ fn test_csrrc_privilege_check() {
         rs1: EReg::Zero,
         csr: M_CSR,
     }]);
-    state.ext_regs.init_csr(M_CSR, 0xDEAD);
+    state.ext_state.init_csr(M_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_state
+        .set_privilege_level(PrivilegeLevel::Supervisor);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(M_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1233,14 +1243,14 @@ fn test_csrrwi_privilege_check() {
         zimm: 1,
         csr: M_CSR,
     }]);
-    state.ext_regs.init_csr(M_CSR, 0xDEAD);
+    state.ext_state.init_csr(M_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(M_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(M_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1250,14 +1260,14 @@ fn test_csrrsi_privilege_check() {
         zimm: 1,
         csr: S_CSR,
     }]);
-    state.ext_regs.init_csr(S_CSR, 0xDEAD);
+    state.ext_state.init_csr(S_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(S_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(S_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1267,14 +1277,14 @@ fn test_csrrci_privilege_check() {
         zimm: 1,
         csr: S_CSR,
     }]);
-    state.ext_regs.init_csr(S_CSR, 0xDEAD);
+    state.ext_state.init_csr(S_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(S_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(S_CSR).unwrap(), 0xDEAD);
 }
 
 // Reserved-privilege encoding (bits[9:8] = 0b10) maps to Machine, so any
@@ -1287,15 +1297,17 @@ fn test_reserved_privilege_csr_rejected_from_supervisor_mode() {
         rs1: EReg::A0,
         csr: RESERVED_PRIV_CSR,
     }]);
-    state.ext_regs.init_csr(RESERVED_PRIV_CSR, 0xDEAD);
+    state.ext_state.init_csr(RESERVED_PRIV_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Supervisor;
+    state
+        .ext_state
+        .set_privilege_level(PrivilegeLevel::Supervisor);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(RESERVED_PRIV_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(RESERVED_PRIV_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1305,15 +1317,15 @@ fn test_reserved_privilege_csr_rejected_from_user_mode() {
         rs1: EReg::A0,
         csr: RESERVED_PRIV_CSR,
     }]);
-    state.ext_regs.init_csr(RESERVED_PRIV_CSR, 0xDEAD);
+    state.ext_state.init_csr(RESERVED_PRIV_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::User;
+    state.ext_state.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(RESERVED_PRIV_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(RESERVED_PRIV_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1323,16 +1335,16 @@ fn test_reserved_privilege_csr() {
         rs1: EReg::A0,
         csr: RESERVED_PRIV_CSR,
     }]);
-    state.ext_regs.init_csr(RESERVED_PRIV_CSR, 0);
+    // Do not initialize unknown CSR
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, allow_write);
-    state.privilege_level = PrivilegeLevel::Machine;
+    state.ext_state.set_privilege_level(PrivilegeLevel::Machine);
     state.regs.write(EReg::A0, 0x1u64);
 
     assert_matches!(
         execute(&mut state),
-        Err(ExecutionError::CsrError(CsrError::Unknown {
+        Err(ExecutionError::CsrError(CsrError::IllegalRead {
             csr_index: RESERVED_PRIV_CSR
         }))
     );
@@ -1347,15 +1359,15 @@ fn test_csrrw_prepare_read_error_is_propagated() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
-    state.ext_regs.set_prepare_csr_read_write(
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.set_prepare_csr_read_write(
         |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
         allow_write,
     );
     state.regs.write(EReg::A0, 0xBEEFu64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1365,16 +1377,16 @@ fn test_csrrw_rd_zero_prepare_write_error_is_propagated() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |csr_index, _| {
             Err(CsrError::IllegalWrite { csr_index })
         });
     state.regs.write(EReg::A0, 0xBEEFu64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1384,15 +1396,15 @@ fn test_csrrs_prepare_read_error_is_propagated() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
-    state.ext_regs.set_prepare_csr_read_write(
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.set_prepare_csr_read_write(
         |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
         allow_write,
     );
     state.regs.write(EReg::A0, 0b1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1402,16 +1414,16 @@ fn test_csrrs_prepare_write_error_is_propagated() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |csr_index, _| {
             Err(CsrError::IllegalWrite { csr_index })
         });
     state.regs.write(EReg::A0, 0b1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1421,15 +1433,15 @@ fn test_csrrc_prepare_read_error_is_propagated() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
-    state.ext_regs.set_prepare_csr_read_write(
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.set_prepare_csr_read_write(
         |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
         allow_write,
     );
     state.regs.write(EReg::A0, 0b1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1439,16 +1451,16 @@ fn test_csrrc_prepare_write_error_is_propagated() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |csr_index, _| {
             Err(CsrError::IllegalWrite { csr_index })
         });
     state.regs.write(EReg::A0, 0b1u64);
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1458,14 +1470,14 @@ fn test_csrrwi_prepare_read_error_is_propagated() {
         zimm: 1,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
-    state.ext_regs.set_prepare_csr_read_write(
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.set_prepare_csr_read_write(
         |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
         allow_write,
     );
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1475,15 +1487,15 @@ fn test_csrrwi_prepare_write_error_is_propagated() {
         zimm: 1,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |csr_index, _| {
             Err(CsrError::IllegalWrite { csr_index })
         });
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1493,14 +1505,14 @@ fn test_csrrsi_prepare_read_error_is_propagated() {
         zimm: 1,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
-    state.ext_regs.set_prepare_csr_read_write(
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.set_prepare_csr_read_write(
         |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
         allow_write,
     );
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1510,15 +1522,15 @@ fn test_csrrsi_prepare_write_error_is_propagated() {
         zimm: 1,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |csr_index, _| {
             Err(CsrError::IllegalWrite { csr_index })
         });
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1528,14 +1540,14 @@ fn test_csrrci_prepare_read_error_is_propagated() {
         zimm: 1,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
-    state.ext_regs.set_prepare_csr_read_write(
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.set_prepare_csr_read_write(
         |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
         allow_write,
     );
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 #[test]
@@ -1545,15 +1557,15 @@ fn test_csrrci_prepare_write_error_is_propagated() {
         zimm: 1,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD);
+    state.ext_state.init_csr(U_CSR, 0xDEAD);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |csr_index, _| {
             Err(CsrError::IllegalWrite { csr_index })
         });
 
     assert!(execute(&mut state).is_err());
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xDEAD);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xDEAD);
 }
 
 // Unknown CSR index
@@ -1637,9 +1649,9 @@ fn test_prepare_csr_read_filtered_value_reaches_rd() {
         rs1: EReg::Zero,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0xDEAD_BEEF_1234_5678u64);
+    state.ext_state.init_csr(U_CSR, 0xDEAD_BEEF_1234_5678u64);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(|_, raw| Ok(raw & 0xFFFF_FFFF), allow_write);
 
     execute(&mut state).unwrap();
@@ -1655,13 +1667,13 @@ fn test_prepare_csr_write_filtered_value_reaches_csr() {
         rs1: EReg::A0,
         csr: U_CSR,
     }]);
-    state.ext_regs.init_csr(U_CSR, 0);
+    state.ext_state.init_csr(U_CSR, 0);
     state
-        .ext_regs
+        .ext_state
         .set_prepare_csr_read_write(allow_read, |_, val| Ok(val & !0xFF));
     state.regs.write(EReg::A0, 0xABCD_EFFFu64);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_regs.read_csr(U_CSR).unwrap(), 0xABCD_EF00);
+    assert_eq!(state.ext_state.read_csr(U_CSR).unwrap(), 0xABCD_EF00);
 }

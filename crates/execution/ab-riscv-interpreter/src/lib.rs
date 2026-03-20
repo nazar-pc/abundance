@@ -27,7 +27,7 @@ pub mod rv64;
 
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
@@ -129,7 +129,7 @@ pub trait ProgramCounter<Address, Memory, CustomError> {
 
 /// Execution errors
 #[derive(Debug, thiserror::Error)]
-pub enum ExecutionError<Address, I, CustomError> {
+pub enum ExecutionError<Address, CustomError> {
     /// Unaligned instruction fetch
     #[error("Unaligned instruction fetch at address {address:#x}")]
     UnalignedInstructionFetch {
@@ -142,13 +142,11 @@ pub enum ExecutionError<Address, I, CustomError> {
     /// Memory access error
     #[error("Memory access error: {0}")]
     MemoryAccess(#[from] VirtualMemoryError),
-    /// Unsupported instruction
-    #[error("Unsupported instruction at address {address:#x}: {instruction}")]
-    UnsupportedInstruction {
+    /// Unsupported `ecall` instruction
+    #[error("Unsupported `ecall` instruction at address {address:#x}")]
+    EcallUnsupported {
         /// Address of the unsupported instruction
         address: Address,
-        /// Instruction that caused the error
-        instruction: I,
     },
     /// Unimplemented/illegal instruction
     #[error("Unimplemented/illegal instruction at address {address:#x}")]
@@ -172,37 +170,6 @@ pub enum ExecutionError<Address, I, CustomError> {
     Custom(CustomError),
 }
 
-impl<Address, BI, CustomError> ExecutionError<Address, BI, CustomError> {
-    /// Map instruction type
-    #[inline]
-    pub fn map_instruction<I>(self, map: fn(BI) -> I) -> ExecutionError<Address, I, CustomError> {
-        match self {
-            Self::UnalignedInstructionFetch { address } => {
-                ExecutionError::UnalignedInstructionFetch { address }
-            }
-            Self::MemoryAccess(error) => ExecutionError::MemoryAccess(error),
-            Self::ProgramCounter(error) => ExecutionError::ProgramCounter(error),
-            Self::UnsupportedInstruction {
-                address,
-                instruction,
-            } => ExecutionError::UnsupportedInstruction {
-                address,
-                instruction: map(instruction),
-            },
-            Self::UnimpInstruction { address } => ExecutionError::UnimpInstruction { address },
-            Self::InvalidInstruction {
-                address,
-                instruction,
-            } => ExecutionError::InvalidInstruction {
-                address,
-                instruction,
-            },
-            Self::CsrError(error) => ExecutionError::CsrError(error),
-            Self::Custom(error) => ExecutionError::Custom(error),
-        }
-    }
-}
-
 /// Result of [`InstructionFetcher::fetch_instruction()`] call
 #[derive(Debug, Copy, Clone)]
 pub enum FetchInstructionResult<Instruction> {
@@ -222,7 +189,7 @@ where
     fn fetch_instruction(
         &mut self,
         memory: &mut Memory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, I, CustomError>>;
+    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>>;
 }
 
 /// Basic instruction fetcher implementation
@@ -279,7 +246,7 @@ where
     fn fetch_instruction(
         &mut self,
         memory: &mut Memory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, I, CustomError>> {
+    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -364,6 +331,12 @@ pub trait Csrs<Reg, CustomError>
 where
     Reg: Register,
 {
+    /// Current privilege level
+    #[inline(always)]
+    fn privilege_level(&self) -> PrivilegeLevel {
+        PrivilegeLevel::Machine
+    }
+
     /// Reads register value
     fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>>;
 
@@ -393,6 +366,79 @@ where
     ) -> Result<Reg::Type, CsrError<CustomError>>;
 }
 
+/// Custom handler for system instructions `ecall` and `ebreak`
+pub trait SystemInstructionHandler<Reg, Memory, PC, CustomError>
+where
+    Reg: Register,
+    [(); Reg::N]:,
+{
+    /// Handle an `ecall` instruction.
+    ///
+    /// NOTE: the program counter here is the current value, meaning it is already incremented past
+    /// the instruction itself.
+    fn handle_ecall(
+        &mut self,
+        regs: &mut Registers<Reg>,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>>;
+
+    /// Handle an `ebreak` instruction.
+    ///
+    /// NOTE: the program counter here is the current value, meaning it is already incremented past
+    /// the instruction itself.
+    #[inline(always)]
+    fn handle_ebreak(&mut self, regs: &mut Registers<Reg>, memory: &mut Memory, pc: Reg::Type) {
+        // These are for cleaner trait API without leading `_` on arguments
+        let _ = regs;
+        let _ = memory;
+        let _ = pc;
+        // NOP by default
+    }
+}
+
+/// Base interpreter state
+#[derive(Debug)]
+pub struct InterpreterState<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
+where
+    Reg: Register,
+    [(); Reg::N]:,
+{
+    /// General purpose registers
+    pub regs: Registers<Reg>,
+    /// Extended state.
+    ///
+    /// Extensions might use this to place additional constraints on `ExtState` to require
+    /// additional registers or other resources. If no such extension is used, `()` can be used as
+    /// a placeholder.
+    pub ext_state: ExtState,
+    /// Memory
+    pub memory: Memory,
+    /// Instruction fetcher
+    pub instruction_fetcher: IF,
+    /// System instruction handler
+    pub system_instruction_handler: InstructionHandler,
+    #[doc(hidden)]
+    pub _phantom: PhantomData<CustomError>,
+}
+
+impl<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
+    InterpreterState<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
+where
+    Reg: Register,
+    [(); Reg::N]:,
+    IF: ProgramCounter<Reg::Type, Memory, CustomError>,
+{
+    /// Set program counter
+    #[inline(always)]
+    pub fn set_pc(
+        &mut self,
+        pc: Reg::Type,
+    ) -> Result<ControlFlow<()>, ProgramCounterError<Reg::Type, CustomError>> {
+        self.instruction_fetcher.set_pc(&mut self.memory, pc)
+    }
+}
+
 /// Trait for executable instructions
 pub trait ExecutableInstruction<State, CustomError>
 where
@@ -406,8 +452,8 @@ where
     /// read request. For accepted reads the extension must update `output_value` accordingly, which
     /// will be the value used by the `Zicsr` extension handler.
     ///
-    /// Some extensions will just copy raw value to output value, others will copy only some bits or
-    /// zero some bits of the raw value, as required by the specification.
+    /// Some extensions will just copy `raw_value` to output value, others will copy only some bits
+    /// or zero some bits of the `raw_value`, as required by the specification.
     ///
     /// If no extension returns `Ok(true)`, the read operation is implicitly rejected as illegal
     /// access.
@@ -437,8 +483,8 @@ where
     /// must update `output_value` accordingly, which will be written to the corresponding CSR
     /// register.
     ///
-    /// Some extensions will just copy write value to output value, others will copy some bits or
-    /// zero some bits of the write value, as required by the specification.
+    /// Some extensions will just copy `write_value` to output value, others will copy some bits or
+    /// zero some bits of the `write_value`, as required by the specification.
     ///
     /// If no extension returns `Ok(true)`, the write operation is implicitly rejected as illegal
     /// access.
@@ -464,5 +510,5 @@ where
     fn execute(
         self,
         state: &mut State,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<Self>, Self, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<Self>, CustomError>>;
 }

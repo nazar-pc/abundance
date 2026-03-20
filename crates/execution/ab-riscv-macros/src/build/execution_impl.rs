@@ -1,7 +1,9 @@
 mod extract_matches;
+mod forbidden_checker;
 
 use crate::build::enum_impl::enum_name_from_impl;
 use crate::build::execution_impl::extract_matches::extract_variant_arms;
+use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::state::{PendingEnumExecutionImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
@@ -45,7 +47,55 @@ pub(super) fn collect_enum_execution_impls_from_dependencies()
     })
 }
 
-fn extract_execute_block_from_impl(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
+fn extract_prepare_csr_read_fn(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
+    for item in &item_impl.items {
+        if let ImplItem::Fn(impl_item_fn) = item
+            && impl_item_fn.sig.ident == "prepare_csr_read"
+        {
+            return Some(impl_item_fn);
+        }
+    }
+
+    None
+}
+
+fn extract_prepare_csr_write_fn(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
+    for item in &item_impl.items {
+        if let ImplItem::Fn(impl_item_fn) = item
+            && impl_item_fn.sig.ident == "prepare_csr_write"
+        {
+            return Some(impl_item_fn);
+        }
+    }
+
+    None
+}
+
+fn extract_prepare_csr_read_fn_mut(item_impl: &mut ItemImpl) -> Option<&mut ImplItemFn> {
+    for item in &mut item_impl.items {
+        if let ImplItem::Fn(impl_item_fn) = item
+            && impl_item_fn.sig.ident == "prepare_csr_read"
+        {
+            return Some(impl_item_fn);
+        }
+    }
+
+    None
+}
+
+fn extract_prepare_csr_write_fn_mut(item_impl: &mut ItemImpl) -> Option<&mut ImplItemFn> {
+    for item in &mut item_impl.items {
+        if let ImplItem::Fn(impl_item_fn) = item
+            && impl_item_fn.sig.ident == "prepare_csr_write"
+        {
+            return Some(impl_item_fn);
+        }
+    }
+
+    None
+}
+
+fn extract_execute_fn(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
     for item in &item_impl.items {
         if let ImplItem::Fn(impl_item_fn) = item
             && impl_item_fn.sig.ident == "execute"
@@ -122,8 +172,8 @@ pub(super) fn process_execution_impl(
 
         let Some(execute_fn) = extract_execute_fn_from_impl_mut(&mut item_impl) else {
             Err(anyhow::anyhow!(
-                "Expected `impl` for `{}`, `#[instruction_execution]` attribute must be added to a \
-                simple instruction enum implementation, but no `execute` method was not found",
+                "Unexpected `impl` for `{}`, `#[instruction_execution]` attribute must be added to \
+                a simple instruction enum implementation, but no `execute` method was found",
                 item_impl.self_ty.to_token_stream()
             ))?
         };
@@ -134,9 +184,17 @@ pub(super) fn process_execution_impl(
             return Some(Ok(()));
         };
 
-        // TODO: This can probably be refactored as an iterator without collecting into a vector
-        //  first
-        let mut all_blocks = Vec::new();
+        // TODO: This should be changed to recursively combine all fundamental extensions instead of
+        //  combined ones instead, such that extension D that depends two extensions B and C that
+        //  both depend on the same extension A will get A included in D once rather than twice.
+        //  This is caused by `get_known_enum_execution_impl` returning final extension
+        //  implementation and not its original state as defined in the source code. Essentially, in
+        //  addition to the final version, the original body of the implementation needs to be
+        //  retained and used.
+        let mut all_execute_blocks = Vec::new();
+        let mut all_prepare_csr_read_fns = Vec::new();
+        let mut all_prepare_csr_write_fns = Vec::new();
+        let mut all_where_predicates = Vec::new();
         {
             let mut all_dependencies = HashSet::new();
             all_dependencies.insert(enum_name.clone());
@@ -166,22 +224,37 @@ pub(super) fn process_execution_impl(
                         return Some(Ok(()));
                     };
 
-                    let block =
-                        &extract_execute_block_from_impl(&dependency_enum_execution_impl.item_impl)
-                            .expect("Dependencies are all valid; qed")
-                            .block;
+                    all_prepare_csr_read_fns.extend(extract_prepare_csr_read_fn(
+                        &dependency_enum_execution_impl.item_impl,
+                    ));
+                    all_prepare_csr_write_fns.extend(extract_prepare_csr_write_fn(
+                        &dependency_enum_execution_impl.item_impl,
+                    ));
 
-                    all_blocks.push(block);
+                    all_execute_blocks.push(
+                        &extract_execute_fn(&dependency_enum_execution_impl.item_impl)
+                            .expect("Dependencies are all valid; qed")
+                            .block,
+                    );
+                    if let Some(where_clause) = &dependency_enum_execution_impl
+                        .item_impl
+                        .generics
+                        .where_clause
+                    {
+                        all_where_predicates.extend(where_clause.predicates.iter().cloned());
+                    }
                     new_dependencies
                         .extend(dependency_enum_definition.dependencies.iter().cloned());
                 }
             }
         }
 
-        let all_blocks = all_blocks.into_iter().chain(iter::once(&*execute_block));
+        let all_execute_blocks = all_execute_blocks
+            .into_iter()
+            .chain(iter::once(&*execute_block));
 
         let mut all_instructions = HashMap::new();
-        for block in all_blocks {
+        for block in all_execute_blocks {
             for maybe_instruction in extract_variant_arms(block)? {
                 let (variant_name, instruction_arm) = maybe_instruction?;
                 all_instructions.insert(variant_name, instruction_arm);
@@ -207,6 +280,98 @@ pub(super) fn process_execution_impl(
             }
         }})
         .expect("Generated code is valid; qed");
+
+        if let Some(where_clause) = &mut item_impl.generics.where_clause {
+            let mut already_inserted = where_clause
+                .predicates
+                .iter()
+                .cloned()
+                .collect::<HashSet<_>>();
+            for predicate in all_where_predicates {
+                if already_inserted.contains(&predicate) {
+                    continue;
+                }
+                already_inserted.insert(predicate.clone());
+                where_clause.predicates.push(predicate);
+            }
+        } else {
+            Err(anyhow::anyhow!(
+                "Missing where clause on `#[instruction_execution] impl Instruction for \
+                {enum_name}`"
+            ))?;
+        }
+
+        // Composition for `prepare_csr_read` method
+        let maybe_prepare_csr_read_fn = extract_prepare_csr_read_fn_mut(&mut item_impl);
+        if let Some(prepare_csr_read_fn) = maybe_prepare_csr_read_fn {
+            (!block_contains_forbidden_syntax(&prepare_csr_read_fn.block)).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Expected `#[instruction_execution] impl Instruction for {enum_name}` must not \
+                    have `return` in `prepare_csr_read` method"
+                )
+            })?;
+
+            let all_prepare_csr_read_blocks = all_prepare_csr_read_fns
+                .iter()
+                .map(|impl_item_fn| &impl_item_fn.block)
+                .chain(iter::once(&prepare_csr_read_fn.block));
+            prepare_csr_read_fn.block = parse2(quote! {{
+                let mut accepted_by_at_least_one = false;
+                #( if #all_prepare_csr_read_blocks? { accepted_by_at_least_one = true; } )*
+
+                Ok(accepted_by_at_least_one)
+            }})
+            .expect("Generated code is valid; qed");
+        } else if let Some(&first_prepare_csr_read_fn) = all_prepare_csr_read_fns.first() {
+            let all_prepare_csr_read_blocks = all_prepare_csr_read_fns
+                .iter()
+                .map(|impl_item_fn| &impl_item_fn.block);
+            let mut base_fn = first_prepare_csr_read_fn.clone();
+            base_fn.block = parse2(quote! {{
+                let mut accepted_by_at_least_one = false;
+                #( if #all_prepare_csr_read_blocks? { accepted_by_at_least_one = true; } )*
+
+                Ok(accepted_by_at_least_one)
+            }})
+            .expect("Generated code is valid; qed");
+            item_impl.items.push(ImplItem::Fn(base_fn));
+        }
+
+        // Composition for `prepare_csr_write` method
+        let maybe_prepare_csr_write_fn = extract_prepare_csr_write_fn_mut(&mut item_impl);
+        if let Some(prepare_csr_write_fn) = maybe_prepare_csr_write_fn {
+            (!block_contains_forbidden_syntax(&prepare_csr_write_fn.block)).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Expected `#[instruction_execution] impl Instruction for {enum_name}` must not \
+                    have `return` in `prepare_csr_write` method",
+                )
+            })?;
+
+            let all_prepare_csr_write_blocks = all_prepare_csr_write_fns
+                .iter()
+                .map(|impl_item_fn| &impl_item_fn.block)
+                .chain(iter::once(&prepare_csr_write_fn.block));
+            prepare_csr_write_fn.block = parse2(quote! {{
+                let mut accepted_by_at_least_one = false;
+                #( if #all_prepare_csr_write_blocks? { accepted_by_at_least_one = true; } )*
+
+                Ok(accepted_by_at_least_one)
+            }})
+            .expect("Generated code is valid; qed");
+        } else if let Some(&first_prepare_csr_write_fn) = all_prepare_csr_write_fns.first() {
+            let all_prepare_csr_write_blocks = all_prepare_csr_write_fns
+                .iter()
+                .map(|impl_item_fn| &impl_item_fn.block);
+            let mut base_fn = first_prepare_csr_write_fn.clone();
+            base_fn.block = parse2(quote! {{
+                let mut accepted_by_at_least_one = false;
+                #( if #all_prepare_csr_write_blocks? { accepted_by_at_least_one = true; } )*
+
+                Ok(accepted_by_at_least_one)
+            }})
+            .expect("Generated code is valid; qed");
+            item_impl.items.push(ImplItem::Fn(base_fn));
+        }
 
         // Only remove after successful processing, so that the function can be called repeatedly
         // with the same input if the implementation is still pending

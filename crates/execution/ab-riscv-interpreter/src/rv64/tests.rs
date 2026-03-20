@@ -1084,7 +1084,7 @@ fn test_ecall_unsupported() {
 
     assert!(matches!(
         result,
-        Err(ExecutionError::UnsupportedInstruction { .. })
+        Err(ExecutionError::EcallUnsupported { .. })
     ));
 }
 
