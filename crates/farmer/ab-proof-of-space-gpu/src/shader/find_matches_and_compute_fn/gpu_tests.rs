@@ -188,11 +188,12 @@ async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
     Box<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>,
 )> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
-    let instance = Instance::new(&InstanceDescriptor {
+    let instance = Instance::new(InstanceDescriptor {
         backends,
         flags: InstanceFlags::GPU_BASED_VALIDATION.with_env(),
         memory_budget_thresholds: MemoryBudgetThresholds::default(),
         backend_options: BackendOptions::from_env_or_default(),
+        display: None,
     });
 
     let adapters = instance.enumerate_adapters(backends).await;
@@ -327,7 +328,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 
