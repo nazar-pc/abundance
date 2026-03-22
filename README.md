@@ -53,7 +53,7 @@ While this repository is focused on blockchain R&D, there are some useful Rust c
 Many of these crates are `no_std`, do not require an allocator and make efficient use of stack through const generics.
 Where possible, [`no-panic`] is used to guarantee absence of panics at compile time for high reliability and more
 efficient code generation. None of the listed crates have any dependencies on anything in this repository that is
-specific to this project, so can be used externally with minimal dependencies.
+specific to this project, so they can be used externally with minimal dependencies.
 
 [`no-panic`]: https://docs.rs/no-panic
 
