@@ -16,7 +16,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xStoreInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xStoreInstruction<Reg> {
     /// Unit-stride store: `vse{eew}.v vs3, (rs1), vm`
     ///
     /// mop=00, sumop=00000, nf=000

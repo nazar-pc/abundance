@@ -19,7 +19,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xPermInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xPermInstruction<Reg> {
     /// `vmv.x.s rd, vs2` - Copy scalar element 0 of vs2 to GPR rd
     ///
     /// funct6=010000, OPMVV, vs1=00000, vm=1

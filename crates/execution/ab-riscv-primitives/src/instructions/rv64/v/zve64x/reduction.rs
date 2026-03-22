@@ -19,7 +19,8 @@ use core::marker::PhantomData;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xReductionInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xReductionInstruction<Reg> {
     /// Sum reduction: `vredsum.vs vd, vs2, vs1, vm`
     Vredsum { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// AND reduction: `vredand.vs vd, vs2, vs1, vm`
@@ -41,7 +42,6 @@ pub(super) enum Rv64Zve64xReductionInstruction<Reg> {
     /// Widening signed sum reduction: `vwredsum.vs vd, vs2, vs1, vm`
     Vwredsum { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     #[doc(hidden)]
-    #[expect(dead_code, reason = "Only used for `Reg` generic")]
     Phantom(PhantomData<Reg>),
 }
 

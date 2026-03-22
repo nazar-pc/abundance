@@ -21,7 +21,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xWidenNarrowInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xWidenNarrowInstruction<Reg> {
     // Widening unsigned integer add, 2*SEW = SEW + SEW
 
     /// `vwaddu.vv vd, vs2, vs1, vm`

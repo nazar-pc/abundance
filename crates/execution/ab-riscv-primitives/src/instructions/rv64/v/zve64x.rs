@@ -1,15 +1,25 @@
 //! RV64 Zve64x extension (Vector Extension for Embedded Processors, ELEN=64, integer-only)
 
-mod arith;
-mod config;
-mod fixed_point;
-mod load;
-mod mask;
-mod muldiv;
-mod perm;
-mod reduction;
-mod store;
-mod widen_narrow;
+#[doc(hidden)]
+pub mod arith;
+#[doc(hidden)]
+pub mod config;
+#[doc(hidden)]
+pub mod fixed_point;
+#[doc(hidden)]
+pub mod load;
+#[doc(hidden)]
+pub mod mask;
+#[doc(hidden)]
+pub mod muldiv;
+#[doc(hidden)]
+pub mod perm;
+#[doc(hidden)]
+pub mod reduction;
+#[doc(hidden)]
+pub mod store;
+#[doc(hidden)]
+pub mod widen_narrow;
 
 use crate::instructions::Instruction;
 use crate::instructions::rv64::v::zve64x::arith::Rv64Zve64xArithInstruction;

@@ -16,7 +16,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xFixedPointInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xFixedPointInstruction<Reg> {
     /// `vsaddu.vv vd, vs2, vs1, vm` - Saturating unsigned add, vector-vector
     VsadduVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsaddu.vx vd, vs2, rs1, vm` - Saturating unsigned add, vector-scalar

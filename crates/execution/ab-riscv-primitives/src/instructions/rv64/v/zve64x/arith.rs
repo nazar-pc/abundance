@@ -24,7 +24,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xArithInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xArithInstruction<Reg> {
     // Single-Width Integer Add/Subtract (Section 12.1)
 
     /// `vadd.vv vd, vs2, vs1, vm`

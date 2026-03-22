@@ -19,7 +19,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xMaskInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xMaskInstruction<Reg> {
     /// `vmandn.mm vd, vs2, vs1` - vd = vs2 AND NOT vs1
     ///
     /// funct6=011000, OPMVV, vm=1

@@ -21,7 +21,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xMulDivInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xMulDivInstruction<Reg> {
     // Single-width integer multiply (Section 12.10)
 
     /// `vmul.vv vd, vs2, vs1, vm` - signed multiply, low bits

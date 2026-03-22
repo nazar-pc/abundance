@@ -15,7 +15,8 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub(super) enum Rv64Zve64xConfigInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv64Zve64xConfigInstruction<Reg> {
     /// Set vector length and type from GPR
     ///
     /// `vsetvli rd, rs1, vtypei`
