@@ -1,17 +1,17 @@
 use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
-use ab_riscv_primitives::registers::general_purpose::EReg;
+use ab_riscv_primitives::registers::general_purpose::Reg;
 
 #[test]
 fn test_clmul_simple() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmul {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0b1010);
-    state.regs.write(EReg::A1, 0b1100);
+    state.regs.write(Reg::A0, 0b1010);
+    state.regs.write(Reg::A1, 0b1100);
 
     execute(&mut state).unwrap();
 
@@ -19,51 +19,51 @@ fn test_clmul_simple() {
     // bit 2 of b: 1010 << 2 = 101000
     // bit 3 of b: 1010 << 3 = 1010000
     // XOR: 101000 ^ 1010000 = 1111000
-    assert_eq!(state.regs.read(EReg::A2), 0b1111000);
+    assert_eq!(state.regs.read(Reg::A2), 0b1111000);
 }
 
 #[test]
 fn test_clmul_zero() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmul {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
-    state.regs.write(EReg::A1, 0);
+    state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
+    state.regs.write(Reg::A1, 0);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(EReg::A2), 0);
+    assert_eq!(state.regs.read(Reg::A2), 0);
 }
 
 #[test]
 fn test_clmul_identity() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmul {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0x1234_5678_9ABC_DEF0u64);
-    state.regs.write(EReg::A1, 1);
+    state.regs.write(Reg::A0, 0x1234_5678_9ABC_DEF0u64);
+    state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(EReg::A2), 0x1234_5678_9ABC_DEF0u64);
+    assert_eq!(state.regs.read(Reg::A2), 0x1234_5678_9ABC_DEF0u64);
 }
 
 #[test]
 fn test_clmulh_simple() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmulh {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
-    state.regs.write(EReg::A1, 0xFFFF_FFFF_FFFF_FFFFu64);
+    state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
+    state.regs.write(Reg::A1, 0xFFFF_FFFF_FFFF_FFFFu64);
 
     execute(&mut state).unwrap();
 
@@ -78,52 +78,52 @@ fn test_clmulh_simple() {
 
     // The actual result for clmulh of (2^64-1) × (2^64-1) in high 64 bits
     // is 0x5555_5555_5555_5555
-    assert_eq!(state.regs.read(EReg::A2), 0x5555_5555_5555_5555u64);
+    assert_eq!(state.regs.read(Reg::A2), 0x5555_5555_5555_5555u64);
 }
 
 #[test]
 fn test_clmulh_zero() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmulh {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
-    state.regs.write(EReg::A1, 0);
+    state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
+    state.regs.write(Reg::A1, 0);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(EReg::A2), 0);
+    assert_eq!(state.regs.read(Reg::A2), 0);
 }
 
 #[test]
 fn test_clmulr_simple() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmulr {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0b1010);
-    state.regs.write(EReg::A1, 0b1100);
+    state.regs.write(Reg::A0, 0b1010);
+    state.regs.write(Reg::A1, 0b1100);
 
     execute(&mut state).unwrap();
 
     // clmulr shifts the full 128-bit result right by 1
-    assert_eq!(state.regs.read(EReg::A2), 0b111100);
+    assert_eq!(state.regs.read(Reg::A2), 0b111100);
 }
 
 #[test]
 fn test_clmulr_with_high_bits() {
     let mut state = initialize_state([Rv64ZbcInstruction::Clmulr {
-        rd: EReg::A2,
-        rs1: EReg::A0,
-        rs2: EReg::A1,
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
     }]);
 
-    state.regs.write(EReg::A0, 0x8000_0000_0000_0000u64);
-    state.regs.write(EReg::A1, 0x8000_0000_0000_0000u64);
+    state.regs.write(Reg::A0, 0x8000_0000_0000_0000u64);
+    state.regs.write(Reg::A1, 0x8000_0000_0000_0000u64);
 
     execute(&mut state).unwrap();
 
@@ -133,33 +133,33 @@ fn test_clmulr_with_high_bits() {
     // Shift right by 1: 0x2000_0000_0000_0000_0000_0000_0000_0000
     // Low 64 bits: 0x0000_0000_0000_0000
     // High bit (bit 125) contributes to bit 64 after shift, so we get 0
-    assert_eq!(state.regs.read(EReg::A2), 0);
+    assert_eq!(state.regs.read(Reg::A2), 0);
 }
 
 #[test]
 fn test_clmul_combination() {
     let mut state = initialize_state([
         Rv64ZbcInstruction::Clmul {
-            rd: EReg::A2,
-            rs1: EReg::A0,
-            rs2: EReg::A1,
+            rd: Reg::A2,
+            rs1: Reg::A0,
+            rs2: Reg::A1,
         },
         Rv64ZbcInstruction::Clmulh {
-            rd: EReg::A3,
-            rs1: EReg::A0,
-            rs2: EReg::A1,
+            rd: Reg::A3,
+            rs1: Reg::A0,
+            rs2: Reg::A1,
         },
     ]);
 
-    state.regs.write(EReg::A0, 0x1234_5678u64);
-    state.regs.write(EReg::A1, 0xABCD_EF01u64);
+    state.regs.write(Reg::A0, 0x1234_5678u64);
+    state.regs.write(Reg::A1, 0xABCD_EF01u64);
 
     execute(&mut state).unwrap();
 
     // Just verify they execute without panic
     // The actual values depend on carryless multiplication logic
-    let low = state.regs.read(EReg::A2);
-    let high = state.regs.read(EReg::A3);
+    let low = state.regs.read(Reg::A2);
+    let high = state.regs.read(Reg::A3);
 
     // Basic sanity check: not both zeros unless one operand was zero
     assert!(low != 0 || high != 0);

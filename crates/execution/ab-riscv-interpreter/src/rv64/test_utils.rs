@@ -8,7 +8,7 @@ use crate::{
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::{EReg, Registers};
+use ab_riscv_primitives::registers::general_purpose::{Reg, Registers};
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -107,7 +107,7 @@ pub(super) struct TestInstructionFetcher<I> {
 
 impl<I> ProgramCounter<u64, TestMemory, &'static str> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = EReg<u64>>,
+    I: Instruction<Reg = Reg<u64>>,
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
@@ -127,7 +127,7 @@ where
 
 impl<I> InstructionFetcher<I, TestMemory, &'static str> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = EReg<u64>>,
+    I: Instruction<Reg = Reg<u64>>,
 {
     #[inline]
     fn fetch_instruction(
@@ -152,19 +152,19 @@ where
 
 pub(super) struct TestInstructionHandler;
 
-impl<I> SystemInstructionHandler<EReg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
+impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
     for TestInstructionHandler
 where
-    I: Instruction<Reg = EReg<u64>>,
+    I: Instruction<Reg = Reg<u64>>,
 {
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<EReg<u64>>,
+        _regs: &mut Registers<Reg<u64>>,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u64, &'static str>> {
-        let instruction = Rv64Instruction::<EReg<u64>>::Ecall;
+        let instruction = Rv64Instruction::<Reg<u64>>::Ecall;
         Err(ExecutionError::EcallUnsupported {
             address: program_counter.get_pc() - u64::from(instruction.size()),
         })
@@ -203,7 +203,7 @@ impl Default for ExtState {
     }
 }
 
-impl Csrs<EReg<u64>, &'static str> for ExtState {
+impl Csrs<Reg<u64>, &'static str> for ExtState {
     fn privilege_level(&self) -> PrivilegeLevel {
         self.privilege_level
     }
@@ -264,7 +264,7 @@ impl ExtState {
 }
 
 pub(super) type TestInterpreterState<Instruction> = InterpreterState<
-    EReg<u64>,
+    Reg<u64>,
     ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
@@ -297,7 +297,7 @@ pub(super) fn execute<I>(
     state: &mut TestInterpreterState<I>,
 ) -> Result<(), ExecutionError<Address<I>, &'static str>>
 where
-    I: Instruction<Reg = EReg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
+    I: Instruction<Reg = Reg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
 {
     loop {
         let instruction = match state
