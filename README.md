@@ -5,13 +5,13 @@
 [![📖 Book](https://img.shields.io/badge/📖_Book-grey)](https://abundance.build/book)
 [![💬 Zulip chat](https://img.shields.io/badge/📖_Zulip_chat-grey)](https://abundance.zulipchat.com/)
 
-Researching next-gen blockchain architecture (as of 2026) to achieve ultimate scalability in permissionless setting and
+Researching next-gen blockchain architecture (as of 2026) to achieve ultimate scalability in a permissionless setting and
 fully resolve Blockchain Trilemma. May or may not succeed but must be fun.
 
 ## Status
 
 The current status is heavy WIP with somewhat regular updates on the [website]. Read the [book] for architecture details
-and check the code for details otherwise. Most of the things are missing right now, but that'll change over time.
+and check the code for details, otherwise. Most of the things are missing right now, but that'll change over time.
 
 [website]: https://abundance.build/
 
@@ -50,10 +50,10 @@ While this repository is focused on blockchain R&D, there are some useful Rust c
 
 [rust-gpu]: https://github.com/rust-gpu/rust-gpu
 
-Many of these crates are `no_std`, do not require an allocator and make efficient use of stack through const generics.
+Many of these crates are `no_std`, do not require an allocator and make efficient use of the stack through const generics.
 Where possible, [`no-panic`] is used to guarantee absence of panics at compile time for high reliability and more
 efficient code generation. None of the listed crates have any dependencies on anything in this repository that is
-specific to this project, so can be used externally with minimal dependencies.
+specific to this project, so they can be used externally with minimal dependencies.
 
 [`no-panic`]: https://docs.rs/no-panic
 
