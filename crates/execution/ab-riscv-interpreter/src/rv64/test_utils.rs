@@ -184,14 +184,14 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
-pub(crate) struct ExtState {
+struct CsrExtState {
     privilege_level: PrivilegeLevel,
     csrs: BTreeMap<u16, u64>,
     prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
     prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError<&'static str>>,
 }
 
-impl Default for ExtState {
+impl Default for CsrExtState {
     #[inline(always)]
     fn default() -> Self {
         Self {
@@ -203,13 +203,27 @@ impl Default for ExtState {
     }
 }
 
+pub(crate) struct ExtState {
+    csr: CsrExtState,
+}
+
+impl Default for ExtState {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            csr: CsrExtState::default(),
+        }
+    }
+}
+
 impl Csrs<Reg<u64>, &'static str> for ExtState {
     fn privilege_level(&self) -> PrivilegeLevel {
-        self.privilege_level
+        self.csr.privilege_level
     }
 
     fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError<&'static str>> {
-        self.csrs
+        self.csr
+            .csrs
             .get(&csr_index)
             .copied()
             .ok_or(CsrError::IllegalRead { csr_index })
@@ -217,6 +231,7 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
 
     fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError<&'static str>> {
         let stored_value = self
+            .csr
             .csrs
             .get_mut(&csr_index)
             .ok_or(CsrError::IllegalWrite { csr_index })?;
@@ -229,7 +244,7 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
         csr_index: u16,
         raw_value: u64,
     ) -> Result<u64, CsrError<&'static str>> {
-        (self.prepare_csr_read)(csr_index, raw_value)
+        (self.csr.prepare_csr_read)(csr_index, raw_value)
     }
 
     fn process_csr_write(
@@ -237,13 +252,13 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
         csr_index: u16,
         write_value: u64,
     ) -> Result<u64, CsrError<&'static str>> {
-        (self.prepare_csr_write)(csr_index, write_value)
+        (self.csr.prepare_csr_write)(csr_index, write_value)
     }
 }
 
 impl ExtState {
     pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
-        self.privilege_level = privilege_level;
+        self.csr.privilege_level = privilege_level;
     }
 
     pub(crate) fn set_prepare_csr_read_write(
@@ -254,12 +269,12 @@ impl ExtState {
             write_value: u64,
         ) -> Result<u64, CsrError<&'static str>>,
     ) {
-        self.prepare_csr_read = prepare_csr_read;
-        self.prepare_csr_write = prepare_csr_write;
+        self.csr.prepare_csr_read = prepare_csr_read;
+        self.csr.prepare_csr_write = prepare_csr_write;
     }
 
     pub(crate) fn init_csr(&mut self, csr_index: u16, value: u64) {
-        self.csrs.insert(csr_index, value);
+        self.csr.csrs.insert(csr_index, value);
     }
 }
 
