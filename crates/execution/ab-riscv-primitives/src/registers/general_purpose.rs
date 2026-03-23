@@ -7,7 +7,7 @@ use crate::registers::general_purpose::private::PhantomRegister;
 use core::fmt;
 use core::hint::unreachable_unchecked;
 use core::marker::Destruct;
-use core::ops::{Add, AddAssign, Sub, SubAssign};
+use core::ops::{Add, AddAssign, BitAnd, BitOr, BitXor, Not, Sub, SubAssign};
 
 mod private {
     use core::marker::PhantomData;
@@ -32,12 +32,18 @@ pub const unsafe trait Register:
     /// `u32` for RV32 and `u64` for RV64.
     type Type: [const] Default
         + [const] From<u8>
+        + [const] From<u16>
+        + [const] From<u32>
         + [const] Into<u64>
         + [const] Eq
         + [const] Add
         + [const] AddAssign
         + [const] Sub
         + [const] SubAssign
+        + [const] BitAnd<Output = Self::Type>
+        + [const] BitOr<Output = Self::Type>
+        + [const] BitXor<Output = Self::Type>
+        + [const] Not<Output = Self::Type>
         + fmt::Display
         + fmt::Debug
         + Copy

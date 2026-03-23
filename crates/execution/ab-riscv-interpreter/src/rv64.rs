@@ -3,10 +3,9 @@
 pub mod b;
 pub mod m;
 #[cfg(test)]
-mod test_utils;
+pub(crate) mod test_utils;
 #[cfg(test)]
 mod tests;
-pub mod zicsr;
 pub mod zk;
 
 use crate::{
