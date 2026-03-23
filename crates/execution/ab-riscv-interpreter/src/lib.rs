@@ -24,6 +24,7 @@
 #![no_std]
 
 pub mod rv64;
+pub mod zicsr;
 
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;

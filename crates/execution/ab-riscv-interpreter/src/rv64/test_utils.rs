@@ -15,11 +15,11 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
-pub(super) const TEST_BASE_ADDR: u64 = 0x1000;
+pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
 
 /// Simple test memory implementation
-pub(super) struct TestMemory {
+pub(crate) struct TestMemory {
     data: Vec<u8>,
     base_addr: u64,
 }
@@ -98,7 +98,7 @@ impl VirtualMemory for TestMemory {
 }
 
 /// Custom instruction handler for tests that returns instructions from a sequence
-pub(super) struct TestInstructionFetcher<I> {
+pub(crate) struct TestInstructionFetcher<I> {
     instructions: Vec<I>,
     return_trap_address: u64,
     base_address: u64,
@@ -150,7 +150,7 @@ where
     }
 }
 
-pub(super) struct TestInstructionHandler;
+pub(crate) struct TestInstructionHandler;
 
 impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
     for TestInstructionHandler
@@ -184,7 +184,7 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
-pub(super) struct ExtState {
+pub(crate) struct ExtState {
     privilege_level: PrivilegeLevel,
     csrs: BTreeMap<u16, u64>,
     prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
@@ -242,11 +242,11 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
 }
 
 impl ExtState {
-    pub(super) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
+    pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
         self.privilege_level = privilege_level;
     }
 
-    pub(super) fn set_prepare_csr_read_write(
+    pub(crate) fn set_prepare_csr_read_write(
         &mut self,
         prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
         prepare_csr_write: fn(
@@ -258,12 +258,12 @@ impl ExtState {
         self.prepare_csr_write = prepare_csr_write;
     }
 
-    pub(super) fn init_csr(&mut self, csr_index: u16, value: u64) {
+    pub(crate) fn init_csr(&mut self, csr_index: u16, value: u64) {
         self.csrs.insert(csr_index, value);
     }
 }
 
-pub(super) type TestInterpreterState<Instruction> = InterpreterState<
+pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
     Reg<u64>,
     ExtState,
     TestMemory,
@@ -272,7 +272,7 @@ pub(super) type TestInterpreterState<Instruction> = InterpreterState<
     &'static str,
 >;
 
-pub(super) fn initialize_state<Instruction, Instructions>(
+pub(crate) fn initialize_state<Instruction, Instructions>(
     instructions: Instructions,
 ) -> TestInterpreterState<Instruction>
 where
@@ -293,7 +293,7 @@ where
     }
 }
 
-pub(super) fn execute<I>(
+pub(crate) fn execute<I>(
     state: &mut TestInterpreterState<I>,
 ) -> Result<(), ExecutionError<Address<I>, &'static str>>
 where
