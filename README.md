@@ -5,7 +5,7 @@
 [![📖 Book](https://img.shields.io/badge/📖_Book-grey)](https://abundance.build/book)
 [![💬 Zulip chat](https://img.shields.io/badge/📖_Zulip_chat-grey)](https://abundance.zulipchat.com/)
 
-Researching next-gen blockchain architecture (as of 2026) to achieve ultimate scalability in permissionless setting and
+Researching next-gen blockchain architecture (as of 2026) to achieve ultimate scalability in a permissionless setting and
 fully resolve Blockchain Trilemma. May or may not succeed but must be fun.
 
 ## Status
@@ -17,7 +17,7 @@ and check the code for details otherwise. Most of the things are missing right n
 
 [book]: https://abundance.build/book
 
-## Useful crates for third-parties
+## Useful crates for third parties
 
 While this repository is focused on blockchain R&D, there are some useful Rust crates that others might find useful too:
 
@@ -53,7 +53,7 @@ While this repository is focused on blockchain R&D, there are some useful Rust c
 Many of these crates are `no_std`, do not require an allocator and make efficient use of stack through const generics.
 Where possible, [`no-panic`] is used to guarantee absence of panics at compile time for high reliability and more
 efficient code generation. None of the listed crates have any dependencies on anything in this repository that is
-specific to this project, so can be used externally with minimal dependencies.
+specific to this project, so they can be used externally with minimal dependencies.
 
 [`no-panic`]: https://docs.rs/no-panic
 
