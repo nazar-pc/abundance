@@ -287,11 +287,12 @@ pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
     &'static str,
 >;
 
-pub(crate) fn initialize_state<Instruction, Instructions>(
+pub(crate) fn initialize_state<I, Instructions>(
     instructions: Instructions,
-) -> TestInterpreterState<Instruction>
+) -> TestInterpreterState<I>
 where
-    Instructions: Into<Vec<Instruction>>,
+    I: Instruction<Reg = Reg<u64>>,
+    Instructions: Into<Vec<I>>,
 {
     InterpreterState {
         regs: Registers::default(),

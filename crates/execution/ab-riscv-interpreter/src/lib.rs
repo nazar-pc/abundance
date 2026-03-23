@@ -18,14 +18,14 @@
 
 #![feature(widening_mul)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
-// TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
 #![no_std]
 
+mod private;
 pub mod rv64;
 pub mod zicsr;
 
+use crate::private::BasicIntSealed;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
@@ -52,21 +52,17 @@ pub enum VirtualMemoryError {
     },
 }
 
-mod private {
-    pub trait Sealed {}
-
-    impl Sealed for u8 {}
-    impl Sealed for u16 {}
-    impl Sealed for u32 {}
-    impl Sealed for u64 {}
-    impl Sealed for i8 {}
-    impl Sealed for i16 {}
-    impl Sealed for i32 {}
-    impl Sealed for i64 {}
-}
-
 /// Basic integer types that can be read and written to/from memory freely
-pub trait BasicInt: Sized + Copy + private::Sealed {}
+pub trait BasicInt: Sized + Copy + BasicIntSealed {}
+
+impl BasicIntSealed for u8 {}
+impl BasicIntSealed for u16 {}
+impl BasicIntSealed for u32 {}
+impl BasicIntSealed for u64 {}
+impl BasicIntSealed for i8 {}
+impl BasicIntSealed for i16 {}
+impl BasicIntSealed for i32 {}
+impl BasicIntSealed for i64 {}
 
 impl BasicInt for u8 {}
 impl BasicInt for u16 {}
@@ -151,7 +147,7 @@ pub enum ExecutionError<Address, CustomError> {
     },
     /// Unimplemented/illegal instruction
     #[error("Unimplemented/illegal instruction at address {address:#x}")]
-    UnimpInstruction {
+    IllegalInstruction {
         /// Address of the `unimp` instruction
         address: Address,
     },
@@ -440,7 +436,10 @@ where
     }
 }
 
-/// Trait for executable instructions
+/// Trait for executable instructions.
+///
+/// To make instructions composable, none of the methods must use the `return` statement. `Err()?`
+/// or similar workarounds can be used instead.
 pub trait ExecutableInstruction<State, CustomError>
 where
     Self: Instruction,
