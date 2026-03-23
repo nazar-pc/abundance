@@ -91,6 +91,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
+      - name: Windows Dev Drive
+        uses: samypr100/setup-dev-drive@30f0f98ae5636b2b6501e181dfb3631b9974818d # 4.0.0
+        with:
+          drive-size: 20GB
+          # ARM image doesn't have D:\
+          drive-path: ${{ runner.arch == 'ARM64' && 'C:\dev_drive.vhdx' || 'D:\dev_drive.vhdx' }}
+          env-mapping: |
+            CARGO_HOME,{{ DEV_DRIVE }}/.cargo
+            RUSTUP_HOME,{{ DEV_DRIVE }}/.rustup
+            CARGO_TARGET_DIR,{{ DEV_DRIVE }}/target
+        if: runner.os == 'Windows'
+
       - name: Install protoc (libp2p)
         uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
         with:
@@ -255,6 +267,18 @@ jobs:
     steps: &test-steps
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      - name: Windows Dev Drive
+        uses: samypr100/setup-dev-drive@30f0f98ae5636b2b6501e181dfb3631b9974818d # 4.0.0
+        with:
+          drive-size: 20GB
+          # ARM image doesn't have D:\
+          drive-path: ${{ runner.arch == 'ARM64' && 'C:\dev_drive.vhdx' || 'D:\dev_drive.vhdx' }}
+          env-mapping: |
+            CARGO_HOME,{{ DEV_DRIVE }}/.cargo
+            RUSTUP_HOME,{{ DEV_DRIVE }}/.rustup
+            CARGO_TARGET_DIR,{{ DEV_DRIVE }}/target
+        if: runner.os == 'Windows'
 
       - name: Install cargo-nextest and protoc (libp2p)
         uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
@@ -500,6 +524,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      - name: Windows Dev Drive
+        uses: samypr100/setup-dev-drive@30f0f98ae5636b2b6501e181dfb3631b9974818d # 4.0.0
+        with:
+          drive-size: 20GB
+          # ARM image doesn't have D:\
+          drive-path: ${{ runner.arch == 'ARM64' && 'C:\dev_drive.vhdx' || 'D:\dev_drive.vhdx' }}
+          env-mapping: |
+            CARGO_HOME,{{ DEV_DRIVE }}/.cargo
+            RUSTUP_HOME,{{ DEV_DRIVE }}/.rustup
+            CARGO_TARGET_DIR,{{ DEV_DRIVE }}/target
+        if: runner.os == 'Windows'
 
       - name: RISC-V support
         run: |
