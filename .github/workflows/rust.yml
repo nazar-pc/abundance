@@ -35,8 +35,8 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/registry
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
@@ -91,6 +91,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
+      - name: Use fast D:\ drive on Windows
+        run: |
+          $dev = "D:"
+          echo "CARGO_HOME=$dev\.cargo" >> $env:GITHUB_ENV
+          echo "RUSTUP_HOME=$dev\.rustup" >> $env:GITHUB_ENV
+          echo "CARGO_TARGET_DIR=$dev\target" >> $env:GITHUB_ENV
+          echo "TMP=$dev\temp" >> $env:GITHUB_ENV
+          echo "TEMP=$dev\temp" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Path $dev\.cargo, $dev\.rustup, $dev\target, $dev\temp | Out-Null
+        if: runner.os == 'Windows'
+
       - name: Install protoc (libp2p)
         uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
         with:
@@ -116,8 +127,8 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/registry
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
@@ -256,6 +267,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
+      - name: Use fast D:\ drive on Windows
+        run: |
+          $dev = "D:"
+          echo "CARGO_HOME=$dev\.cargo" >> $env:GITHUB_ENV
+          echo "RUSTUP_HOME=$dev\.rustup" >> $env:GITHUB_ENV
+          echo "CARGO_TARGET_DIR=$dev\target" >> $env:GITHUB_ENV
+          echo "TMP=$dev\temp" >> $env:GITHUB_ENV
+          echo "TEMP=$dev\temp" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Path $dev\.cargo, $dev\.rustup, $dev\target, $dev\temp | Out-Null
+        if: runner.os == 'Windows'
+
       - name: Install cargo-nextest and protoc (libp2p)
         uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
         with:
@@ -281,8 +303,8 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/registry
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
@@ -501,6 +523,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
+      - name: Use fast D:\ drive on Windows
+        run: |
+          $dev = "D:"
+          echo "CARGO_HOME=$dev\.cargo" >> $env:GITHUB_ENV
+          echo "RUSTUP_HOME=$dev\.rustup" >> $env:GITHUB_ENV
+          echo "CARGO_TARGET_DIR=$dev\target" >> $env:GITHUB_ENV
+          echo "TMP=$dev\temp" >> $env:GITHUB_ENV
+          echo "TEMP=$dev\temp" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Path $dev\.cargo, $dev\.rustup, $dev\target, $dev\temp | Out-Null
+        if: runner.os == 'Windows'
+
       - name: RISC-V support
         run: |
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
@@ -516,8 +549,8 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/registry
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
@@ -624,8 +657,8 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/registry
+            ${{ env.CARGO_HOME != '' && env.CARGO_HOME || '~/.cargo' }}/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
