@@ -2,11 +2,11 @@
 
 #[cfg(test)]
 mod tests;
+pub mod zicsr_helpers;
 
 use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::zicsr::ZicsrInstruction;
-use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
@@ -38,7 +38,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(&state.ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let write_value = state.regs.read(rs1);
 
@@ -64,7 +64,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(&state.ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let rs1_value = state.regs.read(rs1);
 
@@ -90,7 +90,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(&state.ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let rs1_value = state.regs.read(rs1);
 
@@ -115,7 +115,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(&state.ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
                 if !rd.is_zero() {
                     let raw_value = state.ext_state.read_csr(csr)?;
@@ -138,7 +138,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(&state.ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let raw_value = state.ext_state.read_csr(csr)?;
                 let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
@@ -162,7 +162,7 @@ where
                         csr_index: csr,
                     }));
                 }
-                check_csr_privilege_level(&state.ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
                 let raw_value = state.ext_state.read_csr(csr)?;
                 let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
@@ -177,38 +177,5 @@ where
         }
 
         Ok(ControlFlow::Continue(()))
-    }
-}
-
-/// CSR privilege level check helper.
-///
-/// Returns `Err` if `current` is below the privilege level encoded in `csr_index` bits `[9:8]`.
-#[inline(always)]
-pub fn check_csr_privilege_level<Reg, C, CustomError>(
-    csrs: &C,
-    csr_index: u16,
-) -> Result<(), CsrError<CustomError>>
-where
-    Reg: Register,
-    [(); Reg::N]:,
-    C: Csrs<Reg, CustomError>,
-{
-    let current = csrs.privilege_level();
-    let required_bits = ((csr_index >> 8) & 0b11) as u8;
-    // Privilege level uses two bits. Using machine value as a placeholder (`0b11`) allows the
-    // compiler to optimize this whole function away if `csrs.privilege_level()` returns fixed
-    // `PrivilegeLevel::Machine` value, which is the most common case since `0b11` is larger or
-    // equal than any other 2-bit value. Invalid level will still be rejected at a later stage as
-    // unknown CSR.
-    let required = PrivilegeLevel::from_bits(required_bits).unwrap_or(PrivilegeLevel::Machine);
-
-    if current >= required {
-        Ok(())
-    } else {
-        Err(CsrError::InsufficientPrivilege {
-            csr_index,
-            required,
-            current,
-        })
     }
 }
