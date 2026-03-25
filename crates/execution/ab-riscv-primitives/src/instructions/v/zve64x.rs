@@ -40,7 +40,7 @@ use core::fmt;
 
 /// RISC-V Zve64x instruction
 #[instruction(
-    ignore = [Phantom],
+    ignore = [PhantomZve64xReduction],
     inherit = [
         Zve64xConfigInstruction,
         Zve64xLoadInstruction,

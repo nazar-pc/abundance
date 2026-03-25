@@ -42,7 +42,7 @@ pub enum Zve64xReductionInstruction<Reg> {
     /// Widening signed sum reduction: `vwredsum.vs vd, vs2, vs1, vm`
     Vwredsum { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     #[doc(hidden)]
-    Phantom(PhantomData<Reg>),
+    PhantomZve64xReduction(PhantomData<Reg>),
 }
 
 #[instruction]
@@ -120,7 +120,7 @@ impl<Reg> fmt::Display for Zve64xReductionInstruction<Reg> {
             Self::Vredmax { vd, vs2, vs1, vm } => write!(f, "vredmax.vs {vd}, {vs2}, {vs1}{}", mask_suffix(vm)),
             Self::Vwredsumu { vd, vs2, vs1, vm } => write!(f, "vwredsumu.vs {vd}, {vs2}, {vs1}{}", mask_suffix(vm)),
             Self::Vwredsum { vd, vs2, vs1, vm } => write!(f, "vwredsum.vs {vd}, {vs2}, {vs1}{}", mask_suffix(vm)),
-            Self::Phantom(_) => unreachable!("Never constructed"),
+            Self::PhantomZve64xReduction(_) => unreachable!("Never constructed"),
         }
     }
 }
