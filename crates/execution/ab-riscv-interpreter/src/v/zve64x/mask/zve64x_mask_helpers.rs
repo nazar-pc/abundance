@@ -1,0 +1,482 @@
+//! Opaque helpers for Zve64x extension
+
+use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::zve64x::arith::zve64x_arith_helpers::{write_element_u64, write_mask_bit};
+use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
+use crate::{InterpreterState, ProgramCounter, VirtualMemory};
+use ab_riscv_primitives::instructions::v::Vsew;
+use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::registers::vector::VReg;
+use core::fmt;
+
+/// Execute a mask-register logical operation on the full `VLENB`-byte mask registers.
+///
+/// Operates on the entire register width independent of `vl` or `vtype`, per spec §16.1.
+/// `op` receives `(vs2_byte: u8, vs1_byte: u8) -> u8`.
+///
+/// # Safety
+/// `vd`, `vs2`, and `vs1` are valid register indices (guaranteed by `VReg` type).
+/// The operation snaps both sources before writing, so `vd` may safely overlap either source.
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_mask_logical_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    vs2: VReg,
+    vs1: VReg,
+    op: F,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+    F: Fn(u8, u8) -> u8,
+{
+    // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
+    // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
+    let vs2_snap = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    // SAFETY: `vs1.bits() < 32`; `VReg` values are always in `0..32`
+    let vs1_snap = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs1.bits()))
+    };
+    // SAFETY: `vd.bits() < 32`; `VReg` values are always in `0..32`
+    let vd_reg = unsafe {
+        state
+            .ext_state
+            .write_vreg()
+            .get_unchecked_mut(usize::from(vd.bits()))
+    };
+    for byte_i in 0..ExtState::VLENB as usize {
+        // SAFETY: `byte_i < VLENB` because the loop bound is `ExtState::VLENB`, and
+        // `vs2_snap` / `vs1_snap` are `[u8; VLENB]` arrays
+        let a = unsafe { *vs2_snap.get_unchecked(byte_i) };
+        // SAFETY: `byte_i < VLENB` because the loop bound is `ExtState::VLENB`, and
+        // `vs2_snap` / `vs1_snap` are `[u8; VLENB]` arrays
+        let b = unsafe { *vs1_snap.get_unchecked(byte_i) };
+        // SAFETY: `byte_i < VLENB` because the loop bound is `ExtState::VLENB`, and
+        // `vd_reg` points to a `[u8; VLENB]` register row
+        *unsafe { vd_reg.get_unchecked_mut(byte_i) } = op(a, b);
+    }
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `vcpop.m`: count set bits in vs2 for active elements `0..vl`, write result to `rd`.
+///
+/// Per spec §16.2: `rd` receives the number of mask bits set in `vs2`, considering only elements
+/// `vstart..vl` that are active under the mask. For elements `< vstart`, they are not counted.
+///
+/// # Safety
+/// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+/// - `vstart <= vl`
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_vcpop<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    rd: Reg,
+    vs2: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    // SAFETY: `vs2` is a valid VReg index (< 32)
+    let vs2_reg = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    let mut count = 0u32;
+    for i in vstart..vl {
+        if !mask_bit(&mask_buf, i) {
+            continue;
+        }
+        if mask_bit(&vs2_reg, i) {
+            count += 1;
+        }
+    }
+    state.regs.write(rd, Reg::Type::from(count));
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `vfirst.m`: find the index of the first set bit in vs2 for active elements `0..vl`,
+/// write result (or -1 if none) to `rd`.
+///
+/// Per spec §16.3: `rd` receives the element index of the lowest-numbered active set bit, or
+/// `-1` (all-ones) if no active element of vs2 is set.
+///
+/// # Safety
+/// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+/// - `vstart <= vl`
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_vfirst<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    rd: Reg,
+    vs2: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    // SAFETY: `vs2` is a valid VReg index (< 32)
+    let vs2_reg = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
+    let not_found = u64::MAX;
+    let mut result = not_found;
+    for i in vstart..vl {
+        if !mask_bit(&mask_buf, i) {
+            continue;
+        }
+        if mask_bit(&vs2_reg, i) {
+            result = u64::from(i);
+            break;
+        }
+    }
+    // Write -1 (all-ones for XLEN bits) or the found index.
+    // The spec requires -1 as a signed XLEN-wide value, meaning all bits set.
+    // `!Reg::Type::from(0)` produces all-ones for both u32 (RV32) and u64 (RV64)
+    // without depending on `From<u64>` (which is not in the `Register` trait bounds).
+    // For the found index, element indices fit in u32 since vl <= VLEN <= 2^32.
+    let reg_value = if result == not_found {
+        !Reg::Type::from(0u8)
+    } else {
+        Reg::Type::from(result as u32)
+    };
+    state.regs.write(rd, reg_value);
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `vmsbf.m`: set all mask bits before (not including) the first set bit of vs2.
+///
+/// Per spec §16.4: for each element `i` in `vstart..vl`, if no prior active set bit exists in
+/// vs2, the destination bit is set; once the first set bit in vs2 is encountered, all subsequent
+/// destination bits are cleared.
+///
+/// Inactive elements (masked off) are left undisturbed. Tail elements are undisturbed.
+///
+/// # Safety
+/// - `vd` does not overlap `vs2` (checked by caller)
+/// - `vm=false` implies `vd != v0` (checked by caller)
+/// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_vmsbf<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
+    let vs2_snap = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    let mut found_first = false;
+    for i in vstart..vl {
+        // Inactive elements: undisturbed
+        if !mask_bit(&mask_buf, i) {
+            continue;
+        }
+        let vs2_bit = mask_bit(&vs2_snap, i);
+        // vmsbf: set bits strictly *before* the first set bit; clear from first set bit onward
+        let result = !found_first && !vs2_bit;
+        if vs2_bit {
+            found_first = true;
+        }
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        unsafe { write_mask_bit(state.ext_state.write_vreg(), vd, i, result) };
+    }
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `vmsof.m`: set only the first set bit position of vs2, clear all others.
+///
+/// Per spec §16.5: the destination bit is set only at the lowest-numbered active element where
+/// vs2 has a set bit. All other active destination bits are cleared.
+///
+/// # Safety
+/// Same as [`execute_vmsbf`].
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_vmsof<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
+    let vs2_snap = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    let mut found_first = false;
+    for i in vstart..vl {
+        if !mask_bit(&mask_buf, i) {
+            continue;
+        }
+        let vs2_bit = mask_bit(&vs2_snap, i);
+        // vmsof: set only the first set bit position; clear all others (including after first)
+        let result = !found_first && vs2_bit;
+        if vs2_bit && !found_first {
+            found_first = true;
+        }
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        unsafe { write_mask_bit(state.ext_state.write_vreg(), vd, i, result) };
+    }
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `vmsif.m`: set all mask bits up to and including the first set bit of vs2.
+///
+/// Per spec §16.6: for each active element, the destination bit is set if no prior active set bit
+/// in vs2 has been seen yet *or* the current element itself is set; it is cleared once a set bit
+/// has been seen and the current element is past it.
+///
+/// # Safety
+/// Same as [`execute_vmsbf`].
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_vmsif<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
+    let vs2_snap = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    let mut found_first = false;
+    for i in vstart..vl {
+        if !mask_bit(&mask_buf, i) {
+            continue;
+        }
+        let vs2_bit = mask_bit(&vs2_snap, i);
+        // vmsif: set bits up to *and including* the first set bit; clear elements past it
+        let result = !found_first;
+        if vs2_bit {
+            found_first = true;
+        }
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        unsafe { write_mask_bit(state.ext_state.write_vreg(), vd, i, result) };
+    }
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `viota.m`: for each active element `i`, write the popcount of set bits in vs2
+/// at positions `0..i` (i.e. strictly before `i`) as a SEW-wide integer into `vd[i]`.
+///
+/// Per spec §16.8: inactive elements are handled according to the mask/tail agnostic policy.
+/// Here we use mask-undisturbed (inactive elements left unchanged).
+///
+/// # Safety
+/// - `vd` does not overlap `vs2` (checked by caller)
+/// - `vm=false` implies `vd != v0` (checked by caller)
+/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
+/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= VLEN`
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+    sew: Vsew,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
+    let vs2_snap = *unsafe {
+        state
+            .ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.bits()))
+    };
+    // Prefix popcount over the full vs2 mask, regardless of the execution mask (per spec §16.8:
+    // the prefix sum counts *all* preceding vs2 bits, not just active ones).
+    let mut prefix_count = 0;
+    // We need to compute prefix counts for *all* positions up to vl, updating as we go.
+    // For elements before vstart, we still need to advance prefix_count.
+    for i in 0..vl {
+        let is_active = mask_bit(&mask_buf, i);
+        if i >= vstart && is_active {
+            // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
+            unsafe {
+                write_element_u64(
+                    state.ext_state.write_vreg(),
+                    vd.bits(),
+                    i,
+                    sew,
+                    prefix_count,
+                );
+            }
+        }
+        // Advance prefix count unconditionally for all elements (including inactive ones):
+        // the prefix sum counts set bits in vs2 regardless of masking, per spec.
+        if mask_bit(&vs2_snap, i) {
+            prefix_count += 1;
+        }
+    }
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
+
+/// Execute `vid.v`: write the element index `i` as a SEW-wide integer into `vd[i]` for each
+/// active element in `vstart..vl`.
+///
+/// Per spec §16.9: inactive elements are left undisturbed (mask-undisturbed policy).
+///
+/// # Safety
+/// - `vm=false` implies `vd != v0` (checked by caller)
+/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
+/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= VLEN`
+#[inline(always)]
+#[doc(hidden)]
+pub unsafe fn execute_vid<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    vm: bool,
+    vl: u32,
+    vstart: u32,
+    sew: Vsew,
+) where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    for i in vstart..vl {
+        if !mask_bit(&mask_buf, i) {
+            continue;
+        }
+        // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
+        unsafe {
+            write_element_u64(
+                state.ext_state.write_vreg(),
+                vd.bits(),
+                i,
+                sew,
+                u64::from(i),
+            );
+        }
+    }
+    state.ext_state.mark_vs_dirty();
+    state.ext_state.reset_vstart();
+}
