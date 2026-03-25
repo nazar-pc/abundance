@@ -9,4 +9,5 @@ pub mod muldiv;
 pub mod perm;
 pub mod reduction;
 pub mod store;
+pub mod widen_narrow;
 pub mod zve64x_helpers;
