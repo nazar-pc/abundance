@@ -1,7 +1,6 @@
 //! Zbkc extension (subset of Zbc extension)
 
-#[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
-use crate::rv64::b::zbc::clmul_internal;
+use crate::rv64::b::zbc::zbc_helpers;
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
