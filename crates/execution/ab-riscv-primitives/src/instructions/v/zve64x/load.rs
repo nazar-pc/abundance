@@ -4,8 +4,9 @@
 mod tests;
 
 use crate::instructions::Instruction;
+use crate::instructions::v::Eew;
 use crate::registers::general_purpose::Register;
-use crate::registers::vector::{Eew, VReg};
+use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
 use core::fmt;
 

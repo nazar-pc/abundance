@@ -132,47 +132,40 @@ impl fmt::Debug for VReg {
     }
 }
 
-/// Element width for vector memory operations
+// TODO: CSR composition?
+/// Vector CSR addresses
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum Eew {
-    /// 8-bit elements
-    E8 = 0b000,
-    /// 16-bit elements
-    E16 = 0b101,
-    /// 32-bit elements
-    E32 = 0b110,
-    /// 64-bit elements
-    E64 = 0b111,
+#[repr(u16)]
+pub enum VCsr {
+    /// Vector start element index (URW)
+    Vstart = 0x008,
+    /// Fixed-point saturation flag (URW)
+    Vxsat = 0x009,
+    /// Fixed-point rounding mode (URW)
+    Vxrm = 0x00A,
+    /// Vector control and status register (URW)
+    Vcsr = 0x00F,
+    /// Vector length (URO)
+    Vl = 0xC20,
+    /// Vector data type register (URO)
+    Vtype = 0xC21,
+    /// VLEN/8 (vector register length in bytes) (URO)
+    Vlenb = 0xC22,
 }
 
-impl Eew {
-    /// Decode the width field into an element width
+impl VCsr {
+    /// Try to match a CSR index to a vector CSR
     #[inline(always)]
-    pub const fn from_width(width: u8) -> Option<Self> {
-        match width {
-            0b000 => Some(Self::E8),
-            0b101 => Some(Self::E16),
-            0b110 => Some(Self::E32),
-            0b111 => Some(Self::E64),
+    pub const fn from_index(index: u16) -> Option<Self> {
+        match index {
+            0x008 => Some(Self::Vstart),
+            0x009 => Some(Self::Vxsat),
+            0x00A => Some(Self::Vxrm),
+            0x00F => Some(Self::Vcsr),
+            0xC20 => Some(Self::Vl),
+            0xC21 => Some(Self::Vtype),
+            0xC22 => Some(Self::Vlenb),
             _ => None,
         }
-    }
-
-    /// Return the number of bits
-    #[inline(always)]
-    pub const fn bits(self) -> u16 {
-        match self {
-            Self::E8 => 8,
-            Self::E16 => 16,
-            Self::E32 => 32,
-            Self::E64 => 64,
-        }
-    }
-}
-
-impl fmt::Display for Eew {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.bits().fmt(f)
     }
 }
