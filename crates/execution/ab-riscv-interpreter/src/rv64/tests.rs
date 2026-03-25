@@ -1096,7 +1096,7 @@ fn test_unimp() {
 
     assert!(matches!(
         result,
-        Err(ExecutionError::UnimpInstruction { .. })
+        Err(ExecutionError::IllegalInstruction { .. })
     ));
 }
 

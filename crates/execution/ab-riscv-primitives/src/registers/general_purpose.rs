@@ -7,7 +7,10 @@ use crate::registers::general_purpose::private::PhantomRegister;
 use core::fmt;
 use core::hint::unreachable_unchecked;
 use core::marker::Destruct;
-use core::ops::{Add, AddAssign, BitAnd, BitOr, BitXor, Not, Sub, SubAssign};
+use core::ops::{
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr,
+    Sub, SubAssign,
+};
 
 mod private {
     use core::marker::PhantomData;
@@ -27,23 +30,38 @@ pub const unsafe trait Register:
     ///
     /// Canonically 32 unless E extension is used, in which case 16.
     const N: usize;
+    /// XLEN
+    const XLEN: u8 = size_of::<Self::Type>() as u8 * u8::BITS as u8;
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
     type Type: [const] Default
+        + [const] From<bool>
         + [const] From<u8>
         + [const] From<u16>
         + [const] From<u32>
         + [const] Into<u64>
         + [const] Eq
+        + [const] Ord
         + [const] Add
         + [const] AddAssign
         + [const] Sub
         + [const] SubAssign
         + [const] BitAnd<Output = Self::Type>
+        + [const] BitAndAssign
         + [const] BitOr<Output = Self::Type>
+        + [const] BitOrAssign
         + [const] BitXor<Output = Self::Type>
+        + [const] BitXorAssign
         + [const] Not<Output = Self::Type>
+        + [const] Shl<u8, Output = Self::Type>
+        + [const] Shl<u16, Output = Self::Type>
+        + [const] Shl<u32, Output = Self::Type>
+        + [const] Shl<i32, Output = Self::Type>
+        + [const] Shr<u8, Output = Self::Type>
+        + [const] Shr<u16, Output = Self::Type>
+        + [const] Shr<u32, Output = Self::Type>
+        + [const] Shr<i32, Output = Self::Type>
         + fmt::Display
         + fmt::Debug
         + Copy

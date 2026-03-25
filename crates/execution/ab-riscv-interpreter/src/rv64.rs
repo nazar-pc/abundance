@@ -411,7 +411,7 @@ where
                     .instruction_fetcher
                     .get_pc()
                     .wrapping_sub(self.size().into());
-                return Err(ExecutionError::UnimpInstruction { address: old_pc });
+                return Err(ExecutionError::IllegalInstruction { address: old_pc });
             }
         }
 

@@ -1,5 +1,6 @@
 use quote::{ToTokens, quote};
 use std::iter;
+use syn::token::Semi;
 use syn::{Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Pat, PathArguments, Stmt, parse_quote};
 
 fn is_exact_ok(expr: &Expr) -> bool {
@@ -18,7 +19,7 @@ fn validate_match_on_self(expr_match: &ExprMatch) -> anyhow::Result<()> {
     }
 }
 
-fn get_variant_ident_and_block(arm: &Arm) -> anyhow::Result<(Ident, Arm)> {
+fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident, Arm)> {
     if let Some(guard) = &arm.guard {
         return Err(anyhow::anyhow!(
             "`match` arms must not have guards: {guard:?}"
@@ -76,9 +77,11 @@ fn get_variant_ident_and_block(arm: &Arm) -> anyhow::Result<(Ident, Arm)> {
                             }
                         }
                         _ => {
-                            if maybe_semicolon.is_some() {
-                                // Something other than `return` ended with semicolon, insert
-                                // `Ok(ControlFlow::Continue(()))` at the end of the block
+                            if add_ok {
+                                // Ensure that the last statement ends with `;` even if it returns a
+                                // unit value already
+                                maybe_semicolon.replace(Semi::default());
+                                // Insert `Ok(ControlFlow::Continue(()))` at the end of the block
                                 block.stmts.push(Stmt::Expr(continue_expr, None));
                             }
                         }
@@ -101,10 +104,14 @@ fn get_variant_ident_and_block(arm: &Arm) -> anyhow::Result<(Ident, Arm)> {
 
 fn process_match(
     expr_match: &ExprMatch,
+    add_ok: bool,
 ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<(Ident, Arm)>>> {
     validate_match_on_self(expr_match)?;
 
-    Ok(expr_match.arms.iter().map(get_variant_ident_and_block))
+    Ok(expr_match
+        .arms
+        .iter()
+        .map(move |arm| get_variant_ident_and_block(arm, add_ok)))
 }
 
 #[expect(clippy::type_complexity, reason = "Internal API")]
@@ -145,7 +152,7 @@ pub(super) fn extract_variant_arms(
             ));
         }
 
-        Ok(Box::new(process_match(expr_match)?))
+        Ok(Box::new(process_match(expr_match, true)?))
     } else {
         let Stmt::Expr(expr, None) = first_stmt else {
             return Err(anyhow::anyhow!(
@@ -156,7 +163,7 @@ pub(super) fn extract_variant_arms(
         if is_exact_ok(expr) {
             Ok(Box::new(iter::empty()))
         } else if let Expr::Match(expr_match) = expr {
-            Ok(Box::new(process_match(expr_match)?))
+            Ok(Box::new(process_match(expr_match, false)?))
         } else {
             Err(anyhow::anyhow!(
                 "Single tail expression must be either `match` on `self` or \
