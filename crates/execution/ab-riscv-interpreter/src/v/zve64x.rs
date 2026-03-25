@@ -23,6 +23,7 @@ use crate::v::zve64x::perm::zve64x_perm_helpers;
 use crate::v::zve64x::reduction::zve64x_reduction_helpers;
 use crate::v::zve64x::store::zve64x_store_helpers;
 use crate::v::zve64x::widen_narrow::zve64x_widen_narrow_helpers;
+use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
     VirtualMemory,

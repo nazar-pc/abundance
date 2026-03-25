@@ -33,6 +33,7 @@ use crate::instructions::v::zve64x::perm::Zve64xPermInstruction;
 use crate::instructions::v::zve64x::reduction::Zve64xReductionInstruction;
 use crate::instructions::v::zve64x::store::Zve64xStoreInstruction;
 use crate::instructions::v::zve64x::widen_narrow::Zve64xWidenNarrowInstruction;
+use crate::instructions::zicsr::ZicsrInstruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -52,6 +53,7 @@ use core::fmt;
         Zve64xMaskInstruction,
         Zve64xReductionInstruction,
         Zve64xPermInstruction,
+        ZicsrInstruction,
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
