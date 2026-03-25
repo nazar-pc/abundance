@@ -1,0 +1,577 @@
+//! Zve64x vector store instructions
+
+#[cfg(test)]
+mod tests;
+pub mod zve64x_store_helpers;
+
+use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::zve64x::load::zve64x_load_helpers;
+use crate::v::zve64x::zve64x_helpers;
+use crate::{
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+};
+use ab_riscv_macros::instruction_execution;
+use ab_riscv_primitives::instructions::v::zve64x::store::Zve64xStoreInstruction;
+use ab_riscv_primitives::registers::general_purpose::{RegType, Register};
+use ab_riscv_primitives::registers::vector::VReg;
+use core::fmt;
+use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Zve64xStoreInstruction<Reg>
+where
+    Reg: Register,
+    [(); Reg::N]:,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    [(); ExtState::VLENB as usize]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        match self {
+            // Whole-register store: stores `nreg` consecutive registers starting at `vs3` directly
+            // to memory. `vs3` must be aligned to `nreg`. Ignores vtype, vl, vstart, masking.
+            Self::Vsr { vs3, rs1, nreg } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                if u32::from(vs3.bits()) % u32::from(nreg) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let base = state.regs.read(rs1).as_u64();
+                let vlenb = u64::from(ExtState::VLENB);
+                for reg_off in 0..u64::from(nreg) {
+                    let reg_idx = u64::from(vs3.bits()) + reg_off;
+                    // SAFETY: `reg_idx < 32` because the decoder guarantees `nreg` in {1,2,4,8}
+                    // and `vs3` is `nreg`-aligned (checked above), so
+                    // `vs3.bits() + nreg - 1 <= 31`.
+                    let src =
+                        unsafe { state.ext_state.read_vreg().get_unchecked(reg_idx as usize) };
+                    state
+                        .memory
+                        .write_slice(base + reg_off * vlenb, src)
+                        .map_err(ExecutionError::MemoryAccess)?;
+                }
+                state.ext_state.reset_vstart();
+            }
+            // Mask store: stores `ceil(vl / 8)` bytes from `vs3` to memory with no masking.
+            // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are written.
+            Self::Vsm { vs3, rs1 } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vl = state.ext_state.vl();
+                let byte_count = vl.div_ceil(u8::BITS) as usize;
+                if byte_count > 0 {
+                    let base = state.regs.read(rs1).as_u64();
+                    // SAFETY: `vs3.bits() < 32` is guaranteed by `VReg`.
+                    // `byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB` because `vl <= VLMAX <=
+                    // VLEN`, so `..byte_count` is in bounds within the
+                    // `VLENB`-byte source register.
+                    let src = unsafe {
+                        state
+                            .ext_state
+                            .read_vreg()
+                            .get_unchecked(usize::from(vs3.bits()))
+                            .get_unchecked(..byte_count)
+                    };
+                    state
+                        .memory
+                        .write_slice(base, src)
+                        .map_err(ExecutionError::MemoryAccess)?;
+                }
+                state.ext_state.reset_vstart();
+            }
+            // Unit-stride store.
+            //
+            // Source EMUL = EEW/SEW * LMUL, computed via `index_register_count`. This gives
+            // `group_regs` such that `VLMAX = group_regs * VLENB / eew.bytes()` matches the
+            // architectural `vl`.
+            Self::Vse { vs3, rs1, vm, eew } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let group_regs = vtype
+                    .vlmul()
+                    .index_register_count(eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs3, group_regs)?;
+                if !vm && zve64x_load_helpers::groups_overlap(vs3, group_regs, VReg::V0, 1) {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                // SAFETY:
+                // - alignment: `check_register_group_alignment` verified `vs3 % group_regs == 0`
+                //   and `vs3 + group_regs <= 32`
+                // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL computed for
+                //   this `eew` and `vtype`, so this VLMAX equals the architectural VLMAX that
+                //   bounds `vl`
+                // - mask overlap: checked above via `groups_overlap`
+                unsafe {
+                    zve64x_store_helpers::execute_unit_stride_store(
+                        state,
+                        vs3,
+                        vm,
+                        state.ext_state.vl(),
+                        state.ext_state.vstart(),
+                        state.regs.read(rs1).as_u64(),
+                        eew,
+                        group_regs,
+                        1,
+                    )?;
+                }
+            }
+            // Strided store
+            Self::Vsse {
+                vs3,
+                rs1,
+                rs2,
+                vm,
+                eew,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let group_regs = vtype
+                    .vlmul()
+                    .index_register_count(eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs3, group_regs)?;
+                if !vm && zve64x_load_helpers::groups_overlap(vs3, group_regs, VReg::V0, 1) {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let stride = state.regs.read(rs2).as_u64().cast_signed();
+                // SAFETY: same preconditions as `Vse`.
+                unsafe {
+                    zve64x_store_helpers::execute_strided_store(
+                        state,
+                        vs3,
+                        vm,
+                        state.ext_state.vl(),
+                        state.ext_state.vstart(),
+                        state.regs.read(rs1).as_u64(),
+                        stride,
+                        eew,
+                        group_regs,
+                        1,
+                    )?;
+                }
+            }
+            // Indexed-unordered store. Ordering between elements is not guaranteed.
+            Self::Vsuxei {
+                vs3,
+                rs1,
+                vs2,
+                vm,
+                eew: index_eew,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let data_eew = vtype.vsew().as_eew();
+                let data_group_regs = vtype.vlmul().register_count();
+                let index_group_regs = vtype
+                    .vlmul()
+                    .index_register_count(index_eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs3, data_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                if !vm && zve64x_load_helpers::groups_overlap(vs3, data_group_regs, VReg::V0, 1) {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                // SAFETY:
+                // - `vs3` alignment/bounds: `check_register_group_alignment` verified both
+                // - `vs2` alignment/bounds: `check_register_group_alignment` verified both
+                // - `vl <= data_group_regs * VLENB / data_eew.bytes()`: `data_group_regs` is the
+                //   EMUL that bounds `vl`
+                // - `vl <= index_group_regs * VLENB / index_eew.bytes()`: `index_register_count`
+                //   returns the EMUL for the index group, which by the same argument bounds `vl`
+                // - mask overlap: checked above
+                unsafe {
+                    zve64x_store_helpers::execute_indexed_store(
+                        state,
+                        vs3,
+                        vs2,
+                        vm,
+                        state.ext_state.vl(),
+                        u32::from(state.ext_state.vstart()),
+                        state.regs.read(rs1).as_u64(),
+                        data_eew,
+                        index_eew,
+                        data_group_regs,
+                        1,
+                    )?;
+                }
+            }
+            // Indexed-ordered store. Elements must be written in element order.
+            // The ordering constraint is visible only to other harts/devices; the implementation
+            // here is already sequential, so no additional logic is needed.
+            Self::Vsoxei {
+                vs3,
+                rs1,
+                vs2,
+                vm,
+                eew: index_eew,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let data_eew = vtype.vsew().as_eew();
+                let data_group_regs = vtype.vlmul().register_count();
+                let index_group_regs = vtype
+                    .vlmul()
+                    .index_register_count(index_eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs3, data_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                if !vm && zve64x_load_helpers::groups_overlap(vs3, data_group_regs, VReg::V0, 1) {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                // SAFETY: identical precondition argument to `Vsuxei`
+                unsafe {
+                    zve64x_store_helpers::execute_indexed_store(
+                        state,
+                        vs3,
+                        vs2,
+                        vm,
+                        state.ext_state.vl(),
+                        u32::from(state.ext_state.vstart()),
+                        state.regs.read(rs1).as_u64(),
+                        data_eew,
+                        index_eew,
+                        data_group_regs,
+                        1,
+                    )?;
+                }
+            }
+            // Unit-stride segment store: `nf` fields per element, stored contiguously
+            Self::Vsseg {
+                vs3,
+                rs1,
+                vm,
+                eew,
+                nf,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let group_regs = vtype
+                    .vlmul()
+                    .index_register_count(eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::validate_segment_registers(state, vs3, vm, group_regs, nf)?;
+                // SAFETY:
+                // - `validate_segment_registers` guarantees `vs3 % group_regs == 0` and `vs3 + nf *
+                //   group_regs <= 32`
+                // - when `vm=false`, `validate_segment_registers` ensures `vs3 != 0`, so `vs3` does
+                //   not overlap `v0`
+                // - `vl <= group_regs * VLENB / eew.bytes()`: same EMUL argument as `Vse`
+                unsafe {
+                    zve64x_store_helpers::execute_unit_stride_store(
+                        state,
+                        vs3,
+                        vm,
+                        state.ext_state.vl(),
+                        state.ext_state.vstart(),
+                        state.regs.read(rs1).as_u64(),
+                        eew,
+                        group_regs,
+                        nf,
+                    )?;
+                }
+            }
+            // Strided segment store
+            Self::Vssseg {
+                vs3,
+                rs1,
+                rs2,
+                vm,
+                eew,
+                nf,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let group_regs = vtype
+                    .vlmul()
+                    .index_register_count(eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::validate_segment_registers(state, vs3, vm, group_regs, nf)?;
+                let stride = state.regs.read(rs2).as_u64().cast_signed();
+                // SAFETY: same as `Vsseg`; `validate_segment_registers` covers alignment/bounds.
+                unsafe {
+                    zve64x_store_helpers::execute_strided_store(
+                        state,
+                        vs3,
+                        vm,
+                        state.ext_state.vl(),
+                        state.ext_state.vstart(),
+                        state.regs.read(rs1).as_u64(),
+                        stride,
+                        eew,
+                        group_regs,
+                        nf,
+                    )?;
+                }
+            }
+            // Indexed-unordered segment store
+            Self::Vsuxseg {
+                vs3,
+                rs1,
+                vs2,
+                vm,
+                eew: index_eew,
+                nf,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let data_eew = vtype.vsew().as_eew();
+                let data_group_regs = vtype.vlmul().register_count();
+                let index_group_regs = vtype
+                    .vlmul()
+                    .index_register_count(index_eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::validate_segment_registers(
+                    state,
+                    vs3,
+                    vm,
+                    data_group_regs,
+                    nf,
+                )?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                // SAFETY:
+                // - `validate_segment_registers` covers `vs3` alignment/bounds/mask-overlap
+                // - `check_register_group_alignment` covers `vs2` alignment/bounds
+                // - `vl` bounded by both EMUL groups as in `Vsuxei`
+                unsafe {
+                    zve64x_store_helpers::execute_indexed_store(
+                        state,
+                        vs3,
+                        vs2,
+                        vm,
+                        state.ext_state.vl(),
+                        u32::from(state.ext_state.vstart()),
+                        state.regs.read(rs1).as_u64(),
+                        data_eew,
+                        index_eew,
+                        data_group_regs,
+                        nf,
+                    )?;
+                }
+            }
+            // Indexed-ordered segment store. Sequential iteration satisfies the ordering
+            // requirement.
+            Self::Vsoxseg {
+                vs3,
+                rs1,
+                vs2,
+                vm,
+                eew: index_eew,
+                nf,
+            } => {
+                if !state.ext_state.vector_instructions_allowed() {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
+                let vtype = state
+                    .ext_state
+                    .vtype()
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                let data_eew = vtype.vsew().as_eew();
+                let data_group_regs = vtype.vlmul().register_count();
+                let index_group_regs = vtype
+                    .vlmul()
+                    .index_register_count(index_eew, vtype.vsew())
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                zve64x_load_helpers::validate_segment_registers(
+                    state,
+                    vs3,
+                    vm,
+                    data_group_regs,
+                    nf,
+                )?;
+                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                // SAFETY: identical precondition argument to `Vsuxseg`
+                unsafe {
+                    zve64x_store_helpers::execute_indexed_store(
+                        state,
+                        vs3,
+                        vs2,
+                        vm,
+                        state.ext_state.vl(),
+                        u32::from(state.ext_state.vstart()),
+                        state.regs.read(rs1).as_u64(),
+                        data_eew,
+                        index_eew,
+                        data_group_regs,
+                        nf,
+                    )?;
+                }
+            }
+        }
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
