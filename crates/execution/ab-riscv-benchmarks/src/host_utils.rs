@@ -165,6 +165,26 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
         }
     }
 
+    fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
+        let offset = address
+            .checked_sub(self.base_addr)
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+
+        self.data
+            .get(offset..)
+            .and_then(|data| data.get(..len as usize))
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
+    }
+
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
+        let Some(offset) = address.checked_sub(self.base_addr) else {
+            return &[];
+        };
+
+        let remaining = self.data.get(offset as usize..).unwrap_or_default();
+        remaining.get(..len as usize).unwrap_or(remaining)
+    }
+
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt,
@@ -185,6 +205,21 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
                 .byte_add(offset)
                 .write_unaligned(value);
         }
+
+        Ok(())
+    }
+
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
+        let offset = address
+            .checked_sub(self.base_addr)
+            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })? as usize;
+
+        let len = data.len();
+        self.data
+            .get_mut(offset..)
+            .and_then(|data| data.get_mut(..len))
+            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?
+            .copy_from_slice(data);
 
         Ok(())
     }

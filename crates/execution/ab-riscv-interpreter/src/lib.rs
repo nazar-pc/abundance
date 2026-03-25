@@ -88,10 +88,21 @@ pub trait VirtualMemory {
     where
         T: BasicInt;
 
+    /// Read a contiguous byte slice from memory
+    fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError>;
+
+    /// Read as many contiguous bytes as possible starting at `address`, up to `len` bytes total.
+    ///
+    /// Can return an empty slice in cases like when the address is out of bounds.
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8];
+
     /// Write a value to memory at the specified address
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt;
+
+    /// Write a contiguous byte slice to memory
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError>;
 }
 
 /// Program counter errors
