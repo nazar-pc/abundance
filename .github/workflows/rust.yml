@@ -635,8 +635,10 @@ jobs:
         run: |
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
-            echo "Checking \`$contract\`"
+            echo "Checking \`$contract\` (release profile)"
             cargo run --bin cargo-ab-contract -- build --package $contract
+            echo "Checking \`$contract\` (contract profile)"
+            cargo run --bin cargo-ab-contract -- build --package $contract --profile contract
           done
 
   rust-all:

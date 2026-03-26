@@ -157,6 +157,10 @@ ab-proof-of-time = { opt-level = 3 }
 blake3 = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }
 
+[profile.contract]
+inherits = "release"
+codegen-units = 1
+
 [profile.production]
 inherits = "release"
 lto = "fat"

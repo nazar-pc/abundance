@@ -94,7 +94,7 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
 
     let cdylib_path = target_directory
         .join(TARGET_SPECIFICATION_NAME)
-        .join(if profile == "dev" { "debug" } else { "release" })
+        .join(if profile == "dev" { "debug" } else { profile })
         .join({
             let package_name = if let Some(package) = package {
                 package

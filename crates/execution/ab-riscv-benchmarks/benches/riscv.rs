@@ -113,7 +113,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
         // and contract ends with a jump
         instruction_fetcher: unsafe {
-            BasicInstructionFetcher::<ContractInstruction, &'static str>::new(
+            BasicInstructionFetcher::<ContractInstruction, ()>::new(
                 TRAP_ADDRESS,
                 MEMORY_BASE_ADDRESS,
             )
