@@ -28,7 +28,7 @@ pub mod zicsr;
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
+use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
@@ -221,11 +221,11 @@ where
             return Ok(ControlFlow::Break(()));
         }
 
-        if !pc.into().is_multiple_of(u64::from(I::alignment())) {
+        if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 
-        memory.read::<u32>(pc.into())?;
+        memory.read::<u32>(pc.as_u64())?;
 
         self.pc = pc;
 
@@ -247,7 +247,7 @@ where
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
-        let instruction = unsafe { memory.read_unchecked(self.pc.into()) };
+        let instruction = unsafe { memory.read_unchecked(self.pc.as_u64()) };
         // SAFETY: All instructions are valid, according to the constructor contract
         let instruction = unsafe { I::try_decode(instruction).unwrap_unchecked() };
         self.pc += instruction.size().into();

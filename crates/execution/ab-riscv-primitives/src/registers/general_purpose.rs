@@ -19,6 +19,60 @@ mod private {
     pub struct PhantomRegister<Type>(PhantomData<Type>);
 }
 
+/// Register type.
+///
+/// `u32` for RV32 and `u64` for RV64.
+pub const trait RegType
+where
+    Self: [const] Default
+        + [const] From<bool>
+        + [const] From<u8>
+        + [const] From<u16>
+        + [const] From<u32>
+        + [const] Eq
+        + [const] Ord
+        + [const] Add
+        + [const] AddAssign
+        + [const] Sub
+        + [const] SubAssign
+        + [const] BitAnd<Output = Self>
+        + [const] BitAndAssign
+        + [const] BitOr<Output = Self>
+        + [const] BitOrAssign
+        + [const] BitXor<Output = Self>
+        + [const] BitXorAssign
+        + [const] Not<Output = Self>
+        + [const] Shl<u8, Output = Self>
+        + [const] Shl<u16, Output = Self>
+        + [const] Shl<u32, Output = Self>
+        + [const] Shl<i32, Output = Self>
+        + [const] Shr<u8, Output = Self>
+        + [const] Shr<u16, Output = Self>
+        + [const] Shr<u32, Output = Self>
+        + [const] Shr<i32, Output = Self>
+        + fmt::Display
+        + fmt::Debug
+        + Copy
+        + Sized,
+{
+    /// Convert to `u64`
+    fn as_u64(&self) -> u64;
+}
+
+impl const RegType for u32 {
+    #[inline(always)]
+    fn as_u64(&self) -> u64 {
+        u64::from(*self)
+    }
+}
+
+impl const RegType for u64 {
+    #[inline(always)]
+    fn as_u64(&self) -> u64 {
+        *self
+    }
+}
+
 /// GPR (General Purpose Register)
 ///
 /// # Safety
@@ -35,37 +89,7 @@ pub const unsafe trait Register:
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
-    type Type: [const] Default
-        + [const] From<bool>
-        + [const] From<u8>
-        + [const] From<u16>
-        + [const] From<u32>
-        + [const] Into<u64>
-        + [const] Eq
-        + [const] Ord
-        + [const] Add
-        + [const] AddAssign
-        + [const] Sub
-        + [const] SubAssign
-        + [const] BitAnd<Output = Self::Type>
-        + [const] BitAndAssign
-        + [const] BitOr<Output = Self::Type>
-        + [const] BitOrAssign
-        + [const] BitXor<Output = Self::Type>
-        + [const] BitXorAssign
-        + [const] Not<Output = Self::Type>
-        + [const] Shl<u8, Output = Self::Type>
-        + [const] Shl<u16, Output = Self::Type>
-        + [const] Shl<u32, Output = Self::Type>
-        + [const] Shl<i32, Output = Self::Type>
-        + [const] Shr<u8, Output = Self::Type>
-        + [const] Shr<u16, Output = Self::Type>
-        + [const] Shr<u32, Output = Self::Type>
-        + [const] Shr<i32, Output = Self::Type>
-        + fmt::Display
-        + fmt::Debug
-        + Copy
-        + Sized;
+    type Type: [const] RegType;
 
     /// Whether the register is a zero register
     fn is_zero(&self) -> bool;
