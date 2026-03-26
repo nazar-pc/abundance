@@ -69,6 +69,18 @@ pub enum Zve64xPermInstruction<Reg> {
     ///
     /// funct6=001110, OPIVV
     Vrgatherei16Vv { vd: VReg,  vs2: VReg, vs1: VReg, vm: bool },
+    /// `vmerge.vvm vd, vs2, vs1, v0` / `vmv.v.v vd, vs1` (when vm=1)
+    ///
+    /// funct6=010111, OPIVV
+    VmergeVvm { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
+    /// `vmerge.vxm vd, vs2, rs1, v0` / `vmv.v.x vd, rs1` (when vm=1)
+    ///
+    /// funct6=010111, OPIVX
+    VmergeVxm { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    /// `vmerge.vim vd, vs2, simm5, v0` / `vmv.v.i vd, simm5` (when vm=1)
+    ///
+    /// funct6=010111, OPIVI
+    VmergeVim { vd: VReg, vs2: VReg, simm5: i8, vm: bool },
     /// `vcompress.vm vd, vs2, vs1` - Compress active elements from vs2 under mask vs1
     ///
     /// funct6=010111, OPMVV, vm=1 (always unmasked)
@@ -228,11 +240,17 @@ where
                 }
                 _ => None,
             },
-            // 010111: vcompress.vm (OPMVV)
+            // 010111: vmerge/vmv.v.* (OPIVV/OPIVX/OPIVI) and vcompress (OPMVV)
             0b010111 => match funct3 {
-                // OPMVV
+                // OPIVV: vmerge.vvm / vmv.v.v
+                0b000 => {
+                    let vd = VReg::from_bits(vd_bits)?;
+                    let vs2 = VReg::from_bits(vs2_bits)?;
+                    let vs1 = VReg::from_bits(vs1_bits)?;
+                    Some(Self::VmergeVvm { vd, vs2, vs1, vm })
+                }
+                // OPMVV: vcompress.vm
                 0b010 => {
-                    // vcompress.vm - vm must be 1
                     if !vm {
                         None?;
                     }
@@ -240,6 +258,21 @@ where
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     let vs1 = VReg::from_bits(vs1_bits)?;
                     Some(Self::VcompressVm { vd, vs2, vs1 })
+                }
+                // OPIVI: vmerge.vim / vmv.v.i
+                0b011 => {
+                    let vd = VReg::from_bits(vd_bits)?;
+                    let vs2 = VReg::from_bits(vs2_bits)?;
+                    // sign-extend 5-bit
+                    let simm5 = (vs1_bits.cast_signed() << 3) >> 3;
+                    Some(Self::VmergeVim { vd, vs2, simm5, vm })
+                }
+                // OPIVX: vmerge.vxm / vmv.v.x
+                0b100 => {
+                    let vd = VReg::from_bits(vd_bits)?;
+                    let vs2 = VReg::from_bits(vs2_bits)?;
+                    let rs1 = Reg::from_bits(vs1_bits)?;
+                    Some(Self::VmergeVxm { vd, vs2, rs1, vm })
                 }
                 _ => None,
             },
@@ -298,6 +331,27 @@ where
             Self::VrgatherVx { vd, vs2, rs1, vm } => write!(f, "vrgather.vx {vd}, {vs2}, {rs1}{}", mask_suffix(vm)),
             Self::VrgatherVi { vd, vs2, uimm, vm } => write!(f, "vrgather.vi {vd}, {vs2}, {uimm}{}", mask_suffix(vm)),
             Self::Vrgatherei16Vv { vd, vs2, vs1, vm } => write!(f, "vrgatherei16.vv {vd}, {vs2}, {vs1}{}", mask_suffix(vm)),
+            Self::VmergeVvm { vd, vs2, vs1, vm } => {
+                if *vm {
+                    write!(f, "vmv.v.v {vd}, {vs1}")
+                } else {
+                    write!(f, "vmerge.vvm {vd}, {vs2}, {vs1}, v0")
+                }
+            }
+            Self::VmergeVxm { vd, vs2, rs1, vm } => {
+                if *vm {
+                    write!(f, "vmv.v.x {vd}, {rs1}")
+                } else {
+                    write!(f, "vmerge.vxm {vd}, {vs2}, {rs1}, v0")
+                }
+            }
+            Self::VmergeVim { vd, vs2, simm5, vm } => {
+                if *vm {
+                    write!(f, "vmv.v.i {vd}, {simm5}")
+                } else {
+                    write!(f, "vmerge.vim {vd}, {vs2}, {simm5}, v0")
+                }
+            }
             Self::VcompressVm { vd, vs2, vs1 } => write!(f, "vcompress.vm {vd}, {vs2}, {vs1}"),
             Self::Vmv1rV { vd, vs2 } => write!(f, "vmv1r.v {vd}, {vs2}"),
             Self::Vmv2rV { vd, vs2 } => write!(f, "vmv2r.v {vd}, {vs2}"),

@@ -438,6 +438,157 @@ fn test_vslide1down_vx_masked() {
     );
 }
 
+// vmerge.vvm / vmv.v.v
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmerge_vvm_masked() {
+    // funct6=010111, OPIVV, vm=0 -> vmerge.vvm
+    let inst = make_v_type(8, OPIVV, 4, 12, false, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVvm {
+            vd: VReg::V8,
+            vs2: VReg::V12,
+            vs1: VReg::V4,
+            vm: false,
+        })
+    );
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmv_v_v() {
+    // funct6=010111, OPIVV, vm=1 -> vmv.v.v
+    let inst = make_v_type(8, OPIVV, 4, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVvm {
+            vd: VReg::V8,
+            vs2: VReg::V0,
+            vs1: VReg::V4,
+            vm: true,
+        })
+    );
+}
+
+// vmerge.vxm / vmv.v.x
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmerge_vxm_masked() {
+    // funct6=010111, OPIVX, vm=0
+    let inst = make_v_type(8, OPIVX, 5, 12, false, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVxm {
+            vd: VReg::V8,
+            vs2: VReg::V12,
+            rs1: Reg::T0,
+            vm: false,
+        })
+    );
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmv_v_x() {
+    // funct6=010111, OPIVX, vm=1 -> vmv.v.x
+    let inst = make_v_type(8, OPIVX, 10, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVxm {
+            vd: VReg::V8,
+            vs2: VReg::V0,
+            rs1: Reg::A0,
+            vm: true,
+        })
+    );
+}
+
+// vmerge.vim / vmv.v.i
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmerge_vim_masked() {
+    // funct6=010111, OPIVI, vm=0, simm5=5
+    let inst = make_v_type(8, OPIVI, 5, 12, false, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVim {
+            vd: VReg::V8,
+            vs2: VReg::V12,
+            simm5: 5,
+            vm: false,
+        })
+    );
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmv_v_i() {
+    // funct6=010111, OPIVI, vm=1, simm5=0 -> vmv.v.i
+    let inst = make_v_type(8, OPIVI, 0, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVim {
+            vd: VReg::V8,
+            vs2: VReg::V0,
+            simm5: 0,
+            vm: true,
+        })
+    );
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmv_v_i_negative_imm() {
+    // funct6=010111, OPIVI, vm=1, simm5=-1 (0b11111 = 31, sign-extended = -1)
+    let inst = make_v_type(4, OPIVI, 0b11111, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVim {
+            vd: VReg::V4,
+            vs2: VReg::V0,
+            simm5: -1,
+            vm: true,
+        })
+    );
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmv_v_i_min_negative() {
+    // simm5=-16 (0b10000)
+    let inst = make_v_type(4, OPIVI, 0b10000, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Zve64xPermInstruction::VmergeVim {
+            vd: VReg::V4,
+            vs2: VReg::V0,
+            simm5: -16,
+            vm: true,
+        })
+    );
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_vmerge_funct6_wrong_funct3() {
+    // funct3=0b001 is not valid for funct6=010111
+    let inst = make_v_type(1, 0b001, 2, 3, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(decoded, None);
+}
+
 // vcompress.vm
 
 #[test]
@@ -608,15 +759,6 @@ fn test_vrgather_wrong_funct3() {
 
 #[test]
 #[cfg_attr(miri, ignore)]
-fn test_vcompress_wrong_funct3() {
-    // funct6=010111 with OPIVV should not match (only OPMVV)
-    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b010111);
-    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
-    assert_eq!(decoded, None);
-}
-
-#[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmv_x_s_wrong_funct3() {
     // funct6=010000 with OPIVV should not match
     let inst = make_v_type(1, OPIVV, 0, 2, true, 0b010000);
@@ -707,6 +849,54 @@ fn test_display_vslide1down_vx() {
     let inst = make_v_type(4, OPMVX, 10, 8, true, 0b001111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(format!("{}", decoded), "vslide1down.vx v4, v8, a0");
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_display_vmv_v_v() {
+    let inst = make_v_type(8, OPIVV, 4, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(format!("{}", decoded), "vmv.v.v v8, v4");
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_display_vmerge_vvm() {
+    let inst = make_v_type(8, OPIVV, 4, 12, false, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(format!("{}", decoded), "vmerge.vvm v8, v12, v4, v0");
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_display_vmv_v_x() {
+    let inst = make_v_type(8, OPIVX, 10, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(format!("{}", decoded), "vmv.v.x v8, a0");
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_display_vmerge_vxm() {
+    let inst = make_v_type(8, OPIVX, 5, 12, false, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(format!("{}", decoded), "vmerge.vxm v8, v12, t0, v0");
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_display_vmerge_vim() {
+    let inst = make_v_type(8, OPIVI, 5, 12, false, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(format!("{}", decoded), "vmerge.vim v8, v12, 5, v0");
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_display_vmv_v_i_negative() {
+    let inst = make_v_type(4, OPIVI, 0b11111, 0, true, 0b010111);
+    let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(format!("{}", decoded), "vmv.v.i v4, -1");
 }
 
 #[test]
