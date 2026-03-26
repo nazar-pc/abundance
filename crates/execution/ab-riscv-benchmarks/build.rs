@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cdylib_path = build_cdylib(BuildOptions {
         package: None,
         features: None,
-        profile: "release",
+        profile: "contract",
         target_specification_path: target_specification.path(),
         target_dir: Some(&out_dir),
     })?;
