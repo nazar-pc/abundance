@@ -274,7 +274,7 @@ pub struct EagerTestInstructionFetcher {
     instruction_offset: usize,
 }
 
-impl<Memory> ProgramCounter<u64, Memory, &'static str> for EagerTestInstructionFetcher
+impl<Memory> ProgramCounter<u64, Memory, ()> for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -288,7 +288,7 @@ where
         &mut self,
         _memory: &mut Memory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, &'static str>> {
+    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, ()>> {
         let address = pc;
 
         if address == self.return_trap_address {
@@ -314,8 +314,7 @@ where
     }
 }
 
-impl<Memory> InstructionFetcher<ContractInstruction, Memory, &'static str>
-    for EagerTestInstructionFetcher
+impl<Memory> InstructionFetcher<ContractInstruction, Memory, ()> for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -323,8 +322,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &mut Memory,
-    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, &'static str>>
-    {
+    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, ()>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -409,12 +407,12 @@ pub fn execute<Memory, IF>(
         NoopRv64SystemInstructionHandler<
             Rv64Instruction<<ContractInstruction as Instruction>::Reg>,
         >,
-        &'static str,
+        (),
     >,
-) -> Result<(), ExecutionError<u64, &'static str>>
+) -> Result<(), ExecutionError<u64, ()>>
 where
     Memory: VirtualMemory,
-    IF: InstructionFetcher<ContractInstruction, Memory, &'static str>,
+    IF: InstructionFetcher<ContractInstruction, Memory, ()>,
 {
     loop {
         let instruction = match state
