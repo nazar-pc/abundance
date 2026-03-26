@@ -378,8 +378,8 @@ pub(super) fn process_execution_impl(
         item_impl.attrs.remove(attribute_index);
         // Comments will be stripped, this will suppress some of the lints that are caused by it
         item_impl.attrs.extend([
-            parse_quote! { #[expect(clippy::allow_attributes, reason = "clippy::undocumented_unsafe_blocks")]},
-            parse_quote! { #[allow(clippy::undocumented_unsafe_blocks)]},
+            parse_quote! { #[expect(clippy::allow_attributes, reason = "clippy::undocumented_unsafe_blocks")] },
+            parse_quote! { #[allow(clippy::undocumented_unsafe_blocks)] },
         ]);
 
         output_processed_enum_execution_impl(enum_name, item_impl, out_dir, state)?
