@@ -357,7 +357,7 @@ where
     /// and return the output value on success.
     /// The method is present on `Csrs` to break cycles in the type system.
     fn process_csr_write(
-        &self,
+        &mut self,
         csr_index: u16,
         write_value: Reg::Type,
     ) -> Result<Reg::Type, CsrError<CustomError>>;

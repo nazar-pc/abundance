@@ -248,7 +248,7 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
     }
 
     fn process_csr_write(
-        &self,
+        &mut self,
         csr_index: u16,
         write_value: u64,
     ) -> Result<u64, CsrError<&'static str>> {
