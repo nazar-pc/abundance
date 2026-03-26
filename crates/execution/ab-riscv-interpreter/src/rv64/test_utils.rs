@@ -1,5 +1,8 @@
 extern crate alloc;
 
+use crate::v::vector_registers::{
+    VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
+};
 use crate::{
     Address, BasicInt, CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction,
     ExecutionError, FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
@@ -7,8 +10,10 @@ use crate::{
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
+use ab_riscv_primitives::instructions::v::Vtype;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{Reg, Registers};
+use ab_riscv_primitives::registers::vector::VCsr;
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -17,6 +22,12 @@ use core::ops::ControlFlow;
 
 pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
+/// Zve64x element width
+const ZVE64X_ELEN: u32 = 64;
+/// VLEN in bits for the test vector register file
+const TEST_VLEN: u32 = 128;
+/// VLEN in bytes
+const TEST_VLENB: usize = (TEST_VLEN / u8::BITS) as usize;
 
 /// Simple test memory implementation
 pub(crate) struct TestMemory {
@@ -249,8 +260,31 @@ impl Default for CsrExtState {
     }
 }
 
+struct VectorExtState {
+    vregs: VectorRegisterFile<TEST_VLENB>,
+    vtype: Option<Vtype<ZVE64X_ELEN, TEST_VLEN>>,
+    vtype_raw: u64,
+    vl: u32,
+    vs_dirty_count: u32,
+    vector_allowed: bool,
+}
+
+impl Default for VectorExtState {
+    fn default() -> Self {
+        Self {
+            vregs: VectorRegisterFile::default(),
+            vtype: None,
+            vtype_raw: 1u64 << (u64::BITS - 1),
+            vl: 0,
+            vs_dirty_count: 0,
+            vector_allowed: true,
+        }
+    }
+}
+
 pub(crate) struct ExtState {
     csr: CsrExtState,
+    vector: VectorExtState,
 }
 
 impl Default for ExtState {
@@ -258,6 +292,7 @@ impl Default for ExtState {
     fn default() -> Self {
         Self {
             csr: CsrExtState::default(),
+            vector: VectorExtState::default(),
         }
     }
 }
@@ -294,6 +329,67 @@ impl Csrs<Reg<u64>> for ExtState {
     }
 }
 
+impl VectorRegistersBase for ExtState {
+    const ELEN: u32 = ZVE64X_ELEN;
+    const VLEN: u32 = TEST_VLEN;
+}
+
+impl VectorRegisters for ExtState
+where
+    Self: Csrs<Reg<u64>>,
+    [(); Self::ELEN as usize]:,
+    [(); Self::VLEN as usize]:,
+{
+    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
+        &self.vector.vregs
+    }
+
+    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
+        &mut self.vector.vregs
+    }
+
+    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
+        self.vector.vtype
+    }
+
+    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
+        self.vector.vtype = vtype;
+        match vtype {
+            Some(vt) => {
+                self.vector.vtype_raw = vt.to_raw::<Reg<u64>>();
+                self.write_csr(VCsr::Vtype as u16, self.vector.vtype_raw)
+                    .expect("Implementation didn't initialize `vtype` CSR");
+            }
+            None => {
+                // vill: bit `XLEN-1` set, rest zero
+                self.vector.vtype_raw = 1u64 << (u64::BITS - 1);
+                self.write_csr(VCsr::Vtype as u16, self.vector.vtype_raw)
+                    .expect("Implementation didn't initialize `vtype` CSR");
+            }
+        }
+    }
+
+    fn vl(&self) -> u32 {
+        self.vector.vl
+    }
+
+    fn set_vl(&mut self, vl: u32) {
+        self.vector.vl = vl;
+        self.write_csr(VCsr::Vl as u16, vl as u64)
+            .expect("Implementation didn't initialize `vl` CSR");
+    }
+
+    fn vector_instructions_allowed(&self) -> bool {
+        self.vector.vector_allowed
+    }
+
+    fn mark_vs_dirty(&mut self) {
+        self.vector.vs_dirty_count += 1;
+    }
+}
+
+impl VectorRegistersExt<Reg<u64>> for ExtState {}
+
 impl ExtState {
     pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
         self.csr.privilege_level = privilege_level;
@@ -308,8 +404,33 @@ impl ExtState {
         self.csr.prepare_csr_write = prepare_csr_write;
     }
 
+    /// Initialize a single CSR (without this attempts to read or write this `csr_index` will fail)
     pub(crate) fn init_csr(&mut self, csr_index: u16, value: u64) {
         self.csr.csrs.insert(csr_index, value);
+    }
+
+    /// Initialize all vector CSRs with default values
+    pub(crate) fn init_vector_csrs(&mut self) {
+        // Initialize all vector CSRs
+        self.init_csr(VCsr::Vstart as u16, 0);
+        self.init_csr(VCsr::Vxsat as u16, 0);
+        self.init_csr(VCsr::Vxrm as u16, 0);
+        self.init_csr(VCsr::Vcsr as u16, 0);
+        self.init_csr(VCsr::Vl as u16, 0);
+        self.init_csr(VCsr::Vtype as u16, 1u64 << (u64::BITS - 1));
+        self.init_csr(VCsr::Vlenb as u16, u64::from(Self::VLENB));
+        // Fill them with default values
+        self.initialize_vector_state();
+    }
+
+    /// Configure whether vector instructions are allowed
+    pub(crate) fn set_vector_allowed(&mut self, vector_allowed: bool) {
+        self.vector.vector_allowed = vector_allowed;
+    }
+
+    /// Get the current vector dirty count value
+    pub(crate) fn vs_dirty_count(&self) -> u32 {
+        self.vector.vs_dirty_count
     }
 }
 

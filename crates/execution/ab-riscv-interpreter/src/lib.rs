@@ -16,13 +16,20 @@
 //!
 //! Does not require a standard library (`no_std`) or an allocator.
 
-#![feature(widening_mul)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(generic_const_exprs)]
+#![feature(
+    const_convert,
+    const_default,
+    const_trait_impl,
+    generic_const_exprs,
+    result_option_map_or_default,
+    widening_mul
+)]
 #![no_std]
 
 mod private;
 pub mod rv64;
+pub mod v;
 pub mod zicsr;
 
 use crate::private::BasicIntSealed;
@@ -528,7 +535,7 @@ where
     /// If no extension returns `Ok(true)`, the write operation is implicitly rejected as illegal
     /// access.
     fn prepare_csr_write<C>(
-        csrs: &C,
+        csrs: &mut C,
         csr_index: u16,
         write_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
