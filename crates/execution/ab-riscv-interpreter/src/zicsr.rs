@@ -145,7 +145,7 @@ where
                 state.regs.write(rd, read_output);
 
                 if zimm != 0 {
-                    let write_value = raw_value | zimm.into();
+                    let write_value = raw_value | Reg::Type::from(zimm);
                     let write_output = state.ext_state.process_csr_write(csr, write_value)?;
                     state.ext_state.write_csr(csr, write_output)?;
                 }
