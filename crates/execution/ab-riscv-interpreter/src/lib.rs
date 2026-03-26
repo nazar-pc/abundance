@@ -28,7 +28,7 @@ pub mod zicsr;
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
+use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
@@ -88,10 +88,21 @@ pub trait VirtualMemory {
     where
         T: BasicInt;
 
+    /// Read a contiguous byte slice from memory
+    fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError>;
+
+    /// Read as many contiguous bytes as possible starting at `address`, up to `len` bytes total.
+    ///
+    /// Can return an empty slice in cases like when the address is out of bounds.
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8];
+
     /// Write a value to memory at the specified address
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt;
+
+    /// Write a contiguous byte slice to memory
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError>;
 }
 
 /// Program counter errors
@@ -221,11 +232,11 @@ where
             return Ok(ControlFlow::Break(()));
         }
 
-        if !pc.into().is_multiple_of(u64::from(I::alignment())) {
+        if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 
-        memory.read::<u32>(pc.into())?;
+        memory.read::<u32>(pc.as_u64())?;
 
         self.pc = pc;
 
@@ -247,7 +258,7 @@ where
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
-        let instruction = unsafe { memory.read_unchecked(self.pc.into()) };
+        let instruction = unsafe { memory.read_unchecked(self.pc.as_u64()) };
         // SAFETY: All instructions are valid, according to the constructor contract
         let instruction = unsafe { I::try_decode(instruction).unwrap_unchecked() };
         self.pc += instruction.size().into();
@@ -357,7 +368,7 @@ where
     /// and return the output value on success.
     /// The method is present on `Csrs` to break cycles in the type system.
     fn process_csr_write(
-        &self,
+        &mut self,
         csr_index: u16,
         write_value: Reg::Type,
     ) -> Result<Reg::Type, CsrError<CustomError>>;

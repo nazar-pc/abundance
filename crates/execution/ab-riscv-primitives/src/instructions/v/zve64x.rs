@@ -22,6 +22,7 @@ pub mod store;
 pub mod widen_narrow;
 
 use crate::instructions::Instruction;
+use crate::instructions::v::Eew;
 use crate::instructions::v::zve64x::arith::Zve64xArithInstruction;
 use crate::instructions::v::zve64x::config::Zve64xConfigInstruction;
 use crate::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
@@ -33,7 +34,7 @@ use crate::instructions::v::zve64x::reduction::Zve64xReductionInstruction;
 use crate::instructions::v::zve64x::store::Zve64xStoreInstruction;
 use crate::instructions::v::zve64x::widen_narrow::Zve64xWidenNarrowInstruction;
 use crate::registers::general_purpose::Register;
-use crate::registers::vector::{Eew, VReg};
+use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
