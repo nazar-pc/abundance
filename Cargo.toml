@@ -100,7 +100,7 @@ libc = "0.2.182"
 libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea", default-features = false }
 libp2p-swarm-test = { version = "0.6.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
 memmap2 = "0.9.10"
-mimalloc = "0.1.48"
+mimalloc = { version = "0.1.48", features = ["v3"] }
 multihash = "0.19.3"
 nohash-hasher = "0.2.0"
 no-panic = "0.1.36"
