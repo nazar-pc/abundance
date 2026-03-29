@@ -9,9 +9,10 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory, execute,
+    LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
+    execute,
 };
-use ab_riscv_interpreter::{BasicInstructionFetcher, InterpreterState};
+use ab_riscv_interpreter::InterpreterState;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use ed25519_dalek::{Signer, SigningKey};
@@ -87,7 +88,7 @@ where
     let memory = match run_type {
         RunType::Lazy => {
             // SAFETY: Program counter and code are trusted
-            let instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
+            let instruction_fetcher = unsafe { LazyInstructionFetcher::new(TRAP_ADDRESS, pc) };
 
             let mut state = InterpreterState {
                 regs,

@@ -9,9 +9,10 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory, execute,
+    LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
+    execute,
 };
-use ab_riscv_interpreter::{BasicInstructionFetcher, InterpreterState};
+use ab_riscv_interpreter::InterpreterState;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -113,10 +114,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
         // and contract ends with a jump
         instruction_fetcher: unsafe {
-            BasicInstructionFetcher::<ContractInstruction, ()>::new(
-                TRAP_ADDRESS,
-                MEMORY_BASE_ADDRESS,
-            )
+            LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
         _phantom: PhantomData,

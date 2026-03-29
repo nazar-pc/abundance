@@ -265,6 +265,85 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
     }
 }
 
+/// Lazy instruction fetcher implementation
+#[derive(Debug, Copy, Clone)]
+pub struct LazyInstructionFetcher {
+    return_trap_address: u64,
+    pc: u64,
+}
+
+impl<Memory> ProgramCounter<u64, Memory, ()> for LazyInstructionFetcher
+where
+    Memory: VirtualMemory,
+{
+    #[inline(always)]
+    fn get_pc(&self) -> u64 {
+        self.pc
+    }
+
+    #[inline]
+    fn set_pc(
+        &mut self,
+        memory: &Memory,
+        pc: u64,
+    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, ()>> {
+        if pc == self.return_trap_address {
+            return Ok(ControlFlow::Break(()));
+        }
+
+        if !pc.is_multiple_of(u64::from(ContractInstruction::alignment())) {
+            return Err(ProgramCounterError::UnalignedInstruction { address: pc });
+        }
+
+        memory.read::<u32>(pc)?;
+
+        self.pc = pc;
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
+
+impl<Memory> InstructionFetcher<ContractInstruction, Memory, ()> for LazyInstructionFetcher
+where
+    Memory: VirtualMemory,
+{
+    #[inline]
+    fn fetch_instruction(
+        &mut self,
+        memory: &Memory,
+    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, ()>> {
+        // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
+        // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
+        // one instruction can't result in out-of-bounds access.
+        let instruction = unsafe { memory.read_unchecked(self.pc) };
+        // SAFETY: All instructions are valid, according to the constructor contract
+        let instruction =
+            unsafe { ContractInstruction::try_decode(instruction).unwrap_unchecked() };
+
+        self.pc += u64::from(instruction.size());
+
+        Ok(FetchInstructionResult::Instruction(instruction))
+    }
+}
+
+impl LazyInstructionFetcher {
+    /// Create a new instance.
+    ///
+    /// `return_trap_address` is the address at which the interpreter will stop execution
+    /// (gracefully).
+    ///
+    /// # Safety
+    /// The program counter must be valid and aligned, the instructions processed must be valid and
+    /// end with a jump instruction.
+    #[inline(always)]
+    pub unsafe fn new(return_trap_address: u64, pc: u64) -> Self {
+        Self {
+            return_trap_address,
+            pc,
+        }
+    }
+}
+
 /// Eager instruction handler eagerly decodes all instructions upfront
 #[derive(Debug, Default, Clone)]
 pub struct EagerTestInstructionFetcher {
@@ -286,7 +365,7 @@ where
     #[inline]
     fn set_pc(
         &mut self,
-        _memory: &mut Memory,
+        _memory: &Memory,
         pc: u64,
     ) -> Result<ControlFlow<()>, ProgramCounterError<u64, ()>> {
         let address = pc;
@@ -321,7 +400,7 @@ where
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _memory: &mut Memory,
+        _memory: &Memory,
     ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, ()>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
@@ -415,10 +494,7 @@ where
     IF: InstructionFetcher<ContractInstruction, Memory, ()>,
 {
     loop {
-        let instruction = match state
-            .instruction_fetcher
-            .fetch_instruction(&mut state.memory)?
-        {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
                 continue;

@@ -151,7 +151,7 @@ where
 
     fn set_pc(
         &mut self,
-        _memory: &mut TestMemory,
+        _memory: &TestMemory,
         pc: u64,
     ) -> Result<ControlFlow<()>, ProgramCounterError<u64, &'static str>> {
         self.pc = pc;
@@ -167,7 +167,7 @@ where
     #[inline]
     fn fetch_instruction(
         &mut self,
-        _memory: &mut TestMemory,
+        _memory: &TestMemory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, &'static str>> {
         if self.pc == self.return_trap_address {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
@@ -179,7 +179,7 @@ where
         else {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
         };
-        self.pc += 4;
+        self.pc += u64::from(instruction.size());
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
@@ -199,9 +199,8 @@ where
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u64, &'static str>> {
-        let instruction = Rv64Instruction::<Reg<u64>>::Ecall;
         Err(ExecutionError::EcallUnsupported {
-            address: program_counter.get_pc() - u64::from(instruction.size()),
+            address: program_counter.old_pc(Rv64Instruction::<Reg<u64>>::Ecall.size()),
         })
     }
 }
@@ -351,10 +350,7 @@ where
     I: Instruction<Reg = Reg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
 {
     loop {
-        let instruction = match state
-            .instruction_fetcher
-            .fetch_instruction(&mut state.memory)?
-        {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
                 continue;
