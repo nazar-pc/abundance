@@ -339,7 +339,7 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
-        _phantom: PhantomData,
+        custom_error: PhantomData,
     }
 }
 

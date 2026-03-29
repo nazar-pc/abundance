@@ -438,25 +438,8 @@ where
     pub instruction_fetcher: IF,
     /// System instruction handler
     pub system_instruction_handler: InstructionHandler,
-    #[doc(hidden)]
-    pub _phantom: PhantomData<CustomError>,
-}
-
-impl<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
-    InterpreterState<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
-where
-    Reg: Register,
-    [(); Reg::N]:,
-    IF: ProgramCounter<Reg::Type, Memory, CustomError>,
-{
-    /// Set program counter
-    #[inline(always)]
-    pub fn set_pc(
-        &mut self,
-        pc: Reg::Type,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<Reg::Type, CustomError>> {
-        self.instruction_fetcher.set_pc(&self.memory, pc)
-    }
+    /// Custom error phantom data
+    pub custom_error: PhantomData<CustomError>,
 }
 
 /// Trait for executable instructions.

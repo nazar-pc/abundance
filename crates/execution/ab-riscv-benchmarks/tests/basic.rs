@@ -96,7 +96,7 @@ where
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-                _phantom: PhantomData,
+                custom_error: PhantomData,
             };
             execute(&mut state).unwrap();
 
@@ -132,7 +132,7 @@ where
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-                _phantom: PhantomData,
+                custom_error: PhantomData,
             };
             execute(&mut state).unwrap();
 
