@@ -177,7 +177,7 @@ impl MCauseInterrupt {
     where
         Reg: [const] Register,
     {
-        Reg::Type::from(self as u32) | (Reg::Type::from(1u8) << Reg::XLEN)
+        Reg::Type::from(self as u32) | (Reg::Type::from(1u8) << (Reg::XLEN - 1))
     }
 }
 
@@ -210,8 +210,8 @@ impl MCause {
         Reg: [const] Register,
     {
         let raw = raw.as_u64();
-        let is_interrupt = (raw & (1u64 << Reg::XLEN)) != 0;
-        let code = raw & !(1u64 << Reg::XLEN);
+        let is_interrupt = (raw & (1u64 << (Reg::XLEN - 1))) != 0;
+        let code = raw & !(1u64 << (Reg::XLEN - 1));
 
         if is_interrupt {
             MCauseInterrupt::from_code(code).map(Self::Interrupt)

@@ -1,0 +1,22 @@
+# ACT4 framework top-level config for the abundance RV64I-max core.
+#
+# compiler_exe: riscv64-unknown-elf-gcc on $PATH, targeting lp64 ABI (no F/D).
+#   The march string matches the extensions in abundance.yaml; adjust if you
+#   change the UDB config (e.g. add Zve64x: append _zve64x).
+#
+# ref_model_exe: sail_riscv_sim on $PATH.
+#   Run `sail_riscv_sim --help` to verify the binary name on your system;
+#   some distros install it as `riscv_sim_RV64`.
+#
+# include_priv_tests: false because the interpreter has no trap/interrupt
+#   infrastructure (no writable mtvec, no CLINT, ECALL is unsupported).
+#   Enable only after you implement a machine-mode trap handler.
+
+name: abundance-rv64i-max
+compiler_exe: riscv64-unknown-elf-gcc
+objdump_exe: riscv64-unknown-elf-objdump
+ref_model_exe: sail_riscv_sim
+udb_config: abundance-rv64i-max.yaml
+linker_script: link.ld
+dut_include_dir: .
+include_priv_tests: false

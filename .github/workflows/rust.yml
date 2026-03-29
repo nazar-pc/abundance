@@ -641,6 +641,48 @@ jobs:
             cargo run --bin cargo-ab-contract -- build --package $contract --profile contract
           done
 
+  act4:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # 4.0.0
+
+      - name: Prepare
+        run: |
+          mkdir /tmp/empty
+
+      # TODO: Use official image once it is available: https://github.com/riscv/riscv-arch-test/pull/1161
+      - name: Build act4-build image
+        id: build
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # 7.0.0
+        with:
+          context: /tmp/empty
+          file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
+          cache-from: type=gha,scope=act4-build
+          cache-to: type=gha,mode=min,scope=act4-build
+          load: true
+
+      - name: ACT4 tests
+        working-directory: crates/execution/ab-riscv-act4-runner
+        run: |
+          echo "Clone ACT4 repo"
+          git clone --depth 1 --branch cert-docs-2026-04-01-17-37-00ca3c9 \
+            https://github.com/riscv/riscv-arch-test \
+            res/riscv-arch-test
+          echo "Building ELFs"
+          docker run --privileged \
+            -v ./res/riscv-arch-test:/mnt \
+            -v ./res/abundance:/mnt/config/abundance:ro \
+            -e CONFIG_FILES=config/abundance/abundance-rv64i-max/test_config.yaml \
+            ${{ steps.build.outputs.imageid }} \
+            make
+          echo "Running tests"
+          cargo run -- res/riscv-arch-test/work/abundance-rv64i-max
+
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
     if: ${{ always() }}
@@ -652,6 +694,7 @@ jobs:
       - cargo-test-slow
       - contracts
       - no-panic
+      - act4
 
     steps:
       - name: Check job statuses
@@ -664,3 +707,4 @@ jobs:
           [[ "${{ needs.cargo-test-slow.result }}" == "success" ]] || exit 1
           [[ "${{ needs.contracts.result }}" == "success" ]] || exit 1
           [[ "${{ needs.no-panic.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.act4.result }}" == "success" ]] || exit 1

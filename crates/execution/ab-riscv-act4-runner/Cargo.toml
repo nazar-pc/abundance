@@ -1,17 +1,15 @@
 [package]
-name = "ab-riscv-interpreter-compliance-tests"
-description = "Compliance tests for RISC-V interpreter"
+name = "ab-riscv-act4-runner"
+description = "RISC-V Architectural Certification Tests runner for the interpreter"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
     "/src",
-    "/tests",
     "/build.rs",
     "/Cargo.toml",
 ]
-links = "ab-riscv-interpreter-compliance-tests"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -20,6 +18,10 @@ all-features = true
 ab-riscv-interpreter = { workspace = true }
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+colored = { workspace = true }
+object = { workspace = true, features = ["elf", "read_core"] }
 
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }
