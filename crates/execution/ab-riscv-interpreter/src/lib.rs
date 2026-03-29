@@ -30,7 +30,7 @@ use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
 use core::marker::PhantomData;
-use core::ops::ControlFlow;
+use core::ops::{ControlFlow, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 type Address<I> = RegisterType<I>;
@@ -127,10 +127,25 @@ pub trait ProgramCounter<Address, Memory, CustomError> {
     /// Get the current value of the program counter
     fn get_pc(&self) -> Address;
 
+    /// Get the previous value of the program counter before executing an `instruction`.
+    ///
+    /// This is usually called from under instruction execution when the program counter is already
+    /// advanced during instruction fetching. As such, `pc - instruction_size` is expected to never
+    /// underflow.
+    #[inline(always)]
+    fn old_pc(&self, instruction_size: u8) -> Address
+    where
+        Address: From<u8> + Sub<Output = Address>,
+    {
+        // TODO: Wrapping subtraction would be nice, but causes a lot of additional generic bounds
+        //  that are bad for ergonomics
+        self.get_pc() - Address::from(instruction_size)
+    }
+
     /// Set the current value of the program counter
     fn set_pc(
         &mut self,
-        memory: &mut Memory,
+        memory: &Memory,
         pc: Address,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Address, CustomError>>;
 }
@@ -196,7 +211,7 @@ where
     /// Fetch a single instruction at a specified address and advance the program counter
     fn fetch_instruction(
         &mut self,
-        memory: &mut Memory,
+        memory: &Memory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>>;
 }
 
@@ -225,7 +240,7 @@ where
     #[inline]
     fn set_pc(
         &mut self,
-        memory: &mut Memory,
+        memory: &Memory,
         pc: Address<I>,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
         if pc == self.return_trap_address {
@@ -253,7 +268,7 @@ where
     #[inline]
     fn fetch_instruction(
         &mut self,
-        memory: &mut Memory,
+        memory: &Memory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
@@ -380,10 +395,7 @@ where
     Reg: Register,
     [(); Reg::N]:,
 {
-    /// Handle an `ecall` instruction.
-    ///
-    /// NOTE: the program counter here is the current value, meaning it is already incremented past
-    /// the instruction itself.
+    /// Handle an `ecall` instruction
     fn handle_ecall(
         &mut self,
         regs: &mut Registers<Reg>,
@@ -443,7 +455,7 @@ where
         &mut self,
         pc: Reg::Type,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Reg::Type, CustomError>> {
-        self.instruction_fetcher.set_pc(&mut self.memory, pc)
+        self.instruction_fetcher.set_pc(&self.memory, pc)
     }
 }
 

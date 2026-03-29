@@ -236,7 +236,7 @@ where
                 state.regs.write(rd, state.instruction_fetcher.get_pc());
                 return state
                     .instruction_fetcher
-                    .set_pc(&mut state.memory, target)
+                    .set_pc(&state.memory, target)
                     .map_err(ExecutionError::from);
             }
 
@@ -271,14 +271,11 @@ where
 
             Self::Beq { rs1, rs2, imm } => {
                 if state.regs.read(rs1) == state.regs.read(rs2) {
-                    let old_pc = state
-                        .instruction_fetcher
-                        .get_pc()
-                        .wrapping_sub(self.size().into());
+                    let old_pc = state.instruction_fetcher.old_pc(self.size());
                     return state
                         .instruction_fetcher
                         .set_pc(
-                            &mut state.memory,
+                            &state.memory,
                             old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
@@ -286,14 +283,11 @@ where
             }
             Self::Bne { rs1, rs2, imm } => {
                 if state.regs.read(rs1) != state.regs.read(rs2) {
-                    let old_pc = state
-                        .instruction_fetcher
-                        .get_pc()
-                        .wrapping_sub(self.size().into());
+                    let old_pc = state.instruction_fetcher.old_pc(self.size());
                     return state
                         .instruction_fetcher
                         .set_pc(
-                            &mut state.memory,
+                            &state.memory,
                             old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
@@ -301,14 +295,11 @@ where
             }
             Self::Blt { rs1, rs2, imm } => {
                 if state.regs.read(rs1).cast_signed() < state.regs.read(rs2).cast_signed() {
-                    let old_pc = state
-                        .instruction_fetcher
-                        .get_pc()
-                        .wrapping_sub(self.size().into());
+                    let old_pc = state.instruction_fetcher.old_pc(self.size());
                     return state
                         .instruction_fetcher
                         .set_pc(
-                            &mut state.memory,
+                            &state.memory,
                             old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
@@ -316,14 +307,11 @@ where
             }
             Self::Bge { rs1, rs2, imm } => {
                 if state.regs.read(rs1).cast_signed() >= state.regs.read(rs2).cast_signed() {
-                    let old_pc = state
-                        .instruction_fetcher
-                        .get_pc()
-                        .wrapping_sub(self.size().into());
+                    let old_pc = state.instruction_fetcher.old_pc(self.size());
                     return state
                         .instruction_fetcher
                         .set_pc(
-                            &mut state.memory,
+                            &state.memory,
                             old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
@@ -331,14 +319,11 @@ where
             }
             Self::Bltu { rs1, rs2, imm } => {
                 if state.regs.read(rs1) < state.regs.read(rs2) {
-                    let old_pc = state
-                        .instruction_fetcher
-                        .get_pc()
-                        .wrapping_sub(self.size().into());
+                    let old_pc = state.instruction_fetcher.old_pc(self.size());
                     return state
                         .instruction_fetcher
                         .set_pc(
-                            &mut state.memory,
+                            &state.memory,
                             old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
@@ -346,14 +331,11 @@ where
             }
             Self::Bgeu { rs1, rs2, imm } => {
                 if state.regs.read(rs1) >= state.regs.read(rs2) {
-                    let old_pc = state
-                        .instruction_fetcher
-                        .get_pc()
-                        .wrapping_sub(self.size().into());
+                    let old_pc = state.instruction_fetcher.old_pc(self.size());
                     return state
                         .instruction_fetcher
                         .set_pc(
-                            &mut state.memory,
+                            &state.memory,
                             old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                         )
                         .map_err(ExecutionError::from);
@@ -365,10 +347,7 @@ where
             }
 
             Self::Auipc { rd, imm } => {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(self.size().into());
+                let old_pc = state.instruction_fetcher.old_pc(self.size());
                 state
                     .regs
                     .write(rd, old_pc.wrapping_add(i64::from(imm).cast_unsigned()));
@@ -376,12 +355,12 @@ where
 
             Self::Jal { rd, imm } => {
                 let pc = state.instruction_fetcher.get_pc();
-                let old_pc = pc.wrapping_sub(self.size().into());
+                let old_pc = state.instruction_fetcher.old_pc(self.size());
                 state.regs.write(rd, pc);
                 return state
                     .instruction_fetcher
                     .set_pc(
-                        &mut state.memory,
+                        &state.memory,
                         old_pc.wrapping_add(i64::from(imm).cast_unsigned()),
                     )
                     .map_err(ExecutionError::from);
@@ -407,10 +386,7 @@ where
             }
 
             Self::Unimp => {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(self.size().into());
+                let old_pc = state.instruction_fetcher.old_pc(self.size());
                 return Err(ExecutionError::IllegalInstruction { address: old_pc });
             }
         }

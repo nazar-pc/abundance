@@ -149,7 +149,7 @@ where
 
     fn set_pc(
         &mut self,
-        _memory: &mut TestMemory,
+        _memory: &TestMemory,
         pc: u64,
     ) -> Result<ControlFlow<()>, ProgramCounterError<u64, &'static str>> {
         self.pc = pc;
@@ -165,7 +165,7 @@ where
     #[inline]
     fn fetch_instruction(
         &mut self,
-        _memory: &mut TestMemory,
+        _memory: &TestMemory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, &'static str>> {
         if self.pc == self.return_trap_address {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
@@ -199,7 +199,7 @@ where
     ) -> Result<ControlFlow<()>, ExecutionError<u64, &'static str>> {
         let instruction = Rv64Instruction::<Reg<u64>>::Ecall;
         Err(ExecutionError::EcallUnsupported {
-            address: program_counter.get_pc() - u64::from(instruction.size()),
+            address: program_counter.old_pc(instruction.size()),
         })
     }
 }
@@ -254,10 +254,7 @@ where
     I: Instruction<Reg = Reg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
 {
     loop {
-        let instruction = match state
-            .instruction_fetcher
-            .fetch_instruction(&mut state.memory)?
-        {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
                 continue;
@@ -673,10 +670,7 @@ fn test_branch_op<I>(
     state.regs.write(Reg::from_bits(rs1).unwrap(), rs1_val);
     state.regs.write(Reg::from_bits(rs2).unwrap(), rs2_val);
 
-    let fetch_result = match state
-        .instruction_fetcher
-        .fetch_instruction(&mut state.memory)
-    {
+    let fetch_result = match state.instruction_fetcher.fetch_instruction(&state.memory) {
         Ok(result) => result,
         Err(error) => {
             panic!("Fetch error at {file_line_number}: {error}");
@@ -789,10 +783,7 @@ fn test_jal_op<I>(
 
     let mut state = initialize_state(vec![instruction]);
 
-    let fetch_result = match state
-        .instruction_fetcher
-        .fetch_instruction(&mut state.memory)
-    {
+    let fetch_result = match state.instruction_fetcher.fetch_instruction(&state.memory) {
         Ok(result) => result,
         Err(error) => {
             panic!("Fetch error at {file_line_number}: {error}");
@@ -882,10 +873,7 @@ fn test_jalr_op<I>(
 
     // rs1 is assumed to be 0 initially (as in the arch test environment for these coverpoints)
 
-    let fetch_result = match state
-        .instruction_fetcher
-        .fetch_instruction(&mut state.memory)
-    {
+    let fetch_result = match state.instruction_fetcher.fetch_instruction(&state.memory) {
         Ok(result) => result,
         Err(error) => {
             panic!("Fetch error at {file_line_number}: {error}");

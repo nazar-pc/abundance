@@ -245,8 +245,8 @@ where
         state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
-            Self::Popular(instructions) => instructions.execute(state),
-            Self::NotPopular(instructions) => instructions.execute(state),
+            Self::Popular(instruction) => instruction.execute(state),
+            Self::NotPopular(instruction) => instruction.execute(state),
         }
     }
 }
