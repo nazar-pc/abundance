@@ -1,8 +1,8 @@
 extern crate alloc;
 
 use crate::{
-    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
+    Address, BasicInt, CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction,
+    ExecutionError, FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
     ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::instructions::Instruction;
@@ -152,7 +152,7 @@ pub(crate) struct TestInstructionFetcher<I> {
     pc: u64,
 }
 
-impl<I> ProgramCounter<u64, TestMemory, &'static str> for TestInstructionFetcher<I>
+impl<I> ProgramCounter<u64, TestMemory> for TestInstructionFetcher<I>
 where
     I: Instruction<Reg = Reg<u64>>,
 {
@@ -165,14 +165,14 @@ where
         &mut self,
         _memory: &TestMemory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, &'static str>> {
+    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
         self.pc = pc;
 
         Ok(ControlFlow::Continue(()))
     }
 }
 
-impl<I> InstructionFetcher<I, TestMemory, &'static str> for TestInstructionFetcher<I>
+impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
     I: Instruction<Reg = Reg<u64>>,
 {
@@ -180,7 +180,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &TestMemory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, &'static str>> {
+    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>>> {
         if self.pc == self.return_trap_address {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
         }
@@ -199,7 +199,7 @@ where
 
 pub(crate) struct TestInstructionHandler;
 
-impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
+impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>>
     for TestInstructionHandler
 where
     I: Instruction<Reg = Reg<u64>>,
@@ -210,7 +210,7 @@ where
         _regs: &mut Registers<Reg<u64>>,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64, &'static str>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         Err(ExecutionError::EcallUnsupported {
             address: program_counter.old_pc(Rv64Instruction::<Reg<u64>>::Ecall.size()),
         })
@@ -233,8 +233,8 @@ impl<I> TestInstructionFetcher<I> {
 struct CsrExtState {
     privilege_level: PrivilegeLevel,
     csrs: BTreeMap<u16, u64>,
-    prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
-    prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError<&'static str>>,
+    prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError>,
+    prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError>,
 }
 
 impl Default for CsrExtState {
@@ -262,12 +262,12 @@ impl Default for ExtState {
     }
 }
 
-impl Csrs<Reg<u64>, &'static str> for ExtState {
+impl Csrs<Reg<u64>> for ExtState {
     fn privilege_level(&self) -> PrivilegeLevel {
         self.csr.privilege_level
     }
 
-    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError<&'static str>> {
+    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError> {
         self.csr
             .csrs
             .get(&csr_index)
@@ -275,7 +275,7 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
             .ok_or(CsrError::IllegalRead { csr_index })
     }
 
-    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError<&'static str>> {
+    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError> {
         let stored_value = self
             .csr
             .csrs
@@ -285,19 +285,11 @@ impl Csrs<Reg<u64>, &'static str> for ExtState {
         Ok(())
     }
 
-    fn process_csr_read(
-        &self,
-        csr_index: u16,
-        raw_value: u64,
-    ) -> Result<u64, CsrError<&'static str>> {
+    fn process_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
         (self.csr.prepare_csr_read)(csr_index, raw_value)
     }
 
-    fn process_csr_write(
-        &mut self,
-        csr_index: u16,
-        write_value: u64,
-    ) -> Result<u64, CsrError<&'static str>> {
+    fn process_csr_write(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
         (self.csr.prepare_csr_write)(csr_index, write_value)
     }
 }
@@ -309,11 +301,8 @@ impl ExtState {
 
     pub(crate) fn set_prepare_csr_read_write(
         &mut self,
-        prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>>,
-        prepare_csr_write: fn(
-            csr_index: u16,
-            write_value: u64,
-        ) -> Result<u64, CsrError<&'static str>>,
+        prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError>,
+        prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError>,
     ) {
         self.csr.prepare_csr_read = prepare_csr_read;
         self.csr.prepare_csr_write = prepare_csr_write;
@@ -330,7 +319,6 @@ pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
     TestMemory,
     TestInstructionFetcher<Instruction>,
     TestInstructionHandler,
-    &'static str,
 >;
 
 pub(crate) fn initialize_state<I, Instructions>(
@@ -357,9 +345,10 @@ where
 
 pub(crate) fn execute<I>(
     state: &mut TestInterpreterState<I>,
-) -> Result<(), ExecutionError<Address<I>, &'static str>>
+) -> Result<(), ExecutionError<Address<I>>>
 where
-    I: Instruction<Reg = Reg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
+    I: Instruction<Reg = Reg<u64>>
+        + ExecutableInstruction<TestInterpreterState<I>, CustomErrorPlaceholder>,
 {
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {

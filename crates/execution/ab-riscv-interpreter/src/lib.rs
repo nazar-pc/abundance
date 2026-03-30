@@ -29,6 +29,7 @@ use crate::private::BasicIntSealed;
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
 use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
+use core::fmt;
 use core::marker::PhantomData;
 use core::ops::{ControlFlow, Sub};
 
@@ -105,9 +106,19 @@ pub trait VirtualMemory {
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError>;
 }
 
+/// Placeholder for custom errors in [`ExecutionError`]
+#[derive(Debug, Copy, Clone)]
+pub struct CustomErrorPlaceholder;
+
+impl fmt::Display for CustomErrorPlaceholder {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
 /// Program counter errors
 #[derive(Debug, thiserror::Error)]
-pub enum ProgramCounterError<Address, CustomError> {
+pub enum ProgramCounterError<Address, CustomError = CustomErrorPlaceholder> {
     /// Unaligned instruction
     #[error("Unaligned instruction at address {address}")]
     UnalignedInstruction {
@@ -123,7 +134,7 @@ pub enum ProgramCounterError<Address, CustomError> {
 }
 
 /// Generic program counter
-pub trait ProgramCounter<Address, Memory, CustomError> {
+pub trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> {
     /// Get the current value of the program counter
     fn get_pc(&self) -> Address;
 
@@ -152,7 +163,7 @@ pub trait ProgramCounter<Address, Memory, CustomError> {
 
 /// Execution errors
 #[derive(Debug, thiserror::Error)]
-pub enum ExecutionError<Address, CustomError> {
+pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
     /// Unaligned instruction fetch
     #[error("Unaligned instruction fetch at address {address:#x}")]
     UnalignedInstructionFetch {
@@ -203,7 +214,7 @@ pub enum FetchInstructionResult<Instruction> {
 }
 
 /// Generic instruction fetcher
-pub trait InstructionFetcher<I, Memory, CustomError>
+pub trait InstructionFetcher<I, Memory, CustomError = CustomErrorPlaceholder>
 where
     Self: ProgramCounter<Address<I>, Memory, CustomError>,
     I: Instruction,
@@ -306,7 +317,7 @@ where
 
 /// CSR error
 #[derive(Debug, thiserror::Error)]
-pub enum CsrError<CustomError> {
+pub enum CsrError<CustomError = CustomErrorPlaceholder> {
     /// Read only CSR
     #[error("Read only CSR {csr_index:#x}")]
     ReadOnly {
@@ -350,7 +361,7 @@ pub enum CsrError<CustomError> {
 }
 
 /// CSRs (Control and Status Registers)
-pub trait Csrs<Reg, CustomError>
+pub trait Csrs<Reg, CustomError = CustomErrorPlaceholder>
 where
     Reg: Register,
 {
@@ -390,7 +401,7 @@ where
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
-pub trait SystemInstructionHandler<Reg, Memory, PC, CustomError>
+pub trait SystemInstructionHandler<Reg, Memory, PC, CustomError = CustomErrorPlaceholder>
 where
     Reg: Register,
     [(); Reg::N]:,
@@ -419,8 +430,14 @@ where
 
 /// Base interpreter state
 #[derive(Debug)]
-pub struct InterpreterState<Reg, ExtState, Memory, IF, InstructionHandler, CustomError>
-where
+pub struct InterpreterState<
+    Reg,
+    ExtState,
+    Memory,
+    IF,
+    InstructionHandler,
+    CustomError = CustomErrorPlaceholder,
+> where
     Reg: Register,
     [(); Reg::N]:,
 {
@@ -446,7 +463,7 @@ where
 ///
 /// To make instructions composable, none of the methods must use the `return` statement. `Err()?`
 /// or similar workarounds can be used instead.
-pub trait ExecutableInstruction<State, CustomError>
+pub trait ExecutableInstruction<State, CustomError = CustomErrorPlaceholder>
 where
     Self: Instruction,
 {

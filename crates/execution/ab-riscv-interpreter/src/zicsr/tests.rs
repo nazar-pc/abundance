@@ -44,11 +44,11 @@ const UNKNOWN_CSR: u16 = 0x7FF;
 // Helper closures passed to `set_prepare_csr_read_write`.
 // These model identity-passthrough transforms (no WARL masking).
 
-fn allow_read(_csr_index: u16, raw_value: u64) -> Result<u64, CsrError<&'static str>> {
+fn allow_read(_csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
     Ok(raw_value)
 }
 
-fn allow_write(_csr_index: u16, write_value: u64) -> Result<u64, CsrError<&'static str>> {
+fn allow_write(_csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
     Ok(write_value)
 }
 
