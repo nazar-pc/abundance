@@ -53,7 +53,7 @@ pub enum VirtualMemoryError {
 }
 
 /// Basic integer types that can be read and written to/from memory freely
-pub trait BasicInt: Sized + Copy + BasicIntSealed {}
+pub trait BasicInt: Sized + Copy + BasicIntSealed + 'static {}
 
 impl BasicIntSealed for u8 {}
 impl BasicIntSealed for u16 {}

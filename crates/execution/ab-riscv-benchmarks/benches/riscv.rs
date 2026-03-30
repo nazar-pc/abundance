@@ -88,7 +88,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
     }
 
-    let mut memory = TestMemory::<MEMORY_SIZE>::new(MEMORY_BASE_ADDRESS);
+    let mut memory = TestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
     let contract_memory_size = contract_file.contract_memory_size() as usize;
     if !contract_file.initialize_contract_memory({
