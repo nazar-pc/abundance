@@ -75,7 +75,7 @@ fn test_clz_real_instruction() {
 
 #[test]
 fn test_legacy_clz_reserved_subop() {
-    // subop >2 with funct6=011000 in funct3=001 → reserved/None
+    // subop >2 with funct6=011000 in funct3=001 -> reserved/None
     let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 3, 0b011000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
@@ -83,7 +83,7 @@ fn test_legacy_clz_reserved_subop() {
 
 #[test]
 fn test_reserved_subop_in_legacy_clz_space() {
-    // funct6=011000 in funct3=001 with subop/rs2_bits not 0-2 → reserved/None
+    // funct6=011000 in funct3=001 with subop/rs2_bits not 0-2 -> reserved/None
     // (0-2 are legacy aliases for clz/ctz/cpop)
     let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 3, 0b011000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
@@ -423,7 +423,7 @@ fn test_zext_h_real_instruction() {
 
 #[test]
 fn test_no_zext_h_with_nonzero_rs2() {
-    // Same encoding but rs2 != 0 → reserved/invalid for Zbb
+    // Same encoding but rs2 != 0 -> reserved/invalid for Zbb
     let inst = make_r_type(0b0111011, 1, 0b100, 2, 1, 0b0000100);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);

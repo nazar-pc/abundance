@@ -587,7 +587,7 @@ fn test_auipc_op<I>(
 {
     let (instruction_name, rd, expected, raw_imm) = parse_test_auipc_op(args_str);
 
-    // The decoder extracts (instr & 0xffff_f000).cast_signed() → already-shifted sign-extended i32
+    // The decoder extracts (instr & 0xffff_f000).cast_signed() -> already-shifted sign-extended i32
     // The test's third arg is exactly that value (as u64 bit pattern), and it always fits in i32
     let imm_i32 = expected as i32;
     // Display the conventional unsigned shifted immediate
