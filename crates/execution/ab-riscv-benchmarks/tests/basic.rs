@@ -12,7 +12,7 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::InterpreterState;
+use ab_riscv_interpreter::{InterpreterState, VirtualMemory};
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use ed25519_dalek::{Signer, SigningKey};
@@ -45,7 +45,7 @@ where
     })
     .unwrap();
 
-    let mut memory = TestMemory::<MEMORY_SIZE>::new(MEMORY_BASE_ADDRESS);
+    let mut memory = TestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
     let contract_memory_size = contract_file.contract_memory_size() as usize;
     if !contract_file.initialize_contract_memory({
@@ -96,7 +96,7 @@ where
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-                _phantom: PhantomData,
+                custom_error: PhantomData,
             };
             execute(&mut state).unwrap();
 
@@ -132,7 +132,7 @@ where
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-                _phantom: PhantomData,
+                custom_error: PhantomData,
             };
             execute(&mut state).unwrap();
 
@@ -143,7 +143,7 @@ where
     // SAFETY: Byte representation of `#[repr(C)]` without internal padding
     *unsafe {
         memory
-            .get_bytes(internal_args_addr, size_of::<IA>())
+            .read_slice(internal_args_addr, size_of::<IA>() as u32)
             .unwrap()
             .as_ptr()
             .cast::<IA>()

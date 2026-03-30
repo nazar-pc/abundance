@@ -121,21 +121,21 @@ impl Ed25519VerifyInternalArgs {
 
 // Simple test memory implementation
 #[derive(Debug, Copy, Clone)]
-pub struct TestMemory<const MEMORY_SIZE: usize> {
-    data: [u8; MEMORY_SIZE],
-    base_addr: u64,
+#[repr(align(16))]
+pub struct TestMemory<const BASE_ADDR: u64, const SIZE: usize> {
+    data: [u8; SIZE],
 }
 
-impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
+impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_ADDR, SIZE> {
     fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
     where
         T: BasicInt,
     {
         let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+            .checked_sub(BASE_ADDR)
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })?;
 
-        if offset + size_of::<T>() > self.data.len() {
+        if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
         }
 
@@ -145,7 +145,7 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
                 .data
                 .as_ptr()
                 .cast::<T>()
-                .byte_add(offset)
+                .byte_add(offset as usize)
                 .read_unaligned())
         }
     }
@@ -156,7 +156,7 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
     {
         // SAFETY: Guaranteed by function contract
         unsafe {
-            let offset = address.unchecked_sub(self.base_addr) as usize;
+            let offset = address.unchecked_sub(BASE_ADDR) as usize;
             self.data
                 .as_ptr()
                 .cast::<T>()
@@ -167,19 +167,27 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
 
     fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
         let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+            .checked_sub(BASE_ADDR)
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })?;
+
+        if offset > self.data.len() as u64 {
+            return Err(VirtualMemoryError::OutOfBoundsRead { address });
+        }
 
         self.data
-            .get(offset..)
+            .get(offset as usize..)
             .and_then(|data| data.get(..len as usize))
             .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
     }
 
     fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
-        let Some(offset) = address.checked_sub(self.base_addr) else {
+        let Some(offset) = address.checked_sub(BASE_ADDR) else {
             return &[];
         };
+
+        if offset > self.data.len() as u64 {
+            return &[];
+        }
 
         let remaining = self.data.get(offset as usize..).unwrap_or_default();
         remaining.get(..len as usize).unwrap_or(remaining)
@@ -190,10 +198,10 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
         T: BasicInt,
     {
         let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })? as usize;
+            .checked_sub(BASE_ADDR)
+            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?;
 
-        if offset + size_of::<T>() > self.data.len() {
+        if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
         }
 
@@ -202,7 +210,7 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
             self.data
                 .as_mut_ptr()
                 .cast::<T>()
-                .byte_add(offset)
+                .byte_add(offset as usize)
                 .write_unaligned(value);
         }
 
@@ -211,12 +219,16 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
 
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
         let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })? as usize;
+            .checked_sub(BASE_ADDR)
+            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?;
+
+        if offset > self.data.len() as u64 {
+            return Err(VirtualMemoryError::OutOfBoundsWrite { address });
+        }
 
         let len = data.len();
         self.data
-            .get_mut(offset..)
+            .get_mut(offset as usize..)
             .and_then(|data| data.get_mut(..len))
             .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?
             .copy_from_slice(data);
@@ -225,28 +237,13 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
     }
 }
 
-impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
-    /// Create a new test memory instance with the specified base address
-    pub fn new(base_addr: u64) -> Self {
-        Self {
-            data: [0; _],
-            base_addr,
-        }
+impl<const BASE_ADDR: u64, const SIZE: usize> Default for TestMemory<BASE_ADDR, SIZE> {
+    fn default() -> Self {
+        Self { data: [0; SIZE] }
     }
+}
 
-    /// Get a slice of memory
-    pub fn get_bytes(&self, address: u64, size: usize) -> Result<&[u8], VirtualMemoryError> {
-        let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
-
-        if offset + size > self.data.len() {
-            return Err(VirtualMemoryError::OutOfBoundsRead { address });
-        }
-
-        Ok(&self.data[offset..][..size])
-    }
-
+impl<const BASE_ADDR: u64, const SIZE: usize> TestMemory<BASE_ADDR, SIZE> {
     /// Get a mutable slice of memory
     pub fn get_mut_bytes(
         &mut self,
@@ -254,7 +251,7 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
         size: usize,
     ) -> Result<&mut [u8], VirtualMemoryError> {
         let offset = address
-            .checked_sub(self.base_addr)
+            .checked_sub(BASE_ADDR)
             .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
 
         if offset + size > self.data.len() {
@@ -272,7 +269,7 @@ pub struct LazyInstructionFetcher {
     pc: u64,
 }
 
-impl<Memory> ProgramCounter<u64, Memory, ()> for LazyInstructionFetcher
+impl<Memory> ProgramCounter<u64, Memory> for LazyInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -286,7 +283,7 @@ where
         &mut self,
         memory: &Memory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, ()>> {
+    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
         if pc == self.return_trap_address {
             return Ok(ControlFlow::Break(()));
         }
@@ -303,7 +300,7 @@ where
     }
 }
 
-impl<Memory> InstructionFetcher<ContractInstruction, Memory, ()> for LazyInstructionFetcher
+impl<Memory> InstructionFetcher<ContractInstruction, Memory> for LazyInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -311,7 +308,7 @@ where
     fn fetch_instruction(
         &mut self,
         memory: &Memory,
-    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, ()>> {
+    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -353,7 +350,7 @@ pub struct EagerTestInstructionFetcher {
     instruction_offset: usize,
 }
 
-impl<Memory> ProgramCounter<u64, Memory, ()> for EagerTestInstructionFetcher
+impl<Memory> ProgramCounter<u64, Memory> for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -367,7 +364,7 @@ where
         &mut self,
         _memory: &Memory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, ()>> {
+    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
         let address = pc;
 
         if address == self.return_trap_address {
@@ -393,7 +390,7 @@ where
     }
 }
 
-impl<Memory> InstructionFetcher<ContractInstruction, Memory, ()> for EagerTestInstructionFetcher
+impl<Memory> InstructionFetcher<ContractInstruction, Memory> for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -401,7 +398,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &Memory,
-    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64, ()>> {
+    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -486,12 +483,11 @@ pub fn execute<Memory, IF>(
         NoopRv64SystemInstructionHandler<
             Rv64Instruction<<ContractInstruction as Instruction>::Reg>,
         >,
-        (),
     >,
-) -> Result<(), ExecutionError<u64, ()>>
+) -> Result<(), ExecutionError<u64>>
 where
     Memory: VirtualMemory,
-    IF: InstructionFetcher<ContractInstruction, Memory, ()>,
+    IF: InstructionFetcher<ContractInstruction, Memory>,
 {
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {

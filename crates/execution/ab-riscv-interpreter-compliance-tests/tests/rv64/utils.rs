@@ -117,11 +117,15 @@ impl VirtualMemory for TestMemory {
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
         let offset = address
             .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })? as usize;
+            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?;
+
+        if offset > self.data.len() as u64 {
+            return Err(VirtualMemoryError::OutOfBoundsWrite { address });
+        }
 
         let len = data.len();
         self.data
-            .get_mut(offset..)
+            .get_mut(offset as usize..)
             .and_then(|data| data.get_mut(..len))
             .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?
             .copy_from_slice(data);
@@ -243,7 +247,7 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
-        _phantom: PhantomData,
+        custom_error: PhantomData,
     }
 }
 

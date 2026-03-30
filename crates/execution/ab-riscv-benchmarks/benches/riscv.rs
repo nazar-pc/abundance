@@ -12,7 +12,7 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::InterpreterState;
+use ab_riscv_interpreter::{InterpreterState, ProgramCounter};
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -88,7 +88,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
     }
 
-    let mut memory = TestMemory::<MEMORY_SIZE>::new(MEMORY_BASE_ADDRESS);
+    let mut memory = TestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
     let contract_memory_size = contract_file.contract_memory_size() as usize;
     if !contract_file.initialize_contract_memory({
@@ -117,7 +117,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-        _phantom: PhantomData,
+        custom_error: PhantomData,
     };
 
     let mut eager_state = InterpreterState {
@@ -146,7 +146,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-        _phantom: PhantomData,
+        custom_error: PhantomData,
     };
 
     {
@@ -193,7 +193,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
                 lazy_state
-                    .set_pc(benchmarks_blake3_hash_chunk_addr)
+                    .instruction_fetcher
+                    .set_pc(&lazy_state.memory, benchmarks_blake3_hash_chunk_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
@@ -212,7 +213,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
                 eager_state
-                    .set_pc(benchmarks_blake3_hash_chunk_addr)
+                    .instruction_fetcher
+                    .set_pc(&eager_state.memory, benchmarks_blake3_hash_chunk_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
@@ -276,7 +278,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
                 lazy_state
-                    .set_pc(benchmarks_ed25519_verify_addr)
+                    .instruction_fetcher
+                    .set_pc(&lazy_state.memory, benchmarks_ed25519_verify_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
@@ -295,7 +298,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
                 eager_state
-                    .set_pc(benchmarks_ed25519_verify_addr)
+                    .instruction_fetcher
+                    .set_pc(&eager_state.memory, benchmarks_ed25519_verify_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();

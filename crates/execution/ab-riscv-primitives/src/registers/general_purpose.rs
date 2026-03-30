@@ -51,9 +51,14 @@ where
         + [const] Shr<u32, Output = Self>
         + [const] Shr<i32, Output = Self>
         + fmt::Display
+        + fmt::LowerHex
+        + fmt::UpperHex
         + fmt::Debug
         + Copy
-        + Sized,
+        + Send
+        + Sync
+        + Sized
+        + 'static,
 {
     /// Convert to `u64`
     fn as_u64(&self) -> u64;
@@ -78,7 +83,7 @@ impl const RegType for u64 {
 /// # Safety
 /// `Self::offset()` must return values in `0..Self::N` range.
 pub const unsafe trait Register:
-    fmt::Display + fmt::Debug + [const] Eq + [const] Destruct + Copy + Sized
+    fmt::Display + fmt::Debug + [const] Eq + [const] Destruct + Copy + Send + Sync + Sized + 'static
 {
     /// The number of general purpose registers.
     ///
@@ -115,7 +120,7 @@ where
 impl<Reg> Default for Registers<Reg>
 where
     Reg: Register,
-    [(); Reg::N]: Default,
+    [(); Reg::N]:,
 {
     #[inline(always)]
     fn default() -> Self {
