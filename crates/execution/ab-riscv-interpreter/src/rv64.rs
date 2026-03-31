@@ -369,6 +369,9 @@ where
             Self::Fence { .. } => {
                 // NOP for single-threaded
             }
+            Self::FenceTso => {
+                // NOP for single-threaded
+            }
 
             Self::Ecall => {
                 return state.system_instruction_handler.handle_ecall(

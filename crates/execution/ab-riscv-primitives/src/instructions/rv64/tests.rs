@@ -1054,7 +1054,7 @@ fn test_fence_invalid() {
     let inst = 0x10f0_000f_u32;
     assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
 
-    // FENCE.I (funct3=1) — we explicitly reject it
+    // FENCE.I (funct3=1) - we explicitly reject it
     let inst = 0x0000_100f_u32;
     assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
 
@@ -1073,6 +1073,34 @@ fn test_fence_invalid() {
     let inst = 0x0ff0_200f_u32;
     assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
 }
+
+#[test]
+fn test_fence_tso() {
+    // Canonical encoding: 0x8330000f
+    let inst = 0x8330_000f_u32;
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(decoded, Rv64Instruction::FenceTso);
+}
+
+#[test]
+fn test_fence_tso_invalid_variants() {
+    // fm=8 but pred != 0b0011 - reserved
+    let inst = 0x8230_000f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // fm=8 but succ != 0b0011 - reserved
+    let inst = 0x8310_000f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // fm=1 - still reserved
+    let inst = 0x10f0_000f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+
+    // fm=15 - reserved
+    let inst = 0xfff0_000f_u32;
+    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+}
+
 // System instructions
 
 #[test]
