@@ -406,6 +406,22 @@ where
     Reg: Register,
     [(); Reg::N]:,
 {
+    // TODO: Figure out the correct API for this method
+    /// Handle a `fence` instruction
+    #[inline(always)]
+    fn handle_fence(&mut self, pred: u8, succ: u8) {
+        let _ = pred;
+        let _ = succ;
+        // NOP by default
+    }
+
+    // TODO: Figure out the correct API for this method
+    /// Handle a `fence.tso` instruction
+    #[inline(always)]
+    fn handle_fence_tso(&mut self) {
+        // NOP by default
+    }
+
     /// Handle an `ecall` instruction
     fn handle_ecall(
         &mut self,
