@@ -61,14 +61,14 @@ fn test_add_uw() {
 
 #[test]
 fn test_slli_uw() {
-    let inst = make_i_type_with_shamt(0b0111011, 1, 0b001, 2, 5, 0b000010);
+    let inst = make_i_type_with_shamt(0b0011011, 1, 0b001, 2, 40, 0b000010);
     let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::SlliUw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5
+            shamt: 40
         })
     );
 }

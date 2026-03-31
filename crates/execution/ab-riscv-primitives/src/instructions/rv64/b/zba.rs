@@ -52,7 +52,18 @@ where
                     _ => None,
                 }
             }
-            // R-type W
+            // I-type W (OP-IMM-32)
+            0b0011011 => {
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                // shamt is 6 bits: [25:20]
+                let shamt = ((instruction >> 20) & 0x3f) as u8;
+                match (funct3, funct6) {
+                    (0b001, 0b000010) => Some(Self::SlliUw { rd, rs1, shamt }),
+                    _ => None,
+                }
+            }
+            // R-type W (OP-32)
             0b0111011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
@@ -61,13 +72,6 @@ where
                         let rs2 = Reg::from_bits(rs2_bits)?;
                         match funct7 {
                             0b0000100 => Some(Self::AddUw { rd, rs1, rs2 }),
-                            _ => None,
-                        }
-                    }
-                    0b001 => {
-                        let shamt = rs2_bits;
-                        match funct6 {
-                            0b000010 => Some(Self::SlliUw { rd, rs1, shamt }),
                             _ => None,
                         }
                     }
