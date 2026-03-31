@@ -110,8 +110,9 @@ fn test_clmulr_simple() {
 
     execute(&mut state).unwrap();
 
-    // clmulr shifts the full 128-bit result right by 1
-    assert_eq!(state.regs.read(Reg::A2), 0b111100);
+    // clmul(0b1010, 0b1100) full 128-bit = 0b1111000
+    // clmulr = bits [126:63] = (0b1111000 >> 63) = 0
+    assert_eq!(state.regs.read(Reg::A2), 0);
 }
 
 #[test]
@@ -127,13 +128,31 @@ fn test_clmulr_with_high_bits() {
 
     execute(&mut state).unwrap();
 
-    // Carryless multiply: 0x8000_0000_0000_0000 × 0x8000_0000_0000_0000
-    // Bit 63 of rs1 times bit 63 of rs2 = bit 126 of 128-bit result
-    // 128-bit result: 0x4000_0000_0000_0000_0000_0000_0000_0000
-    // Shift right by 1: 0x2000_0000_0000_0000_0000_0000_0000_0000
-    // Low 64 bits: 0x0000_0000_0000_0000
-    // High bit (bit 125) contributes to bit 64 after shift, so we get 0
-    assert_eq!(state.regs.read(Reg::A2), 0);
+    // 128-bit result has bit 126 set: 1 << 126
+    // clmulr = (result >> 63) as u64 = (1 << 63) = 0x8000_0000_0000_0000
+    assert_eq!(state.regs.read(Reg::A2), 0x8000_0000_0000_0000u64);
+}
+
+#[test]
+fn test_clmulr_all_ones() {
+    let mut state = initialize_state([Rv64ZbcInstruction::Clmulr {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
+    }]);
+
+    state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
+    state.regs.write(Reg::A1, 0xFFFF_FFFF_FFFF_FFFFu64);
+
+    execute(&mut state).unwrap();
+
+    // clmulh(all_ones, all_ones) = 0x5555_5555_5555_5555 (confirmed by passing test)
+    // low 64 bits of clmul(all_ones, all_ones) = 0xAAAA_AAAA_AAAA_AAAA (bit 0 = 0)
+    // clmulr = bits [126:63] = (high << 1) | (low >> 63)
+    //        = (0x5555_5555_5555_5555 << 1) | (0xAAAA_AAAA_AAAA_AAAA >> 63)
+    //        = 0xAAAA_AAAA_AAAA_AAAA | 0
+    //        = 0xAAAA_AAAA_AAAA_AAAA
+    assert_eq!(state.regs.read(Reg::A2), 0xAAAA_AAAA_AAAA_AAAAu64);
 }
 
 #[test]
