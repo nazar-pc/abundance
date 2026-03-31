@@ -88,6 +88,7 @@ pub enum Rv64Instruction<Reg> {
 
     // Fence
     Fence { pred: u8, succ: u8 },
+    FenceTso,
 
     // System instructions
     Ecall,
@@ -296,13 +297,20 @@ where
             // Fence (I-type like, simplified for EM)
             0b0001111 => {
                 if funct3 == 0b000 && rd_bits == 0 && rs1_bits == 0 {
-                    // fm is bits 31:28 — must be 0 per spec
-                    if (instruction >> 28) & 0b1111 == 0 {
-                        let pred = ((instruction >> 24) & 0xf) as u8;
-                        let succ = ((instruction >> 20) & 0xf) as u8;
-                        Some(Self::Fence { pred, succ })
-                    } else {
-                        None
+                    let fm = (instruction >> 28) & 0b1111;
+                    let pred = ((instruction >> 24) & 0xf) as u8;
+                    let succ = ((instruction >> 20) & 0xf) as u8;
+                    match fm {
+                        0b0000 => Some(Self::Fence { pred, succ }),
+                        0b1000 => {
+                            // FENCE.TSO: fm=8, pred=RW(0b0011), succ=RW(0b0011) - fixed by spec
+                            if pred == 0b0011 && succ == 0b0011 {
+                                Some(Self::FenceTso)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
                     }
                 } else {
                     None
@@ -407,6 +415,7 @@ where
             Self::Jal { rd, imm } => write!(f, "jal {}, {}", rd, imm),
 
             Self::Fence { pred, succ } => write!(f, "fence {}, {}", pred, succ),
+            Self::FenceTso => write!(f, "fence.tso"),
 
             Self::Ecall => write!(f, "ecall"),
             Self::Ebreak => write!(f, "ebreak"),

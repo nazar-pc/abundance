@@ -366,8 +366,11 @@ where
                     .map_err(ExecutionError::from);
             }
 
-            Self::Fence { .. } => {
-                // NOP for single-threaded
+            Self::Fence { pred, succ } => {
+                state.system_instruction_handler.handle_fence(pred, succ);
+            }
+            Self::FenceTso => {
+                state.system_instruction_handler.handle_fence_tso();
             }
 
             Self::Ecall => {
