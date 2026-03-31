@@ -226,7 +226,8 @@ where
     Self: ProgramCounter<Address<I>, Memory, CustomError>,
     I: Instruction,
 {
-    /// Fetch a single instruction at a specified address and advance the program counter
+    /// Fetch a single instruction at a specified address and advance the program counter on
+    /// successful fetch
     fn fetch_instruction(
         &mut self,
         memory: &Memory,
