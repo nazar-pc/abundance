@@ -196,7 +196,8 @@ fn test_cpopw() {
 
 #[test]
 fn test_min() {
-    let inst = make_r_type(0b0110011, 1, 0b010, 2, 3, 0b0000101);
+    // min: opcode=0b0110011, funct3=0b100, funct7=0b0000101
+    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -209,22 +210,9 @@ fn test_min() {
 }
 
 #[test]
-fn test_max() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000101);
-    let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
-    assert_eq!(
-        decoded,
-        Some(Rv64ZbbInstruction::Max {
-            rd: Reg::Ra,
-            rs1: Reg::Sp,
-            rs2: Reg::Gp
-        })
-    );
-}
-
-#[test]
 fn test_minu() {
-    let inst = make_r_type(0b0110011, 1, 0b011, 2, 3, 0b0000101);
+    // minu: opcode=0b0110011, funct3=0b101, funct7=0b0000101
+    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0000101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -237,8 +225,24 @@ fn test_minu() {
 }
 
 #[test]
+fn test_max() {
+    // max: opcode=0b0110011, funct3=0b110, funct7=0b0000101
+    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0000101);
+    let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(Rv64ZbbInstruction::Max {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
+        })
+    );
+}
+
+#[test]
 fn test_maxu() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0000101);
+    // maxu: opcode=0b0110011, funct3=0b111, funct7=0b0000101
+    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0000101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -474,7 +478,11 @@ fn test_rev8_real_instruction() {
 
 #[test]
 fn test_orc_b() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 0b00111, 0b0000101);
+    // orc.b: OP-IMM, funct3=0b101, funct12=0b001010000111 (0x287)
+    // Encoding: 0010100 00111 rs1 101 rd 0010011
+    // make_i_type_with_shamt(opcode, rd, funct3, rs1, shamt/low6, funct6)
+    // funct6=0b001010, shamt=0b000111=7
+    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 0b000111, 0b001010);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -483,4 +491,12 @@ fn test_orc_b() {
             rs1: Reg::Sp
         })
     );
+}
+
+#[test]
+fn test_orc_b_wrong_funct12_returns_none() {
+    // funct6=0b001010 but shamt != 7 should return None (not a valid Zbb OP-IMM)
+    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 0b000110, 0b001010);
+    let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(decoded, None);
 }

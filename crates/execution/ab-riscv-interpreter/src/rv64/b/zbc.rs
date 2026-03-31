@@ -73,7 +73,7 @@ where
                     }
                     _ => {{
                         let result = zbc_helpers::clmul_internal(a, b);
-                        (result >> 1) as u64
+                        (result >> 63) as u64
                     }}
                 };
 

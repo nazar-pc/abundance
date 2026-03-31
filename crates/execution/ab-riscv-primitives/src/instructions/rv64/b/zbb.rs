@@ -80,7 +80,9 @@ where
                         }
                     }
                     0b101 => {
-                        if funct12 == 0b011010111000 {
+                        if funct12 == 0b001010000111 {
+                            Some(Self::Orcb { rd, rs1 })
+                        } else if funct12 == 0b011010111000 {
                             Some(Self::Rev8 { rd, rs1 })
                         } else if funct6 == 0b011000 {
                             Some(Self::Rori {
@@ -108,50 +110,26 @@ where
                             None
                         }
                     }
-                    0b010 => {
-                        if funct7 == 0b0000101 {
-                            Some(Self::Min { rd, rs1, rs2 })
-                        } else {
-                            None
-                        }
-                    }
-                    0b011 => {
-                        if funct7 == 0b0000101 {
-                            Some(Self::Minu { rd, rs1, rs2 })
-                        } else {
-                            None
-                        }
-                    }
                     0b100 => match funct7 {
                         0b0100000 => Some(Self::Xnor { rd, rs1, rs2 }),
-                        0b0000101 => Some(Self::Max { rd, rs1, rs2 }),
+                        0b0000101 => Some(Self::Min { rd, rs1, rs2 }),
                         _ => None,
                     },
                     0b101 => match funct7 {
                         0b0110000 => Some(Self::Ror { rd, rs1, rs2 }),
-                        0b0000101 => {
-                            if rs2_bits == 0b00111 {
-                                Some(Self::Orcb { rd, rs1 })
-                            } else {
-                                Some(Self::Maxu { rd, rs1, rs2 })
-                            }
-                        }
+                        0b0000101 => Some(Self::Minu { rd, rs1, rs2 }),
                         _ => None,
                     },
-                    0b110 => {
-                        if funct7 == 0b0100000 {
-                            Some(Self::Orn { rd, rs1, rs2 })
-                        } else {
-                            None
-                        }
-                    }
-                    0b111 => {
-                        if funct7 == 0b0100000 {
-                            Some(Self::Andn { rd, rs1, rs2 })
-                        } else {
-                            None
-                        }
-                    }
+                    0b110 => match funct7 {
+                        0b0100000 => Some(Self::Orn { rd, rs1, rs2 }),
+                        0b0000101 => Some(Self::Max { rd, rs1, rs2 }),
+                        _ => None,
+                    },
+                    0b111 => match funct7 {
+                        0b0100000 => Some(Self::Andn { rd, rs1, rs2 }),
+                        0b0000101 => Some(Self::Maxu { rd, rs1, rs2 }),
+                        _ => None,
+                    },
                     _ => None,
                 }
             }
