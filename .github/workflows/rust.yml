@@ -92,7 +92,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Install protoc (libp2p)
-        uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
+        uses: taiki-e/install-action@a1df9120380005ebdc788c62449b841b205541dd # 2.71.0
         with:
           tool: protoc
 
@@ -257,7 +257,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Install cargo-nextest and protoc (libp2p)
-        uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # 2.68.34
+        uses: taiki-e/install-action@a1df9120380005ebdc788c62449b841b205541dd # 2.71.0
         with:
           tool: cargo-nextest,protoc
 
