@@ -13,7 +13,7 @@ use alloc::format;
 ///         | rs1[19:15] | width[14:12] | vd[11:7] | opcode[6:0]
 #[expect(clippy::too_many_arguments, reason = "Fine for tests")]
 fn make_vl(nf: u8, mew: u8, mop: u8, vm: u8, rs2_field: u8, rs1: u8, width: u8, vd: u8) -> u32 {
-    let opcode: u32 = 0b0000111;
+    let opcode = 0b0000111;
     (opcode)
         | ((vd as u32) << 7)
         | ((width as u32) << 12)
