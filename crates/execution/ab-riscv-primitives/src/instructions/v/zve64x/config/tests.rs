@@ -48,7 +48,7 @@ fn test_vsetvli_e64_mf8_ta_ma() {
     // e64=0b011, mf8=0b101, ta=1, ma=1 => vtypei = 0b11_0_011_101 = 0x0dd
     // Actually: vlmul[2:0]=101, vsew[2:0]=011, vta=1, vma=1
     // bits: vma(7) | vta(6) | vsew(5:3) | vlmul(2:0) = 1_1_011_101 = 0xdd
-    let vtypei: u32 = 0xdd;
+    let vtypei = 0xdd;
     let inst = make_i_type(0b1010111, 5, 0b111, 6, vtypei);
     let decoded = Zve64xConfigInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
