@@ -31,9 +31,9 @@ where
         + [const] From<u32>
         + [const] Eq
         + [const] Ord
-        + [const] Add
+        + [const] Add<Output = Self>
         + [const] AddAssign
-        + [const] Sub
+        + [const] Sub<Output = Self>
         + [const] SubAssign
         + [const] BitAnd<Output = Self>
         + [const] BitAndAssign
