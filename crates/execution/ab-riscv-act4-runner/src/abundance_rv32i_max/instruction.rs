@@ -1,7 +1,7 @@
 use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 // TODO: Some way to allow re-exporting imports by the macro, such that explicit imports for helpers
 //  and such are not needed
-use ab_riscv_interpreter::rv64::b::zbc::zbc_helpers;
+use ab_riscv_interpreter::rv32::b::zbc::zbc_helpers;
 use ab_riscv_interpreter::v::vector_registers::VectorRegistersExt;
 use ab_riscv_interpreter::v::zve64x::arith::zve64x_arith_helpers;
 use ab_riscv_interpreter::v::zve64x::config::zve64x_config_helpers;
@@ -21,15 +21,16 @@ use ab_riscv_interpreter::{
 };
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::instructions::rv64::b::zba::Rv64ZbaInstruction;
-use ab_riscv_primitives::instructions::rv64::b::zbb::Rv64ZbbInstruction;
-use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
-use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
-use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
-use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
+use ab_riscv_primitives::instructions::rv32::Rv32Instruction;
+use ab_riscv_primitives::instructions::rv32::b::zba::Rv32ZbaInstruction;
+use ab_riscv_primitives::instructions::rv32::b::zbb::Rv32ZbbInstruction;
+use ab_riscv_primitives::instructions::rv32::b::zbc::Rv32ZbcInstruction;
+use ab_riscv_primitives::instructions::rv32::b::zbs::Rv32ZbsInstruction;
+use ab_riscv_primitives::instructions::rv32::m::Rv32MInstruction;
+use ab_riscv_primitives::instructions::rv32::zk::zkn::zknh::Rv32ZknhInstruction;
 // TODO: Improve macro generation to use the declared dependency enum for `fmt::Display`
 //  implementation instead of the original one, so these imports are no longer needed
+use ab_riscv_interpreter::rv32::zk::zkn::zknh::zknh_helpers;
 use ab_riscv_primitives::instructions::v::zve64x::arith::Zve64xArithInstruction;
 use ab_riscv_primitives::instructions::v::zve64x::config::Zve64xConfigInstruction;
 use ab_riscv_primitives::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
@@ -48,30 +49,30 @@ use ab_riscv_primitives::registers::vector::{VCsr, VReg};
 use core::fmt;
 use core::ops::ControlFlow;
 
-/// All instructions supported by the interpreter for RV64I base ISA
-pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionPrototype<Reg<u64>>;
+/// All instructions supported by the interpreter for RV32I base ISA
+pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionPrototype<Reg<u32>>;
 
-/// All instructions supported by the interpreter for RV64I base ISA
+/// All instructions supported by the interpreter for RV32I base ISA
 #[instruction(
     inherit = [
-        Rv64Instruction,
-        Rv64BInstruction,
-        Rv64MInstruction,
-        Rv64ZbcInstruction,
-        Rv64ZbkcInstruction,
-        Rv64ZknhInstruction,
+        Rv32Instruction,
+        Rv32BInstruction,
+        Rv32MInstruction,
+        Rv32ZbcInstruction,
+        Rv32ZbkcInstruction,
+        Rv32ZknhInstruction,
         ZicsrInstruction,
         Zve64xInstruction,
         MachineModePlaceholder,
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AbundanceRv64IMaxInstructionPrototype<Reg> {}
+pub(crate) enum AbundanceRv32IMaxInstructionPrototype<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for AbundanceRv64IMaxInstructionPrototype<Reg>
+impl<Reg> const Instruction for AbundanceRv32IMaxInstructionPrototype<Reg>
 where
-    Reg: [const] Register<Type = u64>,
+    Reg: [const] Register<Type = u32>,
 {
     type Reg = Reg;
 
@@ -92,7 +93,7 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for AbundanceRv64IMaxInstructionPrototype<Reg>
+impl<Reg> fmt::Display for AbundanceRv32IMaxInstructionPrototype<Reg>
 where
     Reg: fmt::Display + Copy,
 {
@@ -106,9 +107,9 @@ impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
         InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
-    > for AbundanceRv64IMaxInstructionPrototype<Reg>
+    > for AbundanceRv32IMaxInstructionPrototype<Reg>
 where
-    Reg: Register<Type = u64>,
+    Reg: Register<Type = u32>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,

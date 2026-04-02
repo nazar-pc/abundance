@@ -1,4 +1,4 @@
-// rvtest_config.h - abundance-rv64i-max
+// rvtest_config.h - abundance-rv32i-max
 //
 // Declares which optional features are present so the test framework can
 // enable/disable the relevant test cases at compile time.

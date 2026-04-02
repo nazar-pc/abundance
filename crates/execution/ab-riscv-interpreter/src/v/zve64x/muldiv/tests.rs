@@ -985,7 +985,7 @@ fn vwmulu_mf2_e8_correct_result() {
 #[cfg_attr(miri, ignore)]
 fn vwmulu_mf2_no_false_overlap_rejection() {
     // With Mf2, vd has dest_group_regs=1, vs2 has group_regs=1.
-    // V8 and V2 do not overlap — this must succeed.
+    // V8 and V2 do not overlap - this must succeed.
     let mut state = setup(2, Vsew::E8, Vlmul::Mf2);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
     write_elem(&mut state, VReg::V4, 0, Vsew::E8, 6);

@@ -677,11 +677,13 @@ jobs:
           docker run --privileged \
             -v ./res/riscv-arch-test:/mnt \
             -v ./res/abundance:/mnt/config/abundance:ro \
-            -e CONFIG_FILES=config/abundance/abundance-rv64i-max/test_config.yaml \
+            -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
             ${{ steps.build.outputs.imageid }} \
             make
-          echo "Running tests"
-          cargo run -- res/riscv-arch-test/work/abundance-rv64i-max
+          echo "Running RV32 tests"
+          cargo run -- rv32 res/riscv-arch-test/work/abundance-rv32i-max
+          echo "Running RV64 tests"
+          cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks

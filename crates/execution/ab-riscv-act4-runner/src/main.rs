@@ -1,14 +1,3 @@
-// act_runner — runs RISC-V Architecture Compliance Tests against the interpreter.
-//
-// Usage:
-//   act_runner --elfs <dir> [--filter <substr>] [--stop-on-fail]
-//
-// Each ELF serves a dual purpose:
-//   - Executed under the interpreter to produce a live signature
-//   - Parsed statically to extract the Sail-generated reference signature from the file data of the
-//     segment covering [begin_signature, end_signature)
-//
-
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
     const_trait_impl,
@@ -20,10 +9,13 @@
     widening_mul
 )]
 
+mod abundance_rv32i_max;
 mod abundance_rv64i_max;
 mod instruction;
 mod interpreter;
 
+use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
+use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
 use crate::interpreter::{Act4InstructionFetcher, Act4SystemHandler};
@@ -35,7 +27,7 @@ use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
 use ab_riscv_primitives::registers::machine::{MCauseException, MCsr};
 use anyhow::Context;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use colored::Colorize;
 use interpreter::Act4Memory;
 use object::{Object, ObjectSegment, ObjectSymbol};
@@ -52,16 +44,24 @@ const RAM_SIZE: usize = 4 * 1024 * 1024;
 // TODO: This should be moved to primitives once privileged instructions are implemented
 const MRET_INSTRUCTION: u32 = 0x30200073;
 
+/// RISC-V ISA
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Isa {
+    /// RV32
+    Rv32,
+    /// RV64
+    Rv64,
+}
+
 #[derive(Parser)]
 #[command(about = "Run RISC-V ACT compliance tests against the interpreter")]
 struct Cli {
+    isa: Isa,
     /// Directory containing *.elf ACT4 test binaries
     elfs: PathBuf,
-
     /// Only run tests whose filename contains this substring
     #[arg(long)]
     filter: Option<String>,
-
     /// Stop after the first failing test
     #[arg(long)]
     fail_fast: bool,
@@ -195,6 +195,111 @@ impl<RegType> From<anyhow::Error> for TestError<RegType> {
     fn from(error: anyhow::Error) -> Self {
         Self::Test(error)
     }
+}
+
+// TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
+fn run_rv32i_max_test(
+    elf_path: &Path,
+) -> Result<(), TestError<<<AbundanceRv32IMaxInstruction as Instruction>::Reg as Register>::Type>> {
+    let elf = ParsedElf::<<AbundanceRv32IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
+
+    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new(elf.tohost_addr);
+    for (vaddr, data) in &elf.segments {
+        ram.write_slice(*vaddr, data)
+            .map_err(ExecutionError::from)?;
+    }
+
+    let mut state = InterpreterState {
+        regs: Registers::default(),
+        ext_state: AbundanceRv32IMaxExtState::new(),
+        memory: ram,
+        instruction_fetcher: Act4InstructionFetcher::<AbundanceRv32IMaxInstruction>::new(elf.entry),
+        system_instruction_handler: Act4SystemHandler,
+        custom_error: PhantomData,
+    };
+
+    loop {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
+            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
+            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => break,
+            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => continue,
+            // TODO: This custom handling is temporary until interpreter has abstractions and
+            //  support for privileged instructions
+            Err(ExecutionError::IllegalInstruction { address }) => {
+                // Check for mret before treating as a trap - mret is a privileged instruction the
+                // interpreter doesn't implement, so it arrives here as an illegal instruction
+                let raw_instruction = state
+                    .memory
+                    .read::<u32>(u64::from(address))
+                    .map_err(ExecutionError::from)?;
+                if raw_instruction == MRET_INSTRUCTION {
+                    let mepc = state
+                        .ext_state
+                        .read_csr(MCsr::Mepc as u16)
+                        .map_err(ExecutionError::from)?;
+                    match state
+                        .instruction_fetcher
+                        .set_pc(&state.memory, mepc)
+                        .map_err(ExecutionError::from)?
+                    {
+                        ControlFlow::Continue(()) => {
+                            continue;
+                        }
+                        ControlFlow::Break(()) => {
+                            break;
+                        }
+                    }
+                }
+
+                // All other illegal instructions dispatch through the trap handler
+                let trap_pc = state
+                    .ext_state
+                    .take_trap(
+                        MCauseException::IllegalInstruction,
+                        address,
+                        raw_instruction,
+                    )
+                    .ok_or(ExecutionError::IllegalInstruction { address })?;
+                match state
+                    .instruction_fetcher
+                    .set_pc(&state.memory, trap_pc)
+                    .map_err(ExecutionError::from)?
+                {
+                    ControlFlow::Continue(()) => {
+                        continue;
+                    }
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
+            Err(error) => {
+                if state.memory.tohost_value().is_some() {
+                    break;
+                }
+                return Err(error.into());
+            }
+        };
+
+        match instruction.execute(&mut state) {
+            Ok(ControlFlow::Continue(())) => {
+                if state.memory.tohost_value().is_some() {
+                    break;
+                }
+            }
+            Ok(ControlFlow::Break(())) => {
+                break;
+            }
+            Err(error) => {
+                if state.memory.tohost_value().is_some() {
+                    break;
+                }
+                return Err(error.into());
+            }
+        }
+    }
+
+    check_signature(&elf, &state.memory)
 }
 
 // TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
@@ -394,13 +499,63 @@ fn collect_elf_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
     Ok(elf_paths)
 }
 
+fn process_error<RT>(
+    error: TestError<RT>,
+    hex_width: usize,
+    stem: &str,
+    failed: &mut usize,
+    errors: &mut usize,
+) where
+    RT: RegType,
+{
+    match error {
+        TestError::HtifFail { exit_code } => {
+            println!("{} {stem} (HTIF exit code {exit_code})", "FAIL".red());
+            *failed += 1;
+        }
+        TestError::SignatureMismatch {
+            word,
+            actual,
+            expected,
+        } => {
+            println!(
+                "{} {stem} (sig word {word}: \
+                    actual 0x{actual:0hex_width$x}, \
+                    expected 0x{expected:0hex_width$x})",
+                "FAIL".red()
+            );
+            *failed += 1;
+        }
+        TestError::LengthMismatch {
+            actual_bytes,
+            expected_bytes,
+        } => {
+            println!(
+                "{} {stem} (sig length: \
+                    actual {actual_bytes} bytes, \
+                    expected {expected_bytes} bytes)",
+                "FAIL".red()
+            );
+            *failed += 1;
+        }
+        TestError::Execution(error) => {
+            println!("{} {stem} ({error})", "ERR".red());
+            *errors += 1;
+        }
+        TestError::Test(error) => {
+            println!("{} {stem} ({error})", "ERR".red());
+            *errors += 1;
+        }
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
     let mut elf_paths = collect_elf_files(&cli.elfs).expect("Failed to read --elfs directory");
     elf_paths.sort();
 
-    if let Some(ref filter) = cli.filter {
+    if let Some(filter) = &cli.filter {
         elf_paths.retain(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
@@ -408,10 +563,6 @@ fn main() {
                 .unwrap_or_default()
         });
     }
-
-    // 2 hex digits per byte
-    let hex_width =
-        size_of::<<<AbundanceRv64IMaxInstruction as Instruction>::Reg as Register>::Type>() * 2;
 
     let total = elf_paths.len();
     let mut passed = 0_usize;
@@ -424,49 +575,34 @@ fn main() {
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
 
-        let Err(error) = run_rv64i_max_test(elf_path) else {
-            println!("{} {stem}", "PASS".green());
-            passed += 1;
-            continue;
-        };
+        match cli.isa {
+            Isa::Rv32 => {
+                let Err(error) = run_rv32i_max_test(elf_path) else {
+                    println!("{} {stem}", "PASS".green());
+                    passed += 1;
+                    continue;
+                };
 
-        match error {
-            TestError::HtifFail { exit_code } => {
-                println!("{} {stem} (HTIF exit code {exit_code})", "FAIL".red());
-                failed += 1;
+                // 2 hex digits per byte
+                let hex_width = size_of::<
+                    <<AbundanceRv32IMaxInstruction as Instruction>::Reg as Register>::Type,
+                >() * 2;
+
+                process_error(error, hex_width, stem, &mut failed, &mut errors);
             }
-            TestError::SignatureMismatch {
-                word,
-                actual,
-                expected,
-            } => {
-                println!(
-                    "{} {stem} (sig word {word}: \
-                    actual 0x{actual:0hex_width$x}, \
-                    expected 0x{expected:0hex_width$x})",
-                    "FAIL".red()
-                );
-                failed += 1;
-            }
-            TestError::LengthMismatch {
-                actual_bytes,
-                expected_bytes,
-            } => {
-                println!(
-                    "{} {stem} (sig length: \
-                    actual {actual_bytes} bytes, \
-                    expected {expected_bytes} bytes)",
-                    "FAIL".red()
-                );
-                failed += 1;
-            }
-            TestError::Execution(error) => {
-                println!("{} {stem} ({error})", "ERR".red());
-                errors += 1;
-            }
-            TestError::Test(error) => {
-                println!("{} {stem} ({error})", "ERR".red());
-                errors += 1;
+            Isa::Rv64 => {
+                let Err(error) = run_rv64i_max_test(elf_path) else {
+                    println!("{} {stem}", "PASS".green());
+                    passed += 1;
+                    continue;
+                };
+
+                // 2 hex digits per byte
+                let hex_width = size_of::<
+                    <<AbundanceRv64IMaxInstruction as Instruction>::Reg as Register>::Type,
+                >() * 2;
+
+                process_error(error, hex_width, stem, &mut failed, &mut errors);
             }
         }
 

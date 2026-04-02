@@ -18,9 +18,10 @@ docker build -t riscv-act4 - < res/Dockerfile
 docker run -it --rm --privileged \
     -v ./res/riscv-arch-test:/mnt \
     -v ./res/abundance:/mnt/config/abundance:ro \
-    -e CONFIG_FILES=config/abundance/abundance-rv64i-max/test_config.yaml \
+    -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
     riscv-act4 \
     make
 # Run generated test ELFs against the interpreter
-cargo run -- res/riscv-arch-test/work/abundance-rv64i-max
+cargo run -- rv32 res/riscv-arch-test/work/abundance-rv32i-max
+cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
 ```

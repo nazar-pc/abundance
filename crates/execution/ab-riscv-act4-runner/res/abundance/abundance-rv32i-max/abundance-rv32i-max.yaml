@@ -3,9 +3,9 @@
 $schema: config_schema.json#
 kind: architecture configuration
 type: fully configured
-name: abundance-rv64i-max
+name: abundance-rv32i-max
 description: >
-  Abundance RV64I-max core. RV64I + M, B (Zba/Zbb/Zbc/Zbs), Zknh, Zicsr, Zve64x (ELEN=64, VLEN=1024). Unaligned scalar
+  Abundance RV32I-max core. RV32I + M, B (Zba/Zbb/Zbc/Zbs), Zknh, Zicsr, Zve64x (ELEN=64, VLEN=1024). Unaligned scalar
   and vector memory accesses are legal. No F/D. No A. No C. Machine mode only (Sm 1.13).
 
 implemented_extensions:
@@ -31,9 +31,9 @@ implemented_extensions:
 
 params:
   # --- Base ---
-  MXLEN: 64
-  PHYS_ADDR_WIDTH: 64
-  # PMA_GRANULARITY is log2(bytes): 3 = 8-byte granularity (from qemu-rv64-max)
+  MXLEN: 32
+  PHYS_ADDR_WIDTH: 32
+  # PMA_GRANULARITY is log2(bytes): 3 = 8-byte granularity
   PMA_GRANULARITY: 3
   MISA_CSR_IMPLEMENTED: false
   M_MODE_ENDIANNESS: little
@@ -52,7 +52,7 @@ params:
   MTVEC_ILLEGAL_WRITE_BEHAVIOR: retain
 
   # --- mtval ---
-  MTVAL_WIDTH: 64
+  MTVAL_WIDTH: 32
   REPORT_VA_IN_MTVAL_ON_BREAKPOINT: false
   REPORT_VA_IN_MTVAL_ON_INSTRUCTION_ACCESS_FAULT: false
   REPORT_VA_IN_MTVAL_ON_INSTRUCTION_MISALIGNED: false

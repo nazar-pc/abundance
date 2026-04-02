@@ -84,10 +84,12 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for Act4Memory<BASE_
     where
         T: BasicInt,
     {
-        if address == self.tohost_addr
-            && let Some(raw) = <dyn Any>::downcast_ref(&value)
-        {
-            self.tohost_value = Some(*raw);
+        if address == self.tohost_addr {
+            if let Some(raw) = <dyn Any>::downcast_ref::<u64>(&value) {
+                self.tohost_value = Some(*raw);
+            } else if let Some(raw) = <dyn Any>::downcast_ref::<u32>(&value) {
+                self.tohost_value = Some(u64::from(*raw));
+            }
         }
 
         let offset = address

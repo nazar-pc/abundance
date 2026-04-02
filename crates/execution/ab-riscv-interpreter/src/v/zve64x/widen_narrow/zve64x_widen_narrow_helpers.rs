@@ -484,7 +484,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
 /// # Safety
 /// - `vd` aligned to `group_regs`, fits in `[0,32)`
 /// - `vs2` aligned to `wide_group_regs`, fits in `[0,32)`; aliasing with the low half of `vs2` is
-///   permitted per spec §11.7 — reads complete before writes to any overlapping element since the
+///   permitted per spec §11.7 - reads complete before writes to any overlapping element since the
 ///   destination SEW is half the source SEW
 /// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLENB / sew_bytes`
