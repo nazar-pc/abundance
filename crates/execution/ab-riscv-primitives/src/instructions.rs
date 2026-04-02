@@ -1,5 +1,6 @@
 //! This module defines the RISC-V instruction set instructions
 
+pub mod rv32;
 pub mod rv64;
 #[cfg(test)]
 mod test_utils;
