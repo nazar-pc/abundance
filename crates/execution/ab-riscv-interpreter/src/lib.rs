@@ -9,8 +9,8 @@
 //! The immediate needs dictate the current set of available instructions and extensions. Consider
 //! contributing if you need something not yet available.
 //!
-//! `ab-riscv-interpreter-compliance-tests` crate in the repository contains complementary
-//! compliance tests against <https://github.com/riscv-non-isa/riscv-arch-test> for many
+//! `ab-riscv-act4-runner` crate in the repository contains a complementary RISC-V Architectural
+//! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> for many
 //! instructions from both base ISA and various extensions on top of the tests contained in this
 //! crate.
 //!
@@ -226,7 +226,8 @@ where
     Self: ProgramCounter<Address<I>, Memory, CustomError>,
     I: Instruction,
 {
-    /// Fetch a single instruction at a specified address and advance the program counter
+    /// Fetch a single instruction at a specified address and advance the program counter on
+    /// successful fetch
     fn fetch_instruction(
         &mut self,
         memory: &Memory,

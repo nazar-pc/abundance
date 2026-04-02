@@ -21,6 +21,7 @@
     const_destruct,
     const_index,
     const_ops,
+    const_option_ops,
     const_trait_impl,
     const_try,
     const_try_residual,
