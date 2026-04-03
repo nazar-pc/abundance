@@ -1,4 +1,4 @@
-//! Zbkc extension (subset of Zbc extension)
+//! RV64 Zbkc extension (subset of Zbc extension)
 
 use crate::rv64::b::zbc::zbc_helpers;
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};

@@ -38,27 +38,27 @@ where
                 state.regs.write(rd, value);
             }
             Self::Clz { rd, rs1 } => {
-                let value = state.regs.read(rs1).leading_zeros() as u64;
+                let value = u64::from(state.regs.read(rs1).leading_zeros());
                 state.regs.write(rd, value);
             }
             Self::Clzw { rd, rs1 } => {
-                let value = (state.regs.read(rs1) as u32).leading_zeros() as u64;
+                let value = u64::from((state.regs.read(rs1) as u32).leading_zeros());
                 state.regs.write(rd, value);
             }
             Self::Ctz { rd, rs1 } => {
-                let value = state.regs.read(rs1).trailing_zeros() as u64;
+                let value = u64::from(state.regs.read(rs1).trailing_zeros());
                 state.regs.write(rd, value);
             }
             Self::Ctzw { rd, rs1 } => {
-                let value = (state.regs.read(rs1) as u32).trailing_zeros() as u64;
+                let value = u64::from((state.regs.read(rs1) as u32).trailing_zeros());
                 state.regs.write(rd, value);
             }
             Self::Cpop { rd, rs1 } => {
-                let value = state.regs.read(rs1).count_ones() as u64;
+                let value = u64::from(state.regs.read(rs1).count_ones());
                 state.regs.write(rd, value);
             }
             Self::Cpopw { rd, rs1 } => {
-                let value = (state.regs.read(rs1) as u32).count_ones() as u64;
+                let value = u64::from((state.regs.read(rs1) as u32).count_ones());
                 state.regs.write(rd, value);
             }
             Self::Max { rd, rs1, rs2 } => {
@@ -82,15 +82,15 @@ where
                 state.regs.write(rd, value);
             }
             Self::Sextb { rd, rs1 } => {
-                let value = ((state.regs.read(rs1) as i8) as i64).cast_unsigned();
+                let value = i64::from(state.regs.read(rs1) as i8).cast_unsigned();
                 state.regs.write(rd, value);
             }
             Self::Sexth { rd, rs1 } => {
-                let value = ((state.regs.read(rs1) as i16) as i64).cast_unsigned();
+                let value = i64::from(state.regs.read(rs1) as i16).cast_unsigned();
                 state.regs.write(rd, value);
             }
             Self::Zexth { rd, rs1 } => {
-                let value = (state.regs.read(rs1) as u16) as u64;
+                let value = u64::from(state.regs.read(rs1) as u16);
                 state.regs.write(rd, value);
             }
             Self::Rol { rd, rs1, rs2 } => {
@@ -100,11 +100,12 @@ where
             }
             Self::Rolw { rd, rs1, rs2 } => {
                 let shamt = (state.regs.read(rs2) & 0x1f) as u32;
-                let value = ((state.regs.read(rs1) as u32)
-                    .rotate_left(shamt)
-                    .cast_signed() as i64)
-                    .cast_unsigned();
-                state.regs.write(rd, value);
+                let value = i64::from(
+                    (state.regs.read(rs1) as u32)
+                        .rotate_left(shamt)
+                        .cast_signed(),
+                );
+                state.regs.write(rd, value.cast_unsigned());
             }
             Self::Ror { rd, rs1, rs2 } => {
                 let shamt = (state.regs.read(rs2) & 0x3f) as u32;
@@ -112,23 +113,25 @@ where
                 state.regs.write(rd, value);
             }
             Self::Rori { rd, rs1, shamt } => {
-                let value = state.regs.read(rs1).rotate_right((shamt & 0x3f) as u32);
+                let value = state.regs.read(rs1).rotate_right(u32::from(shamt & 0x3f));
                 state.regs.write(rd, value);
             }
             Self::Roriw { rd, rs1, shamt } => {
-                let value = ((state.regs.read(rs1) as u32)
-                    .rotate_right((shamt & 0x1f) as u32)
-                    .cast_signed() as i64)
-                    .cast_unsigned();
-                state.regs.write(rd, value);
+                let value = i64::from(
+                    (state.regs.read(rs1) as u32)
+                        .rotate_right((shamt & 0x1f) as u32)
+                        .cast_signed(),
+                );
+                state.regs.write(rd, value.cast_unsigned());
             }
             Self::Rorw { rd, rs1, rs2 } => {
                 let shamt = (state.regs.read(rs2) & 0x1f) as u32;
-                let value = ((state.regs.read(rs1) as u32)
-                    .rotate_right(shamt)
-                    .cast_signed() as i64)
-                    .cast_unsigned();
-                state.regs.write(rd, value);
+                let value = i64::from(
+                    (state.regs.read(rs1) as u32)
+                        .rotate_right(shamt)
+                        .cast_signed(),
+                );
+                state.regs.write(rd, value.cast_unsigned());
             }
             Self::Orcb { rd, rs1 } => {
                 let src = state.regs.read(rs1);
@@ -136,7 +139,7 @@ where
                 for i in 0..8 {
                     let byte = (src >> (i * 8)) & 0xFF;
                     if byte != 0 {
-                        result |= 0xFFu64 << (i * 8);
+                        result |= 0xFF << (i * 8);
                     }
                 }
                 state.regs.write(rd, result);

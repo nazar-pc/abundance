@@ -1,8 +1,7 @@
 # ACT4 framework top-level config for the abundance RV64I-max core.
 #
 # compiler_exe: riscv64-unknown-elf-gcc on $PATH, targeting lp64 ABI (no F/D).
-#   The march string matches the extensions in abundance.yaml; adjust if you
-#   change the UDB config (e.g. add Zve64x: append _zve64x).
+#   The march string must match the extensions in abundance-rv64i-max.yaml.
 #
 # ref_model_exe: sail_riscv_sim on $PATH.
 #   Run `sail_riscv_sim --help` to verify the binary name on your system;

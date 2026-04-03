@@ -1,4 +1,4 @@
-//! Zbkc extension (subset of Zbc extension)
+//! RV64 Zbkc extension (subset of Zbc extension)
 
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbc::Rv64ZbcInstruction;

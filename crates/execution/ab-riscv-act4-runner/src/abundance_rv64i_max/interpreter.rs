@@ -163,7 +163,7 @@ where
         self.vtype = vtype;
         let raw = match vtype {
             Some(vt) => vt.to_raw::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>(),
-            None => 1u64 << 63,
+            None => 1u64 << (u64::BITS - 1),
         };
         self.vtype_raw = raw;
         self.write_csr(VCsr::Vtype as u16, raw)

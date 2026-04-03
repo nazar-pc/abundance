@@ -208,6 +208,19 @@ where
     }
 }
 
+impl<I> TestInstructionFetcher<I> {
+    /// Create a new instance
+    #[inline(always)]
+    fn new(instructions: Vec<I>, return_trap_address: u64, base_address: u64, pc: u64) -> Self {
+        Self {
+            instructions,
+            return_trap_address,
+            base_address,
+            pc,
+        }
+    }
+}
+
 pub(crate) struct TestInstructionHandler;
 
 impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>>
@@ -225,19 +238,6 @@ where
         Err(ExecutionError::EcallUnsupported {
             address: program_counter.old_pc(Rv64Instruction::<Reg<u64>>::Ecall.size()),
         })
-    }
-}
-
-impl<I> TestInstructionFetcher<I> {
-    /// Create a new instance
-    #[inline(always)]
-    fn new(instructions: Vec<I>, return_trap_address: u64, base_address: u64, pc: u64) -> Self {
-        Self {
-            instructions,
-            return_trap_address,
-            base_address,
-            pc,
-        }
     }
 }
 

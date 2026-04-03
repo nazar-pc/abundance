@@ -1,0 +1,73 @@
+//! RV32 Zbs extension
+
+#[cfg(test)]
+mod tests;
+
+use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
+use ab_riscv_macros::instruction_execution;
+use ab_riscv_primitives::instructions::rv32::b::zbs::Rv32ZbsInstruction;
+use ab_riscv_primitives::registers::general_purpose::Register;
+use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv32ZbsInstruction<Reg>
+where
+    Reg: Register<Type = u32>,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        match self {
+            Self::Bset { rd, rs1, rs2 } => {
+                // Only the bottom 5 bits for RV32
+                let index = state.regs.read(rs2) & 0x1f;
+                let result = state.regs.read(rs1) | (1u32 << index);
+                state.regs.write(rd, result);
+            }
+            Self::Bseti { rd, rs1, shamt } => {
+                let index = shamt;
+                let result = state.regs.read(rs1) | (1u32 << index);
+                state.regs.write(rd, result);
+            }
+            Self::Bclr { rd, rs1, rs2 } => {
+                let index = state.regs.read(rs2) & 0x1f;
+                let result = state.regs.read(rs1) & !(1u32 << index);
+                state.regs.write(rd, result);
+            }
+            Self::Bclri { rd, rs1, shamt } => {
+                let index = shamt;
+                let result = state.regs.read(rs1) & !(1u32 << index);
+                state.regs.write(rd, result);
+            }
+            Self::Binv { rd, rs1, rs2 } => {
+                let index = state.regs.read(rs2) & 0x1f;
+                let result = state.regs.read(rs1) ^ (1u32 << index);
+                state.regs.write(rd, result);
+            }
+            Self::Binvi { rd, rs1, shamt } => {
+                let index = shamt;
+                let result = state.regs.read(rs1) ^ (1u32 << index);
+                state.regs.write(rd, result);
+            }
+            Self::Bext { rd, rs1, rs2 } => {
+                let index = state.regs.read(rs2) & 0x1f;
+                let result = (state.regs.read(rs1) >> index) & 1;
+                state.regs.write(rd, result);
+            }
+            Self::Bexti { rd, rs1, shamt } => {
+                let index = shamt;
+                let result = (state.regs.read(rs1) >> index) & 1;
+                state.regs.write(rd, result);
+            }
+        }
+
+        Ok(ControlFlow::Continue(()))
+    }
+}

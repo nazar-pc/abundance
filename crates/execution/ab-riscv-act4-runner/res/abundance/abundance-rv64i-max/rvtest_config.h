@@ -1,11 +1,11 @@
-// rvtest_config.h — abundance-rv64i-max
+// rvtest_config.h - abundance-rv64i-max
 //
 // Declares which optional features are present so the test framework can
 // enable/disable the relevant test cases at compile time.
 //
 // RVMODEL_ACCESS_FAULT_ADDRESS: an address that always generates an access
 //   fault when accessed. The interpreter rejects anything below BASE_ADDR
-//   (0x80000000), so 0x0 is a safe choice — the halt address also lives
+//   (0x80000000), so 0x0 is a safe choice - the halt address also lives
 //   there, but the tests only need it to fault on load/store, not fetch.
 //
 // RVMODEL_PMP_GRAIN: log2(PMP granularity) - 2. No PMP implemented → 0.

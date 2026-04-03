@@ -1,8 +1,6 @@
 //! Opaque helpers for Zbc extension
 
-/// Carryless multiplication helper, only useful for importing when inheriting instructions.
-///
-/// NOTE: This function is conditionally-compiled, make sure to copy the same conditions downstream.
+/// Carryless multiplication helper
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 #[inline(always)]
 #[doc(hidden)]

@@ -59,7 +59,7 @@ impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
         CustomError,
     > for MachineModePlaceholder<Reg>
 where
-    Reg: Register<Type = u64>,
+    Reg: Register,
     [(); Reg::N]:,
 {
     fn prepare_csr_read<C>(

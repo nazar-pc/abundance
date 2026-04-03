@@ -5,9 +5,8 @@ kind: architecture configuration
 type: fully configured
 name: abundance-rv64i-max
 description: >
-  Abundance RV64I-max core. RV64I + M, B (Zba/Zbb/Zbc/Zbs), Zknh, Zicsr,
-  Zve64x (ELEN=64, VLEN=1024). Unaligned scalar and vector memory accesses are
-  legal. No F/D. No A. No C. Machine mode only (Sm 1.13).
+  Abundance RV64I-max core. RV64I + M, B (Zba/Zbb/Zbc/Zbs), Zknh, Zicsr, Zve64x (ELEN=64, VLEN=1024). Unaligned scalar
+  and vector memory accesses are legal. No F/D. No A. No C. Machine mode only (Sm 1.13).
 
 implemented_extensions:
   - { name: I,        version: "= 2.1" }
@@ -16,6 +15,7 @@ implemented_extensions:
   - { name: Zba,      version: "= 1.0.0" }
   - { name: Zbb,      version: "= 1.0.0" }
   - { name: Zbc,      version: "= 1.0.0" }
+  - { name: Zbkc,     version: "= 1.0.0" }
   - { name: Zbs,      version: "= 1.0.0" }
   - { name: Zknh,     version: "= 1.0.0" }
   - { name: Zicsr,    version: "= 2.0" }
@@ -47,7 +47,7 @@ params:
 
   # --- mtvec ---
   MTVEC_ACCESS: rw
-  MTVEC_MODES: [0]
+  MTVEC_MODES: [ 0 ]
   MTVEC_BASE_ALIGNMENT_DIRECT: 4
   MTVEC_ILLEGAL_WRITE_BEHAVIOR: retain
 
@@ -108,12 +108,12 @@ params:
     - false
     - false
 
-  MSTATUS_VS_LEGAL_VALUES: [0, 1, 3]
+  MSTATUS_VS_LEGAL_VALUES: [ 0, 1, 3 ]
 
   # --- Misaligned scalar memory ---
   MISALIGNED_LDST: true
   MISALIGNED_LDST_EXCEPTION_PRIORITY: low
-  # Must be a power-of-2 >= 4 (from qemu-rv64-max: 4096)
+  # Must be a power-of-2 >= 4
   MISALIGNED_MAX_ATOMICITY_GRANULE_SIZE: 4096
   MISALIGNED_SPLIT_STRATEGY: sequential_bytes
 
