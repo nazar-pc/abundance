@@ -3,14 +3,17 @@ name = "ab-riscv-interpreter"
 description = "Composable and generic RISC-V interpreter"
 keywords = ["riscv", "risc-v", "interpreter", "no-std"]
 repository = "https://github.com/nazar-pc/abundance"
+homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/execution/ab-riscv-interpreter"
 license = "0BSD"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
     "/src",
     "/build.rs",
     "/Cargo.toml",
+    "/CHANGELOG.md",
+    "/README.md",
 ]
 links = "ab-riscv-interpreter"
 

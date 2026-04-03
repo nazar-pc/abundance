@@ -3,6 +3,7 @@ name = "ab-blake3"
 description = "Optimized and more exotic APIs around BLAKE3 (const fn and GPU-friendly)"
 keywords = ["crypto", "const", "blake3", "no-std"]
 repository = "https://github.com/nazar-pc/abundance"
+homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-blake3"
 license = "0BSD"
 version = "0.1.0"
 authors = [

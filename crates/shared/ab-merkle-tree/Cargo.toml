@@ -3,6 +3,7 @@ name = "ab-merkle-tree"
 description = "High-performance Merkle Tree and related data structures (Merkle Mountain Range, Sparse Merkle Tree)"
 keywords = ["crypto", "merkle-tree", "mmr", "blake3", "no-std"]
 repository = "https://github.com/nazar-pc/abundance"
+homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-merkle-tree"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
