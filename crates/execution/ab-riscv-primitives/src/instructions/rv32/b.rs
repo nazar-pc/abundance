@@ -1,24 +1,29 @@
-//! RV64 Zbkc extension (subset of Zbc extension)
+//! RV32 B extension
+
+pub mod zba;
+pub mod zbb;
+pub mod zbc;
+pub mod zbs;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::b::zbc::Rv64ZbcInstruction;
+use crate::instructions::rv32::b::zba::Rv32ZbaInstruction;
+use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
+use crate::instructions::rv32::b::zbs::Rv32ZbsInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
-/// RISC-V RV64 Zbkc instruction
+/// RISC-V RV32 B (Zba + Zbb + Zbs) instruction
 #[instruction(
-    reorder = [Clmul, Clmulh],
-    ignore = [Rv64ZbcInstruction],
-    inherit = [Rv64ZbcInstruction],
+    inherit = [Rv32ZbaInstruction, Rv32ZbbInstruction, Rv32ZbsInstruction]
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rv64ZbkcInstruction<Reg> {}
+pub enum Rv32BInstruction<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for Rv64ZbkcInstruction<Reg>
+impl<Reg> const Instruction for Rv32BInstruction<Reg>
 where
-    Reg: [const] Register<Type = u64>,
+    Reg: [const] Register<Type = u32>,
 {
     type Reg = Reg;
 
@@ -39,7 +44,7 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbkcInstruction<Reg>
+impl<Reg> fmt::Display for Rv32BInstruction<Reg>
 where
     Reg: fmt::Display + Copy,
 {

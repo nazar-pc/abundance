@@ -1,9 +1,13 @@
-//! RV64 Zbkc extension (subset of Zbc extension)
+//! RV32 B extension
 
-use crate::rv64::b::zbc::zbc_helpers;
+pub mod zba;
+pub mod zbb;
+pub mod zbc;
+pub mod zbs;
+
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
+use ab_riscv_primitives::instructions::rv32::b::Rv32BInstruction;
 use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
 
@@ -12,9 +16,9 @@ impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
         InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
-    > for Rv64ZbkcInstruction<Reg>
+    > for Rv32BInstruction<Reg>
 where
-    Reg: Register<Type = u64>,
+    Reg: Register<Type = u32>,
     [(); Reg::N]:,
 {
     #[inline(always)]

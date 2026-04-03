@@ -1,10 +1,12 @@
 //! Part of the interpreter responsible for RISC-V RV32 base instruction set
 
+pub mod b;
 pub mod m;
 #[cfg(test)]
 pub(crate) mod test_utils;
 #[cfg(test)]
 mod tests;
+pub mod zk;
 
 use crate::{
     ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
