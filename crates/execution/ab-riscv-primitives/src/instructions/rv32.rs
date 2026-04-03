@@ -5,6 +5,7 @@ use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
+pub mod m;
 #[cfg(test)]
 mod tests;
 

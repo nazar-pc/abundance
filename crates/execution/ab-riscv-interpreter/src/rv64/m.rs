@@ -31,6 +31,7 @@ where
                 state.regs.write(rd, value);
             }
             Self::Mulh { rd, rs1, rs2 } => {
+                // Signed × signed: widen to i128, take upper 64 bits
                 let (_lo, prod) = state
                     .regs
                     .read(rs1)
@@ -39,13 +40,15 @@ where
                 state.regs.write(rd, prod.cast_unsigned());
             }
             Self::Mulhsu { rd, rs1, rs2 } => {
-                let prod =
-                    (state.regs.read(rs1).cast_signed() as i128) * (state.regs.read(rs2) as i128);
+                // Signed × unsigned: widen to i128, take upper 64 bits
+                let prod = i128::from(state.regs.read(rs1).cast_signed())
+                    * i128::from(state.regs.read(rs2));
                 let value = prod >> 64;
                 state.regs.write(rd, value.cast_unsigned() as u64);
             }
             Self::Mulhu { rd, rs1, rs2 } => {
-                let prod = (state.regs.read(rs1) as u128) * (state.regs.read(rs2) as u128);
+                // Unsigned × unsigned: widen to u128, take upper 64 bits
+                let prod = u128::from(state.regs.read(rs1)) * u128::from(state.regs.read(rs2));
                 let value = prod >> 64;
                 state.regs.write(rd, value as u64);
             }

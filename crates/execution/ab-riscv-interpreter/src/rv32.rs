@@ -1,5 +1,6 @@
 //! Part of the interpreter responsible for RISC-V RV32 base instruction set
 
+pub mod m;
 #[cfg(test)]
 pub(crate) mod test_utils;
 #[cfg(test)]
