@@ -10,11 +10,40 @@
 //! contributing if you need something not yet available.
 //!
 //! `ab-riscv-act4-runner` crate in the repository contains a complementary RISC-V Architectural
-//! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> for many
-//! instructions from both base ISA and various extensions on top of the tests contained in this
-//! crate.
+//! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> that ensures
+//! correct implementation.
 //!
 //! Does not require a standard library (`no_std`) or an allocator.
+//!
+//! ## Supported ISA variants and extensions
+//!
+//! ISA variants:
+//! * RV32I (version 2.1)
+//! * RV32E (version 2.0)
+//! * RV64I (version 2.1)
+//! * RV64E (version 2.0)
+//!
+//! Extensions:
+//! * M (version 2.0)
+//! * B (version 1.0.0)
+//! * Zba (version 1.0.0)
+//! * Zbb (version 1.0.0)
+//! * Zbc (version 1.0.0)
+//! * Zbkc (version 1.0.0)
+//! * Zbs (version 1.0.0)
+//! * Zknh (version 1.0.0)
+//! * Zicsr (version 2.0)
+//! * (experimental) Zve32x (version 1.0.0)
+//! * (experimental) Zve64x (version 1.0.0)
+//! * (experimental) Zvl*b (version 1.0.0), where `*` is anything allowed by the specification
+//!
+//! All extensions except experimental pass all relevant RISC-V Architectural Certification Tests
+//! (ACTs) using the ACT4 framework.
+//!
+//! Any permutation of compatible extensions is supported.
+//!
+//! Experimental extensions are known to have bugs and need more work. They are not tested against
+//! ACTs yet.
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(

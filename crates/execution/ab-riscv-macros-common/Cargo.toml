@@ -2,6 +2,7 @@
 name = "ab-riscv-macros-common"
 description = "Common utilities for RISC-V macros"
 repository = "https://github.com/nazar-pc/abundance"
+homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/execution/ab-riscv-macros-common"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]

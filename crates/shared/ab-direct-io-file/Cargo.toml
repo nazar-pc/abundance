@@ -3,6 +3,7 @@ name = "ab-direct-io-file"
 description = "Cross-platform APIs for working with files using direct I/O"
 keywords = ["alignment", "direct-io", "file"]
 repository = "https://github.com/nazar-pc/abundance"
+homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-direct-io-file"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
