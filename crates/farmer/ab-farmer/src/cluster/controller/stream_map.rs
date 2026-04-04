@@ -114,6 +114,10 @@ where
 #[cfg(test)]
 mod tests {
     use crate::cluster::controller::stream_map::StreamMap;
+    // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+    #[cfg(not(all(miri, target_os = "macos")))]
+    // TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+    #[cfg(not(all(miri, target_os = "windows")))]
     use futures::StreamExt;
     use futures::stream::FusedStream;
     use std::task::Context;

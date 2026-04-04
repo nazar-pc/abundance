@@ -521,7 +521,7 @@ impl KnownPeersManager {
     fn known_addresses_size(cache_size: u32) -> usize {
         // Timestamp (when was written) + compact encoding of the length of peer records + peer
         // records + checksum
-        mem::size_of::<u64>()
+        size_of::<u64>()
             + Compact::compact_len(&(cache_size))
             + Self::single_peer_encoded_size() * cache_size as usize
             + Blake3Hash::SIZE
@@ -531,7 +531,7 @@ impl KnownPeersManager {
         self.config.path.is_some()
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, not(miri)))]
     pub(crate) fn contains_address(&self, peer_id: &PeerId, address: &Multiaddr) -> bool {
         self.known_peers
             .peek(peer_id)
