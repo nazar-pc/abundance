@@ -21,7 +21,6 @@ fn make_v_arith(funct6: u8, vm: bool, vs2: u8, vs1: u8, funct3: u8, vd: u8) -> u
 // Single-width integer reductions (OPMVV, funct3=0b010)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredsum() {
     let inst = make_v_arith(0b000000, true, 2, 1, 0b010, 3);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -37,7 +36,6 @@ fn test_vredsum() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredand() {
     let inst = make_v_arith(0b000001, true, 4, 5, 0b010, 6);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -53,7 +51,6 @@ fn test_vredand() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredor() {
     let inst = make_v_arith(0b000010, true, 8, 9, 0b010, 10);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -69,7 +66,6 @@ fn test_vredor() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredxor() {
     let inst = make_v_arith(0b000011, true, 12, 13, 0b010, 14);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -85,7 +81,6 @@ fn test_vredxor() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredminu() {
     let inst = make_v_arith(0b000100, true, 16, 17, 0b010, 18);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -101,7 +96,6 @@ fn test_vredminu() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredmin() {
     let inst = make_v_arith(0b000101, true, 20, 21, 0b010, 22);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -117,7 +111,6 @@ fn test_vredmin() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredmaxu() {
     let inst = make_v_arith(0b000110, true, 24, 25, 0b010, 26);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -133,7 +126,6 @@ fn test_vredmaxu() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredmax() {
     let inst = make_v_arith(0b000111, true, 28, 29, 0b010, 30);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -151,7 +143,6 @@ fn test_vredmax() {
 // Widening integer reductions (OPIVV, funct3=0b000)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vwredsumu() {
     let inst = make_v_arith(0b110000, true, 2, 1, 0b000, 4);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -167,7 +158,6 @@ fn test_vwredsumu() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vwredsum() {
     let inst = make_v_arith(0b110001, true, 8, 4, 0b000, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -185,7 +175,6 @@ fn test_vwredsum() {
 // Masking (vm=0 means masked, vm=1 means unmasked)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredsum_masked() {
     let inst = make_v_arith(0b000000, false, 2, 1, 0b010, 3);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -201,7 +190,6 @@ fn test_vredsum_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredand_masked() {
     let inst = make_v_arith(0b000001, false, 4, 5, 0b010, 6);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -217,7 +205,6 @@ fn test_vredand_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vwredsumu_masked() {
     let inst = make_v_arith(0b110000, false, 8, 4, 0b000, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -233,7 +220,6 @@ fn test_vwredsumu_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vwredsum_masked() {
     let inst = make_v_arith(0b110001, false, 2, 1, 0b000, 3);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -251,7 +237,6 @@ fn test_vwredsum_masked() {
 // Edge cases: v0 as operands
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredsum_v0() {
     let inst = make_v_arith(0b000000, true, 0, 0, 0b010, 0);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -267,7 +252,6 @@ fn test_vredsum_v0() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vredmax_v31() {
     let inst = make_v_arith(0b000111, true, 31, 31, 0b010, 31);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst);
@@ -285,7 +269,6 @@ fn test_vredmax_v31() {
 // Negative tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     // Use OP (0b0110011) instead of OP-V
     let funct7 = 1;
@@ -295,7 +278,6 @@ fn test_wrong_opcode() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3_for_single_width() {
     // funct3=0b001 (OPFVV) instead of 0b010 (OPMVV) for single-width reduction
     let inst = make_v_arith(0b000000, true, 2, 1, 0b001, 3);
@@ -304,7 +286,6 @@ fn test_wrong_funct3_for_single_width() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3_for_widening() {
     // funct3=0b010 (OPMVV) instead of 0b000 (OPIVV) for widening reduction
     let inst = make_v_arith(0b110000, true, 2, 1, 0b010, 3);
@@ -313,7 +294,6 @@ fn test_wrong_funct3_for_widening() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_invalid_funct6_opmvv() {
     // funct6=0b001000 is not a reduction under OPMVV
     let inst = make_v_arith(0b001000, true, 2, 1, 0b010, 3);
@@ -322,7 +302,6 @@ fn test_invalid_funct6_opmvv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_invalid_funct6_opivv() {
     // funct6=0b110010 is not a widening reduction under OPIVV
     let inst = make_v_arith(0b110010, true, 2, 1, 0b000, 3);
@@ -331,7 +310,6 @@ fn test_invalid_funct6_opivv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_funct6_boundary_above_single_width() {
     // funct6=0b001000 (just above the range 000000-000111)
     let inst = make_v_arith(0b001000, true, 2, 1, 0b010, 3);
@@ -342,7 +320,6 @@ fn test_funct6_boundary_above_single_width() {
 // Display formatting
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredsum_unmasked() {
     let inst = make_v_arith(0b000000, true, 2, 1, 0b010, 3);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -350,7 +327,6 @@ fn test_display_vredsum_unmasked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredsum_masked() {
     let inst = make_v_arith(0b000000, false, 2, 1, 0b010, 3);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -358,7 +334,6 @@ fn test_display_vredsum_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredand() {
     let inst = make_v_arith(0b000001, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -366,7 +341,6 @@ fn test_display_vredand() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredor() {
     let inst = make_v_arith(0b000010, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -374,7 +348,6 @@ fn test_display_vredor() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredxor() {
     let inst = make_v_arith(0b000011, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -382,7 +355,6 @@ fn test_display_vredxor() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredminu() {
     let inst = make_v_arith(0b000100, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -390,7 +362,6 @@ fn test_display_vredminu() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredmin() {
     let inst = make_v_arith(0b000101, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -398,7 +369,6 @@ fn test_display_vredmin() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredmaxu() {
     let inst = make_v_arith(0b000110, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -406,7 +376,6 @@ fn test_display_vredmaxu() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vredmax() {
     let inst = make_v_arith(0b000111, true, 8, 4, 0b010, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -414,7 +383,6 @@ fn test_display_vredmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vwredsumu_unmasked() {
     let inst = make_v_arith(0b110000, true, 8, 4, 0b000, 12);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -422,7 +390,6 @@ fn test_display_vwredsumu_unmasked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vwredsum_masked() {
     let inst = make_v_arith(0b110001, false, 2, 1, 0b000, 3);
     let decoded = Zve64xReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();

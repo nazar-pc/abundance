@@ -25,7 +25,6 @@ const OPIVI: u8 = 0b011;
 // vadd
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vv() {
     let inst = make_vop(0b000000, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -41,7 +40,6 @@ fn test_vadd_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vv_masked() {
     let inst = make_vop(0b000000, 0, 4, 5, OPIVV, 6);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -57,7 +55,6 @@ fn test_vadd_vv_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vx() {
     let inst = make_vop(0b000000, 1, 2, 5, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -73,7 +70,6 @@ fn test_vadd_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vi_positive() {
     // imm = 5 (0b00101)
     let inst = make_vop(0b000000, 1, 8, 5, OPIVI, 1);
@@ -90,7 +86,6 @@ fn test_vadd_vi_positive() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vi_negative() {
     // imm = -1 => 5-bit = 0b11111 = 31
     let inst = make_vop(0b000000, 1, 8, 0b11111, OPIVI, 1);
@@ -107,7 +102,6 @@ fn test_vadd_vi_negative() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vi_min_imm() {
     // imm = -16 => 5-bit = 0b10000 = 16
     let inst = make_vop(0b000000, 1, 4, 0b10000, OPIVI, 2);
@@ -126,7 +120,6 @@ fn test_vadd_vi_min_imm() {
 // vsub
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsub_vv() {
     let inst = make_vop(0b000010, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -142,7 +135,6 @@ fn test_vsub_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsub_vx() {
     let inst = make_vop(0b000010, 1, 2, 10, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -160,7 +152,6 @@ fn test_vsub_vx() {
 // vrsub
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vrsub_vx() {
     let inst = make_vop(0b000011, 1, 2, 5, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -176,7 +167,6 @@ fn test_vrsub_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vrsub_vi() {
     let inst = make_vop(0b000011, 1, 2, 0, OPIVI, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -194,7 +184,6 @@ fn test_vrsub_vi() {
 // vand
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vand_vv() {
     let inst = make_vop(0b001001, 1, 8, 9, OPIVV, 10);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -210,7 +199,6 @@ fn test_vand_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vand_vx() {
     let inst = make_vop(0b001001, 1, 8, 7, OPIVX, 10);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -226,7 +214,6 @@ fn test_vand_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vand_vi() {
     let inst = make_vop(0b001001, 1, 4, 0b01111, OPIVI, 2);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -244,7 +231,6 @@ fn test_vand_vi() {
 // vor
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vor_vv() {
     let inst = make_vop(0b001010, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -260,7 +246,6 @@ fn test_vor_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vor_vx() {
     let inst = make_vop(0b001010, 1, 2, 3, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -276,7 +261,6 @@ fn test_vor_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vor_vi() {
     let inst = make_vop(0b001010, 1, 2, 0b11111, OPIVI, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -294,7 +278,6 @@ fn test_vor_vi() {
 // vxor
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vxor_vv() {
     let inst = make_vop(0b001011, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -310,7 +293,6 @@ fn test_vxor_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vxor_vx() {
     let inst = make_vop(0b001011, 1, 2, 3, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -326,7 +308,6 @@ fn test_vxor_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vxor_vi() {
     let inst = make_vop(0b001011, 1, 2, 0b11111, OPIVI, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -344,7 +325,6 @@ fn test_vxor_vi() {
 // vsll
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsll_vv() {
     let inst = make_vop(0b100101, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -360,7 +340,6 @@ fn test_vsll_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsll_vx() {
     let inst = make_vop(0b100101, 1, 2, 5, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -376,7 +355,6 @@ fn test_vsll_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsll_vi() {
     // uimm = 8
     let inst = make_vop(0b100101, 1, 16, 8, OPIVI, 24);
@@ -393,7 +371,6 @@ fn test_vsll_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsll_vi_max_uimm() {
     // uimm = 31 (max 5-bit unsigned)
     let inst = make_vop(0b100101, 1, 4, 31, OPIVI, 2);
@@ -412,7 +389,6 @@ fn test_vsll_vi_max_uimm() {
 // vsrl
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsrl_vv() {
     let inst = make_vop(0b101000, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -428,7 +404,6 @@ fn test_vsrl_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsrl_vx() {
     let inst = make_vop(0b101000, 1, 8, 6, OPIVX, 8);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -444,7 +419,6 @@ fn test_vsrl_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsrl_vi() {
     // uimm = 3
     let inst = make_vop(0b101000, 1, 8, 3, OPIVI, 8);
@@ -463,7 +437,6 @@ fn test_vsrl_vi() {
 // vsra
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsra_vv() {
     let inst = make_vop(0b101001, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -479,7 +452,6 @@ fn test_vsra_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsra_vi() {
     let inst = make_vop(0b101001, 1, 4, 7, OPIVI, 2);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -497,7 +469,6 @@ fn test_vsra_vi() {
 // vminu/vmin/vmaxu/vmax
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vminu_vv() {
     let inst = make_vop(0b000100, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -513,7 +484,6 @@ fn test_vminu_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vminu_vx() {
     let inst = make_vop(0b000100, 1, 2, 10, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -529,7 +499,6 @@ fn test_vminu_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmin_vv() {
     let inst = make_vop(0b000101, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -545,7 +514,6 @@ fn test_vmin_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmin_vx() {
     let inst = make_vop(0b000101, 1, 2, 10, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -561,7 +529,6 @@ fn test_vmin_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmaxu_vv() {
     let inst = make_vop(0b000110, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -577,7 +544,6 @@ fn test_vmaxu_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmaxu_vx_masked() {
     let inst = make_vop(0b000110, 0, 2, 10, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -593,7 +559,6 @@ fn test_vmaxu_vx_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmax_vv() {
     let inst = make_vop(0b000111, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -609,7 +574,6 @@ fn test_vmax_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmax_vx() {
     let inst = make_vop(0b000111, 1, 2, 10, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -627,7 +591,6 @@ fn test_vmax_vx() {
 // vmseq/vmsne
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmseq_vv() {
     let inst = make_vop(0b011000, 1, 2, 3, OPIVV, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -643,7 +606,6 @@ fn test_vmseq_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmseq_vx() {
     let inst = make_vop(0b011000, 1, 2, 5, OPIVX, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -659,7 +621,6 @@ fn test_vmseq_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmseq_vi() {
     let inst = make_vop(0b011000, 1, 2, 0, OPIVI, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -675,7 +636,6 @@ fn test_vmseq_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsne_vv() {
     let inst = make_vop(0b011001, 1, 8, 6, OPIVV, 16);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -691,7 +651,6 @@ fn test_vmsne_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsne_vi() {
     // imm = 0b10 = 2 (5-bit sign-extended)
     let inst = make_vop(0b011001, 1, 8, 0b00010, OPIVI, 16);
@@ -710,7 +669,6 @@ fn test_vmsne_vi() {
 // vmsltu/vmslt
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsltu_vv() {
     let inst = make_vop(0b011010, 1, 2, 3, OPIVV, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -726,7 +684,6 @@ fn test_vmsltu_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsltu_vx() {
     let inst = make_vop(0b011010, 1, 2, 5, OPIVX, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -742,7 +699,6 @@ fn test_vmsltu_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmslt_vv() {
     let inst = make_vop(0b011011, 1, 2, 3, OPIVV, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -758,7 +714,6 @@ fn test_vmslt_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmslt_vx() {
     let inst = make_vop(0b011011, 1, 2, 5, OPIVX, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -776,7 +731,6 @@ fn test_vmslt_vx() {
 // vmsleu/vmsle
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsleu_vv() {
     let inst = make_vop(0b011100, 1, 2, 3, OPIVV, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -792,7 +746,6 @@ fn test_vmsleu_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsleu_vx() {
     let inst = make_vop(0b011100, 1, 2, 5, OPIVX, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -808,7 +761,6 @@ fn test_vmsleu_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsleu_vi() {
     let inst = make_vop(0b011100, 1, 2, 15, OPIVI, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -824,7 +776,6 @@ fn test_vmsleu_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsle_vv() {
     let inst = make_vop(0b011101, 1, 2, 3, OPIVV, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -840,7 +791,6 @@ fn test_vmsle_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsle_vi() {
     let inst = make_vop(0b011101, 1, 2, 0b11110, OPIVI, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -858,7 +808,6 @@ fn test_vmsle_vi() {
 // vmsgtu/vmsgt (OPIVX and OPIVI only)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsgtu_vx() {
     let inst = make_vop(0b011110, 1, 2, 10, OPIVX, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -874,7 +823,6 @@ fn test_vmsgtu_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsgtu_vi() {
     let inst = make_vop(0b011110, 1, 2, 9, OPIVI, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -890,7 +838,6 @@ fn test_vmsgtu_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsgt_vx() {
     let inst = make_vop(0b011111, 1, 2, 10, OPIVX, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -906,7 +853,6 @@ fn test_vmsgt_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsgt_vi() {
     let inst = make_vop(0b011111, 1, 2, 0b11100, OPIVI, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -924,7 +870,6 @@ fn test_vmsgt_vi() {
 // Negative tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_wrong_opcode() {
     // Use OP (0b0110011) instead of OP-V
     let funct7 = 1;
@@ -934,7 +879,6 @@ fn test_wrong_opcode() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_wrong_funct3_opcfg() {
     // funct3=0b111 (OPCFG) should not be decoded as arith
     let funct7 = 1;
@@ -944,7 +888,6 @@ fn test_wrong_funct3_opcfg() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_unknown_funct6_opivv() {
     // funct6=0b111111 is not assigned in OPIVV
     let inst = make_vop(0b111111, 1, 2, 3, OPIVV, 1);
@@ -953,7 +896,6 @@ fn test_unknown_funct6_opivv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vsub_has_no_vi() {
     // vsub only has .vv and .vx, not .vi
     let inst = make_vop(0b000010, 1, 2, 3, OPIVI, 1);
@@ -962,7 +904,6 @@ fn test_vsub_has_no_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsltu_has_no_vi() {
     // vmsltu only has .vv and .vx per spec
     let inst = make_vop(0b011010, 1, 2, 3, OPIVI, 1);
@@ -971,7 +912,6 @@ fn test_vmsltu_has_no_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsgtu_has_no_vv() {
     // vmsgtu only has .vx and .vi, not .vv
     let inst = make_vop(0b011110, 1, 2, 3, OPIVV, 0);
@@ -980,7 +920,6 @@ fn test_vmsgtu_has_no_vv() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vmsgt_has_no_vv() {
     let inst = make_vop(0b011111, 1, 2, 3, OPIVV, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -990,7 +929,6 @@ fn test_vmsgt_has_no_vv() {
 // High vector register numbers
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_vadd_vv_high_regs() {
     let inst = make_vop(0b000000, 1, 31, 30, OPIVV, 29);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst);
@@ -1008,7 +946,6 @@ fn test_vadd_vv_high_regs() {
 // Display tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vadd_vv_unmasked() {
     let inst = make_vop(0b000000, 1, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -1016,7 +953,6 @@ fn test_display_vadd_vv_unmasked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vadd_vv_masked() {
     let inst = make_vop(0b000000, 0, 2, 3, OPIVV, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -1024,7 +960,6 @@ fn test_display_vadd_vv_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vadd_vx() {
     let inst = make_vop(0b000000, 1, 2, 5, OPIVX, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -1032,7 +967,6 @@ fn test_display_vadd_vx() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vadd_vi() {
     let inst = make_vop(0b000000, 1, 2, 0b11111, OPIVI, 1);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -1040,7 +974,6 @@ fn test_display_vadd_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vsll_vi() {
     let inst = make_vop(0b100101, 1, 16, 8, OPIVI, 24);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
@@ -1048,7 +981,6 @@ fn test_display_vsll_vi() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn test_display_vmseq_vi_masked() {
     let inst = make_vop(0b011000, 0, 2, 0, OPIVI, 0);
     let decoded = Zve64xArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();

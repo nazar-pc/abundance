@@ -106,7 +106,6 @@ fn mask_bit(
 // vadd
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vadd_vv_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // vs2 = [1, 2, 3, 4, ...], vs1 = [10, 20, 30, 40, ...]
@@ -136,7 +135,6 @@ fn vadd_vv_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vadd_vv_e64_m1_wraps() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, u64::MAX);
@@ -155,7 +153,6 @@ fn vadd_vv_e64_m1_wraps() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vadd_vx_e32_m1() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -182,7 +179,6 @@ fn vadd_vx_e32_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vadd_vi_e16_m1_negative_imm() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -205,7 +201,6 @@ fn vadd_vi_e16_m1_negative_imm() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vadd_vv_e8_m2_spans_two_regs() {
     // VLMAX=32: elements 0..15 in v2, 16..31 in v3
     let mut state = setup(32, Vsew::E8, Vlmul::M2);
@@ -235,7 +230,6 @@ fn vadd_vv_e8_m2_spans_two_regs() {
 // vsub / vrsub
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsub_vv_e8_m1() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
@@ -258,7 +252,6 @@ fn vsub_vv_e8_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsub_vx_e32_wraps() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0);
@@ -278,7 +271,6 @@ fn vsub_vx_e32_wraps() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrsub_vx_e8_m1() {
     // vrsub: vd[i] = rs1 - vs2[i]
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -306,7 +298,6 @@ fn vrsub_vx_e8_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrsub_vi_e16_m1() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -336,7 +327,6 @@ fn vrsub_vi_e16_m1() {
 // vand / vor / vxor
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vand_vv_e32_m1() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -363,7 +353,6 @@ fn vand_vv_e32_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vand_vi_sign_extends_imm() {
     // imm = -1 (0b11111 sign-extended) should AND as all-ones within SEW
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
@@ -385,7 +374,6 @@ fn vand_vi_sign_extends_imm() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vor_vx_e64_m1() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x0F0F_0F0F_0F0F_0F0F);
@@ -409,7 +397,6 @@ fn vor_vx_e64_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vxor_vi_e8_m1() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
@@ -434,7 +421,6 @@ fn vxor_vi_e8_m1() {
 // vsll / vsrl / vsra
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsll_vv_e8_masks_shamt_to_3_bits() {
     // SEW=8: shift amount is masked to 3 bits (log2(8)=3), so shamt 9 = shamt 1
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -461,7 +447,6 @@ fn vsll_vv_e8_masks_shamt_to_3_bits() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsll_vi_e16_m1() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -487,7 +472,6 @@ fn vsll_vi_e16_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsrl_vv_e32_logical_shift() {
     // vsrl is logical: high bit should not be sign-extended
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
@@ -507,7 +491,6 @@ fn vsrl_vv_e32_logical_shift() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsrl_vx_e8_does_not_bleed_upper_bits() {
     // Register holds 0xAB in the e8 slot; upper bits of u64 representation must not affect result
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
@@ -529,7 +512,6 @@ fn vsrl_vx_e8_does_not_bleed_upper_bits() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsra_vv_e8_arithmetic_shift() {
     // 0x80 as signed i8 = -128; >> 1 = -64 = 0xC0 (arithmetic)
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -554,7 +536,6 @@ fn vsra_vv_e8_arithmetic_shift() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsra_vi_e32_m1() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     // -2147483648 as i32
@@ -577,7 +558,6 @@ fn vsra_vi_e32_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsra_vx_e64_m1() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     write_elem(
@@ -604,7 +584,6 @@ fn vsra_vx_e64_m1() {
 // vminu / vmin / vmaxu / vmax
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vminu_vv_e8_unsigned() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     // 0xFF as unsigned is 255; should beat 1
@@ -627,7 +606,6 @@ fn vminu_vv_e8_unsigned() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmin_vv_e8_signed() {
     // 0xFF = -1 as i8, should be less than 1
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -656,7 +634,6 @@ fn vmin_vv_e8_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmaxu_vx_e32() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     // max unsigned
@@ -678,7 +655,6 @@ fn vmaxu_vx_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmax_vx_e16_signed() {
     // 0xFFFF = -1 as i16; max(-1, 0) = 0
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
@@ -706,7 +682,6 @@ fn vmax_vx_e16_signed() {
 // Compare instructions
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmseq_vv_e8_m1_writes_mask_bits() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2[i] == vs1[i] for even i
@@ -756,7 +731,6 @@ fn vmseq_vv_e8_m1_writes_mask_bits() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmseq_vx_e32_m1() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -785,7 +759,6 @@ fn vmseq_vx_e32_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmseq_vi_e16() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -812,7 +785,6 @@ fn vmseq_vi_e16() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsne_vv_e8() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
@@ -841,7 +813,6 @@ fn vmsne_vv_e8() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsltu_vv_e8_unsigned() {
     // 0xFF (255u) is NOT < 0x01; 0x01 IS < 0xFF
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -865,7 +836,6 @@ fn vmsltu_vv_e8_unsigned() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmslt_vv_e8_signed() {
     // 0xFF (-1) IS signed < 0x01 (1); 0x01 is NOT < 0xFF (-1)
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -893,7 +863,6 @@ fn vmslt_vv_e8_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsleu_vv_e16() {
     let mut state = setup(3, Vsew::E16, Vlmul::M1);
     // vs2[0]=5 <= vs1[0]=5 (equal), vs2[1]=6 <= vs1[1]=10, vs2[2]=0xFFFF <= vs1[2]=0 (false
@@ -920,7 +889,6 @@ fn vmsleu_vv_e16() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsleu_vi_negative_imm_always_true() {
     // vmsleu.vi with a negative immediate: the i8 is sign-extended to a full u64, giving
     // 0xFFFF...FF. Both operands are then masked to SEW width before the unsigned compare,
@@ -948,7 +916,6 @@ fn vmsleu_vi_negative_imm_always_true() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsle_vi_e8_signed() {
     // vmsle.vi imm=-1: vs2[i] <= -1 (signed)
     // 0xFF = -1 as i8: -1 <= -1 = true  (bit 0)
@@ -975,7 +942,6 @@ fn vmsle_vi_e8_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsgtu_vi_e8_unsigned() {
     // vmsgtu.vi imm=5: vs2[i] > 5 (unsigned)
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -1000,7 +966,6 @@ fn vmsgtu_vi_e8_unsigned() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsgt_vx_e32_signed() {
     // vmsgt.vx: vs2[i] > rs1 (signed)
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1026,7 +991,6 @@ fn vmsgt_vx_e32_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmsgt_vi_e8_signed() {
     // vmsgt.vi imm=-1 (i.e. vs2[i] > -1 signed, so vs2[i] >= 0)
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -1055,7 +1019,6 @@ fn vmsgt_vi_e8_signed() {
 // Masking behaviour
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn masked_arith_leaves_inactive_elements_undisturbed() {
     // vm=false: only active (mask bit set) elements are written; others unchanged
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1090,7 +1053,6 @@ fn masked_arith_leaves_inactive_elements_undisturbed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn masked_compare_leaves_inactive_mask_bits_undisturbed() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // Mask: only bits 0 and 2 active
@@ -1118,7 +1080,6 @@ fn masked_compare_leaves_inactive_mask_bits_undisturbed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn compare_can_write_to_v0_when_masked() {
     // Per spec, compare destination may be v0 even with masking (vm=false)
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -1148,7 +1109,6 @@ fn compare_can_write_to_v0_when_masked() {
 // vstart partial execution
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vstart_skips_elements_before_vstart() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1182,7 +1142,6 @@ fn vstart_skips_elements_before_vstart() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vstart_skips_elements_before_vstart_compare() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
@@ -1211,7 +1170,6 @@ fn vstart_skips_elements_before_vstart_compare() {
 // vl=0: no writes, dirty still incremented
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vl_zero_no_elements_written() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1240,7 +1198,6 @@ fn vl_zero_no_elements_written() {
 // Error paths
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn error_vector_instructions_not_allowed() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -1260,7 +1217,6 @@ fn error_vector_instructions_not_allowed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn error_vill_set_vtype() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -1283,7 +1239,6 @@ fn error_vill_set_vtype() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn error_vd_misaligned_for_m2() {
     // M2: group_regs=2; vd must be even. V3 (odd) is illegal.
     let mut state = setup(4, Vsew::E32, Vlmul::M2);
@@ -1303,7 +1258,6 @@ fn error_vd_misaligned_for_m2() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn error_vs2_misaligned_for_m2() {
     let mut state = setup(4, Vsew::E32, Vlmul::M2);
     let result = exec(
@@ -1322,7 +1276,6 @@ fn error_vs2_misaligned_for_m2() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn error_masked_arith_vd_is_v0() {
     // vm=false with vd=v0 is illegal for arithmetic (not compare)
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1342,7 +1295,6 @@ fn error_masked_arith_vd_is_v0() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn error_vector_not_allowed_compare() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -1364,7 +1316,6 @@ fn error_vector_not_allowed_compare() {
 // Cross-SEW correctness (each SEW for a representative op)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vadd_wraps_at_sew_boundary() {
     // MAX + 1 must wrap to 0 within SEW, with no bleed into higher bits.
     for (vsew, sew_max) in [
@@ -1395,7 +1346,6 @@ fn vadd_wraps_at_sew_boundary() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsra_all_sew_widths_sign_extends_correctly() {
     // For each SEW, 0x80..0 >> (SEW-1) should give 0xFF..F (all ones, i.e. -1)
     for (vsew, msb_val) in [
@@ -1435,7 +1385,6 @@ fn vsra_all_sew_widths_sign_extends_correctly() {
 // vs_dirty and vstart invariants
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn every_instruction_marks_vs_dirty_exactly_once() {
     // Spot-check a handful of instructions each with vl > 0
     let instrs = &[
