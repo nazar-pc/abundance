@@ -248,8 +248,10 @@ jobs:
     # Gives the slow cargo test jobs a head start
     needs: cargo-test-slow-head-start
     env:
+      # NOTE: Running tests under Miri with nextest is SLOWER than without it:
+      #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
       command: >-
-        ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+        ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps: &test-steps
@@ -380,9 +382,9 @@ jobs:
           }
         if: matrix.miri == false && runner.os == 'Windows' && matrix.type == 'together'
 
-      - name: cargo ${{ env.command }}
+      - name: cargo ${{ env.command }} (regular)
         run: |
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${{ env.EXTRA_OPTIONS }}
+          cargo -Zgitoxide -Zgit ${{ env.command }} --locked
         if: matrix.type == 'together'
 
       - name: cargo test (various features)
@@ -396,7 +398,7 @@ jobs:
               fi
               crate="$(basename -- $crate_path)"
               echo "Testing \`$feature\` in \`$crate\`"
-              cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $crate --features $crate/$feature
+              cargo -Zgitoxide -Zgit ${{ env.command }} --package $crate --features $crate/$feature
             done
           done
 
@@ -414,7 +416,7 @@ jobs:
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             echo "Testing \`guest\` in \`$contract\`"
-            cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $contract --features $contract/guest
+            cargo -Zgitoxide -Zgit ${{ env.command }} --package $contract --features $contract/guest
           done
           for create_path in crates/contracts/core/*; do
             # Not all crates have this feature
@@ -423,7 +425,7 @@ jobs:
             fi
             crate="$(basename -- $create_path)"
             echo "Testing \`guest\` in \`$crate\`"
-            cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $crate --features $crate/guest
+            cargo -Zgitoxide -Zgit ${{ env.command }} --package $crate --features $crate/guest
           done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
@@ -456,7 +458,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       command: >-
-        ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+        ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps: *test-steps
