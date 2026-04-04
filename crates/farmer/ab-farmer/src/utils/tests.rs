@@ -2,25 +2,25 @@
 use crate::utils::parse_cpu_cores_sets;
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
-// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/1719
 #[cfg(not(all(miri, target_os = "windows")))]
 use crate::utils::run_future_in_dedicated_thread;
 use crate::utils::{CpuCoreSet, thread_pool_core_indices_internal};
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
-// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/1719
 #[cfg(not(all(miri, target_os = "windows")))]
 use std::future;
 use std::num::NonZeroUsize;
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
-// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/1719
 #[cfg(not(all(miri, target_os = "windows")))]
 use tokio::sync::oneshot;
 
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
-// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/1719
 #[cfg(not(all(miri, target_os = "windows")))]
 #[tokio::test]
 async fn run_future_in_dedicated_thread_ready() {
@@ -34,7 +34,7 @@ async fn run_future_in_dedicated_thread_ready() {
 
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
-// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/1719
 #[cfg(not(all(miri, target_os = "windows")))]
 #[tokio::test]
 async fn run_future_in_dedicated_thread_cancellation() {
@@ -46,7 +46,7 @@ async fn run_future_in_dedicated_thread_cancellation() {
 
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
-// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/1719
 #[cfg(not(all(miri, target_os = "windows")))]
 #[test]
 fn run_future_in_dedicated_thread_tokio_on_drop() {
