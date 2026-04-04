@@ -122,7 +122,6 @@ fn set_mask_bit(
 // vmul
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmul_vv_e32_m1_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -151,7 +150,6 @@ fn vmul_vv_e32_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmul_vv_e8_wraps() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     // 200 * 2 = 400, truncated to 8 bits = 144
@@ -171,7 +169,6 @@ fn vmul_vv_e8_wraps() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmul_vx_e64_m1() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 7);
@@ -196,7 +193,6 @@ fn vmul_vx_e64_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmul_masked_skips_inactive() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // mask: only elements 0 and 2 active (bits 0 and 2 set)
@@ -228,7 +224,6 @@ fn vmul_masked_skips_inactive() {
 // vmulh (signed×signed high half)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulh_vv_e8_positive() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     // 10 * 10 = 100; high 8 bits of 16-bit product = 0
@@ -248,7 +243,6 @@ fn vmulh_vv_e8_positive() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulh_vv_e16_large() {
     let mut state = setup(1, Vsew::E16, Vlmul::M1);
     // -32768 * -32768 = 2^30; high 16 bits = 2^30 >> 16 = 2^14 = 16384
@@ -271,7 +265,6 @@ fn vmulh_vv_e16_large() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulh_vv_e16_signed_negative_result() {
     let mut state = setup(1, Vsew::E16, Vlmul::M1);
     // 32767 * (-1) = -32767; as i32 = 0xFFFF8001; high 16 bits = 0xFFFF = -1 as i16
@@ -293,7 +286,6 @@ fn vmulh_vv_e16_signed_negative_result() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulh_vx_e32() {
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     // 0x7FFFFFFF * 2 = 0xFFFFFFFE; high 32 bits of 64-bit product = 0
@@ -313,7 +305,6 @@ fn vmulh_vx_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulh_illegal_for_sew64() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     let result = exec(
@@ -334,7 +325,6 @@ fn vmulh_illegal_for_sew64() {
 // vmulhu (unsigned×unsigned high half)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulhu_vv_e8() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     // 200 * 200 = 40000; high 8 bits = 40000 >> 8 = 156
@@ -354,7 +344,6 @@ fn vmulhu_vv_e8() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulhu_vx_e16() {
     let mut state = setup(1, Vsew::E16, Vlmul::M1);
     // 0xFFFF * 0xFFFF = 0xFFFE0001; high 16 bits = 0xFFFE
@@ -374,7 +363,6 @@ fn vmulhu_vx_e16() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulhu_illegal_for_sew64() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     let result = exec(
@@ -395,7 +383,6 @@ fn vmulhu_illegal_for_sew64() {
 // vmulhsu (signed×unsigned high half)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulhsu_vv_e8_positive_result() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     // vs2=3 (signed), vs1=100 (unsigned): 3*100=300; high 8 bits = 300>>8 = 1
@@ -415,7 +402,6 @@ fn vmulhsu_vv_e8_positive_result() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulhsu_vv_e8_negative_signed() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     // vs2=-1 (0xFF signed=-1), vs1=200 (unsigned): -1*200=-200; high 8 = -200>>8 = -1 = 0xFF
@@ -435,7 +421,6 @@ fn vmulhsu_vv_e8_negative_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmulhsu_illegal_for_sew64() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     let result = exec(
@@ -456,7 +441,6 @@ fn vmulhsu_illegal_for_sew64() {
 // vdivu
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdivu_vv_e32_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let dividends = [100u64, 255, 1024, 0xFFFF_FFFF];
@@ -485,7 +469,6 @@ fn vdivu_vv_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdivu_vv_e32_div_by_zero_returns_all_ones() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 42);
@@ -508,7 +491,6 @@ fn vdivu_vv_e32_div_by_zero_returns_all_ones() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdivu_vx_e8_div_by_zero() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 99);
@@ -527,7 +509,6 @@ fn vdivu_vx_e8_div_by_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdivu_vv_e64_basic() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 1_000_000_000_000u64);
@@ -548,7 +529,6 @@ fn vdivu_vv_e64_basic() {
 // vdiv (signed)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdiv_vv_e32_basic() {
     let mut state = setup(3, Vsew::E32, Vlmul::M1);
     // -10 / 3 = -3 (truncation toward zero)
@@ -580,7 +560,6 @@ fn vdiv_vv_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdiv_vv_e32_div_by_zero_returns_neg1() {
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 42);
@@ -600,7 +579,6 @@ fn vdiv_vv_e32_div_by_zero_returns_neg1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdiv_vv_e16_signed_overflow_returns_min() {
     let mut state = setup(1, Vsew::E16, Vlmul::M1);
     // MIN / -1 = MIN (overflow case per spec §12.11)
@@ -622,7 +600,6 @@ fn vdiv_vv_e16_signed_overflow_returns_min() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdiv_vx_e64_neg() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     // -1000 / 7 = -142
@@ -653,7 +630,6 @@ fn vdiv_vx_e64_neg() {
 // vremu
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vremu_vv_e32_basic() {
     let mut state = setup(3, Vsew::E32, Vlmul::M1);
     let cases = [(17u64, 5u64, 2u64), (100, 11, 1), (0, 7, 0)];
@@ -681,7 +657,6 @@ fn vremu_vv_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vremu_vv_e8_div_by_zero_returns_dividend() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 77);
@@ -701,7 +676,6 @@ fn vremu_vv_e8_div_by_zero_returns_dividend() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vremu_vx_e16() {
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 1000);
@@ -725,7 +699,6 @@ fn vremu_vx_e16() {
 // vrem (signed)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrem_vv_e32_basic() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     // -13 % 5 = -3 (Rust truncation semantics, same as RISC-V)
@@ -761,7 +734,6 @@ fn vrem_vv_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrem_vv_e16_div_by_zero_returns_dividend() {
     let mut state = setup(1, Vsew::E16, Vlmul::M1);
     // some negative value
@@ -782,7 +754,6 @@ fn vrem_vv_e16_div_by_zero_returns_dividend() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrem_vv_e32_signed_overflow_returns_zero() {
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     // MIN % -1 = 0 per spec §12.11
@@ -804,7 +775,6 @@ fn vrem_vv_e32_signed_overflow_returns_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrem_vx_e8() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     // -128 % -1 = 0
@@ -834,7 +804,6 @@ fn vrem_vx_e8() {
 // vwmulu
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_vv_e8_to_e16() {
     // SEW=E8, LMUL=M1 → vd is E16 with 2*group_regs=2 regs (V8 and V9)
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -865,7 +834,6 @@ fn vwmulu_vv_e8_to_e16() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_vx_e16_to_e32() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -892,7 +860,6 @@ fn vwmulu_vx_e16_to_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_illegal_for_sew64() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     let result = exec(
@@ -911,7 +878,6 @@ fn vwmulu_illegal_for_sew64() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_overlap_rejected() {
     // vd=V4 (occupies V4+V5), vs2=V4 - overlap → illegal
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
@@ -931,7 +897,6 @@ fn vwmulu_overlap_rejected() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_m8_is_illegal() {
     // LMUL=M8 would require EMUL=16 for vd, which is out of range
     let mut state = setup(4, Vsew::E8, Vlmul::M8);
@@ -951,7 +916,6 @@ fn vwmulu_m8_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_mf2_e8_correct_result() {
     // LMUL=Mf2, SEW=E8: VLMAX = VLEN/2 / 8 = 128/2/8 = 8 elements
     // EMUL = 2 * (1/2) = 1, so vd occupies 1 register (same as vs2/vs1)
@@ -982,7 +946,6 @@ fn vwmulu_mf2_e8_correct_result() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_mf2_no_false_overlap_rejection() {
     // With Mf2, vd has dest_group_regs=1, vs2 has group_regs=1.
     // V8 and V2 do not overlap - this must succeed.
@@ -1003,7 +966,6 @@ fn vwmulu_mf2_no_false_overlap_rejection() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_mf2_overlap_still_rejected() {
     // With Mf2, dest_group_regs=1, src_group_regs=1.
     // vd=V2 and vs2=V2 overlap: both occupy register index 2.
@@ -1024,7 +986,6 @@ fn vwmulu_mf2_overlap_still_rejected() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_m1_overlap_uses_2_dest_regs() {
     // With M1, dest_group_regs=2: vd=V4 occupies V4+V5.
     // vs2=V4: overlaps with vd -> illegal.
@@ -1045,7 +1006,6 @@ fn vwmulu_m1_overlap_uses_2_dest_regs() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
     // With M1, vd=V4 occupies V4+V5. vs2=V5 overlaps with upper half of vd -> illegal.
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -1067,7 +1027,6 @@ fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
 // vwmul (signed widening)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmul_vv_e8_signed() {
     let mut state = setup(3, Vsew::E8, Vlmul::M1);
     // -1 * -1 = 1
@@ -1099,7 +1058,6 @@ fn vwmul_vv_e8_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmul_vx_e16_signed() {
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
     // -100 * 3 = -300 as i32 = 0xFFFF_FECC as u32
@@ -1130,7 +1088,6 @@ fn vwmul_vx_e16_signed() {
 // vwmulsu
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmulsu_vv_e8_signed_unsigned() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     // -1 (signed) * 200 (unsigned) = -200; as u16 = 0xFF38
@@ -1161,7 +1118,6 @@ fn vwmulsu_vv_e8_signed_unsigned() {
 // vmacc
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmacc_vv_e32_basic() {
     // vmacc: vd[i] = vd[i] + vs1[i] * vs2[i]
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1192,7 +1148,6 @@ fn vmacc_vv_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmacc_vx_e64_basic() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V8, 0, Vsew::E64, 1000);
@@ -1222,7 +1177,6 @@ fn vmacc_vx_e64_basic() {
 // vnmsac
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vnmsac_vv_e32() {
     // vnmsac: vd[i] = vd[i] - vs1[i] * vs2[i]
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
@@ -1247,7 +1201,6 @@ fn vnmsac_vv_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vnmsac_vx_e8_wraps() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     // acc
@@ -1275,7 +1228,6 @@ fn vnmsac_vx_e8_wraps() {
 // vmadd
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmadd_vv_e32() {
     // vmadd: vd[i] = vs1[i] * vd[i] + vs2[i]
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
@@ -1300,7 +1252,6 @@ fn vmadd_vv_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmadd_vx_e16() {
     // vmadd: vd[i] = rs1 * vd[i] + vs2[i]
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
@@ -1326,7 +1277,6 @@ fn vmadd_vx_e16() {
 // vnmsub
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vnmsub_vv_e32() {
     // vnmsub: vd[i] = -(vs1[i] * vd[i]) + vs2[i]  =  vs2[i] - vs1[i]*vd[i]
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
@@ -1351,7 +1301,6 @@ fn vnmsub_vv_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vnmsub_vx_e64_wraps() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V8, 0, Vsew::E64, 2);
@@ -1377,7 +1326,6 @@ fn vnmsub_vx_e64_wraps() {
 // vwmaccu
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmaccu_vv_e8_basic() {
     // vwmaccu: vd[i] = vd[i] + zext(vs1[i]) * zext(vs2[i]), vd is 2*SEW wide
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -1407,7 +1355,6 @@ fn vwmaccu_vv_e8_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmaccu_vx_e16() {
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
     write_wide_elem(&mut state, VReg::V8, 0, Vsew::E16, 500);
@@ -1435,7 +1382,6 @@ fn vwmaccu_vx_e16() {
 // vwmacc (signed widening multiply-add)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmacc_vv_e8_signed() {
     // vwmacc: vd[i] = vd[i] + sext(vs1[i]) * sext(vs2[i])
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -1469,7 +1415,6 @@ fn vwmacc_vv_e8_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmacc_mf2_e16_basic() {
     // LMUL=Mf2, SEW=E16: VLMAX = 128/2/16 = 4 elements
     // EMUL_dest = 1, so vd is 1 register wide at E32 (2*SEW)
@@ -1503,7 +1448,6 @@ fn vwmacc_mf2_e16_basic() {
 // vwmaccsu
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmaccsu_vv_e8() {
     // vwmaccsu: vd[i] = vd[i] + sext(vs1[i]) * zext(vs2[i])
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -1539,7 +1483,6 @@ fn vwmaccsu_vv_e8() {
 // vwmaccus
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwmaccus_vx_e8() {
     // vwmaccus: vd[i] = vd[i] + zext(rs1) * sext(vs2[i])
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -1573,7 +1516,6 @@ fn vwmaccus_vx_e8() {
 // common error paths
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vector_instructions_not_allowed() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -1593,7 +1535,6 @@ fn vector_instructions_not_allowed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_not_configured_is_illegal() {
     let mut state = initialize_state::<Zve64xMulDivInstruction<Reg<u64>>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1614,7 +1555,6 @@ fn vtype_not_configured_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vd_unaligned_is_illegal() {
     // M2 requires vd to be a multiple of 2; V3 is misaligned
     let mut state = setup(2, Vsew::E32, Vlmul::M2);
@@ -1634,7 +1574,6 @@ fn vd_unaligned_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn masked_vd_v0_is_illegal() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     // vm=false with vd=V0 is always illegal
@@ -1654,7 +1593,6 @@ fn masked_vd_v0_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vstart_respected_for_mul() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1685,7 +1623,6 @@ fn vstart_respected_for_mul() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vl_zero_writes_nothing() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V8, 0, Vsew::E32, 0xCAFE);
@@ -1706,7 +1643,6 @@ fn vl_zero_writes_nothing() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn widening_mul_illegal_for_sew64() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     for instr in [
@@ -1738,7 +1674,6 @@ fn widening_mul_illegal_for_sew64() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn widening_muladd_illegal_for_sew64() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     for instr in [
@@ -1770,7 +1705,6 @@ fn widening_muladd_illegal_for_sew64() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdivu_e64_div_by_zero() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 12345);
@@ -1789,7 +1723,6 @@ fn vdivu_e64_div_by_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vdiv_e64_signed_overflow() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, i64::MIN.cast_unsigned());
@@ -1812,7 +1745,6 @@ fn vdiv_e64_signed_overflow() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrem_e64_signed_overflow_returns_zero() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, i64::MIN.cast_unsigned());
@@ -1831,7 +1763,6 @@ fn vrem_e64_signed_overflow_returns_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn set_mask_bit_helper_works() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Verify the mask helper used in other tests is correct
@@ -1875,7 +1806,6 @@ fn set_mask_bit_helper_works() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn widening_dest_register_count_values() {
     // EMUL = 2 * LMUL:
     // Mf8 (1/8) -> 2/8 = 1/4 -> 1 reg

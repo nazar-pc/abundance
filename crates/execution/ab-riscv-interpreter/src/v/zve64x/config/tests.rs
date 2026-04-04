@@ -32,7 +32,6 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul, vta: bool, vma: bool) -> u16 {
 // vsetvli basic tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_sets_vl_and_rd_from_avl() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     // VLMAX = 128/32 = 4, AVL = 3 < VLMAX -> vl = 3
@@ -55,7 +54,6 @@ fn vsetvli_sets_vl_and_rd_from_avl() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     // VLMAX = 4, AVL = 100 -> vl = 4
@@ -74,7 +72,6 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_avl_zero_gives_vl_zero() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -93,7 +90,6 @@ fn vsetvli_avl_zero_gives_vl_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_avl_equals_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M1, false, false);
     // VLMAX = 128/8 = 16
@@ -112,7 +108,6 @@ fn vsetvli_avl_equals_vlmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_rd_x0_discards_result() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -134,7 +129,6 @@ fn vsetvli_rd_x0_discards_result() {
 // vsetvli SEW/LMUL combination tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_e8_m8_gives_max_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M8, false, false);
     // VLMAX = (128*8)/8 = 128
@@ -153,7 +147,6 @@ fn vsetvli_e8_m8_gives_max_vlmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_e64_m1() {
     let vtypei = encode_vtype(Vsew::E64, Vlmul::M1, false, false);
     // VLMAX = 128/64 = 2
@@ -174,7 +167,6 @@ fn vsetvli_e64_m1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_e32_mf2() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::Mf2, false, false);
     // VLMAX = 128 / (32*2) = 2
@@ -193,7 +185,6 @@ fn vsetvli_e32_mf2() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_e8_mf8() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::Mf8, false, false);
     // VLMAX = 128 / (8*8) = 2
@@ -214,7 +205,6 @@ fn vsetvli_e8_mf8() {
 // vsetvli with vta/vma flags
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_ta_ma_flags_preserved() {
     let vtypei = encode_vtype(Vsew::E16, Vlmul::M2, true, true);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -235,7 +225,6 @@ fn vsetvli_ta_ma_flags_preserved() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_tu_mu_flags_preserved() {
     let vtypei = encode_vtype(Vsew::E16, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -256,7 +245,6 @@ fn vsetvli_tu_mu_flags_preserved() {
 // vsetvli unsupported configurations
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_unsupported_sew_sets_vill() {
     // vsew = 0b100 is reserved, encode manually
     let vtypei = 0b100 << 3;
@@ -276,7 +264,6 @@ fn vsetvli_unsupported_sew_sets_vill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_reserved_vlmul_sets_vill() {
     // vlmul = 0b100 is reserved
     let vtypei = 0b100;
@@ -296,7 +283,6 @@ fn vsetvli_reserved_vlmul_sets_vill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_vlmax_zero_sets_vill() {
     // e64 with mf8: VLMAX = 128/(64*8) = 0 -> unsupported
     let vtypei = encode_vtype(Vsew::E64, Vlmul::Mf8, false, false);
@@ -316,7 +302,6 @@ fn vsetvli_vlmax_zero_sets_vill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_reserved_upper_bits_set_vill() {
     // Bit 8 set in vtypei -> reserved, must set vill
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false) | (1 << 8);
@@ -337,7 +322,6 @@ fn vsetvli_reserved_upper_bits_set_vill() {
 // vsetvli rs1=x0 special cases
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     // VLMAX = 128/32 = 4
@@ -355,7 +339,6 @@ fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M8, false, false);
     // VLMAX = (128*8)/8 = 128
@@ -373,7 +356,6 @@ fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_rs1_x0_rd_x0_keeps_vl_when_vlmax_unchanged() {
     // First: set e32,m1 with AVL=3 -> vl=3, VLMAX=4
     let vtypei_1 = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
@@ -404,7 +386,6 @@ fn vsetvli_rs1_x0_rd_x0_keeps_vl_when_vlmax_unchanged() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_rs1_x0_rd_x0_vill_when_vlmax_changes() {
     // First: set e32,m1 -> VLMAX = 4
     let mut state = initialize_state([
@@ -432,7 +413,6 @@ fn vsetvli_rs1_x0_rd_x0_vill_when_vlmax_changes() {
 // vsetivli tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_basic() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     // VLMAX = 4, AVL = 3 (from immediate)
@@ -451,7 +431,6 @@ fn vsetivli_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_avl_zero() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetivli {
@@ -469,7 +448,6 @@ fn vsetivli_avl_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_max_immediate() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     // VLMAX = 4, uimm = 31 > VLMAX -> vl = 4
@@ -487,7 +465,6 @@ fn vsetivli_max_immediate() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_avl_within_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M8, false, false);
     // VLMAX = 128, uimm = 20 -> vl = 20
@@ -505,7 +482,6 @@ fn vsetivli_avl_within_vlmax() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_unsupported_sets_vill() {
     // Reserved vlmul encoding
     let vtypei = 0b100;
@@ -524,7 +500,6 @@ fn vsetivli_unsupported_sets_vill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_with_ta_ma() {
     let vtypei = encode_vtype(Vsew::E16, Vlmul::M4, true, true);
     // VLMAX = (128*4)/16 = 32, uimm = 10
@@ -546,7 +521,6 @@ fn vsetivli_with_ta_ma() {
 // vsetvl tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_basic() {
     let vtype_raw = encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64;
     // VLMAX = 4, AVL = 3
@@ -570,7 +544,6 @@ fn vsetvl_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_rs1_x0_rd_nonzero() {
     let vtype_raw = encode_vtype(Vsew::E64, Vlmul::M1, false, false) as u64;
     // VLMAX = 128/64 = 2
@@ -589,7 +562,6 @@ fn vsetvl_rs1_x0_rd_nonzero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_unsupported_raw_sets_vill() {
     // Set bit `XLEN-1` (vill) in the register value
     let vtype_raw = 1u64 << (u64::BITS - 1);
@@ -610,7 +582,6 @@ fn vsetvl_unsupported_raw_sets_vill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_high_bits_in_rs2_sets_vill() {
     // Upper bits [62:8] non-zero -> must set vill per spec
     let vtype_raw = (1u64 << 10) | encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64;
@@ -630,7 +601,6 @@ fn vsetvl_high_bits_in_rs2_sets_vill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_context_restore_preserves_vtype() {
     // vsetvl is used for context restore; ensure the full round-trip works
     let vtype_raw = encode_vtype(Vsew::E16, Vlmul::M4, true, false) as u64;
@@ -657,7 +627,6 @@ fn vsetvl_context_restore_preserves_vtype() {
 // mark_vs_dirty tracking
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_marks_dirty() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -674,7 +643,6 @@ fn vsetvli_marks_dirty() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_unsupported_still_marks_dirty() {
     // Even when setting vill, the vector state changed -> dirty
     let vtypei = 0b100;
@@ -693,7 +661,6 @@ fn vsetvli_unsupported_still_marks_dirty() {
 // vector_instructions_allowed check
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_fails_when_vector_disabled() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -710,7 +677,6 @@ fn vsetvli_fails_when_vector_disabled() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_fails_when_vector_disabled() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetivli {
@@ -726,7 +692,6 @@ fn vsetivli_fails_when_vector_disabled() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_fails_when_vector_disabled() {
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
@@ -748,7 +713,6 @@ fn vsetvl_fails_when_vector_disabled() {
 // CSR read/write via prepare_csr_read/prepare_csr_write
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_read_passes_through_vector_csrs() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -763,7 +727,6 @@ fn prepare_csr_read_passes_through_vector_csrs() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_read_ignores_non_vector_csrs() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -778,7 +741,6 @@ fn prepare_csr_read_ignores_non_vector_csrs() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_read_works_for_all_vector_csrs() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -804,7 +766,6 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_rejects_read_only_vl() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -818,7 +779,6 @@ fn prepare_csr_write_rejects_read_only_vl() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_rejects_read_only_vtype() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -833,7 +793,6 @@ fn prepare_csr_write_rejects_read_only_vtype() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_rejects_read_only_vlenb() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -848,7 +807,6 @@ fn prepare_csr_write_rejects_read_only_vlenb() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vxsat_masks_to_1_bit() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -864,7 +822,6 @@ fn prepare_csr_write_vxsat_masks_to_1_bit() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vxrm_masks_to_2_bits() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -880,7 +837,6 @@ fn prepare_csr_write_vxrm_masks_to_2_bits() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vcsr_masks_to_3_bits() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -896,7 +852,6 @@ fn prepare_csr_write_vcsr_masks_to_3_bits() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vstart_passes_full_value() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -916,7 +871,6 @@ fn prepare_csr_write_vstart_passes_full_value() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_ignores_non_vector_csrs() {
     let mut output = 0u64;
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
@@ -932,7 +886,6 @@ fn prepare_csr_write_ignores_non_vector_csrs() {
 // vtype CSR raw value tracking
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_csr_raw_value_matches_decoded() {
     let vtypei = encode_vtype(Vsew::E16, Vlmul::M2, true, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -951,7 +904,6 @@ fn vtype_csr_raw_value_matches_decoded() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_csr_vill_sets_bit_63() {
     let vtypei = 0b100;
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -969,7 +921,6 @@ fn vtype_csr_vill_sets_bit_63() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vl_csr_matches_vl_value() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
@@ -987,7 +938,6 @@ fn vl_csr_matches_vl_value() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlenb_csr_returns_correct_value() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -998,7 +948,6 @@ fn vlenb_csr_returns_correct_value() {
 // Sequential instruction tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn sequential_vsetvli_overrides_previous() {
     let mut state = initialize_state([
         Zve64xConfigInstruction::Vsetvli {
@@ -1030,7 +979,6 @@ fn sequential_vsetvli_overrides_previous() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_after_vill_recovers() {
     let mut state = initialize_state([
         // First: unsupported -> vill
@@ -1060,7 +1008,6 @@ fn vsetvli_after_vill_recovers() {
 // Mixed instruction type tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetivli_followed_by_vsetvl_x0_x0() {
     let mut state = initialize_state([
         // Set e16,m1 with AVL=5 -> vl=5, VLMAX=8
@@ -1091,7 +1038,6 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
 // Edge cases
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvli_large_avl_in_register() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     // VLMAX = 4, AVL = u64::MAX -> vl = 4
@@ -1110,7 +1056,6 @@ fn vsetvli_large_avl_in_register() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsetvl_all_bits_set_in_rs2_sets_vill() {
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
@@ -1131,51 +1076,43 @@ fn vsetvl_all_bits_set_in_rs2_sets_vill() {
 // Vlmul::vlmax unit tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_m1_e32_vlen128() {
     assert_eq!(Vlmul::M1.vlmax(128, 32), 4);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_m2_e32_vlen128() {
     assert_eq!(Vlmul::M2.vlmax(128, 32), 8);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_m4_e32_vlen128() {
     assert_eq!(Vlmul::M4.vlmax(128, 32), 16);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_m8_e8_vlen128() {
     assert_eq!(Vlmul::M8.vlmax(128, 8), 128);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_mf2_e32_vlen128() {
     assert_eq!(Vlmul::Mf2.vlmax(128, 32), 2);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_mf4_e16_vlen128() {
     // 128 / (16*4) = 2
     assert_eq!(Vlmul::Mf4.vlmax(128, 16), 2);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_mf8_e8_vlen128() {
     // 128 / (8*8) = 2
     assert_eq!(Vlmul::Mf8.vlmax(128, 8), 2);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vlmul_vlmax_zero_when_too_small() {
     // e64 with mf8 on VLEN=128: 128/(64*8) = 0
     assert_eq!(Vlmul::Mf8.vlmax(128, 64), 0);
@@ -1184,7 +1121,6 @@ fn vlmul_vlmax_zero_when_too_small() {
 // Vtype decode/encode round-trip tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_encode_decode_roundtrip() {
     let combos: &[(Vsew, Vlmul, bool, bool)] = &[
         (Vsew::E8, Vlmul::M1, false, false),
@@ -1216,7 +1152,6 @@ fn vtype_encode_decode_roundtrip() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_from_raw_rejects_reserved_vsew() {
     // vsew = 0b100 (bits [5:3] = 4)
     let raw = 0b100_000u64;
@@ -1225,7 +1160,6 @@ fn vtype_from_raw_rejects_reserved_vsew() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_from_raw_rejects_reserved_vlmul() {
     // vlmul = 0b100
     let raw = 0b100u64;
@@ -1234,7 +1168,6 @@ fn vtype_from_raw_rejects_reserved_vlmul() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_from_raw_rejects_upper_bits_set() {
     let raw = (1u64 << 8) | encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64;
     let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
@@ -1242,7 +1175,6 @@ fn vtype_from_raw_rejects_upper_bits_set() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_from_raw_rejects_sew_exceeding_elen() {
     // For Zve32x (ELEN=32), e64 should be rejected.
     // But our ELEN=64, so e64 is fine. Test with a smaller ELEN.
@@ -1252,7 +1184,6 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vtype_from_raw_rejects_zero_vlmax() {
     // e64 mf8 on VLEN=128: VLMAX = 0
     let raw = encode_vtype(Vsew::E64, Vlmul::Mf8, false, false) as u64;
@@ -1263,7 +1194,6 @@ fn vtype_from_raw_rejects_zero_vlmax() {
 // VectorCsr enum tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vector_csr_from_index_all_valid() {
     assert_eq!(VCsr::from_index(0x008), Some(VCsr::Vstart));
     assert_eq!(VCsr::from_index(0x009), Some(VCsr::Vxsat));
@@ -1275,7 +1205,6 @@ fn vector_csr_from_index_all_valid() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vector_csr_from_index_invalid() {
     assert_eq!(VCsr::from_index(0x000), None);
     assert_eq!(VCsr::from_index(0x300), None);
@@ -1285,7 +1214,6 @@ fn vector_csr_from_index_invalid() {
 // VectorRegistersExt derived accessor tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn ext_vstart_read_write() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1294,7 +1222,6 @@ fn ext_vstart_read_write() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn ext_vxrm_read_write() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1306,7 +1233,6 @@ fn ext_vxrm_read_write() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn ext_vxsat_read_write() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1315,7 +1241,6 @@ fn ext_vxsat_read_write() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn ext_initialize_vector_state() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1341,7 +1266,6 @@ fn ext_initialize_vector_state() {
 // vcsr mirroring tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1362,7 +1286,6 @@ fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1382,7 +1305,6 @@ fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1403,7 +1325,6 @@ fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1423,7 +1344,6 @@ fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1448,7 +1368,6 @@ fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vcsr_zero_clears_vxsat_and_vxrm() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1471,7 +1390,6 @@ fn prepare_csr_write_vcsr_zero_clears_vxsat_and_vxrm() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_write_vcsr_masks_then_mirrors() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1493,7 +1411,6 @@ fn prepare_csr_write_vcsr_masks_then_mirrors() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
@@ -1537,7 +1454,6 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn prepare_csr_read_vcsr_reflects_separate_csr_values() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();

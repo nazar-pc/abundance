@@ -1,8 +1,12 @@
-use crate::shader::constants::{
-    MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
-};
+#[cfg(all(not(miri), not(target_arch = "spirv")))]
+use crate::shader::constants::{MAX_BUCKET_SIZE, PARAM_M, REDUCED_MATCHES_COUNT};
+use crate::shader::constants::{PARAM_BC, REDUCED_BUCKET_SIZE};
+#[cfg(all(not(miri), not(target_arch = "spirv")))]
 use crate::shader::find_matches_in_buckets::calculate_left_target_on_demand;
-use crate::shader::types::{Match, Position, PositionExt, PositionR};
+#[cfg(all(not(miri), not(target_arch = "spirv")))]
+use crate::shader::types::{Match, PositionR};
+use crate::shader::types::{Position, PositionExt};
+#[cfg(all(not(miri), not(target_arch = "spirv")))]
 use std::mem::MaybeUninit;
 
 pub(in super::super) struct Rmap {
@@ -81,6 +85,7 @@ impl Rmap {
 }
 
 /// For verification use [`has_match`] instead.
+#[cfg(all(not(miri), not(target_arch = "spirv")))]
 pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     left_bucket_index: u32,
     left_bucket: &[PositionR; MAX_BUCKET_SIZE],

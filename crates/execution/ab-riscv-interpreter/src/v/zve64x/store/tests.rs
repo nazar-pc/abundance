@@ -62,7 +62,6 @@ fn exec_one(
 // Vsr (whole-register store)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_single_register_stores_vlenb_bytes() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -86,7 +85,6 @@ fn vsr_single_register_stores_vlenb_bytes() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_two_registers_stores_two_vlenb_blocks() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -111,7 +109,6 @@ fn vsr_two_registers_stores_two_vlenb_blocks() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_four_registers_stores_four_vlenb_blocks() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -141,7 +138,6 @@ fn vsr_four_registers_stores_four_vlenb_blocks() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_eight_registers_stores_eight_vlenb_blocks() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -171,7 +167,6 @@ fn vsr_eight_registers_stores_eight_vlenb_blocks() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_misaligned_register_returns_illegal_instruction() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -194,7 +189,6 @@ fn vsr_misaligned_register_returns_illegal_instruction() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_ignores_vtype_and_vl() {
     // vsr must work even when vtype=None (vill=1)
     let mut state = initialize_state([]);
@@ -221,7 +215,6 @@ fn vsr_ignores_vtype_and_vl() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsr_vector_not_allowed_returns_illegal_instruction() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -246,7 +239,6 @@ fn vsr_vector_not_allowed_returns_illegal_instruction() {
 // Vsm (mask store)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsm_stores_ceil_vl_over_8_bytes() {
     // E8/M1: VLMAX=16. Set vl=9 -> ceil(9/8)=2 bytes written.
     let mut state = setup(9, Vsew::E8, Vlmul::M1);
@@ -275,7 +267,6 @@ fn vsm_stores_ceil_vl_over_8_bytes() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsm_vl_zero_writes_nothing() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
     let mask = [0xFF; 16];
@@ -298,7 +289,6 @@ fn vsm_vl_zero_writes_nothing() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsm_vl_exactly_8_writes_one_byte() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     let mut mask = [0u8; 16];
@@ -320,7 +310,6 @@ fn vsm_vl_exactly_8_writes_one_byte() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsm_vector_not_allowed_returns_illegal_instruction() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -343,7 +332,6 @@ fn vsm_vector_not_allowed_returns_illegal_instruction() {
 // Vse (unit-stride store)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_e8_m1_stores_all_elements() {
     // VLMAX=16, store all 16 elements
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
@@ -368,7 +356,6 @@ fn vse_e8_m1_stores_all_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_e32_m1_stores_partial_vl() {
     // VLMAX=4, use vl=3
     let mut state = setup(3, Vsew::E32, Vlmul::M1);
@@ -407,7 +394,6 @@ fn vse_e32_m1_stores_partial_vl() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_e64_m1_stores_two_elements() {
     // VLMAX=2
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
@@ -439,7 +425,6 @@ fn vse_e64_m1_stores_two_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_masked_skips_inactive_elements() {
     // E8/M1 VLMAX=16, vl=8, use first byte of v0 as mask
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
@@ -479,7 +464,6 @@ fn vse_masked_skips_inactive_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_vstart_nonzero_skips_earlier_elements() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let mut vreg = [0u8; 16];
@@ -522,7 +506,6 @@ fn vse_vstart_nonzero_skips_earlier_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_masked_vs3_overlaps_v0_returns_illegal() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -545,7 +528,6 @@ fn vse_masked_vs3_overlaps_v0_returns_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_vtype_illegal_returns_illegal_instruction() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -569,7 +551,6 @@ fn vse_vtype_illegal_returns_illegal_instruction() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_vector_not_allowed_returns_illegal_instruction() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -594,7 +575,6 @@ fn vse_vector_not_allowed_returns_illegal_instruction() {
 // Vsse (strided store)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsse_positive_stride_stores_with_gap() {
     // E32/M1 VLMAX=4, vl=3, stride=8 (two u32 gaps)
     let mut state = setup(3, Vsew::E32, Vlmul::M1);
@@ -631,7 +611,6 @@ fn vsse_positive_stride_stores_with_gap() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsse_zero_stride_writes_same_address_repeatedly() {
     // With stride=0 every active element overwrites the same location.
     // Last active element wins.
@@ -658,7 +637,6 @@ fn vsse_zero_stride_writes_same_address_repeatedly() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsse_negative_stride_stores_in_reverse() {
     // E32/M1, vl=3, stride=-4 (0xFFFF_FFFF_FFFF_FFFC as u64).
     // base points at the *last* slot; elements go backwards.
@@ -694,7 +672,6 @@ fn vsse_negative_stride_stores_in_reverse() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsse_masked_skips_inactive_elements() {
     // E64/M1 VLMAX=2, vl=2, stride=16; mask bit 0 set, bit 1 clear
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
@@ -739,7 +716,6 @@ fn vsse_masked_skips_inactive_elements() {
 // Vsuxei / Vsoxei (indexed stores)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsuxei_e32_data_e32_index_stores_at_indexed_addresses() {
     // SEW=E32/M1: VLMAX=4, vl=3
     // index EEW=E32; EMUL_index = (32/32)*1 = 1 -> also M1
@@ -783,7 +759,6 @@ fn vsuxei_e32_data_e32_index_stores_at_indexed_addresses() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
     // SEW=E64/M1: VLMAX=2, vl=2; index EEW=E64 -> EMUL=1
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
@@ -821,7 +796,6 @@ fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsuxei_e8_index_scatter_e8_data() {
     // SEW=E8/M1: VLMAX=16, vl=4; index EEW=E8 -> EMUL=1
     // Scatter four bytes to arbitrary offsets
@@ -860,7 +834,6 @@ fn vsuxei_e8_index_scatter_e8_data() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsuxei_masked_skips_inactive_elements() {
     // E32/M1, vl=4; mask has only bits 0 and 3 set
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -918,7 +891,6 @@ fn vsuxei_masked_skips_inactive_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsuxei_misaligned_data_register_returns_illegal() {
     // M2 requires vs3 to be even; V3 is odd -> illegal
     let mut state = setup(4, Vsew::E32, Vlmul::M2);
@@ -946,7 +918,6 @@ fn vsuxei_misaligned_data_register_returns_illegal() {
 // Vsseg (unit-stride segment store)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
     // nf=2, SEW=E8/M1 VLMAX=16, vl=4
     // Field 0 in v2, field 1 in v3
@@ -986,7 +957,6 @@ fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsseg_nf3_e32_m1_stores_three_fields_per_element() {
     // nf=3, SEW=E32/M1 VLMAX=4, vl=2
     // segment stride = 3 * 4 = 12 bytes per element
@@ -1022,7 +992,6 @@ fn vsseg_nf3_e32_m1_stores_three_fields_per_element() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsseg_register_group_out_of_bounds_returns_illegal() {
     // nf=4, M1: need registers [V30, V31, V32, V33] -> V32/V33 out of range
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
@@ -1046,7 +1015,6 @@ fn vsseg_register_group_out_of_bounds_returns_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsseg_masked_v0_overlap_returns_illegal() {
     // nf=2, vs3=V0, masked: first field group includes v0 -> illegal
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -1072,7 +1040,6 @@ fn vsseg_masked_v0_overlap_returns_illegal() {
 // Vssseg (strided segment store)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vssseg_nf2_e32_m1_stride_16_stores_correctly() {
     // nf=2, SEW=E32/M1, vl=2, stride=16
     // Element i at base + i*16; within element: [f0, f1] at +0, +4
@@ -1116,7 +1083,6 @@ fn vssseg_nf2_e32_m1_stride_16_stores_correctly() {
 // Vsuxseg / Vsoxseg (indexed segment stores)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsuxseg_nf2_e32_index_e32_data_stores_segments_at_indexed_addresses() {
     // nf=2, SEW=E32/M1 VLMAX=4, vl=2; index EEW=E32
     // vs3=V2 (f0), vs3+1=V3 (f1); vs2=V6 (indices)
@@ -1158,7 +1124,6 @@ fn vsuxseg_nf2_e32_index_e32_data_stores_segments_at_indexed_addresses() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
     // nf=2, SEW=E64/M1 VLMAX=2, vl=2; index EEW=E64
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
@@ -1213,7 +1178,6 @@ fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
 // vstart invariant
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_resets_vstart_to_zero() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let vreg = [0u8; 16];
@@ -1236,7 +1200,6 @@ fn vse_resets_vstart_to_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsse_resets_vstart_to_zero() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let vreg = [0u8; 16];
@@ -1261,7 +1224,6 @@ fn vsse_resets_vstart_to_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsm_resets_vstart_to_zero() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V1, &[0u8; 16]);
@@ -1283,7 +1245,6 @@ fn vsm_resets_vstart_to_zero() {
 // vs_dirty invariant
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn stores_never_mark_vs_dirty() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let vreg = [0u8; 16];
@@ -1319,7 +1280,6 @@ fn stores_never_mark_vs_dirty() {
 // Memory error propagation
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vse_out_of_bounds_write_returns_memory_access_error() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let vreg = [0u8; 16];
@@ -1341,7 +1301,6 @@ fn vse_out_of_bounds_write_returns_memory_access_error() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vsse_out_of_bounds_write_returns_memory_access_error() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let vreg = [0u8; 16];

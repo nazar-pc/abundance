@@ -108,7 +108,6 @@ fn set_mask_bit(
 // vmv.x.s
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_e8_reads_element_0() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x42);
@@ -127,7 +126,6 @@ fn vmv_x_s_e8_reads_element_0() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_e8_sign_extends_negative() {
     // 0x80 = -128 as i8; sign-extended to i64 = 0xFFFFFFFFFFFFFF80
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -144,7 +142,6 @@ fn vmv_x_s_e8_sign_extends_negative() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_e16_sign_extends_negative() {
     // 0x8000 = -32768 as i16; sign-extended = 0xFFFFFFFFFFFF8000
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
@@ -161,7 +158,6 @@ fn vmv_x_s_e16_sign_extends_negative() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_e32_sign_extends_negative() {
     // 0x8000_0000 sign-extended to 64 bits = 0xFFFFFFFF80000000
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -178,7 +174,6 @@ fn vmv_x_s_e32_sign_extends_negative() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_e64_full_width() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xDEAD_BEEF_CAFE_F00D);
@@ -194,7 +189,6 @@ fn vmv_x_s_e64_full_width() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_vl_zero_still_reads() {
     // vmv.x.s reads element 0 regardless of vl.
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
@@ -211,7 +205,6 @@ fn vmv_x_s_vl_zero_still_reads() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_illegal_when_vector_disabled() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -227,7 +220,6 @@ fn vmv_x_s_illegal_when_vector_disabled() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_x_s_illegal_when_vtype_invalid() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vtype(None);
@@ -245,7 +237,6 @@ fn vmv_x_s_illegal_when_vtype_invalid() {
 // vmv.s.x
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_s_x_e8_writes_element_0() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     state.regs.write(Reg::A0, 0xAB);
@@ -268,7 +259,6 @@ fn vmv_s_x_e8_writes_element_0() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_s_x_e64_writes_element_0() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     state.regs.write(Reg::A1, 0x0102_0304_0506_0708u64);
@@ -287,7 +277,6 @@ fn vmv_s_x_e64_writes_element_0() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_s_x_vl_zero_suppresses_write() {
     // When vl == 0 the destination must not be updated.
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
@@ -306,7 +295,6 @@ fn vmv_s_x_vl_zero_suppresses_write() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_s_x_truncates_to_sew() {
     // Only the low SEW bits of rs1 are written.
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
@@ -323,7 +311,6 @@ fn vmv_s_x_truncates_to_sew() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_s_x_illegal_when_vector_disabled() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -341,7 +328,6 @@ fn vmv_s_x_illegal_when_vector_disabled() {
 // vslideup
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vx_e8_basic() {
     // vslideup by 2: vd[0..2] unchanged, vd[i] = vs2[i-2] for i in 2..8.
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
@@ -373,7 +359,6 @@ fn vslideup_vx_e8_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vi_e32_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -397,7 +382,6 @@ fn vslideup_vi_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vx_offset_zero_copies_all() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -424,7 +408,6 @@ fn vslideup_vx_offset_zero_copies_all() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vx_offset_ge_vl_no_write() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -451,7 +434,6 @@ fn vslideup_vx_offset_ge_vl_no_write() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vx_masked() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     for i in 0..8usize {
@@ -481,7 +463,6 @@ fn vslideup_vx_masked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_overlap_vd_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, 1u64);
@@ -499,7 +480,6 @@ fn vslideup_overlap_vd_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_masked_vd_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, 1u64);
@@ -517,7 +497,6 @@ fn vslideup_masked_vd_v0_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vstart_skips_lower_elements() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     for i in 0..8usize {
@@ -554,7 +533,6 @@ fn vslideup_vstart_skips_lower_elements() {
 // vslidedown
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_vx_e8_basic() {
     let mut state = setup(6, Vsew::E8, Vlmul::M1);
     for i in 0..16usize {
@@ -582,7 +560,6 @@ fn vslidedown_vx_e8_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_vi_e32_fills_zeros_past_end() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -605,7 +582,6 @@ fn vslidedown_vi_e32_fills_zeros_past_end() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_vx_partial_fill() {
     // Offset 2, vl 4, vlmax 4: elements 0..2 get vs2[2..4], elements 2..4 get 0.
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -630,7 +606,6 @@ fn vslidedown_vx_partial_fill() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_vx_offset_zero_is_copy() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -657,7 +632,6 @@ fn vslidedown_vx_offset_zero_is_copy() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_overlap_allowed() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -681,7 +655,6 @@ fn vslidedown_overlap_allowed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_masked() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -711,7 +684,6 @@ fn vslidedown_masked() {
 // vslide1up
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1up_vx_e32_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -736,7 +708,6 @@ fn vslide1up_vx_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1up_vx_e64_scalar_inserted() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xAAAA_AAAA_AAAA_AAAA);
@@ -763,7 +734,6 @@ fn vslide1up_vx_e64_scalar_inserted() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1up_overlap_vd_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -780,7 +750,6 @@ fn vslide1up_overlap_vd_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1up_masked() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -810,7 +779,6 @@ fn vslide1up_masked() {
 // vslide1down
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1down_vx_e32_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -835,7 +803,6 @@ fn vslide1down_vx_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1down_vx_e64_basic() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xAAAA_AAAA);
@@ -856,7 +823,6 @@ fn vslide1down_vx_e64_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1down_vl_one_only_scalar() {
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xDEAD_BEEF);
@@ -875,7 +841,6 @@ fn vslide1down_vl_one_only_scalar() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1down_overlap_allowed() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -899,7 +864,6 @@ fn vslide1down_overlap_allowed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1down_masked() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -929,7 +893,6 @@ fn vslide1down_masked() {
 // vrgather.vv
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vv_e8_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     for i in 0..16usize {
@@ -957,7 +920,6 @@ fn vrgather_vv_e8_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vv_index_out_of_range_gives_zero() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -980,7 +942,6 @@ fn vrgather_vv_index_out_of_range_gives_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vv_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -997,7 +958,6 @@ fn vrgather_vv_vd_overlap_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vv_vd_overlap_vs1_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -1014,7 +974,6 @@ fn vrgather_vv_vd_overlap_vs1_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vv_masked() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1044,7 +1003,6 @@ fn vrgather_vv_masked() {
 // vrgather.vx / vrgather.vi
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vx_e32_all_same_element() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1067,7 +1025,6 @@ fn vrgather_vx_e32_all_same_element() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vx_index_out_of_range_gives_zero() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1090,7 +1047,6 @@ fn vrgather_vx_index_out_of_range_gives_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vi_e8_immediate_index() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     for i in 0..16usize {
@@ -1112,7 +1068,6 @@ fn vrgather_vi_e8_immediate_index() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vi_index_zero() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..8usize {
@@ -1134,7 +1089,6 @@ fn vrgather_vi_index_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vx_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, 0u64);
@@ -1154,7 +1108,6 @@ fn vrgather_vx_vd_overlap_vs2_illegal() {
 // vrgatherei16.vv
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgatherei16_vv_e8_m1_basic() {
     // SEW=8, LMUL=1: EMUL_vs1 = (16/8)*1 = 2. vs1 must be aligned to 2.
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
@@ -1188,7 +1141,6 @@ fn vrgatherei16_vv_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgatherei16_vv_index_out_of_range_gives_zero() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1217,7 +1169,6 @@ fn vrgatherei16_vv_index_out_of_range_gives_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgatherei16_vv_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -1236,7 +1187,6 @@ fn vrgatherei16_vv_vd_overlap_vs2_illegal() {
 // vmerge.vvm / vmv.v.v
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_v_broadcasts_all_elements() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1264,7 +1214,6 @@ fn vmv_v_v_broadcasts_all_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_v_vl_zero_leaves_vd_undisturbed() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1291,7 +1240,6 @@ fn vmv_v_v_vl_zero_leaves_vd_undisturbed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vvm_blends_vs2_and_vs1() {
     // Mask v0 = 0b1010 -> elements 1 and 3 from vs1, elements 0 and 2 from vs2.
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1324,7 +1272,6 @@ fn vmerge_vvm_blends_vs2_and_vs1() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vvm_all_mask_bits_set_equals_vmv_v_v() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1352,7 +1299,6 @@ fn vmerge_vvm_all_mask_bits_set_equals_vmv_v_v() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vvm_all_mask_bits_clear_equals_copy_vs2() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1380,7 +1326,6 @@ fn vmerge_vvm_all_mask_bits_clear_equals_copy_vs2() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vvm_vd_overlap_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -1397,7 +1342,6 @@ fn vmerge_vvm_vd_overlap_v0_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_v_vd_may_equal_v0() {
     // vmv.v.v (vm=true) has no restriction on vd, including vd=v0.
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1424,7 +1368,6 @@ fn vmv_v_v_vd_may_equal_v0() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vvm_vstart_skips_early_elements() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1454,7 +1397,6 @@ fn vmerge_vvm_vstart_skips_early_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vvm_e8_full_register() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     // Even indices from vs2, odd indices from vs1.
@@ -1488,7 +1430,6 @@ fn vmerge_vvm_e8_full_register() {
 // vmerge.vxm / vmv.v.x
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_x_broadcasts_scalar() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, 0x1234_5678u64);
@@ -1514,7 +1455,6 @@ fn vmv_v_x_broadcasts_scalar() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_x_e64_full_width() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     state.regs.write(Reg::A0, 0xDEAD_BEEF_CAFE_F00Du64);
@@ -1539,7 +1479,6 @@ fn vmv_v_x_e64_full_width() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_x_truncates_to_sew() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     state.regs.write(Reg::A0, 0xABCD_EF01u64);
@@ -1559,7 +1498,6 @@ fn vmv_v_x_truncates_to_sew() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vxm_blends_vs2_and_scalar() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1590,7 +1528,6 @@ fn vmerge_vxm_blends_vs2_and_scalar() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vxm_vd_overlap_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -1607,7 +1544,6 @@ fn vmerge_vxm_vd_overlap_v0_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_x_vl_zero_leaves_vd_undisturbed() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1636,7 +1572,6 @@ fn vmv_v_x_vl_zero_leaves_vd_undisturbed() {
 // vmerge.vim / vmv.v.i
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_i_broadcasts_positive_immediate() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     exec(
@@ -1657,7 +1592,6 @@ fn vmv_v_i_broadcasts_positive_immediate() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_i_sign_extends_negative_immediate() {
     // simm5 = -1 (0b11111) sign-extended to 32 bits = 0xFFFF_FFFF.
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1681,7 +1615,6 @@ fn vmv_v_i_sign_extends_negative_immediate() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_i_sign_extends_negative_e64() {
     // simm5 = -1 sign-extended to 64 bits = 0xFFFF_FFFF_FFFF_FFFF.
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
@@ -1706,7 +1639,6 @@ fn vmv_v_i_sign_extends_negative_e64() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_i_negative_imm_truncated_to_sew_e8() {
     // simm5 = -1 = 0xFF_FF...FF; low 8 bits = 0xFF.
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -1726,7 +1658,6 @@ fn vmv_v_i_negative_imm_truncated_to_sew_e8() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vim_blends_vs2_and_immediate() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -1756,7 +1687,6 @@ fn vmerge_vim_blends_vs2_and_immediate() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vim_vd_overlap_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -1773,7 +1703,6 @@ fn vmerge_vim_vd_overlap_v0_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_i_vd_may_equal_v0_when_unmasked() {
     // vmv.v.i (vm=true): no restriction on vd.
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1793,7 +1722,6 @@ fn vmv_v_i_vd_may_equal_v0_when_unmasked() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vim_vstart_skips_early_elements() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1822,7 +1750,6 @@ fn vmerge_vim_vstart_skips_early_elements() {
 // Vector-disabled / vtype-invalid
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_variants_illegal_when_vector_disabled() {
     let instrs: &[(ZVPerm, &str)] = &[
         (
@@ -1865,7 +1792,6 @@ fn vmerge_variants_illegal_when_vector_disabled() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_variants_illegal_when_vtype_invalid() {
     let instrs: &[(ZVPerm, &str)] = &[
         (
@@ -1908,7 +1834,6 @@ fn vmerge_variants_illegal_when_vtype_invalid() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_variants_reset_vstart_and_mark_dirty() {
     let instrs: &[(ZVPerm, &str)] = &[
         (
@@ -1960,7 +1885,6 @@ fn vmerge_variants_reset_vstart_and_mark_dirty() {
 // LMUL > 1
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv_v_x_m2_e32_broadcasts_across_group() {
     let mut state = setup(8, Vsew::E32, Vlmul::M2);
     state.regs.write(Reg::A0, 0xCAFEu64);
@@ -1984,7 +1908,6 @@ fn vmv_v_x_m2_e32_broadcasts_across_group() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmerge_vxm_m2_e32_blends_across_group() {
     let mut state = setup(8, Vsew::E32, Vlmul::M2);
     for i in 0..8usize {
@@ -2017,7 +1940,6 @@ fn vmerge_vxm_m2_e32_blends_across_group() {
 // vcompress.vm
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_e32_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -2045,7 +1967,6 @@ fn vcompress_vm_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_all_active() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -2071,7 +1992,6 @@ fn vcompress_vm_all_active() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_none_active() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -2098,7 +2018,6 @@ fn vcompress_vm_none_active() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_e8_all_elements() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     for i in 0..16usize {
@@ -2124,7 +2043,6 @@ fn vcompress_vm_e8_all_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -2140,7 +2058,6 @@ fn vcompress_vm_vd_overlap_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_vd_overlap_vs1_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -2156,7 +2073,6 @@ fn vcompress_vm_vd_overlap_vs1_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vcompress_vm_vstart_resumes_output_at_vstart() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -2184,7 +2100,6 @@ fn vcompress_vm_vstart_resumes_output_at_vstart() {
 // vmv1r.v / vmv2r.v / vmv4r.v / vmv8r.v
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv1r_v_copies_single_register() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let src: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
@@ -2204,7 +2119,6 @@ fn vmv1r_v_copies_single_register() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv1r_v_src_eq_dst_nop() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     set_vreg_bytes(&mut state, VReg::V2, 0xAB);
@@ -2220,7 +2134,6 @@ fn vmv1r_v_src_eq_dst_nop() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv2r_v_copies_two_registers() {
     // V2/V3 -> V4/V5 (all aligned to 2)
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -2241,7 +2154,6 @@ fn vmv2r_v_copies_two_registers() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv2r_v_misaligned_vd_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -2256,7 +2168,6 @@ fn vmv2r_v_misaligned_vd_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv2r_v_misaligned_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
@@ -2271,7 +2182,6 @@ fn vmv2r_v_misaligned_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv4r_v_copies_four_registers() {
     // V8,V9,V10,V11 -> V12,V13,V14,V15 (both aligned to 4)
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -2307,7 +2217,6 @@ fn vmv4r_v_copies_four_registers() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv4r_v_misaligned_vd_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // V6 is not aligned to 4.
@@ -2323,7 +2232,6 @@ fn vmv4r_v_misaligned_vd_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv4r_v_misaligned_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // V6 is not aligned to 4.
@@ -2339,7 +2247,6 @@ fn vmv4r_v_misaligned_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv8r_v_copies_eight_registers() {
     // V8..V15 -> V16..V23 (both aligned to 8)
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -2373,7 +2280,6 @@ fn vmv8r_v_copies_eight_registers() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv8r_v_misaligned_vd_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // V16 is aligned to 8 but V4 is not.
@@ -2389,7 +2295,6 @@ fn vmv8r_v_misaligned_vd_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmv8r_v_misaligned_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // V8 is aligned to 8, V4 is not.
@@ -2405,7 +2310,6 @@ fn vmv8r_v_misaligned_vs2_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vmvr_does_not_require_valid_vtype() {
     // Whole-register moves must work even with vtype invalid (vill=1).
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
@@ -2426,7 +2330,6 @@ fn vmvr_does_not_require_valid_vtype() {
 // Multi-register group (LMUL > 1) tests
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_vx_m2_e32() {
     let mut state = setup(8, Vsew::E32, Vlmul::M2);
     for i in 0..8usize {
@@ -2461,7 +2364,6 @@ fn vslideup_vx_m2_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_vx_m2_e32_partial() {
     let mut state = setup(8, Vsew::E32, Vlmul::M2);
     for i in 0..8usize {
@@ -2487,7 +2389,6 @@ fn vslidedown_vx_m2_e32_partial() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vv_m2_e32() {
     let mut state = setup(8, Vsew::E32, Vlmul::M2);
     for i in 0..8usize {
@@ -2514,7 +2415,6 @@ fn vrgather_vv_m2_e32() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_unaligned_group_vd_illegal() {
     // M2/E32 requires vd aligned to 2; V3 is not.
     let mut state = setup(4, Vsew::E32, Vlmul::M2);
@@ -2535,7 +2435,6 @@ fn vslideup_unaligned_group_vd_illegal() {
 // vstart interaction
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslide1down_vstart_skips_early_elements() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -2562,7 +2461,6 @@ fn vslide1down_vstart_skips_early_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vrgather_vstart_skips_early_elements() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -2591,7 +2489,6 @@ fn vrgather_vstart_skips_early_elements() {
 // vstart reset and vs_dirty invariants (array-based, no macros)
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn all_instructions_reset_vstart() {
     // Each tuple: (instruction, needs_vstart_set)
     // We use a valid aligned register combination for every instruction.
@@ -2745,7 +2642,6 @@ fn all_instructions_reset_vstart() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn all_vector_instructions_mark_vs_dirty() {
     let cases = &[
         (
@@ -2899,7 +2795,6 @@ fn all_vector_instructions_mark_vs_dirty() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn all_instructions_illegal_when_vector_disabled() {
     let cases = &[
         (
@@ -3052,7 +2947,6 @@ fn all_instructions_illegal_when_vector_disabled() {
 // vl == 0 edge cases
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vl_zero_leaves_vd_undisturbed_slide() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -3080,7 +2974,6 @@ fn vl_zero_leaves_vd_undisturbed_slide() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vl_zero_leaves_vd_undisturbed_rgather() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -3110,7 +3003,6 @@ fn vl_zero_leaves_vd_undisturbed_rgather() {
 // Fractional LMUL
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslideup_mf2_e64_offset_ge_vlmax_no_write() {
     // Mf2/E64: VLMAX = VLEN/(8*2) = 128/(8*2) = 1.
     let mut state = setup(1, Vsew::E64, Vlmul::Mf2);
@@ -3132,7 +3024,6 @@ fn vslideup_mf2_e64_offset_ge_vlmax_no_write() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vslidedown_mf2_e64_offset_zero_copies() {
     let mut state = setup(1, Vsew::E64, Vlmul::Mf2);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x1234);

@@ -80,7 +80,6 @@ fn set_mask_bit(
 // ── vredsum ──────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // vs2 = [1, 2, 3, 4], vs1[0] = 10 → result = 10+1+2+3+4 = 20
@@ -104,7 +103,6 @@ fn vredsum_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_e8_m1_wraps() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     // vs2 = [200, 100], vs1[0] = 0 → 300 wraps to 44 in u8
@@ -125,7 +123,6 @@ fn vredsum_e8_m1_wraps() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_e16_m1_basic() {
     let mut state = setup(8, Vsew::E16, Vlmul::M1);
     // vs2 = [1..=8], vs1[0] = 100 → 100 + 36 = 136
@@ -147,7 +144,6 @@ fn vredsum_e16_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_e32_m1_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -168,7 +164,6 @@ fn vredsum_e32_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_e64_m1_basic() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xffff_ffff_ffff_fff0);
@@ -189,7 +184,6 @@ fn vredsum_e64_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_vl_zero_passthrough() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 999);
@@ -210,7 +204,6 @@ fn vredsum_vl_zero_passthrough() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_masked_skips_inactive() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // Active: elements 0, 2; inactive: 1, 3
@@ -234,7 +227,6 @@ fn vredsum_masked_skips_inactive() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_all_masked_out() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4 {
@@ -256,7 +248,6 @@ fn vredsum_all_masked_out() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredsum_m2_uses_group() {
     // LMUL=2, E8: VLMAX=32; vs2 spans v2-v3
     let mut state = setup(32, Vsew::E8, Vlmul::M2);
@@ -280,7 +271,6 @@ fn vredsum_m2_uses_group() {
 // ── vredand ──────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredand_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // vs2 = [0b1111, 0b1010, 0b1100, 0b1110], vs1[0] = 0xff
@@ -304,7 +294,6 @@ fn vredand_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredand_e64_identity() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, u64::MAX);
@@ -324,7 +313,6 @@ fn vredand_e64_identity() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredand_vl_zero_passthrough() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0);
@@ -345,7 +333,6 @@ fn vredand_vl_zero_passthrough() {
 // ── vredor ────────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredor_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
@@ -367,7 +354,6 @@ fn vredor_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredor_vl_zero_passthrough() {
     let mut state = setup(0, Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xffff);
@@ -388,7 +374,6 @@ fn vredor_vl_zero_passthrough() {
 // ── vredxor ───────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredxor_e32_m1_basic() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // XOR of all same value cancels out pairs
@@ -411,7 +396,6 @@ fn vredxor_e32_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredxor_e8_parity() {
     let mut state = setup(3, Vsew::E8, Vlmul::M1);
     // 0x01 ^ 0x03 ^ 0x07 = 0x05; initial 0 → 0x05
@@ -435,7 +419,6 @@ fn vredxor_e8_parity() {
 // ── vredminu ──────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredminu_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 200);
@@ -457,7 +440,6 @@ fn vredminu_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredminu_e32_initial_wins() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     // vs1[0] smaller than all vs2 elements (unsigned)
@@ -478,7 +460,6 @@ fn vredminu_e32_initial_wins() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredminu_treats_as_unsigned() {
     // 0x80 (128 as u8, but -128 as i8) must be treated unsigned
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -502,7 +483,6 @@ fn vredminu_treats_as_unsigned() {
 // ── vredmin ───────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmin_e8_m1_signed() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // -1 (0xff), -128 (0x80), 0, 127 (0x7f); signed min = -128
@@ -526,7 +506,6 @@ fn vredmin_e8_m1_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmin_e32_initial_is_most_negative() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xffff_ff00);
@@ -549,7 +528,6 @@ fn vredmin_e32_initial_is_most_negative() {
 // ── vredmaxu ──────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmaxu_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 10);
@@ -571,7 +549,6 @@ fn vredmaxu_e8_m1_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmaxu_treats_as_unsigned() {
     // 0x80 (-128 signed but 128 unsigned) should win over 0x01
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
@@ -594,7 +571,6 @@ fn vredmaxu_treats_as_unsigned() {
 // ── vredmax ───────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmax_e8_m1_signed() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // 0xff = -1, 0x80 = -128, 0 = 0, 0x7f = 127; signed max = 127
@@ -617,7 +593,6 @@ fn vredmax_e8_m1_signed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmax_e32_initial_is_largest() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x7fff_fff0);
@@ -640,7 +615,6 @@ fn vredmax_e32_initial_is_largest() {
 // ── vwredsumu ─────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_e8_to_e16_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // vs2 = [1, 2, 3, 4] at E8; vs1[0] = 10 at E16; result = 10+1+2+3+4 = 20 at E16
@@ -665,7 +639,6 @@ fn vwredsumu_e8_to_e16_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_e8_to_e16_zero_extends() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     // 0xff should be zero-extended to 0x00ff, not sign-extended to 0xffff
@@ -687,7 +660,6 @@ fn vwredsumu_e8_to_e16_zero_extends() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_e16_to_e32_basic() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -710,7 +682,6 @@ fn vwredsumu_e16_to_e32_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_e32_to_e64_basic() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xffff_ffff);
@@ -732,7 +703,6 @@ fn vwredsumu_e32_to_e64_basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_vl_zero_passthrough() {
     let mut state = setup(0, Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 999);
@@ -754,7 +724,6 @@ fn vwredsumu_vl_zero_passthrough() {
 // ── vwredsum ──────────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsum_e8_to_e16_sign_extends() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     // 0xff = -1 signed; sign-extended to E16 = 0xffff = -1
@@ -777,7 +746,6 @@ fn vwredsum_e8_to_e16_sign_extends() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsum_e8_to_e16_mixed_signs() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // -1, -1, 1, 1 → sum = 0; initial = 0
@@ -800,7 +768,6 @@ fn vwredsum_e8_to_e16_mixed_signs() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsum_e16_to_e32_sign_extends() {
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
     // 0x8000 = -32768 signed; sign-extended to E32 = 0xffff_8000
@@ -822,7 +789,6 @@ fn vwredsum_e16_to_e32_sign_extends() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsum_e32_to_e64_sign_extends() {
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     // 0x8000_0000 = i32::MIN; sign-extended to E64 = 0xffff_ffff_8000_0000
@@ -845,7 +811,6 @@ fn vwredsum_e32_to_e64_sign_extends() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsum_vl_zero_passthrough() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xff);
@@ -866,7 +831,6 @@ fn vwredsum_vl_zero_passthrough() {
 // ── widening illegal with E64 ─────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_e64_is_illegal() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     let result = exec(
@@ -885,7 +849,6 @@ fn vwredsumu_e64_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsum_e64_is_illegal() {
     let mut state = setup(1, Vsew::E64, Vlmul::M1);
     let result = exec(
@@ -906,7 +869,6 @@ fn vwredsum_e64_is_illegal() {
 // ── guard rails ───────────────────────────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_vector_not_allowed() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
@@ -926,7 +888,6 @@ fn reduction_vector_not_allowed() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_invalid_vtype_is_illegal() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
@@ -947,7 +908,6 @@ fn reduction_invalid_vtype_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_misaligned_vs2_m2_is_illegal() {
     // LMUL=2: vs2 must be even-aligned; V3 is misaligned
     let mut state = setup(4, Vsew::E32, Vlmul::M2);
@@ -967,7 +927,6 @@ fn reduction_misaligned_vs2_m2_is_illegal() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_vstart_reset_after_execution() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.ext_state.set_vstart(2);
@@ -989,7 +948,6 @@ fn reduction_vstart_reset_after_execution() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_vstart_nonzero_skips_early_elements() {
     // vstart=2: elements 0,1 are skipped; only elements 2,3 are active
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
@@ -1014,7 +972,6 @@ fn reduction_vstart_nonzero_skips_early_elements() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_marks_vs_dirty() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0);
@@ -1032,7 +989,6 @@ fn reduction_marks_vs_dirty() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn reduction_vd_element_zero_only_written() {
     // Verify that vd[1..] is not disturbed when vd had non-zero content
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
@@ -1067,7 +1023,6 @@ fn reduction_vd_element_zero_only_written() {
 // ── signed vs unsigned distinction ───────────────────────────────────────────
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmin_vs_vredminu_differ_on_high_bit() {
     // 0x80 = 128 unsigned, -128 signed (E8)
     // Unsigned min of {0x80, 0x01} = 0x01
@@ -1110,7 +1065,6 @@ fn vredmin_vs_vredminu_differ_on_high_bit() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vredmax_vs_vredmaxu_differ_on_high_bit() {
     // Unsigned max of {0x80, 0x01} with init 0 = 0x80
     // Signed max of {0x80, 0x01} with init 0 = 0x01
@@ -1150,7 +1104,6 @@ fn vredmax_vs_vredmaxu_differ_on_high_bit() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn vwredsumu_vs_vwredsum_differ_on_high_bit() {
     // 0x80 as E8: unsigned zero-extends to 0x0080, signed sign-extends to 0xff80
     let mut state_u = setup(1, Vsew::E8, Vlmul::M1);

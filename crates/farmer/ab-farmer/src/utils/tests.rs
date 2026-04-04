@@ -1,8 +1,21 @@
 #[cfg(not(miri))]
 use crate::utils::parse_cpu_cores_sets;
-use crate::utils::{CpuCoreSet, run_future_in_dedicated_thread, thread_pool_core_indices_internal};
+// TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+#[cfg(not(all(miri, target_os = "macos")))]
+// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+#[cfg(not(all(miri, target_os = "windows")))]
+use crate::utils::run_future_in_dedicated_thread;
+use crate::utils::{CpuCoreSet, thread_pool_core_indices_internal};
+// TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+#[cfg(not(all(miri, target_os = "macos")))]
+// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+#[cfg(not(all(miri, target_os = "windows")))]
 use std::future;
 use std::num::NonZeroUsize;
+// TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+#[cfg(not(all(miri, target_os = "macos")))]
+// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+#[cfg(not(all(miri, target_os = "windows")))]
 use tokio::sync::oneshot;
 
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
