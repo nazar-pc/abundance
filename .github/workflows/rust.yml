@@ -418,12 +418,12 @@ jobs:
             echo "Testing \`guest\` in \`$contract\`"
             cargo -Zgitoxide -Zgit ${{ env.command }} --package $contract --features $contract/guest
           done
-          for create_path in crates/contracts/core/*; do
+          for crate_path in crates/contracts/core/*; do
             # Not all crates have this feature
             if ! grep --no-messages --quiet "^guest = \[" "$crate_path/Cargo.toml"; then
               continue
             fi
-            crate="$(basename -- $create_path)"
+            crate="$(basename -- $crate_path)"
             echo "Testing \`guest\` in \`$crate\`"
             cargo -Zgitoxide -Zgit ${{ env.command }} --package $crate --features $crate/guest
           done
