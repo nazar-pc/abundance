@@ -10,7 +10,7 @@ use crate::contract::method::{ExtTraitComponents, MethodDetails};
 use crate::contract::update::{process_update_fn, process_update_fn_definition};
 use crate::contract::view::{process_view_fn, process_view_fn_definition};
 use ab_contracts_common::METADATA_STATIC_NAME_PREFIX;
-use ident_case::RenameRule;
+use heck::ToSnakeCase;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
@@ -182,10 +182,7 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
     }
 
     let static_name = format_ident!("{METADATA_STATIC_NAME_PREFIX}{}", trait_name);
-    let ffi_mod_ident = format_ident!(
-        "{}_ffi",
-        RenameRule::SnakeCase.apply_to_variant(trait_name.to_string())
-    );
+    let ffi_mod_ident = format_ident!("{}_ffi", trait_name.to_string().to_snake_case());
     let metadata_const = generate_trait_metadata(&contract_details, trait_name, item_impl.span())?;
     let method_fn_pointers_const = {
         let methods = contract_details

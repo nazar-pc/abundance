@@ -270,7 +270,7 @@ name = "ab-contracts-macros-impl"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ident_case",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -3112,12 +3112,6 @@ name = "id-arena"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
-
-[[package]]
-name = "ident_case"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idna"

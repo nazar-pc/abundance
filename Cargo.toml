@@ -93,9 +93,9 @@ fs4 = "0.13.1"
 futures = { version = "0.3.32", default-features = false, features = ["async-await"] }
 futures-timer = "3.0.3"
 halfbrown = "0.4.0"
+heck = { version = "0.5.0" }
 hex = { version = "0.4.3", default-features = false }
 hwlocality = "1.0.0-alpha.11"
-ident_case = "1.0.1"
 jsonrpsee = "0.26.0"
 libc = "0.2.182"
 libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea", default-features = false }
