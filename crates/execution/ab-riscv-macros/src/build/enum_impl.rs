@@ -7,14 +7,14 @@ use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use prettyplease::unparse;
-use quote::{ToTokens, format_ident, quote};
+use quote::{ToTokens, format_ident};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
 use syn::{
     Expr, Fields, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, Pat, Stmt, Type, parse_file,
-    parse_quote, parse_str, parse2,
+    parse_quote, parse_str,
 };
 
 const ENUM_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_IMPL_PATH";
@@ -77,8 +77,8 @@ fn extract_try_decode_block_from_impl(item_impl: &ItemImpl) -> Option<&ImplItemF
     None
 }
 
-fn extract_try_decode_fn_from_impl_mut(item_impl: &mut ItemImpl) -> Option<&mut ImplItemFn> {
-    for item in &mut item_impl.items {
+fn extract_try_decode_fn_from_impl_mut(impl_items: &mut [ImplItem]) -> Option<&mut ImplItemFn> {
+    for item in impl_items {
         if let ImplItem::Fn(impl_item_fn) = item
             && impl_item_fn.sig.ident == "try_decode"
         {
@@ -90,7 +90,7 @@ fn extract_try_decode_fn_from_impl_mut(item_impl: &mut ItemImpl) -> Option<&mut 
 }
 
 fn output_processed_enum_decoding_impl(
-    enum_name: Ident,
+    enum_name: &Ident,
     item_impl: ItemImpl,
     out_dir: &Path,
     state: &mut State,
@@ -191,7 +191,7 @@ pub(super) fn process_enum_decoding_impl(
 ) -> anyhow::Result<()> {
     let enum_name = enum_name_from_impl(&item_impl);
 
-    let Some(try_decode_fn) = extract_try_decode_fn_from_impl_mut(&mut item_impl) else {
+    let Some(try_decode_fn) = extract_try_decode_fn_from_impl_mut(&mut item_impl.items) else {
         Err(anyhow::anyhow!(
             "Expected `#[instruction] impl Instruction for {}`, but no `try_decode` method was \
             not found",
@@ -265,7 +265,7 @@ pub(super) fn process_enum_decoding_impl(
             block
         });
 
-    *try_decode_block = parse2(quote! {{
+    *try_decode_block = parse_quote! {{
         #[expect(clippy::allow_attributes, reason = "Attribute below")]
         #[allow(
             clippy::if_same_then_else,
@@ -275,14 +275,13 @@ pub(super) fn process_enum_decoding_impl(
         #( if let Some(decoded) = try { #all_blocks? } { Some(decoded) } else )*
 
         { None }
-    }})
-    .expect("Generated code is valid; qed");
+    }};
 
     item_impl
         .attrs
         .push(parse_quote! { #[automatically_derived] });
 
-    output_processed_enum_decoding_impl(enum_name, item_impl, out_dir, state)
+    output_processed_enum_decoding_impl(&enum_name, item_impl, out_dir, state)
 }
 
 pub(super) fn process_enum_display_impl(
