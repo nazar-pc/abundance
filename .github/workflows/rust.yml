@@ -83,11 +83,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
-      - name: Install protoc (libp2p)
-        uses: taiki-e/install-action@d858f8113943481093e02986a7586a4819a3bfd6 # 2.71.2
-        with:
-          tool: protoc
-
       - name: RISC-V support
         run: |
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
@@ -250,10 +245,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
-      - name: Install cargo-nextest and protoc (libp2p)
+      - name: Install cargo-nextest
         uses: taiki-e/install-action@d858f8113943481093e02986a7586a4819a3bfd6 # 2.71.2
         with:
-          tool: cargo-nextest,protoc
+          tool: cargo-nextest
 
       - name: RISC-V support
         run: |
