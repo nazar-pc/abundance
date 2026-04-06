@@ -513,10 +513,7 @@ pub struct InterpreterState<
     pub custom_error: PhantomData<CustomError>,
 }
 
-/// Trait for executable instructions.
-///
-/// To make instructions composable, none of the methods must use the `return` statement. `Err()?`
-/// or similar workarounds can be used instead.
+/// Trait for executable instructions
 pub trait ExecutableInstruction<State, CustomError = CustomErrorPlaceholder>
 where
     Self: Instruction,
