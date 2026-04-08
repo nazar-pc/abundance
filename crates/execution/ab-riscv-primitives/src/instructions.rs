@@ -13,7 +13,7 @@ use core::marker::Destruct;
 
 /// Generic instruction
 pub const trait Instruction:
-    fmt::Display + fmt::Debug + [const] Destruct + Copy + Send + Sync + Sized + 'static
+    fmt::Display + fmt::Debug + [const] Destruct + Copy + Send + Sync + Sized
 {
     /// A register type used by the instruction
     type Reg: Register;

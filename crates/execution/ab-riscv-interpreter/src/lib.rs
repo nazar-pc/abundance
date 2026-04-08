@@ -531,6 +531,7 @@ where
     ///
     /// If no extension returns `Ok(true)`, the read operation is implicitly rejected as illegal
     /// access.
+    #[inline(always)]
     fn prepare_csr_read<C>(
         csrs: &C,
         csr_index: u16,
@@ -562,6 +563,7 @@ where
     ///
     /// If no extension returns `Ok(true)`, the write operation is implicitly rejected as illegal
     /// access.
+    #[inline(always)]
     fn prepare_csr_write<C>(
         csrs: &mut C,
         csr_index: u16,
