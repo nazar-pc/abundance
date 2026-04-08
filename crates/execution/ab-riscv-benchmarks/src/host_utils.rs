@@ -131,9 +131,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
     where
         T: BasicInt,
     {
-        let offset = address
-            .checked_sub(BASE_ADDR)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })?;
+        let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
@@ -166,9 +164,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
     }
 
     fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
-        let offset = address
-            .checked_sub(BASE_ADDR)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })?;
+        let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
@@ -181,9 +177,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
     }
 
     fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
-        let Some(offset) = address.checked_sub(BASE_ADDR) else {
-            return &[];
-        };
+        let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
             return &[];
@@ -197,9 +191,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
     where
         T: BasicInt,
     {
-        let offset = address
-            .checked_sub(BASE_ADDR)
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?;
+        let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
@@ -218,9 +210,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
     }
 
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
-        let offset = address
-            .checked_sub(BASE_ADDR)
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?;
+        let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
