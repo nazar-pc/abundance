@@ -1,5 +1,5 @@
 use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
-use ident_case::RenameRule;
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
@@ -1711,8 +1711,7 @@ fn derive_ffi_fn_name(
             "`#[contract]` must be applied to a simple struct without generics",
         )
     })?;
-    let ffi_fn_prefix =
-        RenameRule::SnakeCase.apply_to_variant(trait_name.unwrap_or(type_name).to_string());
+    let ffi_fn_prefix = trait_name.unwrap_or(type_name).to_string().to_snake_case();
 
     Ok(format_ident!("{ffi_fn_prefix}_{method_name}"))
 }
@@ -1731,6 +1730,6 @@ fn derive_external_args_struct_name(
     Ok(format_ident!(
         "{}{}Args",
         trait_name.unwrap_or(type_name),
-        RenameRule::PascalCase.apply_to_field(method_name.to_string())
+        method_name.to_string().to_upper_camel_case()
     ))
 }

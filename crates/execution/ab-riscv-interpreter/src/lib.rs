@@ -513,10 +513,7 @@ pub struct InterpreterState<
     pub custom_error: PhantomData<CustomError>,
 }
 
-/// Trait for executable instructions.
-///
-/// To make instructions composable, none of the methods must use the `return` statement. `Err()?`
-/// or similar workarounds can be used instead.
+/// Trait for executable instructions
 pub trait ExecutableInstruction<State, CustomError = CustomErrorPlaceholder>
 where
     Self: Instruction,
@@ -534,6 +531,7 @@ where
     ///
     /// If no extension returns `Ok(true)`, the read operation is implicitly rejected as illegal
     /// access.
+    #[inline(always)]
     fn prepare_csr_read<C>(
         csrs: &C,
         csr_index: u16,
@@ -565,6 +563,7 @@ where
     ///
     /// If no extension returns `Ok(true)`, the write operation is implicitly rejected as illegal
     /// access.
+    #[inline(always)]
     fn prepare_csr_write<C>(
         csrs: &mut C,
         csr_index: u16,

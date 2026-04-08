@@ -119,7 +119,7 @@ impl Ed25519VerifyInternalArgs {
     }
 }
 
-// Simple test memory implementation
+/// Simple test memory implementation
 #[derive(Debug, Copy, Clone)]
 #[repr(align(16))]
 pub struct TestMemory<const BASE_ADDR: u64, const SIZE: usize> {

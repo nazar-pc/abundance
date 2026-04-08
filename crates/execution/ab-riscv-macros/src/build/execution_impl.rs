@@ -8,12 +8,12 @@ use crate::build::state::{PendingEnumExecutionImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use prettyplease::unparse;
-use quote::{ToTokens, quote};
+use quote::ToTokens;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
-use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str, parse2};
+use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
 
@@ -107,8 +107,8 @@ fn extract_execute_fn(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
     None
 }
 
-fn extract_execute_fn_from_impl_mut(item_impl: &mut ItemImpl) -> Option<&mut ImplItemFn> {
-    for item in &mut item_impl.items {
+fn extract_execute_fn_from_impl_mut(impl_item: &mut [ImplItem]) -> Option<&mut ImplItemFn> {
+    for item in impl_item {
         if let ImplItem::Fn(impl_item_fn) = item
             && impl_item_fn.sig.ident == "execute"
         {
@@ -120,7 +120,7 @@ fn extract_execute_fn_from_impl_mut(item_impl: &mut ItemImpl) -> Option<&mut Imp
 }
 
 fn output_processed_enum_execution_impl(
-    enum_name: Ident,
+    enum_name: &Ident,
     item_impl: ItemImpl,
     out_dir: &Path,
     state: &mut State,
@@ -170,7 +170,7 @@ pub(super) fn process_execution_impl(
     let result = try {
         let enum_name = enum_name_from_impl(&item_impl);
 
-        let Some(execute_fn) = extract_execute_fn_from_impl_mut(&mut item_impl) else {
+        let Some(execute_fn) = extract_execute_fn_from_impl_mut(&mut item_impl.items) else {
             Err(anyhow::anyhow!(
                 "Unexpected `impl` for `{}`, `#[instruction_execution]` attribute must be added to \
                 a simple instruction enum implementation, but no `execute` method was found",
@@ -249,38 +249,6 @@ pub(super) fn process_execution_impl(
             }
         }
 
-        let all_execute_blocks = all_execute_blocks
-            .into_iter()
-            .chain(iter::once(&*execute_block));
-
-        let mut all_instructions = HashMap::new();
-        for block in all_execute_blocks {
-            for maybe_instruction in extract_variant_arms(block)? {
-                let (variant_name, instruction_arm) = maybe_instruction?;
-                all_instructions.insert(variant_name, instruction_arm);
-            }
-        }
-
-        let all_instructions = enum_definition
-            .instructions
-            .iter()
-            .map(|variant| {
-                all_instructions.remove(&variant.ident).with_context(|| {
-                    format!(
-                        "Instruction `{}` not found in all_instructions for enum `{enum_name}`",
-                        variant.ident
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        *execute_block = parse2(quote! {{
-            match self {
-                #( #all_instructions )*
-            }
-        }})
-        .expect("Generated code is valid; qed");
-
         if let Some(where_clause) = &mut item_impl.generics.where_clause {
             let mut already_inserted = where_clause
                 .predicates
@@ -301,6 +269,37 @@ pub(super) fn process_execution_impl(
             ))?;
         }
 
+        let all_execute_blocks = all_execute_blocks
+            .into_iter()
+            .chain(iter::once(&*execute_block));
+
+        let mut all_instructions = HashMap::new();
+        for block in all_execute_blocks {
+            for maybe_instruction in extract_variant_arms(block)? {
+                let (variant_name, instruction_arm) = maybe_instruction?;
+                all_instructions.insert(variant_name, instruction_arm);
+            }
+        }
+
+        let all_instructions = enum_definition
+            .instructions
+            .iter()
+            .map(|variant| {
+                let ident = &variant.ident;
+                all_instructions.remove(ident).with_context(|| {
+                    format!(
+                        "Instruction `{ident}` not found in all_instructions for enum `{enum_name}`"
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        *execute_block = parse_quote! {{
+            match self {
+                #( #all_instructions )*
+            }
+        }};
+
         // Composition for `prepare_csr_read` method
         let maybe_prepare_csr_read_fn = extract_prepare_csr_read_fn_mut(&mut item_impl);
         if let Some(prepare_csr_read_fn) = maybe_prepare_csr_read_fn {
@@ -315,25 +314,23 @@ pub(super) fn process_execution_impl(
                 .iter()
                 .map(|impl_item_fn| &impl_item_fn.block)
                 .chain(iter::once(&prepare_csr_read_fn.block));
-            prepare_csr_read_fn.block = parse2(quote! {{
+            prepare_csr_read_fn.block = parse_quote! {{
                 let mut accepted_by_at_least_one = false;
                 #( if #all_prepare_csr_read_blocks? { accepted_by_at_least_one = true; } )*
 
                 Ok(accepted_by_at_least_one)
-            }})
-            .expect("Generated code is valid; qed");
+            }};
         } else if let Some(&first_prepare_csr_read_fn) = all_prepare_csr_read_fns.first() {
             let all_prepare_csr_read_blocks = all_prepare_csr_read_fns
                 .iter()
                 .map(|impl_item_fn| &impl_item_fn.block);
             let mut base_fn = first_prepare_csr_read_fn.clone();
-            base_fn.block = parse2(quote! {{
+            base_fn.block = parse_quote! {{
                 let mut accepted_by_at_least_one = false;
                 #( if #all_prepare_csr_read_blocks? { accepted_by_at_least_one = true; } )*
 
                 Ok(accepted_by_at_least_one)
-            }})
-            .expect("Generated code is valid; qed");
+            }};
             item_impl.items.push(ImplItem::Fn(base_fn));
         }
 
@@ -351,25 +348,23 @@ pub(super) fn process_execution_impl(
                 .iter()
                 .map(|impl_item_fn| &impl_item_fn.block)
                 .chain(iter::once(&prepare_csr_write_fn.block));
-            prepare_csr_write_fn.block = parse2(quote! {{
+            prepare_csr_write_fn.block = parse_quote! {{
                 let mut accepted_by_at_least_one = false;
                 #( if #all_prepare_csr_write_blocks? { accepted_by_at_least_one = true; } )*
 
                 Ok(accepted_by_at_least_one)
-            }})
-            .expect("Generated code is valid; qed");
+            }};
         } else if let Some(&first_prepare_csr_write_fn) = all_prepare_csr_write_fns.first() {
             let all_prepare_csr_write_blocks = all_prepare_csr_write_fns
                 .iter()
                 .map(|impl_item_fn| &impl_item_fn.block);
             let mut base_fn = first_prepare_csr_write_fn.clone();
-            base_fn.block = parse2(quote! {{
+            base_fn.block = parse_quote! {{
                 let mut accepted_by_at_least_one = false;
                 #( if #all_prepare_csr_write_blocks? { accepted_by_at_least_one = true; } )*
 
                 Ok(accepted_by_at_least_one)
-            }})
-            .expect("Generated code is valid; qed");
+            }};
             item_impl.items.push(ImplItem::Fn(base_fn));
         }
 
@@ -378,11 +373,15 @@ pub(super) fn process_execution_impl(
         item_impl.attrs.remove(attribute_index);
         // Comments will be stripped, this will suppress some of the lints that are caused by it
         item_impl.attrs.extend([
-            parse_quote! { #[expect(clippy::allow_attributes, reason = "clippy::undocumented_unsafe_blocks")] },
-            parse_quote! { #[allow(clippy::undocumented_unsafe_blocks)] },
+            parse_quote! { #[expect(clippy::allow_attributes, reason = "Attribute below")] },
+            parse_quote! { #[allow(
+                clippy::undocumented_unsafe_blocks,
+                reason = "Comments will be stripped, this will suppress some of the lints that are \
+                caused by it"
+            )] },
         ]);
 
-        output_processed_enum_execution_impl(enum_name, item_impl, out_dir, state)?
+        output_processed_enum_execution_impl(&enum_name, item_impl, out_dir, state)?
     };
 
     Some(result)
