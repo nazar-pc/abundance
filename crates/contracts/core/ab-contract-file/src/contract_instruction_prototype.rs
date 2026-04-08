@@ -12,6 +12,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
+use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 use ab_riscv_primitives::registers::general_purpose::Register;
 use core::fmt;
 use core::ops::ControlFlow;
@@ -119,6 +120,7 @@ where
         Rv64MInstruction,
         Rv64BInstruction,
         Rv64ZbcInstruction,
+        ZicondInstruction,
         Rv64ZknhInstruction,
     ],
 )]

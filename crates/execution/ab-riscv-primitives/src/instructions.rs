@@ -5,6 +5,7 @@ pub mod rv64;
 #[cfg(test)]
 mod test_utils;
 pub mod v;
+pub mod zicond;
 pub mod zicsr;
 
 use crate::registers::general_purpose::Register;

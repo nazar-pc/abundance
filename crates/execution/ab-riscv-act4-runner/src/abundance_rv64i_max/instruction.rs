@@ -28,6 +28,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
+use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 // TODO: Improve macro generation to use the declared dependency enum for `fmt::Display`
 //  implementation instead of the original one, so these imports are no longer needed
 use ab_riscv_primitives::instructions::v::zve64x::arith::Zve64xArithInstruction;
@@ -60,6 +61,7 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
         Rv64ZbcInstruction,
         Rv64ZbkcInstruction,
         Rv64ZknhInstruction,
+        ZicondInstruction,
         ZicsrInstruction,
         Zve64xInstruction,
         MachineModePlaceholder,
