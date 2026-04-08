@@ -60,6 +60,7 @@ mod private;
 pub mod rv32;
 pub mod rv64;
 pub mod v;
+pub mod zicond;
 pub mod zicsr;
 
 use crate::private::BasicIntSealed;
