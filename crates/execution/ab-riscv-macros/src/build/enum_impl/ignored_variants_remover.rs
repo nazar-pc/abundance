@@ -35,7 +35,7 @@ fn extract_self_variant_ident(expr: &Expr) -> Option<Ident> {
 }
 
 struct IgnoredVariantsRemover<'a> {
-    allowed: &'a HashSet<Ident>,
+    allowed: &'a HashSet<&'a Ident>,
 }
 
 impl VisitMut for IgnoredVariantsRemover<'_> {
@@ -56,7 +56,7 @@ impl VisitMut for IgnoredVariantsRemover<'_> {
 
 /// Removes ignored (not allowed) variants from a given block in the form of
 /// `Self::Variant[|( .. )|{ .. }` patterns, replacing them with `None?`
-pub(super) fn remove_ignored_variants(block: &mut Block, allowed: &HashSet<Ident>) {
+pub(super) fn remove_ignored_variants(block: &mut Block, allowed: &HashSet<&Ident>) {
     let mut checker = IgnoredVariantsRemover { allowed };
     checker.visit_block_mut(block);
 }
