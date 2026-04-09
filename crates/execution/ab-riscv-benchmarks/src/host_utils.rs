@@ -393,7 +393,7 @@ where
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
         let instruction = *unsafe { self.instructions.get_unchecked(self.instruction_offset) };
-        self.instruction_offset += 1;
+        self.instruction_offset += usize::from(instruction.size()) / size_of::<u32>();
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }

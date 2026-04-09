@@ -7,13 +7,13 @@ use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use prettyplease::unparse;
-use quote::{ToTokens, format_ident};
+use quote::{ToTokens, format_ident, quote};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
 use syn::{
-    Expr, Fields, FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, Pat, Stmt, Type, parse_file,
+    Block, Expr, Fields, FnArg, Ident, ImplItem, ItemImpl, Pat, Stmt, Type, parse_file,
     parse_quote, parse_str,
 };
 
@@ -65,28 +65,82 @@ pub(super) fn collect_original_enum_decoding_impls_from_dependencies()
     })
 }
 
-fn extract_try_decode_block_from_impl(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
-    for item in &item_impl.items {
-        if let ImplItem::Fn(impl_item_fn) = item
-            && impl_item_fn.sig.ident == "try_decode"
-        {
-            return Some(impl_item_fn);
-        }
-    }
-
-    None
+pub(super) struct InstructionImplBlocks<'a> {
+    try_decode: &'a Block,
+    alignment: &'a Block,
+    size: &'a Block,
 }
 
-fn extract_try_decode_fn_from_impl_mut(impl_items: &mut [ImplItem]) -> Option<&mut ImplItemFn> {
+pub(super) struct InstructionImplBlocksMut<'a> {
+    try_decode: &'a mut Block,
+    alignment: &'a mut Block,
+    size: &'a mut Block,
+}
+
+fn extract_instruction_blocks_from_impl(
+    impl_items: &[ImplItem],
+) -> Option<InstructionImplBlocks<'_>> {
+    let mut try_decode = None;
+    let mut alignment = None;
+    let mut size = None;
+
     for item in impl_items {
-        if let ImplItem::Fn(impl_item_fn) = item
-            && impl_item_fn.sig.ident == "try_decode"
-        {
-            return Some(impl_item_fn);
+        if let ImplItem::Fn(impl_item_fn) = item {
+            match impl_item_fn.sig.ident.to_string().as_str() {
+                "try_decode" => {
+                    try_decode.replace(&impl_item_fn.block);
+                }
+                "alignment" => {
+                    alignment.replace(&impl_item_fn.block);
+                }
+                "size" => {
+                    size.replace(&impl_item_fn.block);
+                }
+                _ => {
+                    // Something else
+                }
+            }
         }
     }
 
-    None
+    Some(InstructionImplBlocks {
+        try_decode: try_decode?,
+        alignment: alignment?,
+        size: size?,
+    })
+}
+
+fn extract_instruction_blocks_from_impl_mut(
+    impl_items: &mut [ImplItem],
+) -> Option<InstructionImplBlocksMut<'_>> {
+    let mut try_decode = None;
+    let mut alignment = None;
+    let mut size = None;
+
+    for item in impl_items {
+        if let ImplItem::Fn(impl_item_fn) = item {
+            match impl_item_fn.sig.ident.to_string().as_str() {
+                "try_decode" => {
+                    try_decode.replace(&mut impl_item_fn.block);
+                }
+                "alignment" => {
+                    alignment.replace(&mut impl_item_fn.block);
+                }
+                "size" => {
+                    size.replace(&mut impl_item_fn.block);
+                }
+                _ => {
+                    // Something else
+                }
+            }
+        }
+    }
+
+    Some(InstructionImplBlocksMut {
+        try_decode: try_decode?,
+        alignment: alignment?,
+        size: size?,
+    })
 }
 
 fn output_processed_enum_decoding_impl(
@@ -216,14 +270,16 @@ pub(super) fn process_enum_decoding_impl(
     let enum_name = enum_name_from_impl(&original_item_impl);
     let mut item_impl = original_item_impl.clone();
 
-    let Some(try_decode_fn) = extract_try_decode_fn_from_impl_mut(&mut item_impl.items) else {
+    let Some(blocks) = extract_instruction_blocks_from_impl_mut(&mut item_impl.items) else {
         Err(anyhow::anyhow!(
-            "Expected `#[instruction] impl Instruction for {}`, but no `try_decode` method was \
-            not found",
+            "Expected `#[instruction] impl Instruction for {}` to contain `try_decode`, \
+            `alignment`, and `size` methods, but at least one was not found",
             item_impl.self_ty.to_token_stream()
         ))?
     };
-    let try_decode_block = &mut try_decode_fn.block;
+    let try_decode_block = blocks.try_decode;
+    let alignment_block = blocks.alignment;
+    let size_block = blocks.size;
     (!block_contains_forbidden_syntax(try_decode_block, &enum_name)).ok_or_else(|| {
         anyhow::anyhow!(
             "Expected `#[instruction] impl Instruction for {}` must not have `return` or enum \
@@ -237,8 +293,9 @@ pub(super) fn process_enum_decoding_impl(
         return Ok(());
     };
 
-    // TODO: This can probably be refactored as an iterator without collecting into a vector first
-    let mut all_blocks = Vec::new();
+    let mut all_try_decode_blocks = Vec::new();
+    let mut all_dependency_alignment_blocks = Vec::new();
+    let mut all_dependency_size_entries = Vec::new();
     {
         let mut all_dependencies = HashSet::new();
         all_dependencies.insert(enum_name.clone());
@@ -264,11 +321,20 @@ pub(super) fn process_enum_decoding_impl(
                     return Ok(());
                 };
 
-                let block = &extract_try_decode_block_from_impl(&dependency_enum_impl.item_impl)
-                    .expect("Dependencies are all valid; qed")
-                    .block;
+                let dependency_blocks =
+                    extract_instruction_blocks_from_impl(&dependency_enum_impl.item_impl.items)
+                        .expect("Dependencies are all valid; qed");
 
-                all_blocks.push(block);
+                all_try_decode_blocks.push(dependency_blocks.try_decode);
+                all_dependency_alignment_blocks.push(dependency_blocks.alignment);
+
+                let variant_idents = dependency_enum_definition
+                    .instructions
+                    .iter()
+                    .map(|v| &v.ident)
+                    .collect::<Vec<_>>();
+                all_dependency_size_entries.push((variant_idents, dependency_blocks.size));
+
                 new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
             }
         }
@@ -277,12 +343,14 @@ pub(super) fn process_enum_decoding_impl(
     let allowed_instruction = enum_definition
         .instructions
         .iter()
-        .map(|instruction| instruction.ident.clone())
+        .map(|instruction| &instruction.ident)
         .collect::<HashSet<_>>();
+
+    // Process `try_decode()` method
     // TODO: This simply concatenates individual decoding blocks, but it'd be much nicer to combine
     //  multiple `match` statements into one, merging branches with the same opcode. This,
     //  unfortunately, is much more complex, so skipped in the initial implementation.
-    let all_blocks = all_blocks
+    let all_try_decode_blocks = all_try_decode_blocks
         .into_iter()
         .chain(iter::once(&*try_decode_block))
         .cloned()
@@ -298,10 +366,88 @@ pub(super) fn process_enum_decoding_impl(
             reason = "In presence of ignored instructions, simple replacement sometimes results in \
             redundant code like `Some(None?)`"
         )]
-        #( if let Some(decoded) = try { #all_blocks? } { Some(decoded) } else )*
+        #( if let Some(decoded) = try { #all_try_decode_blocks? } { Some(decoded) } else )*
 
         { None }
     }};
+
+    // Process `alignment()` method: combine all unique bodies with `.min(...)` calls, keeping
+    // the own block last. Bodies that are token-identical are deduplicated to avoid redundant
+    // comparisons at runtime.
+    if !all_dependency_alignment_blocks.is_empty() {
+        let own_tokens = alignment_block.to_token_stream().to_string();
+
+        let mut seen_tokens = HashSet::from([own_tokens]);
+        let mut unique_dep_blocks = all_dependency_alignment_blocks
+            .into_iter()
+            .filter(|block| seen_tokens.insert(block.to_token_stream().to_string()))
+            .peekable();
+
+        if unique_dep_blocks.peek().is_some() {
+            *alignment_block = parse_quote! {{
+                #[expect(clippy::allow_attributes, reason = "Attribute below")]
+                #[allow(
+                    unused_braces,
+                    reason = "Combining blocks often results in `.min({expr})`, where `{expr}` is \
+                    very simple, which makes `{}` redundant"
+                )]
+                { #alignment_block #( .min(#unique_dep_blocks) )* }
+            }};
+        }
+    }
+
+    // Process `size()` method: if all dependency bodies are token-identical to the own body,
+    // leave it unchanged (optimization). Otherwise, build a `match self { ... }` where each
+    // group of variants is dispatched to its originating dependency's body.
+    if !all_dependency_size_entries.is_empty() {
+        let own_tokens = size_block.to_token_stream().to_string();
+
+        // Variants covered by at least one dependency entry
+        let mut already_covered = HashSet::new();
+
+        let mut all_dependency_size_entries = all_dependency_size_entries;
+        // Filter-out extra elements
+        all_dependency_size_entries.retain_mut(|(idents, _block)| {
+            idents.retain(|ident| {
+                allowed_instruction.contains(ident) && already_covered.insert(*ident)
+            });
+
+            !idents.is_empty()
+        });
+
+        let all_same = all_dependency_size_entries
+            .iter()
+            .all(move |(_, block)| block.to_token_stream().to_string() == own_tokens);
+
+        if !all_same {
+            let mut match_arms = Vec::new();
+
+            for (variant_idents, block) in all_dependency_size_entries {
+                match_arms.push(quote! {
+                    #( Self::#variant_idents { .. } )|* => #block
+                });
+            }
+
+            // Remaining variants that belong only to the current enum's own body
+            let mut own_only = enum_definition
+                .instructions
+                .iter()
+                .filter(|variant| !already_covered.contains(&variant.ident))
+                .peekable();
+
+            if own_only.peek().is_some() {
+                match_arms.push(quote! {
+                    #( Self::#own_only { .. } )|* => #size_block
+                });
+            }
+
+            *size_block = parse_quote! {{
+                match self {
+                    #( #match_arms, )*
+                }
+            }};
+        }
+    }
 
     item_impl
         .attrs
