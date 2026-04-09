@@ -21,7 +21,7 @@ pub(super) struct PendingEnumDefinition {
 }
 
 #[derive(Debug)]
-pub(super) struct KnownEnumImpl {
+pub(super) struct KnownOriginalEnumDecodingImpl {
     pub(super) item_impl: ItemImpl,
     pub(super) source: Rc<Path>,
 }
@@ -50,7 +50,7 @@ pub(super) struct PendingEnumExecutionImpl {
 pub(super) struct State {
     known_enum_definitions: HashMap<Ident, KnownEnumDefinition>,
     pending_enum_definitions: Vec<PendingEnumDefinition>,
-    known_enum_impls: HashMap<Ident, KnownEnumImpl>,
+    known_original_enum_decoding_impls: HashMap<Ident, KnownOriginalEnumDecodingImpl>,
     pending_enum_impls: Vec<PendingEnumImpl>,
     pending_enum_display_impls: Vec<PendingEnumDisplayImpl>,
     known_enum_execution_impls: HashMap<Ident, KnownEnumExecutionImpl>,
@@ -62,7 +62,7 @@ impl State {
         Self {
             known_enum_definitions: HashMap::new(),
             pending_enum_definitions: Vec::new(),
-            known_enum_impls: HashMap::new(),
+            known_original_enum_decoding_impls: HashMap::new(),
             pending_enum_impls: Vec::new(),
             pending_enum_display_impls: Vec::new(),
             known_enum_execution_impls: HashMap::new(),
@@ -77,8 +77,11 @@ impl State {
         self.known_enum_definitions.get(enum_name)
     }
 
-    pub(super) fn get_known_enum_impl(&self, enum_name: &Ident) -> Option<&KnownEnumImpl> {
-        self.known_enum_impls.get(enum_name)
+    pub(super) fn get_known_original_enum_decoding_impl(
+        &self,
+        enum_name: &Ident,
+    ) -> Option<&KnownOriginalEnumDecodingImpl> {
+        self.known_original_enum_decoding_impls.get(enum_name)
     }
 
     pub(super) fn get_known_enum_execution_impl(
@@ -116,20 +119,22 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn insert_known_enum_impl(
+    pub(super) fn insert_known_original_enum_decoding_impl(
         &mut self,
         item_impl: ItemImpl,
         source: Rc<Path>,
     ) -> anyhow::Result<()> {
         let enum_name = enum_name_from_impl(&item_impl);
 
-        if let Err(OccupiedError { entry, value }) = self.known_enum_impls.try_insert(
-            enum_name.clone(),
-            KnownEnumImpl {
-                item_impl: item_impl.clone(),
-                source: source.clone(),
-            },
-        ) && entry.get().item_impl != value.item_impl
+        if let Err(OccupiedError { entry, value }) =
+            self.known_original_enum_decoding_impls.try_insert(
+                enum_name.clone(),
+                KnownOriginalEnumDecodingImpl {
+                    item_impl: item_impl.clone(),
+                    source: source.clone(),
+                },
+            )
+            && entry.get().item_impl != value.item_impl
         {
             return Err(anyhow::anyhow!(
                 "Implementation for enum `{}` is already defined in `{}`, a different duplicate \

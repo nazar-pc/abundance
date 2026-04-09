@@ -17,7 +17,7 @@ use syn::{
     parse_quote, parse_str,
 };
 
-const ENUM_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_IMPL_PATH";
+const ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_ORIGINAL_IMPL_PATH";
 
 pub(super) fn enum_name_from_impl(item_impl: &ItemImpl) -> Ident {
     let Type::Path(path) = item_impl.self_ty.as_ref() else {
@@ -35,11 +35,11 @@ pub(super) fn enum_name_from_impl(item_impl: &ItemImpl) -> Ident {
         .clone()
 }
 
-pub(super) fn collect_enum_impls_from_dependencies()
+pub(super) fn collect_original_enum_decoding_impls_from_dependencies()
 -> impl Iterator<Item = anyhow::Result<(ItemImpl, Rc<Path>)>> {
     // Collect exported instruction enums from dependencies
     env::vars().filter_map(|(key, value)| {
-        if !key.ends_with(ENUM_IMPL_ENV_VAR_SUFFIX) {
+        if !key.ends_with(ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX) {
             return None;
         }
 
@@ -91,34 +91,58 @@ fn extract_try_decode_fn_from_impl_mut(impl_items: &mut [ImplItem]) -> Option<&m
 
 fn output_processed_enum_decoding_impl(
     enum_name: &Ident,
+    original_item_impl: ItemImpl,
     item_impl: ItemImpl,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
-    let enum_file_path = out_dir.join(format!("{}_decoding_impl.rs", enum_name));
-    let code = item_impl.to_token_stream().to_string();
-    // Format
-    let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
-    // Normalize source
-    let item_impl = parse_str(&code).expect("Generated code is valid; qed");
-    post_process_rust_code(&mut code);
+    {
+        let enum_file_path = out_dir.join(format!("{}_decoding_impl.rs", enum_name));
+        let code = item_impl.to_token_stream().to_string();
+        // Format
+        let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+        post_process_rust_code(&mut code);
 
-    // Avoid extra file truncation/override if it didn't change
-    if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
-        fs::write(&enum_file_path, code).with_context(|| {
-            format!(
-                "Failed to write generated Rust file with instruction decoding implementation for \
-                `{enum_name}`"
-            )
-        })?;
+        // Avoid extra file truncation/override if it didn't change
+        if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
+            fs::write(&enum_file_path, code).with_context(|| {
+                format!(
+                    "Failed to write generated Rust file with instruction decoding implementation \
+                    for `{enum_name}`"
+                )
+            })?;
+        }
     }
-    println!(
-        "cargo::metadata={}{ENUM_IMPL_ENV_VAR_SUFFIX}={}",
-        enum_name,
-        enum_file_path.display()
-    );
+    {
+        let original_enum_file_path =
+            out_dir.join(format!("{}_original_decoding_impl.rs", enum_name));
+        let code = original_item_impl.to_token_stream().to_string();
+        // Format
+        let mut code = unparse(&parse_file(&code).expect("Original code is valid; qed"));
+        // Normalize source
+        let original_item_impl = parse_str(&code).expect("Original code is valid; qed");
+        post_process_rust_code(&mut code);
 
-    state.insert_known_enum_impl(item_impl, Rc::from(enum_file_path))
+        // Avoid extra file truncation/override if it didn't change
+        if fs::read_to_string(&original_enum_file_path).ok().as_ref() != Some(&code) {
+            fs::write(&original_enum_file_path, code).with_context(|| {
+                format!(
+                    "Failed to write Rust file with original instruction decoding implementation \
+                    for `{enum_name}`"
+                )
+            })?;
+        }
+        println!(
+            "cargo::metadata={}{ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX}={}",
+            enum_name,
+            original_enum_file_path.display()
+        );
+
+        state.insert_known_original_enum_decoding_impl(
+            original_item_impl,
+            Rc::from(original_enum_file_path),
+        )
+    }
 }
 
 fn output_processed_enum_display_impl(
@@ -185,11 +209,12 @@ pub(super) fn process_enum_impl(
 }
 
 pub(super) fn process_enum_decoding_impl(
-    mut item_impl: ItemImpl,
+    original_item_impl: ItemImpl,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
-    let enum_name = enum_name_from_impl(&item_impl);
+    let enum_name = enum_name_from_impl(&original_item_impl);
+    let mut item_impl = original_item_impl.clone();
 
     let Some(try_decode_fn) = extract_try_decode_fn_from_impl_mut(&mut item_impl.items) else {
         Err(anyhow::anyhow!(
@@ -232,7 +257,8 @@ pub(super) fn process_enum_decoding_impl(
                     continue;
                 }
 
-                let Some(dependency_enum_impl) = state.get_known_enum_impl(&dependency_enum_name)
+                let Some(dependency_enum_impl) =
+                    state.get_known_original_enum_decoding_impl(&dependency_enum_name)
                 else {
                     state.add_pending_enum_impl(PendingEnumImpl { item_impl });
                     return Ok(());
@@ -281,7 +307,7 @@ pub(super) fn process_enum_decoding_impl(
         .attrs
         .push(parse_quote! { #[automatically_derived] });
 
-    output_processed_enum_decoding_impl(&enum_name, item_impl, out_dir, state)
+    output_processed_enum_decoding_impl(&enum_name, original_item_impl, item_impl, out_dir, state)
 }
 
 pub(super) fn process_enum_display_impl(
