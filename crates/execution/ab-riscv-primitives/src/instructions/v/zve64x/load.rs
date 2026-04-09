@@ -244,7 +244,7 @@ where
 
     #[inline(always)]
     fn alignment() -> u8 {
-        size_of::<u32>() as u8
+        align_of::<u32>() as u8
     }
 
     #[inline(always)]
