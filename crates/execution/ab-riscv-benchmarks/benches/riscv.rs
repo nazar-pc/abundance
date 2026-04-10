@@ -90,10 +90,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut memory = TestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
-    let contract_memory_size = contract_file.contract_memory_size() as usize;
+    let contract_memory_size = contract_file.contract_memory_size();
     if !contract_file.initialize_contract_memory({
         let output_memory = memory
-            .get_mut_bytes(MEMORY_BASE_ADDRESS, contract_memory_size)
+            .get_mut_bytes(MEMORY_BASE_ADDRESS, contract_memory_size as usize)
             .unwrap();
         // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
         unsafe { mem::transmute::<&mut [u8], &mut [MaybeUninit<u8>]>(output_memory) }
@@ -104,8 +104,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         );
     }
 
-    let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
-        .next_multiple_of(size_of::<u128>() as u64);
+    // Internal arguments are the end of the memory region
+    let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64
+        - size_of::<Blake3HashChunkInternalArgs>().max(size_of::<Ed25519VerifyInternalArgs>())
+            as u64;
 
     let mut lazy_state = InterpreterState {
         regs: Registers::default(),
@@ -201,10 +203,10 @@ fn criterion_benchmark(c: &mut Criterion) {
                 lazy_state
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
-                lazy_state.regs.write(
-                    ContractRegister::Sp,
-                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
-                );
+                // Stack is between internal arguments and contract memory
+                lazy_state
+                    .regs
+                    .write(ContractRegister::Sp, internal_args_addr);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -221,10 +223,10 @@ fn criterion_benchmark(c: &mut Criterion) {
                 eager_state
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
-                eager_state.regs.write(
-                    ContractRegister::Sp,
-                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
-                );
+                // Stack is between internal arguments and contract memory
+                eager_state
+                    .regs
+                    .write(ContractRegister::Sp, internal_args_addr);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
