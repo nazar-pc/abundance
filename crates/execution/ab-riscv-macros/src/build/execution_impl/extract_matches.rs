@@ -69,13 +69,6 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 continue_expr
                             }
                         }
-                        Expr::If(expr_if) => {
-                            if expr_if.else_branch.is_none() {
-                                // If branch with `else`, insert `Ok(ControlFlow::Continue(()))` at
-                                // the end of the block
-                                block.stmts.push(Stmt::Expr(continue_expr, None));
-                            }
-                        }
                         _ => {
                             if add_ok {
                                 // Ensure that the last statement ends with `;` even if it returns a
