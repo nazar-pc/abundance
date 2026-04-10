@@ -1,4 +1,31 @@
-//! Utilities for working with contract files
+//! Utilities for working with contract files.
+//!
+//! # File layout
+//!
+//! Internally, a contract file contains the following sections in specified order:
+//! * a header: [`ContractFileHeader`], which allows interpreting the rest of file contents
+//! * metadata about callable methods: [`ContractFileMethodMetadata`] for each method, which allows
+//!   calling methods later
+//! * read-only data section: contains contract metadata among other things, allowing to decode
+//!   names and ABI of the methods mentioned above, and the number of methods in this metadata must
+//!   match the number of methods in the header
+//! * code section: contains only valid/supported RISC-V instructions, always ending with some kind
+//!   of jump instruction
+//!
+//! This file is created from an ELF source file and can, technically, be converted back to it. Note
+//! that due to the intentional lack of the `.bss` section equivalent and many other features, only
+//! simple RISC-V ELF shared library files can be converted into the contract file. Supporting more
+//! complex capabilities would be much more complex and error-prone.
+//!
+//! ELF file is expected to have at most a single export for host calls, whose address is stored in
+//! the header and jumps to that address are intercepted by the runtime.
+//!
+//! The format is designed to be very compact, easy to understand and use, and be such that it can
+//! be trivially loaded into a normal RISC-V process for debugging purposes using traditional tools
+//! like gdb.
+//!
+//! `ab-contracts-tooling` crate exists that can build and convert contracts to this format both
+//! programmatically and using CLI interface.
 
 #![feature(
     const_option_ops,
@@ -255,7 +282,6 @@ impl From<MetadataDecodingError<'_>> for ContractFileParseError {
     }
 }
 
-// TODO: Description of the file format, assumptions and invariants
 /// A container for a parsed contract file
 #[derive(Debug)]
 pub struct ContractFile<'a> {
