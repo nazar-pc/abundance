@@ -47,10 +47,10 @@ where
 
     let mut memory = TestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
-    let contract_memory_size = contract_file.contract_memory_size() as usize;
+    let contract_memory_size = contract_file.contract_memory_size();
     if !contract_file.initialize_contract_memory({
         let output_memory = memory
-            .get_mut_bytes(MEMORY_BASE_ADDRESS, contract_memory_size)
+            .get_mut_bytes(MEMORY_BASE_ADDRESS, contract_memory_size as usize)
             .unwrap();
         // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
         unsafe { mem::transmute::<&mut [u8], &mut [MaybeUninit<u8>]>(output_memory) }
@@ -62,8 +62,8 @@ where
     }
 
     let mut regs = Registers::default();
-    let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
-        .next_multiple_of(size_of::<u128>() as u64);
+    // Internal arguments are the end of the memory region
+    let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64 - size_of::<IA>() as u64;
 
     {
         let internal_args = create_internal_args(internal_args_addr);
@@ -79,10 +79,8 @@ where
     }
 
     regs.write(ContractRegister::A0, internal_args_addr);
-    regs.write(
-        ContractRegister::Sp,
-        MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
-    );
+    // Stack is between internal arguments and contract memory
+    regs.write(ContractRegister::Sp, internal_args_addr);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
