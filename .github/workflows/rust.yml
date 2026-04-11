@@ -28,16 +28,18 @@ jobs:
     needs: act4
 
     steps:
-      - name: Checkout
+      - &checkout-step
+        name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
-      - name: Configure cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
+      - &cache-restore-step
+        name: Restore cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
         with:
-          path: |
+          path: &cache-path |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: &cache-key ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -80,10 +82,11 @@ jobs:
     needs: act4
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+      - *checkout-step
+      - *cache-restore-step
 
-      - name: RISC-V support
+      - &riscv-support-step
+        name: RISC-V support
         run: |
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
@@ -95,32 +98,26 @@ jobs:
         if: contains(matrix.target, 'riscv64')
 
       # Needed for hwloc
-      - name: Install automake and glibtoolize (macOS)
+      - &hwloc-deps-step
+        name: Install automake and glibtoolize (macOS)
         run: brew install automake libtool
         if: runner.os == 'macOS'
 
-      - name: Configure cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
+      - &mold-setup-step
+        uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
         if: runner.os == 'Linux' && matrix.target == ''
 
       # Use Mold linker for shorter build times
-      - name: Use Mold linker on Linux
+      - &mold-use-step
+        name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
         if: runner.os == 'Linux' && matrix.target == ''
 
       # Use LLD linker for shorter build times
-      - name: Use LLD linker on Windows
+      - &lld-step
+        name: Use LLD linker on Windows
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
@@ -184,6 +181,14 @@ jobs:
           ${{ env.command }} --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
         if: matrix.type == 'features'
 
+      - name: Save cache
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: *cache-path
+          key: *cache-key
+        # Only save on `main` branch, and only from one canonical matrix variant per OS
+        if: github.ref == 'refs/heads/main' && matrix.type == 'features'
+
   cargo-test:
     strategy:
       matrix:
@@ -242,56 +247,20 @@ jobs:
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps: &test-steps
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-
       - name: Install cargo-nextest
         uses: taiki-e/install-action@d858f8113943481093e02986a7586a4819a3bfd6 # 2.71.2
         with:
           tool: cargo-nextest
 
-      - name: RISC-V support
-        run: |
-          echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-          # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
-        if: contains(matrix.target, 'riscv64')
-
-      # Needed for hwloc
-      - name: Install automake and glibtoolize (macOS)
-        run: brew install automake libtool
-        if: runner.os == 'macOS'
-
-      - name: Configure cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux' && matrix.target == ''
-
-      # Use Mold linker for shorter build times
-      - name: Use Mold linker on Linux
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux' && matrix.target == ''
-
-      # Use LLD linker for shorter build times
-      - name: Use LLD linker on Windows
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
-        if: runner.os == 'Windows'
+      # TODO: It is currently not possible to reuse all of these at once:
+      #  https://frenck.dev/github-actions-yaml-anchors-aliases-merge-keys/
+      - *checkout-step
+      - *cache-restore-step
+      - *riscv-support-step
+      - *hwloc-deps-step
+      - *mold-setup-step
+      - *mold-use-step
+      - *lld-step
 
       # TODO: This is a workaround for https://github.com/rust-lang/miri/issues/3172#issuecomment-2986871634
       - name: Miri aarch64 workaround
@@ -487,46 +456,15 @@ jobs:
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-
-      - name: RISC-V support
-        run: |
-          echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-          # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
-        if: contains(matrix.target, 'riscv64')
-
-      - name: Configure cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux' && matrix.target == ''
-
-      # Use Mold linker for shorter build times
-      - name: Use Mold linker on Linux
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux' && matrix.target == ''
-
-      # Use LLD linker for shorter build times
-      - name: Use LLD linker on Windows
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
-        if: runner.os == 'Windows'
+      # TODO: It is currently not possible to reuse all of these at once:
+      #  https://frenck.dev/github-actions-yaml-anchors-aliases-merge-keys/
+      - *checkout-step
+      - *cache-restore-step
+      - *riscv-support-step
+      - *hwloc-deps-step
+      - *mold-setup-step
+      - *mold-use-step
+      - *lld-step
 
       # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
       # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
@@ -606,18 +544,8 @@ jobs:
     needs: act4
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-
-      - name: Configure cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+      - *checkout-step
+      - *cache-restore-step
 
       # TODO: Run clippy and `no-panic` on custom target for contracts too
       - name: Ensure contracts compile for a custom target
@@ -634,8 +562,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+      - *checkout-step
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # 4.0.0
@@ -652,7 +579,8 @@ jobs:
           context: /tmp/empty
           file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
           cache-from: type=gha,scope=act4-build
-          cache-to: type=gha,mode=min,scope=act4-build
+          # Only save on `main` branch
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=min,scope=act4-build' || '' }}
           load: true
 
       - name: ACT4 tests
