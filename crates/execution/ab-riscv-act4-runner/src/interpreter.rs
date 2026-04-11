@@ -4,13 +4,10 @@ use ab_riscv_interpreter::{
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
-use std::any::Any;
 use std::ops::ControlFlow;
 
 pub(crate) struct Act4Memory<const BASE_ADDR: u64, const SIZE: usize> {
     data: Box<[u8; SIZE]>,
-    tohost_addr: u64,
-    tohost_value: Option<u64>,
 }
 
 impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for Act4Memory<BASE_ADDR, SIZE> {
@@ -84,14 +81,6 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for Act4Memory<BASE_
     where
         T: BasicInt,
     {
-        if address == self.tohost_addr {
-            if let Some(raw) = <dyn Any>::downcast_ref::<u64>(&value) {
-                self.tohost_value = Some(*raw);
-            } else if let Some(raw) = <dyn Any>::downcast_ref::<u32>(&value) {
-                self.tohost_value = Some(u64::from(*raw));
-            }
-        }
-
         let offset = address
             .checked_sub(BASE_ADDR)
             .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?;
@@ -133,18 +122,12 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for Act4Memory<BASE_
 }
 
 impl<const BASE_ADDR: u64, const SIZE: usize> Act4Memory<BASE_ADDR, SIZE> {
-    pub(crate) fn new(tohost_addr: u64) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
             // SAFETY: Data structure filled with zeroes is a valid invariant
             data: unsafe { Box::new_zeroed().assume_init() },
-            tohost_addr,
-            tohost_value: None,
         }
-    }
-
-    pub(crate) fn tohost_value(&self) -> Option<u64> {
-        self.tohost_value
     }
 }
 
