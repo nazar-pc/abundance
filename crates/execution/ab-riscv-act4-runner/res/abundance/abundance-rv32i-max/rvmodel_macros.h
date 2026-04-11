@@ -65,9 +65,12 @@
 
 // ---------------------------------------------------------------------------
 // Data section placement: default .data section is fine.
-// Leave blank to use the linker script's .data placement.
 // ---------------------------------------------------------------------------
-#define RVMODEL_DATA_SECTION
+#define RVMODEL_DATA_SECTION \
+    .pushsection .tohost,"aw",@progbits;                \
+    .align 8; .global tohost; tohost: .dword 0;         \
+    .align 8; .global fromhost; fromhost: .dword 0;     \
+    .popsection
 
 // ---------------------------------------------------------------------------
 // Signature region markers (16-byte aligned per ACT4 spec).
