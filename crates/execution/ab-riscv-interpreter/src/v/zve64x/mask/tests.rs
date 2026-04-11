@@ -404,7 +404,7 @@ fn vcpop_masked() {
         },
     )
     .unwrap();
-    // 4 active elements, all set in vs2 → count = 4
+    // 4 active elements, all set in vs2 -> count = 4
     assert_eq!(state.regs.read(Reg::A0), 4);
 }
 
@@ -471,11 +471,11 @@ fn vcpop_sparse_bits() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     // Set exactly bits 0, 3, 7, 11, 15 - one per byte boundary cluster
     let mut data = [0u8; 16];
-    // Byte 0: bits 0,3,7 → 0b10001001 = 0x89
+    // Byte 0: bits 0,3,7 -> 0b10001001 = 0x89
     data[0] = 0x89;
-    // Byte 1: bits 8+3=11 → 0b00001000 = 0x08
+    // Byte 1: bits 8+3=11 -> 0b00001000 = 0x08
     data[1] = 0x08;
-    // bit 15: byte 1 bit 7 → 0x80
+    // bit 15: byte 1 bit 7 -> 0x80
     data[1] |= 0x80;
     set_vreg(&mut state, VReg::V2, data);
     exec(
@@ -514,7 +514,7 @@ fn vfirst_basic() {
     assert_eq!(state.ext_state.vstart(), 0);
 }
 
-/// vfirst with no bits set returns -1 (all-ones for XLEN=64 → u64::MAX)
+/// vfirst with no bits set returns -1 (all-ones for XLEN=64 -> u64::MAX)
 #[test]
 fn vfirst_no_set_bit_returns_minus_one() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
@@ -709,7 +709,7 @@ fn vmsbf_masked_inactive_undisturbed() {
         },
     )
     .unwrap();
-    // Elements 0,1 inactive → undisturbed (remain 1)
+    // Elements 0,1 inactive -> undisturbed (remain 1)
     assert!(
         mask_bit(&state, VReg::V4, 0),
         "inactive bit 0 must be undisturbed"
@@ -718,7 +718,7 @@ fn vmsbf_masked_inactive_undisturbed() {
         mask_bit(&state, VReg::V4, 1),
         "inactive bit 1 must be undisturbed"
     );
-    // Elements 2,3 active and before the first set bit (4) → set
+    // Elements 2,3 active and before the first set bit (4) -> set
     assert!(
         mask_bit(&state, VReg::V4, 2),
         "bit 2 should be set (before first)"
@@ -727,12 +727,12 @@ fn vmsbf_masked_inactive_undisturbed() {
         mask_bit(&state, VReg::V4, 3),
         "bit 3 should be set (before first)"
     );
-    // Element 4 active and is the first set bit → clear
+    // Element 4 active and is the first set bit -> clear
     assert!(
         !mask_bit(&state, VReg::V4, 4),
         "bit 4 should be clear (is first)"
     );
-    // Elements 5,6,7 active and after first set bit → clear
+    // Elements 5,6,7 active and after first set bit -> clear
     for i in 5..8 {
         assert!(
             !mask_bit(&state, VReg::V4, i),
@@ -1079,7 +1079,7 @@ fn vmsbf_vmsof_vmsif_relationship() {
 #[test]
 fn viota_basic_e8_m1() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    // vs2 bits: 0=1, 1=0, 2=1, 3=0, 4=1, 5=0, 6=0, 7=0 → byte = 0b00010101 = 0x15
+    // vs2 bits: 0=1, 1=0, 2=1, 3=0, 4=1, 5=0, 6=0, 7=0 -> byte = 0b00010101 = 0x15
     let mut vs2 = [0u8; 16];
     vs2[0] = 0x15;
     set_vreg(&mut state, VReg::V2, vs2);
@@ -1113,7 +1113,7 @@ fn viota_basic_e8_m1() {
 #[test]
 fn viota_e32_m1() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
-    // vs2: bits 1 and 2 set → byte = 0b00000110 = 0x06
+    // vs2: bits 1 and 2 set -> byte = 0b00000110 = 0x06
     let mut vs2 = [0u8; 16];
     vs2[0] = 0x06;
     set_vreg(&mut state, VReg::V2, vs2);
@@ -1233,7 +1233,7 @@ fn viota_misaligned_vd_illegal() {
 #[test]
 fn viota_vstart_undisturbed_below() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    // vs2: all bits clear → prefix counts are all zero
+    // vs2: all bits clear -> prefix counts are all zero
     set_vreg(&mut state, VReg::V2, [0x00; 16]);
     // Pre-set vd to sentinel
     set_vreg(&mut state, VReg::V4, [0xCD; 16]);

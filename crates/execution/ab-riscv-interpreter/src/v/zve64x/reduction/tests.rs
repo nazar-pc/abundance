@@ -82,7 +82,7 @@ fn set_mask_bit(
 #[test]
 fn vredsum_e8_m1_basic() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    // vs2 = [1, 2, 3, 4], vs1[0] = 10 → result = 10+1+2+3+4 = 20
+    // vs2 = [1, 2, 3, 4], vs1[0] = 10 -> result = 10+1+2+3+4 = 20
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 1) as u64);
     }
@@ -105,7 +105,7 @@ fn vredsum_e8_m1_basic() {
 #[test]
 fn vredsum_e8_m1_wraps() {
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
-    // vs2 = [200, 100], vs1[0] = 0 → 300 wraps to 44 in u8
+    // vs2 = [200, 100], vs1[0] = 0 -> 300 wraps to 44 in u8
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 200);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 100);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0);
@@ -125,7 +125,7 @@ fn vredsum_e8_m1_wraps() {
 #[test]
 fn vredsum_e16_m1_basic() {
     let mut state = setup(8, Vsew::E16, Vlmul::M1);
-    // vs2 = [1..=8], vs1[0] = 100 → 100 + 36 = 136
+    // vs2 = [1..=8], vs1[0] = 100 -> 100 + 36 = 136
     for i in 0..8usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, (i + 1) as u64);
     }
@@ -398,7 +398,7 @@ fn vredxor_e32_m1_basic() {
 #[test]
 fn vredxor_e8_parity() {
     let mut state = setup(3, Vsew::E8, Vlmul::M1);
-    // 0x01 ^ 0x03 ^ 0x07 = 0x05; initial 0 → 0x05
+    // 0x01 ^ 0x03 ^ 0x07 = 0x05; initial 0 -> 0x05
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x03);
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 0x07);
@@ -677,7 +677,7 @@ fn vwredsumu_e16_to_e32_basic() {
         },
     )
     .unwrap();
-    // Zero-extended: each 0x8000 → 0x0000_8000; 4 × 0x8000 = 0x0002_0000
+    // Zero-extended: each 0x8000 -> 0x0000_8000; 4 × 0x8000 = 0x0002_0000
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 4 * 0x8000u64);
 }
 
@@ -748,7 +748,7 @@ fn vwredsum_e8_to_e16_sign_extends() {
 #[test]
 fn vwredsum_e8_to_e16_mixed_signs() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    // -1, -1, 1, 1 → sum = 0; initial = 0
+    // -1, -1, 1, 1 -> sum = 0; initial = 0
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xff);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0xff);
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 0x01);

@@ -7,7 +7,7 @@
   "only-cdylib": true,
   "eh-frame-header": false,
   "emit-debug-gdb-scripts": false,
-  "features": "+m,+b,+zbc,+zbkb,+zicond,+zknh,+unaligned-scalar-mem",
+  "features": "+m,+b,+zbc,+zbkb,+zbkx,+zicond,+zknh,+unaligned-scalar-mem",
   "linker": "rust-lld",
   "linker-flavor": "ld.lld",
   "llvm-abiname": "lp64",

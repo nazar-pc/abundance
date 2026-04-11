@@ -725,7 +725,7 @@ fn vaadd_vv_e8_rdn_signed() {
         },
     )
     .unwrap();
-    // -7 >> 1 = -4 (truncate), rdn: no round → -4
+    // -7 >> 1 = -4 (truncate), rdn: no round -> -4
     let result = read_elem(&state, VReg::V4, 0, Vsew::E8);
     assert_eq!(sign_extend(result, Vsew::E8), -4);
 }
@@ -758,7 +758,7 @@ fn vaadd_vv_e8_no_overflow() {
 #[test]
 fn vaadd_vx_e64_rne() {
     // Test rne: (3 + 4) = 7, truncated = 3, round bit = 1, sticky = 0, result_lsb = 1
-    // Rne: increment = round_bit & (sticky | result_lsb) = 1 & 1 = 1 → 4
+    // Rne: increment = round_bit & (sticky | result_lsb) = 1 & 1 = 1 -> 4
     let mut state = setup_with_vxrm(1, Vsew::E64, Vlmul::M1, Vxrm::Rne);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 3);
     state.regs.write(Reg::A0, 4u64);
@@ -799,7 +799,7 @@ fn vasubu_vv_e8_rdn() {
 
 #[test]
 fn vasubu_vv_e8_rnu_odd_diff() {
-    // (5 - 2) = 3, rnu: round bit = 1 → 1+1 = 2
+    // (5 - 2) = 3, rnu: round bit = 1 -> 1+1 = 2
     let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 2);
@@ -845,7 +845,7 @@ fn vasubu_vx_e8_underflow_wraps_to_large() {
 
 #[test]
 fn vasub_vv_e8_rnu() {
-    // (-3 - 2) = -5, >> 1 with rnu: -5 has LSB=1, rnu increments → -2
+    // (-3 - 2) = -5, >> 1 with rnu: -5 has LSB=1, rnu increments -> -2
     let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     // -3
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFDu64);
@@ -860,7 +860,7 @@ fn vasub_vv_e8_rnu() {
         },
     )
     .unwrap();
-    // -5 >> 1 = -3 (arithmetic), rnu: bit[-1] = 1 → -3 + 1 = -2
+    // -5 >> 1 = -3 (arithmetic), rnu: bit[-1] = 1 -> -3 + 1 = -2
     assert_eq!(
         sign_extend(read_elem(&state, VReg::V4, 0, Vsew::E8), Vsew::E8),
         -2
@@ -887,7 +887,7 @@ fn vasub_vx_e16_rdn() {
     .unwrap();
     // -32768 - (-32767) = -1, >> 1 with rdn: -1 >> 1 = -1 (arithmetic), but -1 is odd, rdn: 0 +
     // (-1) = -1 -1 >> 1 = 0 (truncate toward zero in integer arithmetic); but rdn truncates
-    // toward -inf i128: -1 >> 1 = -1 (arithmetic), rdn adds 0 → result = -1
+    // toward -inf i128: -1 >> 1 = -1 (arithmetic), rdn adds 0 -> result = -1
     assert_eq!(
         sign_extend(read_elem(&state, VReg::V4, 0, Vsew::E16), Vsew::E16),
         -1
@@ -995,8 +995,8 @@ fn vsmul_vv_e64_int_min_saturates() {
 fn vsmul_vv_e16_rnu_rounding() {
     // Choose values where the round bit (bit SEW-1 of the doubled product) is 1.
     // a=b=181: a*b=32761, *2=65522. 65522>>16=0, round bit = (65522>>15)&1 = (65522/32768)&1.
-    // 65522 = 0xFFB2; bit 15 = 1 → rnu increments: 0+1 = 1.
-    // Verify: 181*181=32761, *2=65522=0xFFB2, >>16=0, bit[15]=1 → result=1
+    // 65522 = 0xFFB2; bit 15 = 1 -> rnu increments: 0+1 = 1.
+    // Verify: 181*181=32761, *2=65522=0xFFB2, >>16=0, bit[15]=1 -> result=1
     let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 181);
     write_elem(&mut state, VReg::V1, 0, Vsew::E16, 181);
@@ -1015,7 +1015,7 @@ fn vsmul_vv_e16_rnu_rounding() {
         1
     );
     assert!(!vxsat(&state));
-    // Contrast with rdn: same inputs → 0 (round bit discarded)
+    // Contrast with rdn: same inputs -> 0 (round bit discarded)
     let mut state2 = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state2, VReg::V2, 0, Vsew::E16, 181);
     write_elem(&mut state2, VReg::V1, 0, Vsew::E16, 181);
@@ -1037,8 +1037,8 @@ fn vsmul_vv_e16_rnu_rounding() {
 
 #[test]
 fn vsmul_vx_e16_negative() {
-    // -100 * 200 = -20000, *2 = -40000, >> 16 = -1 (arithmetic, since -40000 / 65536 = -0.6... →
-    // -1) -40000 = 0xFFFF_6300; bit[15] = 0 → rdn gives -1
+    // -100 * 200 = -20000, *2 = -40000, >> 16 = -1 (arithmetic, since -40000 / 65536 = -0.6... ->
+    // -1) -40000 = 0xFFFF_6300; bit[15] = 0 -> rdn gives -1
     let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rdn);
     // -100 as u16
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xFF9Cu64);
@@ -1084,7 +1084,7 @@ fn vssrl_vv_e8_rdn_basic() {
 
 #[test]
 fn vssrl_vv_e8_rnu_rounds_up() {
-    // 0b0000_0011 >> 1 = 1, round bit = 1 → 2
+    // 0b0000_0011 >> 1 = 1, round bit = 1 -> 2
     let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 3);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
@@ -1122,7 +1122,7 @@ fn vssrl_vv_e8_shift_zero() {
 
 #[test]
 fn vssrl_vv_e8_shift_masked_to_log2_sew() {
-    // Shift amount is masked to log2(8) = 3 bits; shift of 11 = 0b1011 masked to 3 → 3
+    // Shift amount is masked to log2(8) = 3 bits; shift of 11 = 0b1011 masked to 3 -> 3
     let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     // vs1 = 11 = 0b1011; masked to low 3 bits = 0b011 = 3
@@ -1145,7 +1145,7 @@ fn vssrl_vv_e8_shift_masked_to_log2_sew() {
 fn vssrl_vx_e32_rne() {
     // 7 = 0b111, shift by 1: truncated = 3 (odd), round bit = bit[0] of 7 = 1, sticky = 0
     // (no bits below position 0 exist).
-    // Rne: increment = round_bit & (sticky | result_lsb) = 1 & (0 | 1) = 1 → 3 + 1 = 4.
+    // Rne: increment = round_bit & (sticky | result_lsb) = 1 & (0 | 1) = 1 -> 3 + 1 = 4.
     let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rne);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 7);
     state.regs.write(Reg::A0, 1u64);
@@ -1166,7 +1166,7 @@ fn vssrl_vx_e32_rne() {
 fn vssrl_vi_e16_rod() {
     // 0b0110 >> 2 = 1, round bit = bit[1] of 6 = 1, sticky = bit[0] of 6 = 0
     // rod: if result_lsb == 0 && (round_bit || sticky): set result to 1 | 1 = 1; but result already
-    // odd? 6 >> 2 = 1 (odd), rod: result_lsb = 1, so no increment → 1
+    // odd? 6 >> 2 = 1 (odd), rod: result_lsb = 1, so no increment -> 1
     let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rod);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 6);
     exec(
@@ -1185,10 +1185,10 @@ fn vssrl_vi_e16_rod() {
 #[test]
 fn vssrl_vi_e16_rod_sets_lsb() {
     // 0b1000 = 8 >> 2 = 2 (even), rod: round bit = bit[1] of 8 = 0, sticky = bit[0] of 8 = 0
-    // No discarded bits set → no increment. Result = 2.
+    // No discarded bits set -> no increment. Result = 2.
     // Try 0b1100 = 12 >> 2 = 3 (odd), no change needed.
     // Try 0b1010 = 10 >> 2 = 2 (even), round bit = bit[1] of 10 = 1, sticky = 0
-    // rod: result_lsb = 0 and discarded != 0 → set lsb: 2 | 1 = 3
+    // rod: result_lsb = 0 and discarded != 0 -> set lsb: 2 | 1 = 3
     let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rod);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 10);
     exec(
@@ -1232,7 +1232,7 @@ fn vssra_vv_e8_rdn_negative() {
 
 #[test]
 fn vssra_vv_e8_rnu_negative() {
-    // -7 >> 1: arithmetic = -4, round bit = 1 (bit[0] of -7 = 1) → -4 + 1 = -3
+    // -7 >> 1: arithmetic = -4, round bit = 1 (bit[0] of -7 = 1) -> -4 + 1 = -3
     let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     // -7
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xF9u64);
@@ -1255,7 +1255,7 @@ fn vssra_vv_e8_rnu_negative() {
 
 #[test]
 fn vssra_vv_e8_positive_rnu() {
-    // 7 >> 1 = 3, round bit = 1 → 4
+    // 7 >> 1 = 3, round bit = 1 -> 4
     let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 7);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
@@ -1300,13 +1300,13 @@ fn vssra_vx_e32() {
 
 #[test]
 fn vssra_vi_e64_rne_tie_to_even() {
-    // 6 >> 1 = 3 (odd result), round bit = 0 → 3
-    // 2 >> 1 = 1 (odd), round bit = 0 → 1
+    // 6 >> 1 = 3 (odd result), round bit = 0 -> 3
+    // 2 >> 1 = 1 (odd), round bit = 0 -> 1
     // Test tie-to-even: value whose lower bits create a half-way case with even result
-    // 4 >> 1 = 2, round bit = 0 → 2 (no tie)
-    // 6 >> 1 = 3, round bit = 0 → 3
+    // 4 >> 1 = 2, round bit = 0 -> 2 (no tie)
+    // 6 >> 1 = 3, round bit = 0 -> 3
     // Try 0b110 (6) shifted by 2: truncated = 1, round_bit = 1, sticky = 1
-    // rne: increment = 1 & (sticky | result_lsb) = 1 & (1 | 1) = 1 → 2
+    // rne: increment = 1 & (sticky | result_lsb) = 1 & (1 | 1) = 1 -> 2
     let mut state = setup_with_vxrm(1, Vsew::E64, Vlmul::M1, Vxrm::Rne);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 6);
     exec(
@@ -1376,7 +1376,8 @@ fn vnclipu_wv_e8_saturates() {
 
 #[test]
 fn vnclipu_wx_e16_rnu() {
-    // 0x0001_FFFF >> 16 = 1, round bit = bit[15] of 0x0001_FFFF = 1 → saturates? No: 1+1=2 ≤ 0xFFFF
+    // 0x0001_FFFF >> 16 = 1, round bit = bit[15] of 0x0001_FFFF = 1 -> saturates? No: 1+1=2 ≤
+    // 0xFFFF
     let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rnu);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E16, 0x0001_FFFF);
     state.regs.write(Reg::A0, 16u64);
@@ -1496,7 +1497,7 @@ fn vnclip_wv_e8_positive_saturates_at_max() {
         },
     )
     .unwrap();
-    // 0x7FFF >> 7 = 0xFF = 255 > 127 → saturate to 127
+    // 0x7FFF >> 7 = 0xFF = 255 > 127 -> saturate to 127
     assert_eq!(
         sign_extend(read_elem(&state, VReg::V8, 0, Vsew::E8), Vsew::E8),
         127
@@ -1529,7 +1530,7 @@ fn vnclip_wv_e8_negative_saturates_at_min() {
 
 #[test]
 fn vnclip_wx_e16_rnu() {
-    // -1 (0xFFFF_FFFF as i32) >> 1 with rnu: -1>>1 = -1 (arithmetic), round bit = 1 → 0
+    // -1 (0xFFFF_FFFF as i32) >> 1 with rnu: -1>>1 = -1 (arithmetic), round bit = 1 -> 0
     let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rnu);
     // -1 as i32
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E16, 0xFFFF_FFFFu64);
@@ -1810,7 +1811,7 @@ fn vssrl_vtype_none_faults() {
 fn vsaddu_vd_misaligned_m2_faults() {
     // With M2, group_regs=2; vd must be even
     let mut state = setup(2, Vsew::E8, Vlmul::M2);
-    // V3 is odd → misaligned for M2
+    // V3 is odd -> misaligned for M2
     let result = exec(
         &mut state,
         Zve64xFixedPointInstruction::VsadduVv {
@@ -1865,7 +1866,7 @@ fn vnclipu_vs2_misaligned_m1_faults() {
 
 #[test]
 fn vsaddu_aligned_m4_ok() {
-    // M4: group_regs=4; vd=V4 (divisible by 4), vs2=V8, vs1=V12 → all valid
+    // M4: group_regs=4; vd=V4 (divisible by 4), vs2=V8, vs1=V12 -> all valid
     let mut state = setup(1, Vsew::E8, Vlmul::M4);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V8, i, Vsew::E8, 1);
@@ -2061,7 +2062,7 @@ fn vnclipu_e32_no_clip() {
 
 #[test]
 fn vnclipu_e32_saturates() {
-    // 0xFFFF_FFFF_FFFF_FFFFu64 >> 0 = 0xFFFF_FFFF_FFFF_FFFF > u32::MAX → saturate
+    // 0xFFFF_FFFF_FFFF_FFFFu64 >> 0 = 0xFFFF_FFFF_FFFF_FFFF > u32::MAX -> saturate
     let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E32, u64::MAX);
     exec(
@@ -2097,7 +2098,7 @@ fn vnclip_e32_no_clip() {
         },
     )
     .unwrap();
-    // -1 >> 32 = -1 (arithmetic), fits in i32 → -1
+    // -1 >> 32 = -1 (arithmetic), fits in i32 -> -1
     assert_eq!(
         sign_extend(read_elem(&state, VReg::V8, 0, Vsew::E32), Vsew::E32),
         -1
@@ -2130,8 +2131,8 @@ fn vnclip_e32_saturates_positive() {
 #[test]
 fn vssrl_rod_result_even_sets_lsb() {
     // 0b1100 = 12 >> 2 = 3 (odd), no change: rod doesn't set when already odd
-    // 0b1000 = 8 >> 2 = 2 (even), round_bit=0, sticky=0 → no increment; result = 2
-    // 0b1010 = 10 >> 2 = 2 (even), round_bit=1, sticky=0 → rod sets lsb: 3
+    // 0b1000 = 8 >> 2 = 2 (even), round_bit=0, sticky=0 -> no increment; result = 2
+    // 0b1010 = 10 >> 2 = 2 (even), round_bit=1, sticky=0 -> rod sets lsb: 3
     let mut state = setup_with_vxrm(2, Vsew::E8, Vlmul::M1, Vxrm::Rod);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 8);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 10);
@@ -2155,8 +2156,8 @@ fn vssrl_rod_result_even_sets_lsb() {
 
 #[test]
 fn vssra_rod_result_even_sets_lsb() {
-    // -8 (0xF8) >> 2 = -2 (even), round_bit=0, sticky=0 → no increment: -2
-    // -6 (0xFA) >> 2 = -2 (even), round_bit=1, sticky=0 → rod sets lsb: -2 | 1? No:
+    // -8 (0xF8) >> 2 = -2 (even), round_bit=0, sticky=0 -> no increment: -2
+    // -6 (0xFA) >> 2 = -2 (even), round_bit=1, sticky=0 -> rod sets lsb: -2 | 1? No:
     // rod adds 1 when result is even and any discarded bit is set: -2 + 1 = -1
     let mut state = setup_with_vxrm(2, Vsew::E8, Vlmul::M1, Vxrm::Rod);
     // -8
