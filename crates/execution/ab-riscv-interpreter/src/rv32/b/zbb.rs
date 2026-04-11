@@ -1,5 +1,6 @@
 //! RV32 Zbb extension
 
+pub mod rv32_zbb_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -98,18 +99,7 @@ where
             Self::Orcb { rd, rs1 } => {
                 let src = state.regs.read(rs1);
 
-                // TODO: Miri is excluded because corresponding intrinsic is not implemented there
-                let value = cfg_select! {
-                    all(not(miri), target_arch = "riscv32", target_feature = "zbb") => {
-                        core::arch::riscv32::orc_b(src as usize) as u32
-                    }
-                    _ => {{
-                        let bytes = src.to_le_bytes().map(|b| if b != 0 { 0xFFu8 } else { 0u8 });
-                        u32::from_le_bytes(bytes)
-                    }}
-                };
-
-                state.regs.write(rd, value);
+                state.regs.write(rd, rv32_zbb_helpers::orc_b(src));
             }
             Self::Rev8 { rd, rs1 } => {
                 let value = state.regs.read(rs1).swap_bytes();

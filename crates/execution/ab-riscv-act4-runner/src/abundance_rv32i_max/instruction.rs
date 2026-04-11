@@ -1,7 +1,9 @@
 use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 // TODO: Some way to allow re-exporting imports by the macro, such that explicit imports for helpers
 //  and such are not needed
-use ab_riscv_interpreter::rv32::b::zbc::zbc_helpers;
+use ab_riscv_interpreter::rv32::b::zbb::rv32_zbb_helpers;
+use ab_riscv_interpreter::rv32::b::zbc::rv32_zbc_helpers;
+use ab_riscv_interpreter::rv32::zk::zbkb::rv32_zbkb_helpers;
 use ab_riscv_interpreter::v::vector_registers::VectorRegistersExt;
 use ab_riscv_interpreter::v::zve64x::arith::zve64x_arith_helpers;
 use ab_riscv_interpreter::v::zve64x::config::zve64x_config_helpers;

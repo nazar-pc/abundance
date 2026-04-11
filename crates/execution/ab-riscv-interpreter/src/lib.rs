@@ -54,6 +54,10 @@
     result_option_map_or_default,
     widening_mul
 )]
+#![cfg_attr(
+    any(target_arch = "riscv32", target_arch = "riscv64"),
+    feature(riscv_ext_intrinsics)
+)]
 #![no_std]
 
 mod private;

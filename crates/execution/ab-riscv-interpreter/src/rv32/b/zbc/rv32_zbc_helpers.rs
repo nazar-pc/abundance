@@ -1,10 +1,58 @@
 //! Opaque helpers for RV32 Zbc extension
 
+#[inline(always)]
+#[doc(hidden)]
+pub fn clmul(a: u32, b: u32) -> u32 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
+    cfg_select! {
+        all(not(miri), target_arch = "riscv32", target_feature = "zbkc") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv32::clmul(a as usize, b as usize) as u32 }
+        }
+        _ => {{
+            let result = clmul_internal(a, b);
+            result as u32
+        }}
+    }
+}
+
+#[inline(always)]
+#[doc(hidden)]
+pub fn clmulh(a: u32, b: u32) -> u32 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
+    cfg_select! {
+        all(not(miri), target_arch = "riscv32", target_feature = "zbkc") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv32::clmulh(a as usize, b as usize) as u32 }
+        }
+        _ => {{
+            let result = clmul_internal(a, b);
+            (result >> 32) as u32
+        }}
+    }
+}
+
+#[inline(always)]
+#[doc(hidden)]
+pub fn clmulr(a: u32, b: u32) -> u32 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
+    cfg_select! {
+        all(not(miri), target_arch = "riscv32", target_feature = "zbc") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv32::clmulr(a as usize, b as usize) as u32 }
+        }
+        _ => {{
+            let result = clmul_internal(a, b);
+            (result >> 31) as u32
+        }}
+    }
+}
+
 /// Carryless multiplication helper
 #[cfg(any(miri, not(all(target_arch = "riscv32", target_feature = "zbc"))))]
 #[inline(always)]
 #[doc(hidden)]
-pub fn clmul_internal(a: u32, b: u32) -> u64 {
+fn clmul_internal(a: u32, b: u32) -> u64 {
     let a = u64::from(a);
     let b = u64::from(b);
 
@@ -47,7 +95,3 @@ pub fn clmul_internal(a: u32, b: u32) -> u64 {
         }}
     }
 }
-
-/// Only here to prevent compiler warnings about unused `zbc_helpers` module
-#[doc(hidden)]
-pub const PLACEHOLDER: () = ();
