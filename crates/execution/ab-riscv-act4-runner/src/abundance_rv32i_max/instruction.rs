@@ -27,6 +27,7 @@ use ab_riscv_primitives::instructions::rv32::b::zbb::Rv32ZbbInstruction;
 use ab_riscv_primitives::instructions::rv32::b::zbc::Rv32ZbcInstruction;
 use ab_riscv_primitives::instructions::rv32::b::zbs::Rv32ZbsInstruction;
 use ab_riscv_primitives::instructions::rv32::m::Rv32MInstruction;
+use ab_riscv_primitives::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv32::zk::zkn::zknh::Rv32ZknhInstruction;
 use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 // TODO: Improve macro generation to use the declared dependency enum for `fmt::Display`
@@ -60,6 +61,7 @@ pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionProto
         Rv32BInstruction,
         Rv32MInstruction,
         Rv32ZbcInstruction,
+        Rv32ZbkbInstruction,
         Rv32ZbkcInstruction,
         Rv32ZknhInstruction,
         ZicondInstruction,
