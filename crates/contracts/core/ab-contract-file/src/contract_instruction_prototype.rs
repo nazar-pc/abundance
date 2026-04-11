@@ -17,8 +17,9 @@ use ab_riscv_primitives::registers::general_purpose::Register;
 use core::fmt;
 use core::ops::ControlFlow;
 
-/// Instructions that are the most popular among contracts
+/// An instruction type used by contracts
 #[instruction(
+    ignore = [Fence, Ecall],
     reorder = [
         Ld,
         Sd,
@@ -41,80 +42,6 @@ use core::ops::ControlFlow;
         Mul,
         Sh1add,
     ],
-    ignore = [
-        Rv64Instruction,
-        Rv64MInstruction,
-        Rv64BInstruction,
-        Rv64ZbcInstruction,
-    ],
-    inherit = [
-        Rv64Instruction,
-        Rv64MInstruction,
-        Rv64BInstruction,
-        Rv64ZbcInstruction,
-    ],
-)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PopularInstruction<Reg> {}
-
-#[instruction]
-impl<Reg> const Instruction for PopularInstruction<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
-    type Reg = Reg;
-
-    #[inline(always)]
-    fn try_decode(instruction: u32) -> Option<Self> {
-        None
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
-    }
-
-    #[inline(always)]
-    fn size(&self) -> u8 {
-        size_of::<u32>() as u8
-    }
-}
-
-#[instruction]
-impl<Reg> fmt::Display for PopularInstruction<Reg>
-where
-    Reg: fmt::Display + Copy,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {}
-    }
-}
-
-#[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for PopularInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
-    [(); Reg::N]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
-{
-    #[inline(always)]
-    fn execute(
-        self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        Ok(ControlFlow::Continue(()))
-    }
-}
-
-/// Instructions that are less popular among contracts
-#[instruction(
-    ignore = [PopularInstruction, Fence, Ecall],
     inherit = [
         Rv64Instruction,
         Rv64MInstruction,
@@ -125,10 +52,10 @@ where
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NotPopularInstruction<Reg> {}
+pub enum ContractInstructionPrototype<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for NotPopularInstruction<Reg>
+impl<Reg> const Instruction for ContractInstructionPrototype<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
@@ -151,7 +78,7 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for NotPopularInstruction<Reg>
+impl<Reg> fmt::Display for ContractInstructionPrototype<Reg>
 where
     Reg: fmt::Display + Copy,
 {
@@ -161,73 +88,6 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for NotPopularInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
-    [(); Reg::N]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
-{
-    fn execute(
-        self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        Ok(ControlFlow::Continue(()))
-    }
-}
-
-/// An instruction type used by contracts (prototype for macro usage)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ContractInstructionPrototype<Reg> {
-    /// Instructions that are the most popular among contracts
-    Popular(PopularInstruction<Reg>),
-    /// Instructions that are less popular among contracts
-    NotPopular(NotPopularInstruction<Reg>),
-}
-
-impl<Reg> const Instruction for ContractInstructionPrototype<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
-    type Reg = Reg;
-
-    #[inline(always)]
-    fn try_decode(instruction: u32) -> Option<Self> {
-        if let Some(instruction) = PopularInstruction::try_decode(instruction).map(Self::Popular) {
-            Some(instruction)
-        } else {
-            NotPopularInstruction::try_decode(instruction).map(Self::NotPopular)
-        }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
-    }
-
-    #[inline(always)]
-    fn size(&self) -> u8 {
-        size_of::<u32>() as u8
-    }
-}
-
-impl<Reg> fmt::Display for ContractInstructionPrototype<Reg>
-where
-    Reg: fmt::Display + Copy,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Popular(instructions) => fmt::Display::fmt(instructions, f),
-            Self::NotPopular(instructions) => fmt::Display::fmt(instructions, f),
-        }
-    }
-}
-
 impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
         InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
@@ -245,9 +105,6 @@ where
         self,
         state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        match self {
-            Self::Popular(instruction) => instruction.execute(state),
-            Self::NotPopular(instruction) => instruction.execute(state),
-        }
+        Ok(ControlFlow::Continue(()))
     }
 }

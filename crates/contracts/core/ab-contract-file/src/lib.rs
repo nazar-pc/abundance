@@ -45,9 +45,7 @@
 
 pub mod contract_instruction_prototype;
 
-use crate::contract_instruction_prototype::{
-    ContractInstructionPrototype, NotPopularInstruction, PopularInstruction,
-};
+use crate::contract_instruction_prototype::ContractInstructionPrototype;
 use ab_contracts_common::metadata::decode::{
     MetadataDecoder, MetadataDecodingError, MetadataItem, MethodMetadataItem,
     MethodsMetadataDecoder,
@@ -517,15 +515,15 @@ impl<'a> ContractFile<'a> {
             //   auipc x?, 0x?
             //   jalr  x0, offset(x?)
             let matches_expected_pattern = if let (
-                ContractInstruction::Popular(PopularInstruction::Auipc {
+                ContractInstruction::Auipc {
                     rd: auipc_rd,
                     imm: _,
-                }),
-                ContractInstruction::Popular(PopularInstruction::Jalr {
+                },
+                ContractInstruction::Jalr {
                     rd: jalr_rd,
                     rs1: jalr_rs1,
                     imm: _,
-                }),
+                },
             ) = (first, second)
             {
                 auipc_rd == jalr_rs1 && jalr_rd == ContractRegister::Zero
@@ -552,7 +550,7 @@ impl<'a> ContractFile<'a> {
         {
             let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
 
-            let mut instruction = ContractInstruction::NotPopular(NotPopularInstruction::Unimp);
+            let mut instruction = ContractInstruction::Unimp;
             while let Some(instruction_bytes) =
                 remaining_code_file_bytes.split_off(..size_of::<u32>())
             {
@@ -571,16 +569,14 @@ impl<'a> ContractFile<'a> {
 
             let is_jump_instruction = matches!(
                 instruction,
-                ContractInstruction::Popular(PopularInstruction::Jalr { .. })
-                    | ContractInstruction::NotPopular(
-                        NotPopularInstruction::Beq { .. }
-                            | NotPopularInstruction::Bne { .. }
-                            | NotPopularInstruction::Blt { .. }
-                            | NotPopularInstruction::Bge { .. }
-                            | NotPopularInstruction::Bltu { .. }
-                            | NotPopularInstruction::Bgeu { .. }
-                            | NotPopularInstruction::Jal { .. }
-                    )
+                ContractInstruction::Jalr { .. }
+                    | ContractInstruction::Beq { .. }
+                    | ContractInstruction::Bne { .. }
+                    | ContractInstruction::Blt { .. }
+                    | ContractInstruction::Bge { .. }
+                    | ContractInstruction::Bltu { .. }
+                    | ContractInstruction::Bgeu { .. }
+                    | ContractInstruction::Jal { .. }
             );
             if !is_jump_instruction {
                 return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });
