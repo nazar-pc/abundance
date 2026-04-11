@@ -15,6 +15,7 @@ implemented_extensions:
   - { name: Zba,      version: "= 1.0.0" }
   - { name: Zbb,      version: "= 1.0.0" }
   - { name: Zbc,      version: "= 1.0.0" }
+  - { name: Zbkb,     version: "= 1.0.0" }
   - { name: Zbkc,     version: "= 1.0.0" }
   - { name: Zbs,      version: "= 1.0.0" }
   - { name: Zknh,     version: "= 1.0.0" }

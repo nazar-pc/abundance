@@ -28,7 +28,6 @@
 //! programmatically and using CLI interface.
 
 #![feature(
-    const_option_ops,
     const_trait_impl,
     maybe_uninit_fill,
     trusted_len,

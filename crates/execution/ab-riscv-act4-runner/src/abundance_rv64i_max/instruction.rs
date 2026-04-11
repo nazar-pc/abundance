@@ -1,7 +1,8 @@
 use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 // TODO: Some way to allow re-exporting imports by the macro, such that explicit imports for helpers
 //  and such are not needed
-use ab_riscv_interpreter::rv64::b::zbc::zbc_helpers;
+use ab_riscv_interpreter::rv64::b::zbb::rv64_zbb_helpers;
+use ab_riscv_interpreter::rv64::b::zbc::rv64_zbc_helpers;
 use ab_riscv_interpreter::v::vector_registers::VectorRegistersExt;
 use ab_riscv_interpreter::v::zve64x::arith::zve64x_arith_helpers;
 use ab_riscv_interpreter::v::zve64x::config::zve64x_config_helpers;
@@ -27,6 +28,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbb::Rv64ZbbInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
+use ab_riscv_primitives::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
 use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 // TODO: Improve macro generation to use the declared dependency enum for `fmt::Display`
@@ -59,6 +61,7 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
         Rv64BInstruction,
         Rv64MInstruction,
         Rv64ZbcInstruction,
+        Rv64ZbkbInstruction,
         Rv64ZbkcInstruction,
         Rv64ZknhInstruction,
         ZicondInstruction,

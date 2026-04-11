@@ -1,5 +1,6 @@
 //! RV32 Zbb extension
 
+pub mod rv32_zbb_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -97,14 +98,8 @@ where
             }
             Self::Orcb { rd, rs1 } => {
                 let src = state.regs.read(rs1);
-                let mut result = 0u32;
-                for i in 0..4 {
-                    let byte = (src >> (i * 8)) & 0xFF;
-                    if byte != 0 {
-                        result |= 0xFF << (i * 8);
-                    }
-                }
-                state.regs.write(rd, result);
+
+                state.regs.write(rd, rv32_zbb_helpers::orc_b(src));
             }
             Self::Rev8 { rd, rs1 } => {
                 let value = state.regs.read(rs1).swap_bytes();

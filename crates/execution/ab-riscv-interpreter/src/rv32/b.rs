@@ -5,6 +5,7 @@ pub mod zbb;
 pub mod zbc;
 pub mod zbs;
 
+use crate::rv32::b::zbb::rv32_zbb_helpers;
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instructions::rv32::b::Rv32BInstruction;

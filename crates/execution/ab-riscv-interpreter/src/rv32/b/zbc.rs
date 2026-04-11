@@ -1,8 +1,8 @@
 //! RV32 Zbc extension
 
+pub mod rv32_zbc_helpers;
 #[cfg(test)]
 mod tests;
-pub mod zbc_helpers;
 
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
@@ -27,56 +27,22 @@ where
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Clmul { rd, rs1, rs2 } => {
-                // Only here to prevent compiler warnings about unused `zbc_helpers` module
-                let () = zbc_helpers::PLACEHOLDER;
                 let a = state.regs.read(rs1);
                 let b = state.regs.read(rs2);
 
-                // TODO: Miri is excluded because corresponding intrinsic is not implemented there
-                let value = cfg_select! {
-                    all(not(miri), target_arch = "riscv32", target_feature = "zbkc") => {
-                        core::arch::riscv32::clmul(a as usize, b as usize) as u32
-                    }
-                    _ => {{
-                        let result = zbc_helpers::clmul_internal(a, b);
-                        result as u32
-                    }}
-                };
-
-                state.regs.write(rd, value);
+                state.regs.write(rd, rv32_zbc_helpers::clmul(a, b));
             }
             Self::Clmulh { rd, rs1, rs2 } => {
                 let a = state.regs.read(rs1);
                 let b = state.regs.read(rs2);
 
-                // TODO: Miri is excluded because corresponding intrinsic is not implemented there
-                let value = cfg_select! {
-                    all(not(miri), target_arch = "riscv32", target_feature = "zbkc") => {
-                        core::arch::riscv32::clmulh(a as usize, b as usize) as u32
-                    }
-                    _ => {{
-                        let result = zbc_helpers::clmul_internal(a, b);
-                        (result >> 32) as u32
-                    }}
-                };
-                state.regs.write(rd, value);
+                state.regs.write(rd, rv32_zbc_helpers::clmulh(a, b));
             }
             Self::Clmulr { rd, rs1, rs2 } => {
                 let a = state.regs.read(rs1);
                 let b = state.regs.read(rs2);
 
-                // TODO: Miri is excluded because corresponding intrinsic is not implemented there
-                let value = cfg_select! {
-                    all(not(miri), target_arch = "riscv32", target_feature = "zbc") => {
-                        core::arch::riscv32::clmulr(a as usize, b as usize) as u32
-                    }
-                    _ => {{
-                        let result = zbc_helpers::clmul_internal(a, b);
-                        (result >> 31) as u32
-                    }}
-                };
-
-                state.regs.write(rd, value);
+                state.regs.write(rd, rv32_zbc_helpers::clmulr(a, b));
             }
         }
 
