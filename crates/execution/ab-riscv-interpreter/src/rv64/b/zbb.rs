@@ -135,14 +135,19 @@ where
             }
             Self::Orcb { rd, rs1 } => {
                 let src = state.regs.read(rs1);
-                let mut result = 0u64;
-                for i in 0..8 {
-                    let byte = (src >> (i * 8)) & 0xFF;
-                    if byte != 0 {
-                        result |= 0xFF << (i * 8);
+
+                // TODO: Miri is excluded because corresponding intrinsic is not implemented there
+                let value = cfg_select! {
+                    all(not(miri), target_arch = "riscv64", target_feature = "zbb") => {
+                        core::arch::riscv64::orc_b(src as usize) as u64
                     }
-                }
-                state.regs.write(rd, result);
+                    _ => {{
+                        let bytes = src.to_le_bytes().map(|b| if b != 0 { 0xFFu8 } else { 0u8 });
+                        u64::from_le_bytes(bytes)
+                    }}
+                };
+
+                state.regs.write(rd, value);
             }
             Self::Rev8 { rd, rs1 } => {
                 let value = state.regs.read(rs1).swap_bytes();
