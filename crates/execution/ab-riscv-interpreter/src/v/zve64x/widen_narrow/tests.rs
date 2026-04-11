@@ -1244,7 +1244,7 @@ fn vnsra_e64_m1_illegal() {
 
 #[test]
 fn vzext_vf4_e16_illegal_sew_too_small() {
-    // SEW=16, factor=4 → source would be 4-bit which is < 8, illegal
+    // SEW=16, factor=4 -> source would be 4-bit which is < 8, illegal
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     let result = exec(
         &mut state,
@@ -1279,7 +1279,7 @@ fn vsext_vf4_e16_illegal_sew_too_small() {
 
 #[test]
 fn vzext_vf8_e32_illegal_sew_too_small() {
-    // SEW=32, factor=8 → source would be 4-bit, illegal
+    // SEW=32, factor=8 -> source would be 4-bit, illegal
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     let result = exec(
         &mut state,
@@ -1314,7 +1314,7 @@ fn vsext_vf8_e32_illegal_sew_too_small() {
 
 #[test]
 fn vzext_vf2_e8_illegal_sew_too_small() {
-    // SEW=8, factor=2 → source would be 4-bit, illegal
+    // SEW=8, factor=2 -> source would be 4-bit, illegal
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
@@ -1470,7 +1470,7 @@ fn vsext_vf2_not_allowed_illegal() {
 
 #[test]
 fn vwaddu_vv_vd_misaligned_illegal() {
-    // vd must be aligned to 2*group_regs; M1 → wide group=2; V1 not aligned to 2
+    // vd must be aligned to 2*group_regs; M1 -> wide group=2; V1 not aligned to 2
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
@@ -1650,7 +1650,7 @@ fn vnsrl_wi_e8_m1_uimm_masked_to_log2_2sew() {
         },
     )
     .unwrap();
-    // shift by 0 → 0xabcd; truncated to 8 = 0xcd
+    // shift by 0 -> 0xabcd; truncated to 8 = 0xcd
     assert_eq!(read_elem(&state, VReg::V2, 0, Vsew::E8), 0xcdu64);
 }
 

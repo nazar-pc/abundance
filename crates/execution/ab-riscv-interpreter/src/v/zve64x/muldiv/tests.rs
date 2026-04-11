@@ -805,7 +805,7 @@ fn vrem_vx_e8() {
 
 #[test]
 fn vwmulu_vv_e8_to_e16() {
-    // SEW=E8, LMUL=M1 → vd is E16 with 2*group_regs=2 regs (V8 and V9)
+    // SEW=E8, LMUL=M1 -> vd is E16 with 2*group_regs=2 regs (V8 and V9)
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     let vals_a = [200u64, 255, 1, 128];
     let vals_b = [200u64, 255, 255, 3];
@@ -879,7 +879,7 @@ fn vwmulu_illegal_for_sew64() {
 
 #[test]
 fn vwmulu_overlap_rejected() {
-    // vd=V4 (occupies V4+V5), vs2=V4 - overlap → illegal
+    // vd=V4 (occupies V4+V5), vs2=V4 - overlap -> illegal
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
     let result = exec(
         &mut state,

@@ -97,7 +97,7 @@ fn test_packw_sign_extension() {
         rs2: Reg::A1,
     }]);
 
-    // rs2[15:0] = 0x8000 → word bit 31 is 1 → sign-extend to 64 bits
+    // rs2[15:0] = 0x8000 -> word bit 31 is 1 -> sign-extend to 64 bits
     state.regs.write(Reg::A0, 0x0000u64);
     state.regs.write(Reg::A1, 0x8000u64);
 

@@ -115,7 +115,7 @@ where
                     );
                 }
             }
-            // vwaddu.vx - 2*SEW = zext(SEW) + zext(xlen→SEW)
+            // vwaddu.vx - 2*SEW = zext(SEW) + zext(xlen->SEW)
             Self::VwadduVx { vd, vs2, rs1, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
@@ -1615,7 +1615,7 @@ where
                     );
                 }
             }
-            // vzext.vf2 - zero-extend SEW/2 → SEW
+            // vzext.vf2 - zero-extend SEW/2 -> SEW
             Self::VzextVf2 { vd, vs2, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
@@ -1664,7 +1664,7 @@ where
                     );
                 }
             }
-            // vzext.vf4 - zero-extend SEW/4 → SEW
+            // vzext.vf4 - zero-extend SEW/4 -> SEW
             Self::VzextVf4 { vd, vs2, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
@@ -1712,7 +1712,7 @@ where
                     );
                 }
             }
-            // vzext.vf8 - zero-extend SEW/8 → SEW
+            // vzext.vf8 - zero-extend SEW/8 -> SEW
             Self::VzextVf8 { vd, vs2, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
@@ -1760,7 +1760,7 @@ where
                     );
                 }
             }
-            // vsext.vf2 - sign-extend SEW/2 → SEW
+            // vsext.vf2 - sign-extend SEW/2 -> SEW
             Self::VsextVf2 { vd, vs2, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
@@ -1807,7 +1807,7 @@ where
                     );
                 }
             }
-            // vsext.vf4 - sign-extend SEW/4 → SEW
+            // vsext.vf4 - sign-extend SEW/4 -> SEW
             Self::VsextVf4 { vd, vs2, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
@@ -1854,7 +1854,7 @@ where
                     );
                 }
             }
-            // vsext.vf8 - sign-extend SEW/8 → SEW
+            // vsext.vf8 - sign-extend SEW/8 -> SEW
             Self::VsextVf8 { vd, vs2, vm } => {
                 if !state.ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
