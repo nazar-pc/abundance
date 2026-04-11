@@ -20,8 +20,8 @@ use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
 use crate::interpreter::{Act4InstructionFetcher, Act4SystemHandler};
 use ab_riscv_interpreter::{
-    Csrs, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    InterpreterState, ProgramCounter, VirtualMemory,
+    BasicInt, Csrs, ExecutableInstruction, ExecutionError, FetchInstructionResult,
+    InstructionFetcher, InterpreterState, ProgramCounter, VirtualMemory,
 };
 use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
@@ -38,6 +38,8 @@ use std::path::{Path, PathBuf};
 
 #[cfg(not(target_endian = "little"))]
 compile_error!("Only little-endian platforms are supported");
+
+type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
 const RAM_SIZE: usize = 4 * 1024 * 1024;
@@ -197,13 +199,39 @@ impl<RegType> From<anyhow::Error> for TestError<RegType> {
     }
 }
 
+trait ToHost {
+    fn tohost_value<RT>(&self, tohost_addr: u64) -> anyhow::Result<Option<RT>>
+    where
+        RT: RegType + BasicInt;
+}
+
+impl<T> ToHost for T
+where
+    T: VirtualMemory,
+{
+    fn tohost_value<RT>(&self, tohost_addr: u64) -> anyhow::Result<Option<RT>>
+    where
+        RT: RegType + BasicInt,
+    {
+        let raw_value = self
+            .read::<RT>(tohost_addr)
+            .context("Failed to read `tohost`")?;
+
+        Ok(if raw_value.as_u64() == 0 {
+            None
+        } else {
+            Some(raw_value)
+        })
+    }
+}
+
 // TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
 fn run_rv32i_max_test(
     elf_path: &Path,
-) -> Result<(), TestError<<<AbundanceRv32IMaxInstruction as Instruction>::Reg as Register>::Type>> {
+) -> Result<(), TestError<RegisterType<AbundanceRv32IMaxInstruction>>> {
     let elf = ParsedElf::<<AbundanceRv32IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
 
-    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new(elf.tohost_addr);
+    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new();
     for (vaddr, data) in &elf.segments {
         ram.write_slice(*vaddr, data)
             .map_err(ExecutionError::from)?;
@@ -274,7 +302,11 @@ fn run_rv32i_max_test(
                 }
             }
             Err(error) => {
-                if state.memory.tohost_value().is_some() {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
                     break;
                 }
                 return Err(error.into());
@@ -283,7 +315,11 @@ fn run_rv32i_max_test(
 
         match instruction.execute(&mut state) {
             Ok(ControlFlow::Continue(())) => {
-                if state.memory.tohost_value().is_some() {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
                     break;
                 }
             }
@@ -291,7 +327,11 @@ fn run_rv32i_max_test(
                 break;
             }
             Err(error) => {
-                if state.memory.tohost_value().is_some() {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
                     break;
                 }
                 return Err(error.into());
@@ -305,10 +345,10 @@ fn run_rv32i_max_test(
 // TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
 fn run_rv64i_max_test(
     elf_path: &Path,
-) -> Result<(), TestError<<<AbundanceRv64IMaxInstruction as Instruction>::Reg as Register>::Type>> {
+) -> Result<(), TestError<RegisterType<AbundanceRv64IMaxInstruction>>> {
     let elf = ParsedElf::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
 
-    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new(elf.tohost_addr);
+    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new();
     for (vaddr, data) in &elf.segments {
         ram.write_slice(*vaddr, data)
             .map_err(ExecutionError::from)?;
@@ -379,7 +419,11 @@ fn run_rv64i_max_test(
                 }
             }
             Err(error) => {
-                if state.memory.tohost_value().is_some() {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
                     break;
                 }
                 return Err(error.into());
@@ -388,7 +432,11 @@ fn run_rv64i_max_test(
 
         match instruction.execute(&mut state) {
             Ok(ControlFlow::Continue(())) => {
-                if state.memory.tohost_value().is_some() {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
                     break;
                 }
             }
@@ -396,7 +444,11 @@ fn run_rv64i_max_test(
                 break;
             }
             Err(error) => {
-                if state.memory.tohost_value().is_some() {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
                     break;
                 }
                 return Err(error.into());
@@ -412,14 +464,15 @@ fn check_signature<const RAM_BASE: u64, const RAM_SIZE: usize, Reg>(
     memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
 ) -> Result<(), TestError<Reg::Type>>
 where
-    Reg: Register,
+    Reg: Register<Type: BasicInt>,
     [(); size_of::<Reg::Type>()]:,
 {
-    let Some(tohost) = memory.tohost_value() else {
+    let Some(tohost) = memory.tohost_value::<Reg::Type>(elf.tohost_addr)? else {
         return Err(TestError::Test(anyhow::anyhow!(
             "Program never wrote `tohost`"
         )));
     };
+    let tohost = tohost.as_u64();
 
     // Halt protocol is HTIF (Host-Target Interface) tohost write:
     //   `tohost == 1`: pass
@@ -584,9 +637,7 @@ fn main() {
                 };
 
                 // 2 hex digits per byte
-                let hex_width = size_of::<
-                    <<AbundanceRv32IMaxInstruction as Instruction>::Reg as Register>::Type,
-                >() * 2;
+                let hex_width = size_of::<RegisterType<AbundanceRv32IMaxInstruction>>() * 2;
 
                 process_error(error, hex_width, stem, &mut failed, &mut errors);
             }
@@ -598,9 +649,7 @@ fn main() {
                 };
 
                 // 2 hex digits per byte
-                let hex_width = size_of::<
-                    <<AbundanceRv64IMaxInstruction as Instruction>::Reg as Register>::Type,
-                >() * 2;
+                let hex_width = size_of::<RegisterType<AbundanceRv64IMaxInstruction>>() * 2;
 
                 process_error(error, hex_width, stem, &mut failed, &mut errors);
             }
