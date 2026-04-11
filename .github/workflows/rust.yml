@@ -32,14 +32,14 @@ jobs:
         name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
-      - &cache-step
-        name: Configure cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # 5.0.3
+      - &cache-restore-step
+        name: Restore cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
         with:
-          path: |
+          path: &cache-path |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: &cache-key ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -83,7 +83,7 @@ jobs:
 
     steps:
       - *checkout-step
-      - *cache-step
+      - *cache-restore-step
 
       - &riscv-support-step
         name: RISC-V support
@@ -181,6 +181,14 @@ jobs:
           ${{ env.command }} --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
         if: matrix.type == 'features'
 
+      - name: Save cache
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: *cache-path
+          key: *cache-key
+        # Only save on `main` branch, and only from one canonical matrix variant per OS
+        if: github.ref == 'refs/heads/main' && matrix.type == 'features'
+
   cargo-test:
     strategy:
       matrix:
@@ -247,7 +255,7 @@ jobs:
       # TODO: It is currently not possible to reuse all of these at once:
       #  https://frenck.dev/github-actions-yaml-anchors-aliases-merge-keys/
       - *checkout-step
-      - *cache-step
+      - *cache-restore-step
       - *riscv-support-step
       - *hwloc-deps-step
       - *mold-setup-step
@@ -451,7 +459,7 @@ jobs:
       # TODO: It is currently not possible to reuse all of these at once:
       #  https://frenck.dev/github-actions-yaml-anchors-aliases-merge-keys/
       - *checkout-step
-      - *cache-step
+      - *cache-restore-step
       - *riscv-support-step
       - *hwloc-deps-step
       - *mold-setup-step
@@ -537,7 +545,7 @@ jobs:
 
     steps:
       - *checkout-step
-      - *cache-step
+      - *cache-restore-step
 
       # TODO: Run clippy and `no-panic` on custom target for contracts too
       - name: Ensure contracts compile for a custom target
@@ -571,7 +579,8 @@ jobs:
           context: /tmp/empty
           file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
           cache-from: type=gha,scope=act4-build
-          cache-to: type=gha,mode=min,scope=act4-build
+          # Only save on `main` branch
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=min,scope=act4-build' || '' }}
           load: true
 
       - name: ACT4 tests
