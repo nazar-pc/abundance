@@ -1,5 +1,6 @@
 //! RV64 Zknh extension
 
+pub mod rv64_zknh_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -28,17 +29,7 @@ where
             Self::Sha256Sig0 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha256sig0(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
-                    }
-                };
+                let res32 = rv64_zknh_helpers::sha256sig0(x);
 
                 state
                     .regs
@@ -47,17 +38,7 @@ where
             Self::Sha256Sig1 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                    // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha256sig1(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
-                    }
-                };
+                let res32 = rv64_zknh_helpers::sha256sig1(x);
 
                 state
                     .regs
@@ -66,17 +47,7 @@ where
             Self::Sha256Sum0 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha256sum0(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
-                    }
-                };
+                let res32 = rv64_zknh_helpers::sha256sum0(x);
 
                 state
                     .regs
@@ -85,17 +56,7 @@ where
             Self::Sha256Sum1 { rd, rs1 } => {
                 let x = state.regs.read(rs1) as u32;
 
-                let res32 = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha256sum1(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
-                    }
-                };
+                let res32 = rv64_zknh_helpers::sha256sum1(x);
 
                 state
                     .regs
@@ -104,70 +65,22 @@ where
             Self::Sha512Sig0 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha512sig0(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(1) ^ x.rotate_right(8) ^ (x >> 7)
-                    }
-                };
-
-                state.regs.write(rd, res);
+                state.regs.write(rd, rv64_zknh_helpers::sha512sig0(x));
             }
             Self::Sha512Sig1 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha512sig1(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(19) ^ x.rotate_right(61) ^ (x >> 6)
-                    }
-                };
-
-                state.regs.write(rd, res);
+                state.regs.write(rd, rv64_zknh_helpers::sha512sig1(x));
             }
             Self::Sha512Sum0 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha512sum0(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(28) ^ x.rotate_right(34) ^ x.rotate_right(39)
-                    }
-                };
-
-                state.regs.write(rd, res);
+                state.regs.write(rd, rv64_zknh_helpers::sha512sum0(x));
             }
             Self::Sha512Sum1 { rd, rs1 } => {
                 let x = state.regs.read(rs1);
 
-                let res = cfg_select! {
-                    all(not(miri), target_arch = "riscv64", target_feature = "zknh") => {
-                        // SAFETY: Just an intrinsic, no undefined behavior
-                        unsafe {
-                            core::arch::riscv64::sha512sum1(x)
-                        }
-                    }
-                    _ => {
-                        x.rotate_right(14) ^ x.rotate_right(18) ^ x.rotate_right(41)
-                    }
-                };
-
-                state.regs.write(rd, res);
+                state.regs.write(rd, rv64_zknh_helpers::sha512sum1(x));
             }
         }
 

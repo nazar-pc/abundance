@@ -3,6 +3,7 @@
 #[inline(always)]
 #[doc(hidden)]
 pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zbkx") => {
             unsafe { core::arch::riscv64::xperm4(rs1 as usize, rs2 as usize) as u64 }
@@ -24,6 +25,7 @@ pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
 #[inline(always)]
 #[doc(hidden)]
 pub fn xperm8(rs1: u64, rs2: u64) -> u64 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zbkx") => {
             unsafe { core::arch::riscv64::xperm8(rs1 as usize, rs2 as usize) as u64 }

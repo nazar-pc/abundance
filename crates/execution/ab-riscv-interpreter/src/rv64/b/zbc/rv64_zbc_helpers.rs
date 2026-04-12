@@ -60,7 +60,7 @@ fn clmul_internal(a: u64, b: u64) -> u128 {
         ) => {{
             use core::arch::aarch64::vmull_p64;
 
-            // SAFETY: Necessary target features enabled
+            // SAFETY: Compile-time checked for supported feature
             unsafe { vmull_p64(a, b) }
         }}
         all(target_arch = "x86_64", target_feature = "pclmulqdq") => {{

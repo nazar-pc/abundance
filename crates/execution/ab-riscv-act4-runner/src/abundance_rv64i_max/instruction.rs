@@ -4,6 +4,7 @@ use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 use ab_riscv_interpreter::rv64::b::zbb::rv64_zbb_helpers;
 use ab_riscv_interpreter::rv64::b::zbc::rv64_zbc_helpers;
 use ab_riscv_interpreter::rv64::zk::zbkx::rv64_zbkx_helpers;
+use ab_riscv_interpreter::rv64::zk::zkn::zknh::rv64_zknh_helpers;
 use ab_riscv_interpreter::v::vector_registers::VectorRegistersExt;
 use ab_riscv_interpreter::v::zve64x::arith::zve64x_arith_helpers;
 use ab_riscv_interpreter::v::zve64x::config::zve64x_config_helpers;
