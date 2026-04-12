@@ -3,6 +3,7 @@
 #[inline(always)]
 #[doc(hidden)]
 pub fn zip(src: u32) -> u32 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkb") => {
             // SAFETY: Compile-time checked for supported feature
@@ -30,6 +31,7 @@ pub fn zip(src: u32) -> u32 {
 #[inline(always)]
 #[doc(hidden)]
 pub fn unzip(src: u32) -> u32 {
+    // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkb") => {
             // SAFETY: Compile-time checked for supported feature
