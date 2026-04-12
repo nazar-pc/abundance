@@ -58,7 +58,7 @@ ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/a
 ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-native-token" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
-aes = "0.9.0-rc.4"
+aes = "0.9.0"
 anyhow = { version = "1.0.102", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
@@ -95,7 +95,7 @@ futures-timer = "3.0.3"
 halfbrown = "0.4.0"
 heck = { version = "0.5.0" }
 hex = { version = "0.4.3", default-features = false }
-hwlocality = "1.0.0-alpha.11"
+hwlocality = "1.0.0-alpha.12"
 jsonrpsee = "0.26.0"
 libc = "0.2.182"
 libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea", default-features = false }
@@ -116,7 +116,7 @@ prettyplease = "0.2.37"
 proc-macro2 = "1.0.106"
 prometheus-client = "0.23.1"
 quote = "1.0.45"
-rand = { version = "0.10.0", default-features = false }
+rand = { version = "0.10.1", default-features = false }
 rayon = "1.11.0"
 rclite = "0.4.1"
 reed-solomon-simd = { version = "3.1.0", default-features = false }
@@ -137,7 +137,7 @@ syn = "2.0.117"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.18", default-features = false }
 thread-priority = "3.0.0"
-tokio = { version = "1.50.0", default-features = false }
+tokio = { version = "1.50.1", default-features = false }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
@@ -146,7 +146,7 @@ unsigned-varint = "0.8.0"
 void = "1.0.2"
 wgpu = { version = "29.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
-yoke = { version = "0.8.1", default-features = false }
+yoke = { version = "0.8.2", default-features = false }
 zeroize = "1.8.2"
 
 # The following libraries have a major impact on developement experience and need to be compiled with optimizations even
