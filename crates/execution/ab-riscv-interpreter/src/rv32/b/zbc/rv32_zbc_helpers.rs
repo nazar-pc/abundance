@@ -64,7 +64,7 @@ fn clmul_internal(a: u32, b: u32) -> u64 {
         ) => {{
             use core::arch::aarch64::vmull_p64;
 
-            // SAFETY: Necessary target features enabled
+            // SAFETY: Compile-time checked for supported feature
             // Only lower 32 bits of a and b are meaningful; result fits in 64 bits
             unsafe { vmull_p64(a, b) as u64 }
         }}
@@ -72,7 +72,7 @@ fn clmul_internal(a: u32, b: u32) -> u64 {
             use core::arch::x86_64::{__m128i, _mm_clmulepi64_si128, _mm_cvtsi64_si128};
             use core::mem::transmute;
 
-            // SAFETY: Necessary target features enabled
+            // SAFETY: Compile-time checked for supported feature
             unsafe {
                 let result = transmute::<__m128i, u128>(_mm_clmulepi64_si128(
                     _mm_cvtsi64_si128(a.cast_signed()),
