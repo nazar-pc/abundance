@@ -36,7 +36,7 @@ use ab_riscv_primitives::instructions::rv32::zk::zkn::zknh::Rv32ZknhInstruction;
 use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 // TODO: Improve macro generation to use the declared dependency enum for `fmt::Display`
 //  implementation instead of the original one, so these imports are no longer needed
-use ab_riscv_interpreter::rv32::zk::zkn::zknh::zknh_helpers;
+use ab_riscv_interpreter::rv32::zk::zkn::zknh::rv32_zknh_helpers;
 use ab_riscv_primitives::instructions::v::zve64x::arith::Zve64xArithInstruction;
 use ab_riscv_primitives::instructions::v::zve64x::config::Zve64xConfigInstruction;
 use ab_riscv_primitives::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;

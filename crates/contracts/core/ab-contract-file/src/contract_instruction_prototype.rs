@@ -1,6 +1,7 @@
 use ab_riscv_interpreter::rv64::b::zbb::rv64_zbb_helpers;
 use ab_riscv_interpreter::rv64::b::zbc::rv64_zbc_helpers;
 use ab_riscv_interpreter::rv64::zk::zbkx::rv64_zbkx_helpers;
+use ab_riscv_interpreter::rv64::zk::zkn::zknh::rv64_zknh_helpers;
 use ab_riscv_interpreter::{
     ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
     SystemInstructionHandler, VirtualMemory,
