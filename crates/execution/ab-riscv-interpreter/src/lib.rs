@@ -29,9 +29,14 @@
 //! * Zba (version 1.0.0)
 //! * Zbb (version 1.0.0)
 //! * Zbc (version 1.0.0)
-//! * Zbkc (version 1.0.0)
+//! * Zbkb (version 1.0.1)
+//! * Zbkc (version 1.0.1)
+//! * Zbkx (version 1.0.1)
 //! * Zbs (version 1.0.0)
-//! * Zknh (version 1.0.0)
+//! * Zkn (version 1.0.1)
+//! * Zknd (version 1.0.1)
+//! * Zkne (version 1.0.1)
+//! * Zknh (version 1.0.1)
 //! * Zicsr (version 2.0)
 //! * (experimental) Zve32x (version 1.0.0)
 //! * (experimental) Zve64x (version 1.0.0)
@@ -55,7 +60,31 @@
     widening_mul
 )]
 #![cfg_attr(
-    any(target_arch = "riscv32", target_arch = "riscv64"),
+    any(
+        all(
+            target_arch = "riscv32",
+            any(
+                target_feature = "zbb",
+                target_feature = "zbc",
+                target_feature = "zbkb",
+                target_feature = "zbkx",
+                target_feature = "zknd",
+                target_feature = "zkne",
+                target_feature = "zknh"
+            )
+        ),
+        all(
+            target_arch = "riscv64",
+            any(
+                target_feature = "zbb",
+                target_feature = "zbc",
+                target_feature = "zbkx",
+                target_feature = "zknd",
+                target_feature = "zkne",
+                target_feature = "zknh"
+            )
+        )
+    ),
     feature(riscv_ext_intrinsics)
 )]
 #![no_std]

@@ -1,6 +1,8 @@
 use ab_riscv_interpreter::rv64::b::zbb::rv64_zbb_helpers;
 use ab_riscv_interpreter::rv64::b::zbc::rv64_zbc_helpers;
 use ab_riscv_interpreter::rv64::zk::zbkx::rv64_zbkx_helpers;
+use ab_riscv_interpreter::rv64::zk::zkn::zknd::rv64_zknd_helpers;
+use ab_riscv_interpreter::rv64::zk::zkn::zkne::rv64_zkne_helpers;
 use ab_riscv_interpreter::rv64::zk::zkn::zknh::rv64_zknh_helpers;
 use ab_riscv_interpreter::{
     ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
@@ -16,6 +18,8 @@ use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;
+use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
+use ab_riscv_primitives::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
 use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 use ab_riscv_primitives::registers::general_purpose::Register;
@@ -52,8 +56,7 @@ use core::ops::ControlFlow;
         Rv64MInstruction,
         Rv64BInstruction,
         Rv64ZbcInstruction,
-        Rv64ZbkbInstruction,
-        Rv64ZbkxInstruction,
+        Rv64ZknInstruction,
         ZicondInstruction,
         Rv64ZknhInstruction,
     ],
