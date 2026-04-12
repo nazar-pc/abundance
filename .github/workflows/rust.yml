@@ -64,6 +64,15 @@ jobs:
         include:
           - os: ubuntu-24.04
             type: together
+            target: "riscv64gc-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            type: features
+            target: "riscv64gc-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            type: individually
+            target: "riscv64gc-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            type: together
             target: "riscv64a23-unknown-linux-gnu"
           - os: ubuntu-24.04
             type: features

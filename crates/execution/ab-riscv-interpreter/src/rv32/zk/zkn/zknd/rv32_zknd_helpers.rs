@@ -5,7 +5,10 @@ use ab_riscv_primitives::instructions::rv32::zk::zkn::zknd::Rv32AesBs;
 /// AES forward S-box (SubBytes, used only for the key schedule)
 #[cfg(not(all(
     not(miri),
-    any(target_arch = "riscv32", target_arch = "riscv64"),
+    all(
+        any(target_arch = "riscv32", target_arch = "riscv64"),
+        any(target_feature = "zknd", target_feature = "zkne")
+    )
 )))]
 #[rustfmt::skip]
 pub(crate) const SBOX: [u8; 256] = [
@@ -67,7 +70,13 @@ pub(crate) const INV_SBOX: [u8; 256] = [
 
 #[cfg(any(
     test,
-    not(all(not(miri), any(target_arch = "riscv32", target_arch = "riscv64")))
+    not(all(
+        not(miri),
+        all(
+            any(target_arch = "riscv32", target_arch = "riscv64"),
+            any(target_feature = "zknd", target_feature = "zkne")
+        )
+    ))
 ))]
 #[inline(always)]
 pub(crate) fn gmul(mut a: u8, mut b: u8) -> u8 {

@@ -60,7 +60,31 @@
     widening_mul
 )]
 #![cfg_attr(
-    any(target_arch = "riscv32", target_arch = "riscv64"),
+    any(
+        all(
+            target_arch = "riscv32",
+            any(
+                target_feature = "zbb",
+                target_feature = "zbc",
+                target_feature = "zbkb",
+                target_feature = "zbkx",
+                target_feature = "zknd",
+                target_feature = "zkne",
+                target_feature = "zknh"
+            )
+        ),
+        all(
+            target_arch = "riscv64",
+            any(
+                target_feature = "zbb",
+                target_feature = "zbc",
+                target_feature = "zbkx",
+                target_feature = "zknd",
+                target_feature = "zkne",
+                target_feature = "zknh"
+            )
+        )
+    ),
     feature(riscv_ext_intrinsics)
 )]
 #![no_std]
