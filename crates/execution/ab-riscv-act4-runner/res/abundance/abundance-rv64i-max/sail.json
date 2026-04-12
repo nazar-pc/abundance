@@ -108,6 +108,15 @@
     "Zicsr": {
       "supported": true
     },
+    "Zkn": {
+      "supported": true
+    },
+    "Zknd": {
+      "supported": true
+    },
+    "Zkne": {
+      "supported": true
+    },
     "Zknh": {
       "supported": true
     },

@@ -4,6 +4,8 @@ use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 use ab_riscv_interpreter::rv64::b::zbb::rv64_zbb_helpers;
 use ab_riscv_interpreter::rv64::b::zbc::rv64_zbc_helpers;
 use ab_riscv_interpreter::rv64::zk::zbkx::rv64_zbkx_helpers;
+use ab_riscv_interpreter::rv64::zk::zkn::zknd::rv64_zknd_helpers;
+use ab_riscv_interpreter::rv64::zk::zkn::zkne::rv64_zkne_helpers;
 use ab_riscv_interpreter::rv64::zk::zkn::zknh::rv64_zknh_helpers;
 use ab_riscv_interpreter::v::vector_registers::VectorRegistersExt;
 use ab_riscv_interpreter::v::zve64x::arith::zve64x_arith_helpers;
@@ -32,6 +34,8 @@ use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;
+use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
+use ab_riscv_primitives::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
 use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 // TODO: Improve macro generation to use the declared dependency enum for `fmt::Display`
@@ -64,10 +68,7 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
         Rv64BInstruction,
         Rv64MInstruction,
         Rv64ZbcInstruction,
-        Rv64ZbkbInstruction,
-        Rv64ZbkcInstruction,
-        Rv64ZbkxInstruction,
-        Rv64ZknhInstruction,
+        Rv64ZknInstruction,
         ZicondInstruction,
         ZicsrInstruction,
         Zve64xInstruction,
