@@ -559,7 +559,13 @@ jobs:
           done
 
   act4:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - *checkout-step
@@ -597,10 +603,17 @@ jobs:
             -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
             ${{ steps.build.outputs.imageid }} \
             make
+          
           echo "Running RV32 tests"
           cargo run -- rv32 res/riscv-arch-test/work/abundance-rv32i-max
-          echo "Running RV64 tests"
-          cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
+          
+          # Native CPU will use AES intrinsics for Zknd/Zkne implementation
+          echo "Running RV64 tests (native)"
+          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
+          
+          # And just to make sure, force-disable AES intrinsics and test software implementation
+          echo "Running RV64 tests (-aes)"
+          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
