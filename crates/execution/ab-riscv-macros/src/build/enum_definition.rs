@@ -281,10 +281,11 @@ fn process_enum_definition_inherited(
                 for inherit_enum in inherit_enums {
                     dependencies.push(inherit_enum.clone());
                     let Some(known_enum) = state.get_known_enum_definition(inherit_enum) else {
-                        return Err(anyhow::anyhow!(
-                            "Unknown inherit enum `{}` in `#[instruction(...)]` attribute",
-                            inherit_enum
-                        ));
+                        state.add_pending_enum_definition(PendingEnumDefinition {
+                            instruction_definition,
+                            item_enum,
+                        });
+                        return Ok(None);
                     };
 
                     for known_instruction in &known_enum.instructions {
@@ -377,10 +378,11 @@ fn process_enum_definition_inherited(
             InstructionDefinitionItem::Inherit(inherit_enums) => {
                 for inherit_enum in inherit_enums {
                     let Some(known_enum) = state.get_known_enum_definition(inherit_enum) else {
-                        return Err(anyhow::anyhow!(
-                            "Unknown inherit enum `{}` in `#[instruction(...)]` attribute",
-                            inherit_enum
-                        ));
+                        state.add_pending_enum_definition(PendingEnumDefinition {
+                            instruction_definition,
+                            item_enum,
+                        });
+                        return Ok(None);
                     };
 
                     for known_instruction in &known_enum.instructions {
