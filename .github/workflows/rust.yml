@@ -279,15 +279,15 @@ jobs:
         run: |
           & {
             # See https://vulkan.lunarg.com/sdk/home for updates
-            $sdkVersion = "1.4.328.1"
+            $sdkVersion = "1.4.341.0"
             if ("${{ runner.arch }}" -eq "ARM64") {
               $arch = "ARM64"
               $urlPath = "warm"
-              $expectedHash = "1f675a1b317a32d451ebf45d77483889d85a5fa972bd01dd1c1ee173278c63c9"
+              $expectedHash = "4a350fbeec743683494f746e9cf7e2052494ca9ae618931afc2abb8985e072b0"
             } else {
               $arch = "X64"
               $urlPath = "windows"
-              $expectedHash = "293efbb2c11e60429df7770f40e3c5c811a7fa42af81de0cc41e8718ddb2b373"
+              $expectedHash = "20571dcc8292b80a47d68bbbfa4094d87044041f50f4e2e1f326a01e3732b226"
             }
 
             $url = "https://sdk.lunarg.com/sdk/download/$sdkVersion/$urlPath/VulkanRT-$arch-$sdkVersion-Components.zip"
