@@ -125,7 +125,7 @@ fn test_wrong_opcode_rejected() {
 
 #[test]
 fn test_aes32esi_and_aes32esmi_distinct_funct5() {
-    // Same registers and bs, different funct5 → different variants
+    // Same registers and bs, different funct5 -> different variants
     let inst_esi = make_rv32_zkne(FUNCT5_ESI, 1, 1, 2, 1);
     let inst_esmi = make_rv32_zkne(FUNCT5_ESMI, 1, 1, 2, 1);
     let dec_esi = Rv32ZkneInstruction::<Reg<u32>>::try_decode(inst_esi);

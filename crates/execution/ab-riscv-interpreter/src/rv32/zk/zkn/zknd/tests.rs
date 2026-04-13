@@ -17,7 +17,7 @@ fn test_aes32dsi_zero_rs1_bs0() {
         rs2: Reg::A0,
         bs: Rv32AesBs::B0,
     }]);
-    // rs1=0, rs2=0x00: INV_SBOX[0x00]=0x52, shamt=0 → rol32(0x52, 0)=0x00000052
+    // rs1=0, rs2=0x00: INV_SBOX[0x00]=0x52, shamt=0 -> rol32(0x52, 0)=0x00000052
     // rd = 0 ^ 0x52 = 0x52
     state.regs.write(Reg::A2, 0u32);
     state.regs.write(Reg::A0, 0u32);
@@ -84,7 +84,7 @@ fn test_aes32dsi_nonzero_rs1_xors() {
         rs2: Reg::A0,
         bs: Rv32AesBs::B0,
     }]);
-    // rs1=0xffff_ffff, rs2=0x00: INV_SBOX[0x00]=0x52, shamt=0 → 0x52
+    // rs1=0xffff_ffff, rs2=0x00: INV_SBOX[0x00]=0x52, shamt=0 -> 0x52
     // rd = 0xffff_ffff ^ 0x52 = 0xffff_ffad
     state.regs.write(Reg::A2, 0xffff_ffffu32);
     state.regs.write(Reg::A0, 0u32);

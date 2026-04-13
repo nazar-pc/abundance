@@ -146,7 +146,7 @@ fn test_aes64ks1i_rnum_1() {
     // RotWord([0x00,0x00,0x00,0x00]) = [0x00,0x00,0x00,0x00] (rotation of zeros is zeros)
     // SubWord = [SBOX[0],SBOX[0],SBOX[0],SBOX[0]] = [0x63,0x63,0x63,0x63]
     // packed LE u32 = 0x63636363
-    // XOR RCON[1]=0x02 into low byte → 0x63636363 ^ 0x00000002 = 0x63636361
+    // XOR RCON[1]=0x02 into low byte -> 0x63636363 ^ 0x00000002 = 0x63636361
     // rd = result | (result << 32) = 0x6363636163636361
     state.regs.write(Reg::A0, 0u64);
     execute(&mut state).unwrap();
@@ -168,7 +168,7 @@ fn test_aes64ks1i_rnum_1_nonzero_input() {
     // SubWord([0xCC,0xBB,0xAA,0xDD]):
     //   SBOX[0xCC]=0x4B, SBOX[0xBB]=0xEA, SBOX[0xAA]=0xAC, SBOX[0xDD]=0xC1
     // packed = 0x4B | (0xEA<<8) | (0xAC<<16) | (0xC1<<24) = 0xC1ACEA4B
-    // XOR RCON[1]=0x02 → 0xC1ACEA4B ^ 0x00000002 = 0xC1ACEA49
+    // XOR RCON[1]=0x02 -> 0xC1ACEA4B ^ 0x00000002 = 0xC1ACEA49
     state.regs.write(Reg::A0, 0xAABBCCDD_00000000u64);
     execute(&mut state).unwrap();
     let rotated = 0xAABBCCDDu32.rotate_right(8);
@@ -190,7 +190,7 @@ fn test_aes64ks1i_rnum_10_no_rot_no_rcon() {
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::Final,
     }]);
-    // rnum=10: no RotWord, no RCON — just SubWord(rs1[63:32])
+    // rnum=10: no RotWord, no RCON - just SubWord(rs1[63:32])
     state.regs.write(Reg::A0, 0u64);
     execute(&mut state).unwrap();
     // SubWord(0x00000000) = 0x63636363
@@ -204,7 +204,7 @@ fn test_aes64ks1i_rnum_10_nonzero_input() {
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::Final,
     }]);
-    // rnum=10: no RotWord, no RCON — SubWord(rs1[63:32]) only
+    // rnum=10: no RotWord, no RCON - SubWord(rs1[63:32]) only
     // rs1[63:32] = 0x00010203 (bytes LE: [0x03,0x02,0x01,0x00])
     // SubWord: SBOX[0x03]=0x7B, SBOX[0x02]=0x77, SBOX[0x01]=0x7C, SBOX[0x00]=0x63
     // packed = 0x7B | (0x77<<8) | (0x7C<<16) | (0x63<<24) = 0x637C777B
@@ -224,8 +224,8 @@ fn test_aes64ks1i_rnum_0() {
     }]);
     // rs1[63:32] = 0x00000000
     // RotWord(0x00000000) = 0x00000000 (all zeros)
-    // SubWord: SBOX[0]=0x63 for all bytes → 0x63636363
-    // XOR RCON[0]=0x01 into low byte → 0x63636363 ^ 0x00000001 = 0x63636362
+    // SubWord: SBOX[0]=0x63 for all bytes -> 0x63636363
+    // XOR RCON[0]=0x01 into low byte -> 0x63636363 ^ 0x00000001 = 0x63636362
     state.regs.write(Reg::A0, 0u64);
     execute(&mut state).unwrap();
     let result = 0x63636363u32 ^ 0x00000001u32;

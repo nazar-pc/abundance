@@ -41,6 +41,7 @@ where
                     .write(rd, rv32_zkne_helpers::aes32esmi(v1, v2, bs));
             }
         }
+
         Ok(ControlFlow::Continue(()))
     }
 }

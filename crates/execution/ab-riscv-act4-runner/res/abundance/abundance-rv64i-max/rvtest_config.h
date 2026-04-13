@@ -8,7 +8,7 @@
 //   (0x80000000), so 0x0 is a safe choice - the halt address also lives
 //   there, but the tests only need it to fault on load/store, not fetch.
 //
-// RVMODEL_PMP_GRAIN: log2(PMP granularity) - 2. No PMP implemented → 0.
+// RVMODEL_PMP_GRAIN: log2(PMP granularity) - 2. No PMP implemented -> 0.
 // RVMODEL_NUM_PMPS: 0 = no PMP.
 //
 // *_SUPPORTED macros gate optional-extension test cases. Only declare

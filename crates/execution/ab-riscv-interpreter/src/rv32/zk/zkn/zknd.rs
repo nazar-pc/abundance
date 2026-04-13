@@ -41,6 +41,7 @@ where
                     .write(rd, rv32_zknd_helpers::aes32dsmi(v1, v2, bs));
             }
         }
+
         Ok(ControlFlow::Continue(()))
     }
 }
