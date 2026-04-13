@@ -15,9 +15,9 @@ use core::fmt;
 /// and widening multiply-add instructions. All use the OP-V major opcode (0b1010111) with OPMVV
 /// (funct3=0b010) or OPMVX (funct3=0b110).
 ///
-/// Note: In Zve64x, `vmulh`, `vmulhu`, `vmulhsu`, and `vsmul` are not supported for SEW=64 (would
-/// require a 128-bit multiplier). The decoder still recognizes these encodings; the SEW restriction
-/// is enforced at execution time via `vtype`.
+/// Note: In Zve64x, `vmulh`, `vmulhu`, and `vmulhsu` are not supported for SEW=64 (would
+/// require a 128-bit multiplier). The decoder still recognizes these encodings; the SEW
+/// restriction is enforced at execution time via `vtype`.
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]

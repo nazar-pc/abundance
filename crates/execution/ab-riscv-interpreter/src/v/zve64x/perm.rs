@@ -97,10 +97,11 @@ where
                     })?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                // Per spec §16.1: if vl > 0 write element 0, otherwise no update.
-                if vl > 0 {
+                let vstart = u32::from(state.ext_state.vstart());
+                // Per spec §16.1: update only when vstart < vl.
+                if vstart < vl {
                     let scalar = state.regs.read(rs1).as_u64();
-                    // SAFETY: element 0 always fits; same argument as VmvXS.
+                    // SAFETY: element 0 always fits.
                     unsafe {
                         zve64x_perm_helpers::write_element_0_u64(
                             state.ext_state.write_vreg(),
@@ -692,6 +693,14 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                // Spec §16.5: vstart must be zero.
+                if state.ext_state.vstart() != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
                 zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
@@ -701,10 +710,8 @@ where
                 zve64x_perm_helpers::check_no_overlap(state, vd, vs1, 1)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX.
                 unsafe {
-                    zve64x_perm_helpers::execute_compress(state, vd, vs2, vs1, vl, vstart, sew);
+                    zve64x_perm_helpers::execute_compress(state, vd, vs2, vs1, vl, sew);
                 }
             }
             // vmv1r.v vd, vs2
@@ -820,6 +827,7 @@ where
                 state.ext_state.reset_vstart();
             }
         }
+
         Ok(ControlFlow::Continue(()))
     }
 }

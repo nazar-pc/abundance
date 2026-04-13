@@ -243,11 +243,11 @@ unsafe fn write_element_u64<const VLENB: usize>(
     dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes) });
 }
 
-/// Sign-extend the low `sew_bits` of `val` to `i64`.
+/// Sign-extend the low `bits` of `val` to `i64`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn sign_extend_bits(val: u64, sew_bits: u32) -> i64 {
-    let shift = u64::BITS - sew_bits;
+pub fn sign_extend_bits(val: u64, bits: u32) -> i64 {
+    let shift = u64::BITS - bits;
     (val.cast_signed() << shift) >> shift
 }
 
@@ -340,17 +340,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
                     sign_extend_bits(raw_b, sew_bits).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => {
-                // Truncate scalar to SEW bits, then apply the same zero/sign extension
-                // as vector elements. Per spec, only the low SEW bits of the scalar
-                // participate as the source operand.
-                let truncated = val & ((1u64 << sew_bits) - 1);
-                if zero_extend_b {
-                    truncated
-                } else {
-                    sign_extend_bits(truncated, sew_bits).cast_unsigned()
-                }
-            }
+            OpSrc::Scalar(val) => *val,
         };
         let result = op(wide_a, wide_b);
         // SAFETY: `vd` aligned to `2*group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
@@ -449,15 +439,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
                     sign_extend_bits(raw_b, sew_bits).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => {
-                // Truncate scalar to SEW bits before widening
-                let truncated = val & ((1u64 << sew_bits) - 1);
-                if zero_extend_b {
-                    truncated
-                } else {
-                    sign_extend_bits(truncated, sew_bits).cast_unsigned()
-                }
-            }
+            OpSrc::Scalar(val) => *val,
         };
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd

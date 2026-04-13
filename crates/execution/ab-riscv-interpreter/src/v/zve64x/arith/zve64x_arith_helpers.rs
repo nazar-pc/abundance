@@ -22,11 +22,41 @@ where
     [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vreg.bits();
-    if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+    let vreg_idx = vreg.bits();
+    if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
         });
+    }
+    Ok(())
+}
+
+/// Check mask-destination / source overlap constraint for compare instructions.
+///
+/// Per RVV §11.8: a mask destination register may overlap a source register group only when
+/// the source group occupies a single register (LMUL ≤ 1, i.e. `group_regs == 1`). Otherwise
+/// the encoding is reserved and raises an illegal instruction.
+#[inline(always)]
+#[doc(hidden)]
+pub fn check_mask_dest_no_overlap<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vd: VReg,
+    src_base: VReg,
+    group_regs: u8,
+) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+where
+    Reg: Register,
+    [(); Reg::N]:,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+{
+    if group_regs > 1 {
+        let vd_idx = vd.bits();
+        let src = src_base.bits();
+        if vd_idx >= src && vd_idx < src + group_regs {
+            return Err(ExecutionError::IllegalInstruction {
+                address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            });
+        }
     }
     Ok(())
 }

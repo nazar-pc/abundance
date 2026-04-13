@@ -1440,3 +1440,108 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
         );
     }
 }
+
+#[test]
+fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1() {
+    // vmseq.vv with LMUL=2 and vd inside the vs2 group [v2, v3] is reserved
+    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xArithInstruction::VmseqVv {
+            vd: VReg::V3,
+            vs2: VReg::V2,
+            vs1: VReg::V6,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn error_compare_mask_dest_overlaps_vs1_lmul_gt_1() {
+    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xArithInstruction::VmseqVv {
+            vd: VReg::V7,
+            vs2: VReg::V2,
+            vs1: VReg::V6,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1_vx() {
+    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    state.regs.write(Reg::A0, 0);
+    let result = exec(
+        &mut state,
+        Zve64xArithInstruction::VmseqVx {
+            vd: VReg::V2,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn compare_mask_dest_may_overlap_source_at_lmul_1() {
+    // With LMUL=1 the group is a single register, so vd == vs2 is explicitly allowed
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, 42);
+    }
+    state.regs.write(Reg::A0, 42);
+    exec(
+        &mut state,
+        Zve64xArithInstruction::VmseqVx {
+            vd: VReg::V2,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+        },
+    )
+    .unwrap();
+    // All 4 elements equal 42 -> low 4 bits set
+    assert_eq!(
+        state.ext_state.read_vreg()[usize::from(VReg::V2.bits())][0] & 0x0F,
+        0x0F
+    );
+}
+
+#[test]
+fn compare_mask_dest_outside_source_group_lmul_gt_1_ok() {
+    // vd=v8, group vs2=[v2,v3], vs1=[v6,v7]: no overlap, should succeed
+    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    for i in 0..8usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, i as u64);
+        write_elem(&mut state, VReg::V6, i, Vsew::E32, i as u64);
+    }
+    exec(
+        &mut state,
+        Zve64xArithInstruction::VmseqVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V6,
+            vm: true,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        state.ext_state.read_vreg()[usize::from(VReg::V8.bits())][0],
+        0xFF
+    );
+}

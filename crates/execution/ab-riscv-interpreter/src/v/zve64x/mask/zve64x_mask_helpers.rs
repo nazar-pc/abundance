@@ -210,7 +210,6 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, Memory, PC, IH, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
 ) where
     Reg: Register,
     [(); Reg::N]:,
@@ -232,7 +231,7 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, Memory, PC, IH, CustomError>(
             .get_unchecked(usize::from(vs2.bits()))
     };
     let mut found_first = false;
-    for i in vstart..vl {
+    for i in 0..vl {
         // Inactive elements: undisturbed
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -247,7 +246,7 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, Memory, PC, IH, CustomError>(
         unsafe { write_mask_bit(state.ext_state.write_vreg(), vd, i, result) };
     }
     state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    // vstart is already zero, doesn't need to be reset
 }
 
 /// Execute `vmsof.m`: set only the first set bit position of vs2, clear all others.
@@ -265,7 +264,6 @@ pub unsafe fn execute_vmsof<Reg, ExtState, Memory, PC, IH, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
 ) where
     Reg: Register,
     [(); Reg::N]:,
@@ -287,7 +285,7 @@ pub unsafe fn execute_vmsof<Reg, ExtState, Memory, PC, IH, CustomError>(
             .get_unchecked(usize::from(vs2.bits()))
     };
     let mut found_first = false;
-    for i in vstart..vl {
+    for i in 0..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -301,7 +299,7 @@ pub unsafe fn execute_vmsof<Reg, ExtState, Memory, PC, IH, CustomError>(
         unsafe { write_mask_bit(state.ext_state.write_vreg(), vd, i, result) };
     }
     state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    // vstart is already zero, doesn't need to be reset
 }
 
 /// Execute `vmsif.m`: set all mask bits up to and including the first set bit of vs2.
@@ -320,7 +318,6 @@ pub unsafe fn execute_vmsif<Reg, ExtState, Memory, PC, IH, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
 ) where
     Reg: Register,
     [(); Reg::N]:,
@@ -342,7 +339,7 @@ pub unsafe fn execute_vmsif<Reg, ExtState, Memory, PC, IH, CustomError>(
             .get_unchecked(usize::from(vs2.bits()))
     };
     let mut found_first = false;
-    for i in vstart..vl {
+    for i in 0..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -356,21 +353,24 @@ pub unsafe fn execute_vmsif<Reg, ExtState, Memory, PC, IH, CustomError>(
         unsafe { write_mask_bit(state.ext_state.write_vreg(), vd, i, result) };
     }
     state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    // vstart is already zero, doesn't need to be reset
 }
 
-/// Execute `viota.m`: for each active element `i`, write the popcount of set bits in vs2
-/// at positions `0..i` (i.e. strictly before `i`) as a SEW-wide integer into `vd[i]`.
+/// Execute `viota.m`: for each active element `i`, write the popcount of set bits in vs2 at
+/// positions `0..i` (strictly before `i`) as a SEW-wide integer into `vd[i]`.
 ///
-/// Per spec §16.8: inactive elements are handled according to the mask/tail agnostic policy.
-/// Here we use mask-undisturbed (inactive elements left unchanged).
+/// Per spec §16.8: this instruction honors the source mask; inactive mask elements of vs2 are
+/// treated as zero for the prefix sum. Inactive destination elements follow the mask-agnostic
+/// policy (here implemented as undisturbed, which is a permitted realisation).
+///
+/// The caller must reject `vstart != 0` before invocation (spec §16.8 mandatory trap).
 ///
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
 /// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
-/// - `vl <= group_regs * VLENB / sew_bytes`
-/// - `vl <= VLEN`
+/// - SEW wide enough to hold VLMAX-1 (checked by caller)
+/// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
@@ -379,7 +379,6 @@ pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -401,27 +400,24 @@ pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
             .read_vreg()
             .get_unchecked(usize::from(vs2.bits()))
     };
-    // Prefix popcount over the full vs2 mask, regardless of the execution mask (per spec §16.8:
-    // the prefix sum counts *all* preceding vs2 bits, not just active ones).
-    let mut prefix_count = 0;
-    // We need to compute prefix counts for *all* positions up to vl, updating as we go.
-    // For elements before vstart, we still need to advance prefix_count.
+    // Per spec §16.8: inactive vs2 elements are treated as zero for the prefix sum.
+    // The prefix count advances only when the execution mask is active AND the
+    // corresponding vs2 bit is set.
+    let mut prefix_count = 0u64;
     for i in 0..vl {
-        let is_active = mask_bit(&mask_buf, i);
-        if i >= vstart && is_active {
-            // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
-            unsafe {
-                write_element_u64(
-                    state.ext_state.write_vreg(),
-                    vd.bits(),
-                    i,
-                    sew,
-                    prefix_count,
-                );
-            }
+        if !mask_bit(&mask_buf, i) {
+            continue;
         }
-        // Advance prefix count unconditionally for all elements (including inactive ones):
-        // the prefix sum counts set bits in vs2 regardless of masking, per spec.
+        // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
+        unsafe {
+            write_element_u64(
+                state.ext_state.write_vreg(),
+                vd.bits(),
+                i,
+                sew,
+                prefix_count,
+            );
+        }
         if mask_bit(&vs2_snap, i) {
             prefix_count += 1;
         }

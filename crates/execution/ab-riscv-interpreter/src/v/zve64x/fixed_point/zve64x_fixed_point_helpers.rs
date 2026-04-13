@@ -62,6 +62,7 @@ fn round_increment(val: u64, shift: u32, mode: Vxrm, current_result_lsb: u64) ->
 ///
 /// Returns `(val >> shift) + round_increment`.
 #[inline(always)]
+#[doc(hidden)]
 pub fn rounded_srl(val: u64, shift: u32, mode: Vxrm) -> u64 {
     let truncated = val >> shift;
     let r = round_increment(val, shift, mode, truncated & 1);
@@ -72,6 +73,7 @@ pub fn rounded_srl(val: u64, shift: u32, mode: Vxrm) -> u64 {
 ///
 /// Returns the SEW-wide signed result as `u64` (sign bits above SEW are meaningful).
 #[inline(always)]
+#[doc(hidden)]
 pub fn rounded_sra(val: u64, shift: u32, mode: Vxrm, sew: Vsew) -> u64 {
     let signed = sign_extend(val, sew);
     // Treat the raw bits for rounding purposes: rounding uses the unsigned representation of the
@@ -86,6 +88,7 @@ pub fn rounded_sra(val: u64, shift: u32, mode: Vxrm, sew: Vsew) -> u64 {
 ///
 /// Sets `vxsat` to `true` on overflow.
 #[inline(always)]
+#[doc(hidden)]
 pub fn sat_addu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -104,6 +107,7 @@ pub fn sat_addu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 ///
 /// Sets `vxsat` to `true` on overflow.
 #[inline(always)]
+#[doc(hidden)]
 pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = sign_extend(a, sew) as i128;
     let sb = sign_extend(b, sew) as i128;
@@ -125,6 +129,7 @@ pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 ///
 /// Sets `vxsat` to `true` on overflow (underflow to negative).
 #[inline(always)]
+#[doc(hidden)]
 pub fn sat_subu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -141,6 +146,7 @@ pub fn sat_subu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 ///
 /// Sets `vxsat` to `true` on overflow.
 #[inline(always)]
+#[doc(hidden)]
 pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = sign_extend(a, sew) as i128;
     let sb = sign_extend(b, sew) as i128;
@@ -162,6 +168,7 @@ pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 ///
 /// Uses a 1-bit wider intermediate to avoid overflow; no saturation, no `vxsat`.
 #[inline(always)]
+#[doc(hidden)]
 pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -185,6 +192,7 @@ pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 ///
 /// No saturation, no `vxsat`.
 #[inline(always)]
+#[doc(hidden)]
 pub fn avg_add(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -218,6 +226,7 @@ pub fn avg_add(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 ///
 /// No saturation, no `vxsat`.
 #[inline(always)]
+#[doc(hidden)]
 pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -244,6 +253,7 @@ pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 ///
 /// No saturation, no `vxsat`.
 #[inline(always)]
+#[doc(hidden)]
 pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -276,6 +286,7 @@ pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 /// Per spec §12.4: `vd[i] = clip(roundoff_signed(vs2[i] * vs1[i] * 2, SEW))`.
 /// Sets `vxsat` on overflow.
 #[inline(always)]
+#[doc(hidden)]
 pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // SEW-wide signed min and max in i64 (valid for all SEW <= 64)
     let min_sew = i64::MIN >> (i64::BITS - u32::from(sew.bits()));
@@ -332,6 +343,7 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
 ///
 /// `vs2_elem` is passed as `u64`; for SEW = 32 it holds a 64-bit (2*SEW) value.
 #[inline(always)]
+#[doc(hidden)]
 pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Shift right with rounding
     let shifted = rounded_srl(vs2_elem, shamt, mode);
@@ -350,6 +362,7 @@ pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool
 ///
 /// Same SEW constraint as [`nclipu`].
 #[inline(always)]
+#[doc(hidden)]
 pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Sign-extend vs2_elem to full i64 treating it as a 2*SEW-bit signed value.
     // For SEW=8 the source is 16-bit, for SEW=16 it is 32-bit, for SEW=32 it is 64-bit.
@@ -566,6 +579,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, Memory, PC, IH, CustomErr
 ///
 /// Returns `Err(IllegalInstruction)` when `sew.bits() > 32`.
 #[inline(always)]
+#[doc(hidden)]
 pub fn check_narrowing_sew<Reg, ExtState, Memory, PC, IH, CustomError>(
     state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
     sew: Vsew,
@@ -585,6 +599,7 @@ where
 
 /// Check that `vs2` for a narrowing instruction is aligned to `2 * group_regs` and fits in [0,32).
 #[inline(always)]
+#[doc(hidden)]
 pub fn check_vs2_narrowing_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
     state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
     vs2: VReg,
@@ -595,7 +610,14 @@ where
     [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let double_group = group_regs.saturating_mul(2);
+    // Per v-spec §5.2: narrowing requires EMUL_src = 2*LMUL <= 8.
+    // LMUL=8 with a narrowing instruction is reserved.
+    if group_regs > 4 {
+        return Err(ExecutionError::IllegalInstruction {
+            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+        });
+    }
+    let double_group = group_regs * 2;
     let vs2_idx = vs2.bits();
     if !vs2_idx.is_multiple_of(double_group) || vs2_idx + double_group > 32 {
         return Err(ExecutionError::IllegalInstruction {

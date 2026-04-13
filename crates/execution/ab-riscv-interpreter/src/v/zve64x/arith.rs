@@ -1622,12 +1622,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: `vs2` and `vs1` alignment checked; `vd` is a single mask register,
                 // no alignment constraint; `vl <= VLMAX <= VLEN` so all element indices fit
-                // within the mask register.
+                // within the mask register. Mask-dest overlap rule (§11.8) checked above.
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
                         state,
@@ -1663,6 +1665,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1703,6 +1706,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1745,6 +1749,8 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1784,6 +1790,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1824,6 +1831,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1866,6 +1874,8 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1905,6 +1915,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1947,6 +1958,8 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1986,6 +1999,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2028,6 +2042,8 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2067,6 +2083,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2107,6 +2124,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2156,6 +2174,8 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2195,6 +2215,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2235,6 +2256,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2276,6 +2298,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2316,6 +2339,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2357,6 +2381,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2397,6 +2422,7 @@ where
                     })?;
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());

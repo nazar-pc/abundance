@@ -55,13 +55,20 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                // Spec §14: reductions with vstart > 0 are reserved; raise illegal instruction
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                // SAFETY: `vs2` alignment checked; `vs1` and `vd` are single-register scalar
-                // operands with no LMUL alignment constraint; `vl <= VLMAX`
+                // SAFETY: `vs2` alignment checked; `vstart == 0` checked;
+                // `vs1` and `vd` are single-register scalar operands
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
                         state,
@@ -70,7 +77,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, _sew| acc.wrapping_add(elem),
                     );
@@ -92,11 +98,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -106,7 +118,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, _sew| acc & elem,
                     );
@@ -128,11 +139,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -142,7 +159,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, _sew| acc | elem,
                     );
@@ -164,11 +180,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -178,7 +200,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, _sew| acc ^ elem,
                     );
@@ -200,11 +221,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -214,7 +241,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -239,11 +265,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -253,7 +285,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, sew| {
                             if zve64x_arith_helpers::sign_extend(elem, sew)
@@ -283,11 +314,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -297,7 +334,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -322,11 +358,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zve64x_reduction_helpers::execute_reduce_op(
@@ -336,7 +378,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         |acc, elem, sew| {
                             if zve64x_arith_helpers::sign_extend(elem, sew)
@@ -366,6 +407,13 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 // Widening: 2*SEW must fit in ELEN
                 if u32::from(vtype.vsew().bits()) * 2 > ExtState::ELEN {
                     Err(ExecutionError::IllegalInstruction {
@@ -378,9 +426,8 @@ where
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: `vs2` alignment checked; widening SEW constraint checked above;
-                // `vd` and `vs1` are single-register 2*SEW scalar operands
+                // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
                 unsafe {
                     zve64x_reduction_helpers::execute_widening_reduce_op(
                         state,
@@ -389,7 +436,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         // Zero-extend vs2 elements then accumulate
                         |acc, elem, _sew| acc.wrapping_add(elem),
@@ -413,7 +459,13 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                // Widening: 2*SEW must fit in ELEN
+                if u32::from(state.ext_state.vstart()) != 0 {
+                    Err(ExecutionError::IllegalInstruction {
+                        address: state
+                            .instruction_fetcher
+                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                    })?;
+                }
                 if u32::from(vtype.vsew().bits()) * 2 > ExtState::ELEN {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -425,7 +477,6 @@ where
                 zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
                 // SAFETY: see `Vwredsumu`
                 unsafe {
                     zve64x_reduction_helpers::execute_widening_reduce_op(
@@ -435,7 +486,6 @@ where
                         vs1,
                         vm,
                         vl,
-                        vstart,
                         sew,
                         // Sign-extend vs2 elements then accumulate
                         |acc, elem, _sew| acc.wrapping_add(elem),
