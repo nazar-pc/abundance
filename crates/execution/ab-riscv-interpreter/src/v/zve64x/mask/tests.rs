@@ -252,7 +252,7 @@ fn vmand_operates_on_full_register_regardless_of_vl() {
     assert_eq!(get_vreg(&state, VReg::V4), [0xAA; 16]);
 }
 
-/// vd may overlap vs2 for mask-logical ops.
+/// vd may overlap vs2 for mask-logical ops
 #[test]
 fn vmand_vd_overlaps_vs2() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
@@ -777,6 +777,25 @@ fn vmsbf_vd_eq_v0_masked_illegal() {
     ));
 }
 
+/// Spec §16.4: vmsbf.m with vstart != 0 is a mandatory illegal instruction exception.
+#[test]
+fn vmsbf_nonzero_vstart_illegal() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    state.ext_state.set_vstart(1);
+    let result = exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmsbf {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
 // vmsof
 
 /// vmsof: only the first set bit position is set in vd
@@ -894,6 +913,25 @@ fn vmsof_masked_inactive_undisturbed() {
     }
 }
 
+/// Spec §16.4: vmsof.m with vstart != 0 is a mandatory illegal instruction exception.
+#[test]
+fn vmsof_nonzero_vstart_illegal() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    state.ext_state.set_vstart(1);
+    let result = exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmsof {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
 // vmsif
 
 /// vmsif: bits up to and including the first set position are set
@@ -993,6 +1031,25 @@ fn vmsif_vd_eq_v0_masked_illegal() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vm: false,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+/// Spec §16.4: vmsif.m with vstart != 0 is a mandatory illegal instruction exception.
+#[test]
+fn vmsif_nonzero_vstart_illegal() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    state.ext_state.set_vstart(1);
+    let result = exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmsif {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vm: true,
         },
     );
     assert!(matches!(
@@ -1133,9 +1190,11 @@ fn viota_e32_m1() {
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 2);
 }
 
-/// viota prefix count advances for *all* vs2 bits, not just active (masked) ones
+/// Per spec §16.8, viota honors the source mask: inactive vs2 elements are treated as
+/// zero for the prefix sum. Inactive destination elements are mask-agnostic (here:
+/// undisturbed).
 #[test]
-fn viota_prefix_count_ignores_execution_mask() {
+fn viota_inactive_vs2_bits_treated_as_zero() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2: all bits set
     set_vreg(&mut state, VReg::V2, [0xFF; 16]);
@@ -1154,7 +1213,8 @@ fn viota_prefix_count_ignores_execution_mask() {
         },
     )
     .unwrap();
-    // Elements 0..4 inactive: undisturbed (0xAB)
+    // Elements 0..4 inactive: undisturbed (0xAB), and their vs2 bits count as zero
+    // for the prefix sum.
     for i in 0..4usize {
         assert_eq!(
             read_elem(&state, VReg::V4, i, Vsew::E8),
@@ -1162,16 +1222,36 @@ fn viota_prefix_count_ignores_execution_mask() {
             "inactive elem {i}"
         );
     }
-    // Elements 4..8 active.
-    // Prefix count at i=4: counts set bits in vs2[0..4] = 4 (bits 0,1,2,3 all set)
-    // i=5: 5, i=6: 6, i=7: 7
-    for i in 4..8usize {
+    // Elements 4..8 active. Because elements 0..4 are inactive, their vs2 bits contribute zero, so
+    // prefix count at i=4 is 0; i=5 is 1 (bit 4 set & active); etc. i=4: 0, i=5: 1, i=6: 2, i=7: 3
+    let expected = [0, 1, 2, 3];
+    for (k, &exp) in expected.iter().enumerate() {
+        let i = 4 + k;
         assert_eq!(
             read_elem(&state, VReg::V4, i, Vsew::E8),
-            i as u64,
-            "elem {i}"
+            exp,
+            "active elem {i}"
         );
     }
+}
+
+/// Per spec §16.8: viota.m with vstart != 0 is a mandatory illegal instruction exception.
+#[test]
+fn viota_nonzero_vstart_illegal() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    state.ext_state.set_vstart(1);
+    let result = exec(
+        &mut state,
+        Zve64xMaskInstruction::Viota {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
 }
 
 /// viota rejects vd == vs2
@@ -1229,15 +1309,12 @@ fn viota_misaligned_vd_illegal() {
     ));
 }
 
-/// viota with vstart > 0: elements before vstart are undisturbed
 #[test]
-fn viota_vstart_undisturbed_below() {
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    // vs2: all bits clear -> prefix counts are all zero
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
-    // Pre-set vd to sentinel
-    set_vreg(&mut state, VReg::V4, [0xCD; 16]);
-    state.ext_state.set_vstart(4);
+fn viota_sew64_does_not_overflow_width_check() {
+    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut vs2 = [0u8; 16];
+    vs2[0] = 0b11;
+    set_vreg(&mut state, VReg::V2, vs2);
     exec(
         &mut state,
         Zve64xMaskInstruction::Viota {
@@ -1247,14 +1324,8 @@ fn viota_vstart_undisturbed_below() {
         },
     )
     .unwrap();
-    // Elements 0..4: undisturbed
-    for i in 0..4usize {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xCD, "elem {i}");
-    }
-    // Elements 4..8: written (prefix count = 0 for all, since vs2 is all clear)
-    for i in 4..8usize {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0, "elem {i}");
-    }
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0);
+    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E64), 1);
 }
 
 // vid
@@ -1574,10 +1645,12 @@ fn vid_vl_zero() {
 
 // vs_dirty and vstart invariants
 
-/// Every instruction marks VS dirty and resets vstart, even when vl=0
+/// Every instruction marks VS dirty and resets vstart (for instructions that accept non-zero
+/// vstart)
 #[test]
 fn all_instructions_mark_vs_dirty_and_reset_vstart() {
-    let instructions: &[Zve64xMaskInstruction<Reg<u64>>] = &[
+    // Instructions that accept vstart != 0
+    let vstart_ok: &[Zve64xMaskInstruction<Reg<u64>>] = &[
         Zve64xMaskInstruction::Vmand {
             vd: VReg::V4,
             vs2: VReg::V2,
@@ -1628,6 +1701,28 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             vs2: VReg::V2,
             vm: true,
         },
+        Zve64xMaskInstruction::Vid {
+            vd: VReg::V4,
+            vm: true,
+        },
+    ];
+    for (idx, &instr) in vstart_ok.iter().enumerate() {
+        let mut state = setup(4, Vsew::E8, Vlmul::M1);
+        state.ext_state.set_vstart(2);
+        exec(&mut state, instr).unwrap();
+        assert_eq!(
+            state.ext_state.vs_dirty_count(),
+            1,
+            "instruction {idx}: vs_dirty"
+        );
+        assert_eq!(
+            state.ext_state.vstart(),
+            0,
+            "instruction {idx}: vstart reset"
+        );
+    }
+    // Instructions that trap on vstart != 0 per spec (§16.4, §16.8) — checked with vstart=0
+    let vstart_must_be_zero: &[Zve64xMaskInstruction<Reg<u64>>] = &[
         Zve64xMaskInstruction::Vmsbf {
             vd: VReg::V4,
             vs2: VReg::V2,
@@ -1648,26 +1743,16 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             vs2: VReg::V2,
             vm: true,
         },
-        Zve64xMaskInstruction::Vid {
-            vd: VReg::V4,
-            vm: true,
-        },
     ];
-
-    for (idx, &instr) in instructions.iter().enumerate() {
+    for (idx, &instr) in vstart_must_be_zero.iter().enumerate() {
         let mut state = setup(4, Vsew::E8, Vlmul::M1);
-        state.ext_state.set_vstart(2);
         exec(&mut state, instr).unwrap();
         assert_eq!(
             state.ext_state.vs_dirty_count(),
             1,
-            "instruction {idx}: vs_dirty"
+            "vstart=0 instruction {idx}: vs_dirty"
         );
-        assert_eq!(
-            state.ext_state.vstart(),
-            0,
-            "instruction {idx}: vstart reset"
-        );
+        assert_eq!(state.ext_state.vstart(), 0, "vstart=0 instruction {idx}");
     }
 }
 

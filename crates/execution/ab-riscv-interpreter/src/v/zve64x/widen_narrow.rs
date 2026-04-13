@@ -72,7 +72,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -147,7 +147,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -223,7 +223,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -298,7 +298,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -324,7 +324,11 @@ where
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
                 // Scalar is sign-extended from XLEN to 64 bits
-                let scalar = state.regs.read(rs1).as_u64();
+                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
+                    state.regs.read(rs1).as_u64(),
+                    u32::from(Reg::XLEN),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -374,7 +378,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -449,7 +453,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -524,7 +528,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -599,7 +603,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -624,7 +628,11 @@ where
                 }
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
+                    state.regs.read(rs1).as_u64(),
+                    u32::from(Reg::XLEN),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -674,7 +682,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -748,7 +756,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -820,7 +828,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -893,7 +901,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -915,7 +923,11 @@ where
                 }
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
+                    state.regs.read(rs1).as_u64(),
+                    u32::from(Reg::XLEN),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -964,7 +976,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1037,7 +1049,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1108,7 +1120,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1181,7 +1193,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1203,7 +1215,11 @@ where
                 }
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
+                    state.regs.read(rs1).as_u64(),
+                    u32::from(Reg::XLEN),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -1253,7 +1269,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1319,7 +1335,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1385,7 +1401,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1450,7 +1466,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1516,7 +1532,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1582,7 +1598,7 @@ where
                     Vsew::E32 => Eew::E64,
                     Vsew::E64 => unreachable!("SEW=64 already rejected above"),
                 };
-                let wide_group_regs = vtype.vlmul().index_register_count(wide_eew, sew).ok_or(
+                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: state
                             .instruction_fetcher
@@ -1902,6 +1918,7 @@ where
                 }
             }
         }
+
         Ok(ControlFlow::Continue(()))
     }
 }

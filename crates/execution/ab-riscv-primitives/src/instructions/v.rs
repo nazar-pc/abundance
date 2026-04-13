@@ -158,6 +158,20 @@ impl Vlmul {
         // Register count is max(1, n/d) = n when d==1, else 1
         Some(if d > 1 { 1 } else { n as u8 })
     }
+
+    /// Compute EMUL for a data operand of a memory instruction with a given effective element
+    /// width: `EMUL = (eew / sew) * LMUL`.
+    ///
+    /// Mathematically identical to [`Self::index_register_count`], but exposed under a distinct
+    /// name for call sites where the EEW describes the *data* being loaded or stored rather than an
+    /// index. Keeping the two entry points separate avoids accidental semantic drift if
+    /// one of them is later specialised.
+    ///
+    /// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`.
+    #[inline(always)]
+    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<u8> {
+        self.index_register_count(eew, sew)
+    }
 }
 
 impl fmt::Display for Vlmul {

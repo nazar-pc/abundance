@@ -733,10 +733,6 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// The output write index increments only for elements where `vs1[i]` is set.
 /// vd must not overlap vs1 or vs2.
 ///
-/// `vstart` semantics (spec §16.6): the implementation resumes with exactly the number of
-/// elements already written to vd equal to the popcount of `vs1[0..vstart)`. Inputs at indices
-/// `0..vstart` are skipped; the first write goes to the output slot equal to that prefix popcount.
-///
 /// # Safety
 /// - `vd`, `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - `vs1` does not overlap `vd` (verified by caller).
@@ -749,7 +745,6 @@ pub unsafe fn execute_compress<Reg, ExtState, Memory, PC, IH, CustomError>(
     vs2: VReg,
     vs1: VReg,
     vl: u32,
-    vstart: u32,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -765,38 +760,25 @@ pub unsafe fn execute_compress<Reg, ExtState, Memory, PC, IH, CustomError>(
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     let vs1_base = vs1.bits();
-    // Snapshot the entire vs1 mask register before any writes (vd != vs1 is verified by caller).
     let mask_bytes = vl.div_ceil(u8::BITS) as usize;
     let vreg = state.ext_state.read_vreg();
     let mut vs1_buf = [0u8; { ExtState::VLENB as usize }];
-    // SAFETY: `mask_bytes <= VLENB` since `vl <= VLEN`; `vs1_base < 32`
+    // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf.get_unchecked_mut(..mask_bytes).copy_from_slice(
             vreg.get_unchecked(usize::from(vs1_base))
                 .get_unchecked(..mask_bytes),
         );
     }
-    // When vstart >= vl there are no source elements to process: skip directly to
-    // the end-of-instruction bookkeeping.  This also ensures the prefix scan below
-    // never iterates past vl.
-    if vstart >= vl {
-        state.ext_state.mark_vs_dirty();
-        state.ext_state.reset_vstart();
-        return;
-    }
-    // Per spec §16.6: resuming from `vstart` means `vstart` elements have already been written
-    // to vd. The first write slot is therefore the number of set bits in `vs1[0..vstart)`, not
-    // `vstart` itself (which would be wrong when the mask is sparse before `vstart`).
-    // The early-return above guarantees vstart < vl, so clamping to vstart.min(vl) == vstart.
-    let mut out_idx = (0..vstart).filter(|&j| mask_bit(&vs1_buf, j)).count() as u32;
-    for i in vstart..vl {
+    let mut out_idx = 0u32;
+    for i in 0..vl {
         if !mask_bit(&vs1_buf, i) {
             continue;
         }
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
+        // SAFETY: i < vl <= group_regs * elems_per_reg
         let val =
             unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl <= group_regs * elems_per_reg for vd
+        // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
         unsafe {
             write_element_u64(state.ext_state.write_vreg(), vd_base, out_idx, sew, val);
         }

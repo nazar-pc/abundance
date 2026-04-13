@@ -162,12 +162,10 @@ where
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
-                // The 5-bit immediate for vsaddu is zero-extended: values 0..31 only.
-                // `imm` is decoded as i8 (sign-extended from 5 bits), so values 16..31
-                // arrive as -16..-1. Mask to the low 5 bits to recover the original
-                // unsigned encoding before widening to u64.
-                let scalar = u64::from(imm.cast_unsigned() & 0x1F);
-                // SAFETY: alignment checked above
+                // Per v-spec §12.1 / §11.1: the 5-bit immediate is sign-extended to SEW,
+                // then interpreted as an unsigned SEW-wide value for the saturating add.
+                // Sign-extend i8 -> i64 -> bit-cast to u64; sat_addu masks to SEW internally.
+                let scalar = i64::from(imm).cast_unsigned();
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
                         state,

@@ -254,16 +254,15 @@ fn vsaddu_vi_e8() {
 }
 
 #[test]
-fn vsaddu_vi_e8_high_bit_immediate() {
-    // imm=-1 is the decoded form of the 5-bit encoding 0b11111 = 31.
-    // For vsaddu the immediate is zero-extended, so the effective scalar is 31, not 255.
-    // If the implementation incorrectly sign-extends to i8 (-1) and then casts to u8 (255),
-    // the second element would saturate at 255 instead of producing 10 + 31 = 41.
+fn vsaddu_vi_e8_high_bit_immediate_sign_extends() {
+    // Per v-spec §11.1/§12.1: OPIVI immediate is SIGN-extended for vsaddu.vi.
+    // imm=-1 (encoding 0b11111) sign-extends to 0xFF in an 8-bit element,
+    // which as an unsigned operand is 255. Then:
+    //   elem0: 10 + 255 = 265 -> saturates to 255
+    //   elem1: 0  + 255 = 255 -> exact max, no saturation
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
-    // 10 + 31 = 41 - no saturation
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 10);
-    // 230 + 31 = 261 - saturates to 255
-    write_elem(&mut state, VReg::V2, 1, Vsew::E8, 230);
+    write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0);
     exec(
         &mut state,
         Zve64xFixedPointInstruction::VsadduVi {
@@ -276,14 +275,34 @@ fn vsaddu_vi_e8_high_bit_immediate() {
     .unwrap();
     assert_eq!(
         read_elem(&state, VReg::V4, 0, Vsew::E8),
-        41,
-        "10 + 31 = 41, not 10 + 255 = 255"
+        255,
+        "10 + 255 saturates"
     );
     assert_eq!(
         read_elem(&state, VReg::V4, 1, Vsew::E8),
         255,
-        "230 + 31 saturates"
+        "0 + 255 = 255 exact"
     );
+    assert!(vxsat(&state), "elem 0 saturated");
+}
+
+#[test]
+fn vsaddu_vi_e16_sign_extends_to_sew() {
+    // imm=-1 sign-extends to 0xFFFF at SEW=16 (= 65535 unsigned).
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E16, 1);
+    exec(
+        &mut state,
+        Zve64xFixedPointInstruction::VsadduVi {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            imm: -1,
+            vm: true,
+        },
+    )
+    .unwrap();
+    // 1 + 65535 = 65536 -> saturates to 0xFFFF
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 0xFFFF);
     assert!(vxsat(&state));
 }
 
@@ -1452,6 +1471,43 @@ fn vnclipu_shamt_masked_to_log2_2sew() {
     .unwrap();
     // 0x1F & 0x0F = 15; 0xFFFF >> 15 = 1
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E8), 1);
+}
+
+#[test]
+fn vnclipu_lmul8_illegal() {
+    // Per v-spec §5.2: narrowing requires 2*LMUL <= 8, so LMUL=8 is reserved.
+    let mut state = setup(1, Vsew::E8, Vlmul::M8);
+    let result = exec(
+        &mut state,
+        Zve64xFixedPointInstruction::VnclipuWi {
+            vd: VReg::V8,
+            vs2: VReg::V0,
+            imm: 0,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vnclip_lmul8_illegal() {
+    let mut state = setup(1, Vsew::E8, Vlmul::M8);
+    let result = exec(
+        &mut state,
+        Zve64xFixedPointInstruction::VnclipWi {
+            vd: VReg::V8,
+            vs2: VReg::V0,
+            imm: 0,
+            vm: true,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
 }
 
 // vnclip

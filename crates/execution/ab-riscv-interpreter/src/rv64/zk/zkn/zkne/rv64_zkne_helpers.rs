@@ -17,7 +17,7 @@ cfg_select! {
             };
 
             /// `_mm_aesenclast_si128(state, zero)` computes ShiftRows + SubBytes then XORs with
-            /// the round key. Zero key → no-op XOR, matching `aes64es`.
+            /// the round key. Zero key -> no-op XOR, matching `aes64es`.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
             pub(super) fn aes64es(rs1: u64, rs2: u64) -> u64 {
@@ -28,7 +28,7 @@ cfg_select! {
             }
 
             /// `_mm_aesenc_si128(state, zero)` computes ShiftRows + SubBytes + MixColumns then
-            /// XORs with the round key. Zero key → no-op XOR, matching `aes64esm`.
+            /// XORs with the round key. Zero key -> no-op XOR, matching `aes64esm`.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
             pub(super) fn aes64esm(rs1: u64, rs2: u64) -> u64 {
@@ -44,7 +44,7 @@ cfg_select! {
         ///
         /// AESE XORs the round key first, then applies SubBytes + ShiftRows (note: ARM ShiftRows
         /// direction matches the forward cipher). With a zero round key the XOR is a no-op,
-        /// leaving pure SubBytes + ShiftRows — identical to what `aes64es` requires.
+        /// leaving pure SubBytes + ShiftRows - identical to what `aes64es` requires.
         mod aarch64 {
             use core::arch::aarch64::{
                 vaeseq_u8, vaesmcq_u8, vcombine_u64, vcreate_u64, vdupq_n_u8, vgetq_lane_u64,

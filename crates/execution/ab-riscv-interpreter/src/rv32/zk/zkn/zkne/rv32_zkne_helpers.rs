@@ -14,7 +14,7 @@ pub(in super::super) mod soft {
     ///
     /// This is `aes_mixcolumn_byte_fwd` from the Sail reference:
     /// the four output bytes of MixColumns when the input column has `b` in one position and zeros
-    /// elsewhere — packed into a little-endian `u32`.
+    /// elsewhere - packed into a little-endian `u32`.
     ///
     /// Column matrix multiply for MixColumns:
     /// ```text

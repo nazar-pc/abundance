@@ -236,6 +236,103 @@ fn vsr_vector_not_allowed_returns_illegal_instruction() {
     ));
 }
 
+#[test]
+fn vsr_honors_nonzero_vstart() {
+    let mut state = initialize_state([]);
+    state.ext_state.init_vector_csrs();
+    let data = array::from_fn::<_, 16, _>(|i| i as u8 + 1);
+    set_vreg(&mut state, VReg::V2, &data);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    for i in 0u64..16 {
+        state.memory.write::<u8>(TEST_BASE_ADDR + i, 0xEE).unwrap();
+    }
+    state.ext_state.set_vstart(5);
+
+    exec_one(
+        &mut state,
+        Zve64xStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: 1,
+        },
+    )
+    .unwrap();
+
+    for i in 0u64..5 {
+        assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + i).unwrap(), 0xEE);
+    }
+    for i in 5u64..16 {
+        assert_eq!(
+            state.memory.read::<u8>(TEST_BASE_ADDR + i).unwrap(),
+            i as u8 + 1
+        );
+    }
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
+#[test]
+fn vsr_vstart_at_or_past_evl_writes_nothing() {
+    let mut state = initialize_state([]);
+    state.ext_state.init_vector_csrs();
+    set_vreg(&mut state, VReg::V2, &[0xAA; 16]);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    state.memory.write::<u8>(TEST_BASE_ADDR, 0x55).unwrap();
+    // EVL = 1 * VLENB = 16; vstart = 16 => no-op
+    state.ext_state.set_vstart(16);
+
+    exec_one(
+        &mut state,
+        Zve64xStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: 1,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x55);
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
+#[test]
+fn vsr_nreg2_vstart_spans_register_boundary() {
+    let mut state = initialize_state([]);
+    state.ext_state.init_vector_csrs();
+    let d0 = array::from_fn::<_, 16, _>(|i| i as u8);
+    let d1 = array::from_fn::<_, 16, _>(|i| i as u8 + 16);
+    set_vreg(&mut state, VReg::V2, &d0);
+    set_vreg(&mut state, VReg::V3, &d1);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    for i in 0u64..32 {
+        state.memory.write::<u8>(TEST_BASE_ADDR + i, 0xEE).unwrap();
+    }
+    // Start mid-second register (byte 20: v3, in-reg offset 4)
+    state.ext_state.set_vstart(20);
+
+    exec_one(
+        &mut state,
+        Zve64xStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: 2,
+        },
+    )
+    .unwrap();
+
+    for i in 0u64..20 {
+        assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + i).unwrap(), 0xEE);
+    }
+    // Bytes 20..32 correspond to v3 bytes 4..16, which equal (byte as u8) + 16
+    for i in 20u64..32 {
+        let in_reg = (i - 16) as u8;
+        assert_eq!(
+            state.memory.read::<u8>(TEST_BASE_ADDR + i).unwrap(),
+            in_reg + 16
+        );
+    }
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
 // Vsm (mask store)
 
 #[test]
@@ -327,6 +424,68 @@ fn vsm_vector_not_allowed_returns_illegal_instruction() {
         result,
         Err(ExecutionError::IllegalInstruction { .. })
     ));
+}
+
+#[test]
+fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
+    // vl=16 => ceil(vl/8) = 2 bytes to write.
+    // vstart = 1 (byte units, NOT a multiple of 8) => skip the first byte of vs3,
+    // write only the second byte of the mask register.
+    // This test FAILS on the old buggy implementation (which did `vstart / 8`).
+    // It PASSES after the fix (`start_byte = vstart` with no division).
+    let mut state = setup(16, Vsew::E8, Vlmul::M1);
+
+    let mut mask = [0u8; 16];
+    mask[0] = 0xAA; // byte 0 – should be skipped
+    mask[1] = 0xBB; // byte 1 – should be written
+    set_vreg(&mut state, VReg::V1, &mask);
+
+    // Sentinels so we can detect whether the first byte was wrongly overwritten
+    state.memory.write::<u8>(TEST_BASE_ADDR, 0x11).unwrap();
+    state.memory.write::<u8>(TEST_BASE_ADDR + 1, 0x22).unwrap();
+
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    state.ext_state.set_vstart(1); // ← the key edge-case value
+
+    exec_one(
+        &mut state,
+        Zve64xStoreInstruction::Vsm {
+            vs3: VReg::V1,
+            rs1: Reg::A0,
+        },
+    )
+    .unwrap();
+
+    // First output byte must be untouched (vstart=1 byte skipped)
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x11);
+    // Only the second byte written
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 1).unwrap(), 0xBB);
+    // No further bytes written
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 2).unwrap(), 0x00);
+
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
+#[test]
+fn vsm_vstart_past_evl_writes_nothing() {
+    // vl=8 => EVL = 1 byte; vstart=8 => start_byte = 1, equals EVL => no-op
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    set_vreg(&mut state, VReg::V1, &[0xFF; 16]);
+    state.memory.write::<u8>(TEST_BASE_ADDR, 0x77).unwrap();
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    state.ext_state.set_vstart(8);
+
+    exec_one(
+        &mut state,
+        Zve64xStoreInstruction::Vsm {
+            vs3: VReg::V1,
+            rs1: Reg::A0,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x77);
+    assert_eq!(state.ext_state.vstart(), 0);
 }
 
 // Vse (unit-stride store)
@@ -506,12 +665,15 @@ fn vse_vstart_nonzero_skips_earlier_elements() {
 }
 
 #[test]
-fn vse_masked_vs3_overlaps_v0_returns_illegal() {
+fn vse_masked_vs3_equals_v0_is_legal() {
+    // Per RVV 1.0, vs3 is a source operand; source/v0 overlap is permitted for stores.
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut mask_and_data = [0u8; 16];
+    mask_and_data[0] = 0b11111111;
+    set_vreg(&mut state, VReg::V0, &mask_and_data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
-    // vs3=V0, vm=false: V0 is both source and mask -> illegal
-    let result = exec_one(
+    exec_one(
         &mut state,
         Zve64xStoreInstruction::Vse {
             vs3: VReg::V0,
@@ -519,12 +681,10 @@ fn vse_masked_vs3_overlaps_v0_returns_illegal() {
             vm: false,
             eew: Eew::E8,
         },
-    );
+    )
+    .unwrap();
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0b11111111);
 }
 
 #[test]
@@ -1015,12 +1175,20 @@ fn vsseg_register_group_out_of_bounds_returns_illegal() {
 }
 
 #[test]
-fn vsseg_masked_v0_overlap_returns_illegal() {
-    // nf=2, vs3=V0, masked: first field group includes v0 -> illegal
+fn vsseg_masked_vs3_equals_v0_is_legal() {
+    // Per RVV 1.0, vs3 is a source register group; source/v0 overlap is permitted for stores.
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut mask_and_f0 = [0u8; 16];
+    mask_and_f0[0] = 0b00001111;
+    set_vreg(&mut state, VReg::V0, &mask_and_f0);
+    let f1 = array::from_fn::<_, 16, _>(|i| i as u8 + 100);
+    set_vreg(&mut state, VReg::V1, &f1);
+    for i in 0u64..8 {
+        state.memory.write::<u8>(TEST_BASE_ADDR + i, 0xEE).unwrap();
+    }
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
-    let result = exec_one(
+    exec_one(
         &mut state,
         Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V0,
@@ -1029,12 +1197,20 @@ fn vsseg_masked_v0_overlap_returns_illegal() {
             eew: Eew::E8,
             nf: 2,
         },
-    );
+    )
+    .unwrap();
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    // All 4 elements active (mask = 0b00001111). Per-element: [v0[i], v1[i]].
+    for i in 0u64..4 {
+        assert_eq!(
+            state.memory.read::<u8>(TEST_BASE_ADDR + i * 2).unwrap(),
+            if i == 0 { 0b00001111 } else { 0 }
+        );
+        assert_eq!(
+            state.memory.read::<u8>(TEST_BASE_ADDR + i * 2 + 1).unwrap(),
+            i as u8 + 100
+        );
+    }
 }
 
 // Vssseg (strided segment store)

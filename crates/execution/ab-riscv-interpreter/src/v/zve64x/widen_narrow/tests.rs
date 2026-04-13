@@ -181,9 +181,9 @@ fn vwaddu_vx_e8_m1_zero_extends_scalar() {
 }
 
 #[test]
-fn vwaddu_vx_e8_m1_scalar_truncated_to_sew() {
-    // SEW=8; scalar=0x1ff has bit 8 set which is above SEW; only low 8 bits (0xff) should
-    // participate after zero-extension
+fn vwaddu_vx_e8_m1_scalar_not_truncated_to_sew() {
+    // Per spec §11.2, the rs1 scalar is the full XLEN value zero-extended to 2*SEW
+    // (NOT truncated to SEW). With rs1=0x1ff and SEW=8, the operand is 0x1ff, not 0xff.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x00);
@@ -198,11 +198,8 @@ fn vwaddu_vx_e8_m1_scalar_truncated_to_sew() {
         },
     )
     .unwrap();
-    // scalar truncated to 8 bits = 0xff; zero-extended to 16 = 0x00ff
-    // 0x01 + 0xff = 0x100
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x100u64);
-    // 0x00 + 0xff = 0xff
-    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E16), 0xffu64);
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x200u64);
+    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E16), 0x1ffu64);
 }
 
 // vwadd.vv
@@ -276,8 +273,9 @@ fn vwadd_vx_e16_m1_sign_extends_scalar() {
 }
 
 #[test]
-fn vwadd_vx_e8_m1_scalar_sign_extended_from_sew() {
-    // SEW=8; scalar=0x1ff; low 8 bits = 0xff = -1 as i8; sign-extended to 16 = 0xffff
+fn vwadd_vx_e8_m1_scalar_sign_extended_from_xlen_not_sew() {
+    // rs1=0x1ff as i64 is +511 (sign-extended from XLEN, not from SEW).
+    // element 0x01 sext to i16 = 1; 1 + 511 = 512 = 0x0200.
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     state.regs.write(Reg::A0, 0x1ffu64);
@@ -291,8 +289,25 @@ fn vwadd_vx_e8_m1_scalar_sign_extended_from_sew() {
         },
     )
     .unwrap();
-    // scalar low 8 bits = 0xff = -1 signed; sext to 16 = 0xffff
-    // sext(0x01) = 1; 1 + (-1) = 0
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x0200u64);
+}
+
+#[test]
+fn vwadd_vx_e8_m1_negative_xlen_scalar() {
+    // rs1 = u64::MAX = -1 signed. 0x01 sext = 1. 1 + (-1) = 0.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
+    state.regs.write(Reg::A0, u64::MAX);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+        },
+    )
+    .unwrap();
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0u64);
 }
 
@@ -419,6 +434,26 @@ fn vwaddu_wx_e16_m1_wide_plus_scalar() {
     }
 }
 
+#[test]
+fn vwaddu_wx_e8_m1_scalar_not_truncated() {
+    // Wide source = 0x200, scalar = 0x1ff (full XLEN value, zero-extended).
+    // 0x200 + 0x1ff = 0x3ff.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0x200u64);
+    state.regs.write(Reg::A0, 0x1ffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwadduWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 0x3ffu64);
+}
+
 // vwadd.wv / vwadd.wx
 
 #[test]
@@ -511,26 +546,6 @@ fn vwsubu_wx_e16_m1_scalar() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E32), 0xffffu64);
     assert_eq!(read_elem(&state, VReg::V16, 1, Vsew::E32), 4u64);
-}
-
-#[test]
-fn vwsubu_wx_e8_m1_scalar_truncated_to_sew() {
-    // Wide source = 0x200, scalar=0x1ff; low 8 bits = 0xff = 255 zero-extended
-    // 0x200 - 0xff = 0x101
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
-    write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0x200u64);
-    state.regs.write(Reg::A0, 0x1ffu64);
-    exec(
-        &mut state,
-        Zve64xWidenNarrowInstruction::VwsubuWx {
-            vd: VReg::V16,
-            vs2: VReg::V8,
-            rs1: Reg::A0,
-            vm: true,
-        },
-    )
-    .unwrap();
-    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 0x101u64);
 }
 
 // vwsub.wv / vwsub.wx

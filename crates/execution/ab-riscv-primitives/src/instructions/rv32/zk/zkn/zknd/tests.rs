@@ -123,7 +123,7 @@ fn test_wrong_opcode_rejected() {
 
 #[test]
 fn test_aes32dsi_and_aes32dsmi_distinct_funct5() {
-    // Same registers and bs, different funct5 → different variants
+    // Same registers and bs, different funct5 -> different variants
     let inst_dsi = make_rv32_zknd(FUNCT5_DSI, 1, 1, 2, 1);
     let inst_dsmi = make_rv32_zknd(FUNCT5_DSMI, 1, 1, 2, 1);
     let dec_dsi = Rv32ZkndInstruction::<Reg<u32>>::try_decode(inst_dsi);

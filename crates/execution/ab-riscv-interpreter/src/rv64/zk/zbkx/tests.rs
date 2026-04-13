@@ -20,7 +20,7 @@ fn test_xperm4_basic() {
     execute(&mut state).unwrap();
 
     // xperm4 of a value with itself: nibble i of rs2 is i, so we look up nibble i of rs1
-    // which is also i — identity maps through identity lut back to the lut itself
+    // which is also i - identity maps through identity lut back to the lut itself
     assert_eq!(state.regs.read(Reg::A2), 0xFEDCBA9876543210u64);
 }
 
@@ -52,7 +52,7 @@ fn test_xperm4_no_out_of_bounds() {
     }]);
 
     state.regs.write(Reg::A0, 0xFEDCBA9876543210u64);
-    // Maximum nibble index is 0xF = 15, which is the last nibble — always in bounds
+    // Maximum nibble index is 0xF = 15, which is the last nibble - always in bounds
     state.regs.write(Reg::A1, 0xFFFFFFFFFFFFFFFFu64);
 
     execute(&mut state).unwrap();

@@ -325,6 +325,41 @@ fn vmv_s_x_illegal_when_vector_disabled() {
     assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
 }
 
+#[test]
+fn vmv_s_x_vstart_ge_vl_suppresses_write() {
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    set_vreg_bytes(&mut state, VReg::V4, 0xAA);
+    state.regs.write(Reg::A0, 0x1234_5678);
+    state.ext_state.set_vstart(4);
+    exec(
+        &mut state,
+        ZVPerm::VmvSX {
+            vd: VReg::V4,
+            rs1: Reg::A0,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xAAAA_AAAA);
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
+#[test]
+fn vmv_s_x_vstart_nonzero_below_vl_still_writes() {
+    // vstart=1, vl=4: vstart < vl, so write proceeds (spec says element 0 is updated).
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    state.regs.write(Reg::A0, 0x1234_5678);
+    state.ext_state.set_vstart(1);
+    exec(
+        &mut state,
+        ZVPerm::VmvSX {
+            vd: VReg::V4,
+            rs1: Reg::A0,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x1234_5678);
+}
+
 // vslideup
 
 #[test]
@@ -2073,14 +2108,35 @@ fn vcompress_vm_vd_overlap_vs1_illegal() {
 }
 
 #[test]
-fn vcompress_vm_vstart_resumes_output_at_vstart() {
+fn vcompress_vm_rejects_nonzero_vstart() {
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
+    }
+    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
+    state.ext_state.set_vstart(1);
+    let err = exec(
+        &mut state,
+        ZVPerm::VcompressVm {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn vcompress_vm_vstart_zero_normal_operation() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
-    state.ext_state.set_vstart(1);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0);
+    set_mask_bit(&mut state, VReg::V1, 1, true);
+    set_mask_bit(&mut state, VReg::V1, 2, true);
     exec(
         &mut state,
         ZVPerm::VcompressVm {
@@ -2090,11 +2146,10 @@ fn vcompress_vm_vstart_resumes_output_at_vstart() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xDEAD);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 20);
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 30);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 40);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 20);
+    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 30);
+    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 0xDEAD);
+    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 0xDEAD);
 }
 
 // vmv1r.v / vmv2r.v / vmv4r.v / vmv8r.v
@@ -2587,14 +2642,6 @@ fn all_instructions_reset_vstart() {
                 vm: true,
             },
             "VrgatherVi",
-        ),
-        (
-            ZVPerm::VcompressVm {
-                vd: VReg::V4,
-                vs2: VReg::V2,
-                vs1: VReg::V1,
-            },
-            "VcompressVm",
         ),
         (
             ZVPerm::Vmv1rV {

@@ -107,7 +107,7 @@ pub(in super::super) mod soft {
     ///
     /// This is `aes_mixcolumn_byte_inv` from the Sail reference:
     /// the four output bytes of InvMixColumns when the input column has `b` in one position and
-    /// zeros elsewhere — packed into a little-endian `u32`.
+    /// zeros elsewhere - packed into a little-endian `u32`.
     ///
     /// Column matrix multiply for InvMixColumns:
     /// ```text

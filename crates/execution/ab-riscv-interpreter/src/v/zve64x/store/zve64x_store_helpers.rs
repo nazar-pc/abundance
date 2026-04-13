@@ -1,7 +1,10 @@
 //! Opaque helpers for Zve64x extension
 
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, read_group_element, snapshot_mask};
+use crate::v::zve64x::load::zve64x_load_helpers::{
+    check_register_group_alignment, mask_bit, read_group_element, snapshot_mask,
+};
+use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::instructions::v::Eew;
 use ab_riscv_primitives::registers::general_purpose::Register;
@@ -32,6 +35,34 @@ fn write_mem_element(
     buf: [u8; Eew::MAX_BYTES as usize],
 ) -> Result<(), VirtualMemoryError> {
     memory.write_slice(addr, &buf[..usize::from(eew.bytes())])
+}
+
+/// Validate a segment store's destination register group.
+///
+/// Like [`validate_segment_registers`] but omits the v0-overlap check, since
+/// segment stores read `vs3` as a source and the source/v0 overlap restriction
+/// applies only to load destinations.
+#[inline(always)]
+#[doc(hidden)]
+pub fn validate_segment_store_registers<Reg, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+    vs3: VReg,
+    group_regs: u8,
+    nf: u8,
+) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+where
+    Reg: Register,
+    [(); Reg::N]:,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+{
+    check_register_group_alignment(state, vs3, group_regs)?;
+    let total = u32::from(vs3.bits()) + u32::from(nf) * u32::from(group_regs);
+    if total > 32 {
+        return Err(ExecutionError::IllegalInstruction {
+            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+        });
+    }
+    Ok(())
 }
 
 /// Execute a unit-stride or unit-stride segment store.

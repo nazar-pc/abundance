@@ -68,7 +68,7 @@ fn test_xperm4_max_in_bounds_index() {
 
     // rs1 nibble 7 (highest in-bounds for RV32) = 0xA
     state.regs.write(Reg::A0, 0xA0000000u32);
-    // All indices are 7 — the last valid index
+    // All indices are 7 - the last valid index
     state.regs.write(Reg::A1, 0x77777777u32);
 
     execute(&mut state).unwrap();

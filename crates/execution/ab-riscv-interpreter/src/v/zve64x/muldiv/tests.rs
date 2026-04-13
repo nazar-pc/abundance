@@ -6,6 +6,7 @@ use ab_riscv_primitives::instructions::v::zve64x::muldiv::Zve64xMulDivInstructio
 use ab_riscv_primitives::instructions::v::{Vlmul, Vsew, Vtype};
 use ab_riscv_primitives::registers::general_purpose::Reg;
 use ab_riscv_primitives::registers::vector::VReg;
+
 // With TEST_VLEN=128, VLENB=16:
 //   E8/M1  -> VLMAX=16, 1 reg
 //   E16/M1 -> VLMAX=8,  1 reg
@@ -1484,16 +1485,17 @@ fn vwmaccsu_vv_e8() {
 
 #[test]
 fn vwmaccus_vx_e8() {
-    // vwmaccus: vd[i] = vd[i] + zext(rs1) * sext(vs2[i])
+    // vwmaccus.vx: vd[i] = vd[i] + sext(rs1) * zext(vs2[i])
+    // rs1 is SIGNED, vs2 is UNSIGNED.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_wide_elem(&mut state, VReg::V8, 0, Vsew::E8, 0);
     write_wide_elem(&mut state, VReg::V8, 1, Vsew::E8, 0);
-    // vs2=-1 signed
+    // vs2=255 (unsigned)
     write_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFF);
-    // vs2=50
+    // vs2=50 (unsigned)
     write_elem(&mut state, VReg::V4, 1, Vsew::E8, 50);
-    // rs1=200 unsigned
-    state.regs.write(Reg::A0, 200u64);
+    // rs1 low 8 bits = 0xFF, sign-extends to -1
+    state.regs.write(Reg::A0, 0xFFu64);
     exec(
         &mut state,
         Zve64xMulDivInstruction::VwmaccusVx {
@@ -1504,13 +1506,45 @@ fn vwmaccus_vx_e8() {
         },
     )
     .unwrap();
-    // 0 + 200 * (-1) = -200 as u16
+    // 0 + (-1) * 255 = -255 as i16
+    assert_eq!(
+        read_wide_elem(&state, VReg::V8, 0, Vsew::E8) as i16,
+        -255i16
+    );
+    // 0 + (-1) * 50 = -50
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8) as i16, -50i16);
+}
+
+#[test]
+fn vwmaccsu_vx_e8() {
+    // vwmaccsu.vx: vd[i] = vd[i] + sext(vs2[i]) * zext(rs1)
+    // vs2 is SIGNED, rs1 is UNSIGNED.
+    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    write_wide_elem(&mut state, VReg::V8, 0, Vsew::E8, 0);
+    write_wide_elem(&mut state, VReg::V8, 1, Vsew::E8, 0);
+    // vs2=-1 (signed)
+    write_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFF);
+    // vs2=2 (signed)
+    write_elem(&mut state, VReg::V4, 1, Vsew::E8, 2);
+    // rs1=200 (unsigned)
+    state.regs.write(Reg::A0, 200u64);
+    exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmaccsuVx {
+            vd: VReg::V8,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+        },
+    )
+    .unwrap();
+    // 0 + (-1) * 200 = -200 as i16
     assert_eq!(
         read_wide_elem(&state, VReg::V8, 0, Vsew::E8) as i16,
         -200i16
     );
-    // 0 + 200 * 50 = 10000
-    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 10000u64);
+    // 0 + 2 * 200 = 400
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 400u64);
 }
 
 // common error paths

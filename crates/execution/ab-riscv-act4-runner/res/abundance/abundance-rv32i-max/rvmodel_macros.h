@@ -20,12 +20,12 @@
     .option pop
 
 // ---------------------------------------------------------------------------
-// Required: halt with pass (exit code 0 → tohost = 1)
+// Required: halt with pass (exit code 0 -> tohost = 1)
 // ---------------------------------------------------------------------------
 #define RVMODEL_HALT_PASS  _RVMODEL_HTIF_EXIT(1)
 
 // ---------------------------------------------------------------------------
-// Required: halt with fail (exit code 1 → tohost = 3, i.e. (1<<1)|1)
+// Required: halt with fail (exit code 1 -> tohost = 3, i.e. (1<<1)|1)
 // ---------------------------------------------------------------------------
 #define RVMODEL_HALT_FAIL  _RVMODEL_HTIF_EXIT(3)
 

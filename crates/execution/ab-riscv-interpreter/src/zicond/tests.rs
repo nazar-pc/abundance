@@ -2,7 +2,7 @@ use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
 use ab_riscv_primitives::registers::general_purpose::Reg;
 
-// CZERO.EQZ — rd = (rs2 == 0) ? 0 : rs1
+// CZERO.EQZ - rd = (rs2 == 0) ? 0 : rs1
 
 #[test]
 fn test_czero_eqz_condition_zero_yields_zero() {
@@ -119,7 +119,7 @@ fn test_czero_eqz_rd_rs2_alias_condition_zero() {
     assert_eq!(state.regs.read(Reg::A1), 0);
 }
 
-// CZERO.NEZ — rd = (rs2 != 0) ? 0 : rs1
+// CZERO.NEZ - rd = (rs2 != 0) ? 0 : rs1
 
 #[test]
 fn test_czero_nez_condition_nonzero_yields_zero() {

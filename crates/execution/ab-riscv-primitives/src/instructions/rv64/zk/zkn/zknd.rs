@@ -97,9 +97,9 @@ where
 
         match opcode {
             // R-type: OP opcode (0x33)
-            //   aes64ds:  funct7=0b0011101, funct3=0 → MATCH=0x3a000033
-            //   aes64dsm: funct7=0b0011111, funct3=0 → MATCH=0x3e000033
-            //   aes64ks2: funct7=0b0111111, funct3=0 → MATCH=0x7e000033
+            //   aes64ds:  funct7=0b0011101, funct3=0 -> MATCH=0x3a000033
+            //   aes64dsm: funct7=0b0011111, funct3=0 -> MATCH=0x3e000033
+            //   aes64ks2: funct7=0b0111111, funct3=0 -> MATCH=0x7e000033
             0b0110011 => {
                 if funct3 != 0b000 {
                     None?;
@@ -115,8 +115,8 @@ where
                 }
             }
             // I-type: OP-IMM opcode (0x13), funct3=0b001
-            //   aes64im:   imm[11:0]=0x300  (funct7=0b0011000, rs2=0b00000) → MATCH=0x30001013
-            //   aes64ks1i: imm[11:5]=0b0011000, imm[4]=1, imm[3:0]=rnum    → MATCH=0x31001013+
+            //   aes64im:   imm[11:0]=0x300  (funct7=0b0011000, rs2=0b00000) -> MATCH=0x30001013
+            //   aes64ks1i: imm[11:5]=0b0011000, imm[4]=1, imm[3:0]=rnum     -> MATCH=0x31001013+
             0b0010011 => {
                 if funct3 != 0b001 {
                     None?;
