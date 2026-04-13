@@ -593,9 +593,9 @@ jobs:
         with:
           context: /tmp/empty
           file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
-          cache-from: type=gha,scope=act4-build
+          cache-from: type=gha,scope=act4-build-${{ runner.arch }}
           # Only save on `main` branch
-          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=min,scope=act4-build' || '' }}
+          cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=min,scope=act4-build-{0}', runner.arch) || '' }}
           load: true
 
       - name: ACT4 tests
