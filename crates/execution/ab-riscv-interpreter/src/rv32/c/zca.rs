@@ -8,7 +8,6 @@ use crate::{
     SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv32::c::zca::Rv32ZcaInstruction;
 use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
@@ -59,7 +58,7 @@ where
             Self::CJal { imm } => {
                 let return_addr = state.instruction_fetcher.get_pc();
                 state.regs.write(Reg::RA, return_addr);
-                let old_pc = state.instruction_fetcher.old_pc(self.size());
+                let old_pc = state.instruction_fetcher.old_pc(size_of::<u16>() as u8);
                 return state
                     .instruction_fetcher
                     .set_pc(
@@ -110,7 +109,7 @@ where
                 state.regs.write(rd, value);
             }
             Self::CJ { imm } => {
-                let old_pc = state.instruction_fetcher.old_pc(self.size());
+                let old_pc = state.instruction_fetcher.old_pc(size_of::<u16>() as u8);
                 return state
                     .instruction_fetcher
                     .set_pc(
@@ -121,7 +120,7 @@ where
             }
             Self::CBeqz { rs1, imm } => {
                 if state.regs.read(rs1) == 0 {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u16>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -133,7 +132,7 @@ where
             }
             Self::CBnez { rs1, imm } => {
                 if state.regs.read(rs1) != 0 {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u16>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(

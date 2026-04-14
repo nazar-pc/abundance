@@ -1,0 +1,87 @@
+//! Zcb compressed instruction execution (RV32)
+//!
+//! C.ZEXT.W is absent in RV32 - the enum has no such variant.
+
+#[cfg(test)]
+mod tests;
+
+use crate::{
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
+    SystemInstructionHandler, VirtualMemory,
+};
+use ab_riscv_macros::instruction_execution;
+use ab_riscv_primitives::instructions::rv32::c::zcb::Rv32ZcbInstruction;
+use ab_riscv_primitives::registers::general_purpose::Register;
+use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv32ZcbInstruction<Reg>
+where
+    Reg: Register<Type = u32>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        match self {
+            Self::CLbu { rd, rs1, uimm } => {
+                let addr = u64::from(state.regs.read(rs1).wrapping_add(u32::from(uimm)));
+                let value = state.memory.read::<u8>(addr)?;
+                state.regs.write(rd, u32::from(value));
+            }
+            Self::CLh { rd, rs1, uimm } => {
+                let addr = u64::from(state.regs.read(rs1).wrapping_add(u32::from(uimm)));
+                let value = i32::from(state.memory.read::<i16>(addr)?);
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::CLhu { rd, rs1, uimm } => {
+                let addr = u64::from(state.regs.read(rs1).wrapping_add(u32::from(uimm)));
+                let value = state.memory.read::<u16>(addr)?;
+                state.regs.write(rd, u32::from(value));
+            }
+            Self::CSb { rs1, rs2, uimm } => {
+                let addr = u64::from(state.regs.read(rs1).wrapping_add(u32::from(uimm)));
+                state.memory.write(addr, state.regs.read(rs2) as u8)?;
+            }
+            Self::CSh { rs1, rs2, uimm } => {
+                let addr = u64::from(state.regs.read(rs1).wrapping_add(u32::from(uimm)));
+                state.memory.write(addr, state.regs.read(rs2) as u16)?;
+            }
+            Self::CZextB { rd } => {
+                let value = state.regs.read(rd) & 0xff;
+                state.regs.write(rd, value);
+            }
+            Self::CSextB { rd } => {
+                let value = i32::from(state.regs.read(rd) as i8);
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::CZextH { rd } => {
+                let value = state.regs.read(rd) & 0xffff;
+                state.regs.write(rd, value);
+            }
+            Self::CSextH { rd } => {
+                let value = i32::from(state.regs.read(rd) as i16);
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::CNot { rd } => {
+                let value = !state.regs.read(rd);
+                state.regs.write(rd, value);
+            }
+            Self::CMul { rd, rs2 } => {
+                let value = state.regs.read(rd).wrapping_mul(state.regs.read(rs2));
+                state.regs.write(rd, value);
+            }
+        }
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
