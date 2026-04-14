@@ -14,7 +14,6 @@ use crate::{
     SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::Instruction;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::general_purpose::Register;
 use core::ops::ControlFlow;
@@ -272,7 +271,7 @@ where
 
             Self::Beq { rs1, rs2, imm } => {
                 if state.regs.read(rs1) == state.regs.read(rs2) {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -284,7 +283,7 @@ where
             }
             Self::Bne { rs1, rs2, imm } => {
                 if state.regs.read(rs1) != state.regs.read(rs2) {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -296,7 +295,7 @@ where
             }
             Self::Blt { rs1, rs2, imm } => {
                 if state.regs.read(rs1).cast_signed() < state.regs.read(rs2).cast_signed() {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -308,7 +307,7 @@ where
             }
             Self::Bge { rs1, rs2, imm } => {
                 if state.regs.read(rs1).cast_signed() >= state.regs.read(rs2).cast_signed() {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -320,7 +319,7 @@ where
             }
             Self::Bltu { rs1, rs2, imm } => {
                 if state.regs.read(rs1) < state.regs.read(rs2) {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -332,7 +331,7 @@ where
             }
             Self::Bgeu { rs1, rs2, imm } => {
                 if state.regs.read(rs1) >= state.regs.read(rs2) {
-                    let old_pc = state.instruction_fetcher.old_pc(self.size());
+                    let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                     return state
                         .instruction_fetcher
                         .set_pc(
@@ -348,7 +347,7 @@ where
             }
 
             Self::Auipc { rd, imm } => {
-                let old_pc = state.instruction_fetcher.old_pc(self.size());
+                let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                 state
                     .regs
                     .write(rd, old_pc.wrapping_add(i64::from(imm).cast_unsigned()));
@@ -356,7 +355,7 @@ where
 
             Self::Jal { rd, imm } => {
                 let pc = state.instruction_fetcher.get_pc();
-                let old_pc = state.instruction_fetcher.old_pc(self.size());
+                let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                 state.regs.write(rd, pc);
                 return state
                     .instruction_fetcher
@@ -390,7 +389,7 @@ where
             }
 
             Self::Unimp => {
-                let old_pc = state.instruction_fetcher.old_pc(self.size());
+                let old_pc = state.instruction_fetcher.old_pc(size_of::<u32>() as u8);
                 return Err(ExecutionError::IllegalInstruction { address: old_pc });
             }
         }
