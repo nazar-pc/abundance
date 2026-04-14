@@ -94,8 +94,7 @@ where
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
-        /// Map a 3-bit "prime" register field to an absolute register number.
-        /// CL/CS/CA/CB formats encode x8..x15 via a 3-bit field where 0b000 -> x8.
+        /// Map a 3-bit "prime" register field to an absolute register number
         #[inline(always)]
         const fn prime_reg_bits(bits: u8) -> u8 {
             bits + 8

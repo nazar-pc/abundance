@@ -32,6 +32,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbb::Rv64ZbbInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::c::zca::Rv64ZcaInstruction;
+use ab_riscv_primitives::instructions::rv64::c::zcb::Rv64ZcbInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;
@@ -70,6 +71,7 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
         Rv64MInstruction,
         Rv64ZbcInstruction,
         Rv64ZcaInstruction,
+        Rv64ZcbInstruction,
         Rv64ZknInstruction,
         ZicondInstruction,
         ZicsrInstruction,
