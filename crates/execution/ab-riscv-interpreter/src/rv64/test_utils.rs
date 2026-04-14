@@ -157,7 +157,7 @@ impl VirtualMemory for TestMemory {
 
 /// Custom instruction handler for tests that returns instructions from a sequence
 pub(crate) struct TestInstructionFetcher<I> {
-    instructions: Vec<I>,
+    instructions: Vec<Option<I>>,
     return_trap_address: u64,
     base_address: u64,
     pc: u64,
@@ -196,11 +196,17 @@ where
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
         }
 
-        let Some(&instruction) = self
+        let Some(&maybe_instruction) = self
             .instructions
-            .get((self.pc - self.base_address) as usize / size_of::<u32>())
+            .get((self.pc - self.base_address) as usize / size_of::<u16>())
         else {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+        };
+
+        let Some(instruction) = maybe_instruction else {
+            return Err(ExecutionError::IllegalInstruction {
+                address: self.pc - self.base_address,
+            });
         };
         self.pc += u64::from(instruction.size());
 
@@ -211,9 +217,31 @@ where
 impl<I> TestInstructionFetcher<I> {
     /// Create a new instance
     #[inline(always)]
-    fn new(instructions: Vec<I>, return_trap_address: u64, base_address: u64, pc: u64) -> Self {
+    fn new<Instructions>(
+        instructions: Instructions,
+        return_trap_address: u64,
+        base_address: u64,
+        pc: u64,
+    ) -> Self
+    where
+        I: Instruction<Reg = Reg<u64>>,
+        Instructions: IntoIterator<Item = I>,
+    {
         Self {
-            instructions,
+            instructions: instructions
+                .into_iter()
+                .flat_map(|instruction| {
+                    let maybe_second = match instruction.size() {
+                        2 => None,
+                        4 => Some(None),
+                        instruction_size => {
+                            panic!("Unexpected instruction size {instruction_size}");
+                        }
+                    };
+
+                    [Some(instruction)].into_iter().chain(maybe_second)
+                })
+                .collect(),
             return_trap_address,
             base_address,
             pc,
@@ -447,14 +475,14 @@ pub(crate) fn initialize_state<I, Instructions>(
 ) -> TestInterpreterState<I>
 where
     I: Instruction<Reg = Reg<u64>>,
-    Instructions: Into<Vec<I>>,
+    Instructions: IntoIterator<Item = I>,
 {
     InterpreterState {
         regs: Registers::default(),
         ext_state: ExtState::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(
-            instructions.into(),
+            instructions,
             TRAP_ADDRESS,
             TEST_BASE_ADDR,
             TEST_BASE_ADDR,
