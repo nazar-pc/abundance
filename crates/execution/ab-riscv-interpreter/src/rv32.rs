@@ -1,4 +1,4 @@
-//! Part of the interpreter responsible for RISC-V RV32 base instruction set
+//! Base RISC-V RV32 instruction set
 
 pub mod b;
 pub mod m;

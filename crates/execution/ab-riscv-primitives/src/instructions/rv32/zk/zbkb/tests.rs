@@ -1,3 +1,5 @@
+#![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
+
 use crate::instructions::Instruction;
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -45,7 +47,6 @@ fn test_packh() {
 #[test]
 fn test_brev8() {
     // brev8: OP-IMM, funct3=101, funct12=0b011010000111 = 0x687
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b011010000111_00010_101_00001_0010011u32;
     let decoded = Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
@@ -60,7 +61,6 @@ fn test_brev8() {
 #[test]
 fn test_zip() {
     // zip: OP-IMM, funct3=001, funct7=0000100, rs2=01111 (x15) -> funct12=0x08F
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b0000100_01111_00010_001_00001_0010011u32;
     let decoded = Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
@@ -75,7 +75,6 @@ fn test_zip() {
 #[test]
 fn test_unzip() {
     // unzip: OP-IMM, funct3=101, funct7=0000100, rs2=01111 (x15) -> funct12=0x08F
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b0000100_01111_00010_101_00001_0010011u32;
     let decoded = Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
@@ -93,9 +92,7 @@ fn test_zip_unzip_are_inverses_encoding() {
     // giving funct12=0x08F in both cases when funct12=(funct7<<5)|rs2, but the full
     // I-type encoding differs because funct3 occupies bits [14:12] separately.
     // Verify the decoder distinguishes them.
-    #[expect(clippy::unusual_byte_groupings)]
     let zip_inst = 0b0000100_01111_00010_001_00001_0010011u32;
-    #[expect(clippy::unusual_byte_groupings)]
     let unzip_inst = 0b0000100_01111_00010_101_00001_0010011u32;
     assert_ne!(
         Rv32ZbkbInstruction::<Reg<u32>>::try_decode(zip_inst),

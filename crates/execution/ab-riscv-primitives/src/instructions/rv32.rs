@@ -1,15 +1,15 @@
 //! Base RISC-V RV32 instruction set
 
-use crate::instructions::Instruction;
-use crate::registers::general_purpose::Register;
-use ab_riscv_macros::instruction;
-use core::fmt;
-
 pub mod b;
 pub mod m;
 #[cfg(test)]
 mod tests;
 pub mod zk;
+
+use crate::instructions::Instruction;
+use crate::registers::general_purpose::Register;
+use ab_riscv_macros::instruction;
+use core::fmt;
 
 /// RISC-V RV32 instruction
 #[instruction]

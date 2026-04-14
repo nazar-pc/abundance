@@ -227,7 +227,7 @@ fn vredsum_masked_skips_inactive() {
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 25);
 }
 
-// All elements masked out but vl > 0: spec §14.1 — vd[0] gets vs1[0] (the identity carry).
+// All elements masked out but vl > 0: spec §14.1 - vd[0] gets vs1[0] (the identity carry).
 // This is distinct from vl == 0, where vd is not written at all.
 #[test]
 fn vredsum_all_masked_out_writes_vs1_zero() {

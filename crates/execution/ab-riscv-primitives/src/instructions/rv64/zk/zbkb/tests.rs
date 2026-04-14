@@ -1,3 +1,5 @@
+#![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
+
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -59,7 +61,6 @@ fn test_packw_rs2_zero_returns_none() {
 #[test]
 fn test_brev8() {
     // brev8: OP-IMM, funct3=101, funct12=0b011010000111 = 0x687
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b011010000111_00010_101_00001_0010011u32;
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(

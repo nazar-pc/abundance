@@ -1,3 +1,5 @@
+#![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
+
 use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
@@ -252,7 +254,6 @@ fn test_orc_b() {
 #[test]
 fn test_rev8() {
     // RV32 rev8: funct12=0b011010011000
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b011010011000_00010_101_00001_0010011u32;
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(

@@ -1,3 +1,5 @@
+#![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
+
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbb::Rv64ZbbInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
@@ -370,7 +372,6 @@ fn test_roriw() {
 
 #[test]
 fn test_sext_b() {
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b011000000100_00010_001_00001_0010011_u32;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
@@ -384,7 +385,6 @@ fn test_sext_b() {
 
 #[test]
 fn test_sext_h() {
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b011000000101_00010_001_00001_0010011_u32;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
@@ -450,7 +450,6 @@ fn test_old_draft_zext_h_now_ror() {
 #[test]
 fn test_rev8() {
     // rev8 is an I-type instruction with funct12 = 0b011010111000
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b011010111000_00010_101_00001_0010011u32;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
