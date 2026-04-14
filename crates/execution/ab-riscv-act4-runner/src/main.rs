@@ -1,5 +1,6 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
+    const_cmp,
     const_trait_impl,
     const_try,
     const_try_residual,

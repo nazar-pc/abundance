@@ -43,7 +43,7 @@ where
                 let write_value = state.regs.read(rs1);
 
                 // Per spec: if `rd == x0`, the CSR read (and its side effects) must not occur
-                if !rd.is_zero() {
+                if rd != Reg::ZERO {
                     let raw_value = state.ext_state.read_csr(csr)?;
                     let output_value = state.ext_state.process_csr_read(csr, raw_value)?;
                     state.regs.write(rd, output_value);
@@ -59,7 +59,7 @@ where
             // Accessing a read-only CSR with `rs1 == x0` is legal (pure read).
             Self::Csrrs { rd, rs1, csr } => {
                 let csr_is_read_only = (csr >> 10) == 0b11;
-                if !rs1.is_zero() && csr_is_read_only {
+                if rs1 != Reg::ZERO && csr_is_read_only {
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly {
                         csr_index: csr,
                     }));
@@ -72,7 +72,7 @@ where
                 let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
                 state.regs.write(rd, read_output);
 
-                if !rs1.is_zero() {
+                if rs1 != Reg::ZERO {
                     let write_value = raw_value | rs1_value;
                     let write_output = state.ext_state.process_csr_write(csr, write_value)?;
                     state.ext_state.write_csr(csr, write_output)?;
@@ -85,7 +85,7 @@ where
             // Accessing a read-only CSR with `rs1 == x0` is legal (pure read).
             Self::Csrrc { rd, rs1, csr } => {
                 let csr_is_read_only = (csr >> 10) == 0b11;
-                if !rs1.is_zero() && csr_is_read_only {
+                if rs1 != Reg::ZERO && csr_is_read_only {
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly {
                         csr_index: csr,
                     }));
@@ -98,7 +98,7 @@ where
                 let read_output = state.ext_state.process_csr_read(csr, raw_value)?;
                 state.regs.write(rd, read_output);
 
-                if !rs1.is_zero() {
+                if rs1 != Reg::ZERO {
                     let write_value = raw_value & !rs1_value;
                     let write_output = state.ext_state.process_csr_write(csr, write_value)?;
                     state.ext_state.write_csr(csr, write_output)?;
@@ -117,7 +117,7 @@ where
                 }
                 zicsr_helpers::check_csr_privilege_level(&state.ext_state, csr)?;
 
-                if !rd.is_zero() {
+                if rd != Reg::ZERO {
                     let raw_value = state.ext_state.read_csr(csr)?;
                     let output_value = state.ext_state.process_csr_read(csr, raw_value)?;
                     state.regs.write(rd, output_value);

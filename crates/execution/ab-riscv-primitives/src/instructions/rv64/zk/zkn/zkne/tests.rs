@@ -40,7 +40,7 @@ fn test_wrong_funct3_rejected() {
 
 #[test]
 fn test_wrong_funct7_rejected() {
-    // funct7 from aes64ds — must not match Zkne
+    // funct7 from aes64ds - must not match Zkne
     let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0011101);
     let decoded = Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);

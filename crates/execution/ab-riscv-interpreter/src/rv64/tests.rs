@@ -10,7 +10,7 @@ use alloc::vec;
 
 #[test]
 fn test_add() {
-    let mut state = initialize_state(vec![Rv64Instruction::Add {
+    let mut state = initialize_state([Rv64Instruction::Add {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -26,7 +26,7 @@ fn test_add() {
 
 #[test]
 fn test_add_overflow() {
-    let mut state = initialize_state(vec![Rv64Instruction::Add {
+    let mut state = initialize_state([Rv64Instruction::Add {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -43,7 +43,7 @@ fn test_add_overflow() {
 
 #[test]
 fn test_sub() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sub {
+    let mut state = initialize_state([Rv64Instruction::Sub {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -59,7 +59,7 @@ fn test_sub() {
 
 #[test]
 fn test_sub_underflow() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sub {
+    let mut state = initialize_state([Rv64Instruction::Sub {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -77,7 +77,7 @@ fn test_sub_underflow() {
 
 #[test]
 fn test_and() {
-    let mut state = initialize_state(vec![Rv64Instruction::And {
+    let mut state = initialize_state([Rv64Instruction::And {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -93,7 +93,7 @@ fn test_and() {
 
 #[test]
 fn test_or() {
-    let mut state = initialize_state(vec![Rv64Instruction::Or {
+    let mut state = initialize_state([Rv64Instruction::Or {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -109,7 +109,7 @@ fn test_or() {
 
 #[test]
 fn test_xor() {
-    let mut state = initialize_state(vec![Rv64Instruction::Xor {
+    let mut state = initialize_state([Rv64Instruction::Xor {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -127,7 +127,7 @@ fn test_xor() {
 
 #[test]
 fn test_sll() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sll {
+    let mut state = initialize_state([Rv64Instruction::Sll {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -143,7 +143,7 @@ fn test_sll() {
 
 #[test]
 fn test_sll_mask() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sll {
+    let mut state = initialize_state([Rv64Instruction::Sll {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -161,7 +161,7 @@ fn test_sll_mask() {
 
 #[test]
 fn test_srl() {
-    let mut state = initialize_state(vec![Rv64Instruction::Srl {
+    let mut state = initialize_state([Rv64Instruction::Srl {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -177,7 +177,7 @@ fn test_srl() {
 
 #[test]
 fn test_sra() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sra {
+    let mut state = initialize_state([Rv64Instruction::Sra {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -195,7 +195,7 @@ fn test_sra() {
 
 #[test]
 fn test_slt_less() {
-    let mut state = initialize_state(vec![Rv64Instruction::Slt {
+    let mut state = initialize_state([Rv64Instruction::Slt {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -211,7 +211,7 @@ fn test_slt_less() {
 
 #[test]
 fn test_slt_greater() {
-    let mut state = initialize_state(vec![Rv64Instruction::Slt {
+    let mut state = initialize_state([Rv64Instruction::Slt {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -227,7 +227,7 @@ fn test_slt_greater() {
 
 #[test]
 fn test_sltu() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sltu {
+    let mut state = initialize_state([Rv64Instruction::Sltu {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -246,7 +246,7 @@ fn test_sltu() {
 
 #[test]
 fn test_addw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Addw {
+    let mut state = initialize_state([Rv64Instruction::Addw {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -263,7 +263,7 @@ fn test_addw() {
 
 #[test]
 fn test_subw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Subw {
+    let mut state = initialize_state([Rv64Instruction::Subw {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -279,7 +279,7 @@ fn test_subw() {
 
 #[test]
 fn test_sllw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sllw {
+    let mut state = initialize_state([Rv64Instruction::Sllw {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -295,7 +295,7 @@ fn test_sllw() {
 
 #[test]
 fn test_srlw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Srlw {
+    let mut state = initialize_state([Rv64Instruction::Srlw {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -311,7 +311,7 @@ fn test_srlw() {
 
 #[test]
 fn test_sraw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sraw {
+    let mut state = initialize_state([Rv64Instruction::Sraw {
         rd: Reg::A2,
         rs1: Reg::A0,
         rs2: Reg::A1,
@@ -329,7 +329,7 @@ fn test_sraw() {
 
 #[test]
 fn test_addi() {
-    let mut state = initialize_state(vec![Rv64Instruction::Addi {
+    let mut state = initialize_state([Rv64Instruction::Addi {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 5,
@@ -344,7 +344,7 @@ fn test_addi() {
 
 #[test]
 fn test_addi_negative() {
-    let mut state = initialize_state(vec![Rv64Instruction::Addi {
+    let mut state = initialize_state([Rv64Instruction::Addi {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: -5,
@@ -359,7 +359,7 @@ fn test_addi_negative() {
 
 #[test]
 fn test_slti() {
-    let mut state = initialize_state(vec![Rv64Instruction::Slti {
+    let mut state = initialize_state([Rv64Instruction::Slti {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 10,
@@ -374,7 +374,7 @@ fn test_slti() {
 
 #[test]
 fn test_sltiu() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sltiu {
+    let mut state = initialize_state([Rv64Instruction::Sltiu {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: -1,
@@ -389,7 +389,7 @@ fn test_sltiu() {
 
 #[test]
 fn test_xori() {
-    let mut state = initialize_state(vec![Rv64Instruction::Xori {
+    let mut state = initialize_state([Rv64Instruction::Xori {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0xAA,
@@ -404,7 +404,7 @@ fn test_xori() {
 
 #[test]
 fn test_ori() {
-    let mut state = initialize_state(vec![Rv64Instruction::Ori {
+    let mut state = initialize_state([Rv64Instruction::Ori {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0x0F,
@@ -419,7 +419,7 @@ fn test_ori() {
 
 #[test]
 fn test_andi() {
-    let mut state = initialize_state(vec![Rv64Instruction::Andi {
+    let mut state = initialize_state([Rv64Instruction::Andi {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0x0F,
@@ -434,7 +434,7 @@ fn test_andi() {
 
 #[test]
 fn test_slli() {
-    let mut state = initialize_state(vec![Rv64Instruction::Slli {
+    let mut state = initialize_state([Rv64Instruction::Slli {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 4,
@@ -449,7 +449,7 @@ fn test_slli() {
 
 #[test]
 fn test_srli() {
-    let mut state = initialize_state(vec![Rv64Instruction::Srli {
+    let mut state = initialize_state([Rv64Instruction::Srli {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 2,
@@ -464,7 +464,7 @@ fn test_srli() {
 
 #[test]
 fn test_srai() {
-    let mut state = initialize_state(vec![Rv64Instruction::Srai {
+    let mut state = initialize_state([Rv64Instruction::Srai {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 2,
@@ -479,7 +479,7 @@ fn test_srai() {
 
 #[test]
 fn test_addiw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Addiw {
+    let mut state = initialize_state([Rv64Instruction::Addiw {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 5,
@@ -496,7 +496,7 @@ fn test_addiw() {
 
 #[test]
 fn test_slliw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Slliw {
+    let mut state = initialize_state([Rv64Instruction::Slliw {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 31,
@@ -511,7 +511,7 @@ fn test_slliw() {
 
 #[test]
 fn test_srliw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Srliw {
+    let mut state = initialize_state([Rv64Instruction::Srliw {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 1,
@@ -526,7 +526,7 @@ fn test_srliw() {
 
 #[test]
 fn test_sraiw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sraiw {
+    let mut state = initialize_state([Rv64Instruction::Sraiw {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 1,
@@ -543,7 +543,7 @@ fn test_sraiw() {
 
 #[test]
 fn test_lb() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lb {
+    let mut state = initialize_state([Rv64Instruction::Lb {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 10,
@@ -560,7 +560,7 @@ fn test_lb() {
 
 #[test]
 fn test_lh() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lh {
+    let mut state = initialize_state([Rv64Instruction::Lh {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -577,7 +577,7 @@ fn test_lh() {
 
 #[test]
 fn test_lw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lw {
+    let mut state = initialize_state([Rv64Instruction::Lw {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -594,7 +594,7 @@ fn test_lw() {
 
 #[test]
 fn test_ld() {
-    let mut state = initialize_state(vec![Rv64Instruction::Ld {
+    let mut state = initialize_state([Rv64Instruction::Ld {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -614,7 +614,7 @@ fn test_ld() {
 
 #[test]
 fn test_lbu() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lbu {
+    let mut state = initialize_state([Rv64Instruction::Lbu {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -631,7 +631,7 @@ fn test_lbu() {
 
 #[test]
 fn test_lhu() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lhu {
+    let mut state = initialize_state([Rv64Instruction::Lhu {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -648,7 +648,7 @@ fn test_lhu() {
 
 #[test]
 fn test_lwu() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lwu {
+    let mut state = initialize_state([Rv64Instruction::Lwu {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -667,7 +667,7 @@ fn test_lwu() {
 
 #[test]
 fn test_sb() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sb {
+    let mut state = initialize_state([Rv64Instruction::Sb {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 0,
@@ -684,7 +684,7 @@ fn test_sb() {
 
 #[test]
 fn test_sh() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sh {
+    let mut state = initialize_state([Rv64Instruction::Sh {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 0,
@@ -701,7 +701,7 @@ fn test_sh() {
 
 #[test]
 fn test_sw() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sw {
+    let mut state = initialize_state([Rv64Instruction::Sw {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 0,
@@ -718,7 +718,7 @@ fn test_sw() {
 
 #[test]
 fn test_sd() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sd {
+    let mut state = initialize_state([Rv64Instruction::Sd {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 0,
@@ -740,7 +740,7 @@ fn test_sd() {
 
 #[test]
 fn test_beq_taken() {
-    let mut state = initialize_state(vec![Rv64Instruction::Beq {
+    let mut state = initialize_state([Rv64Instruction::Beq {
         rs1: Reg::A0,
         rs2: Reg::A1,
         // Branch offset from PC before increment
@@ -764,7 +764,7 @@ fn test_beq_taken() {
 
 #[test]
 fn test_beq_not_taken() {
-    let mut state = initialize_state(vec![
+    let mut state = initialize_state([
         Rv64Instruction::Beq {
             rs1: Reg::A0,
             rs2: Reg::A1,
@@ -789,7 +789,7 @@ fn test_beq_not_taken() {
 
 #[test]
 fn test_bne_taken() {
-    let mut state = initialize_state(vec![Rv64Instruction::Bne {
+    let mut state = initialize_state([Rv64Instruction::Bne {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 8,
@@ -809,7 +809,7 @@ fn test_bne_taken() {
 
 #[test]
 fn test_blt_taken() {
-    let mut state = initialize_state(vec![Rv64Instruction::Blt {
+    let mut state = initialize_state([Rv64Instruction::Blt {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 12,
@@ -829,7 +829,7 @@ fn test_blt_taken() {
 
 #[test]
 fn test_bge_taken() {
-    let mut state = initialize_state(vec![Rv64Instruction::Bge {
+    let mut state = initialize_state([Rv64Instruction::Bge {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 16,
@@ -849,7 +849,7 @@ fn test_bge_taken() {
 
 #[test]
 fn test_bltu_taken() {
-    let mut state = initialize_state(vec![Rv64Instruction::Bltu {
+    let mut state = initialize_state([Rv64Instruction::Bltu {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 20,
@@ -869,7 +869,7 @@ fn test_bltu_taken() {
 
 #[test]
 fn test_bgeu_taken() {
-    let mut state = initialize_state(vec![Rv64Instruction::Bgeu {
+    let mut state = initialize_state([Rv64Instruction::Bgeu {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 24,
@@ -891,7 +891,7 @@ fn test_bgeu_taken() {
 
 #[test]
 fn test_jal() {
-    let mut state = initialize_state(vec![
+    let mut state = initialize_state([
         Rv64Instruction::Jal {
             rd: Reg::Ra,
             // Skip next instruction
@@ -923,7 +923,7 @@ fn test_jal() {
 
 #[test]
 fn test_jalr() {
-    let mut state = initialize_state(vec![
+    let mut state = initialize_state([
         Rv64Instruction::Jalr {
             rd: Reg::Ra,
             rs1: Reg::A0,
@@ -957,7 +957,7 @@ fn test_jalr() {
 
 #[test]
 fn test_jalr_clear_lsb() {
-    let mut state = initialize_state(vec![
+    let mut state = initialize_state([
         Rv64Instruction::Jalr {
             rd: Reg::Ra,
             rs1: Reg::A0,
@@ -991,7 +991,7 @@ fn test_jalr_clear_lsb() {
 
 #[test]
 fn test_lui() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lui {
+    let mut state = initialize_state([Rv64Instruction::Lui {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
         imm: 0x12345000,
@@ -1004,7 +1004,7 @@ fn test_lui() {
 
 #[test]
 fn test_lui_negative() {
-    let mut state = initialize_state(vec![Rv64Instruction::Lui {
+    let mut state = initialize_state([Rv64Instruction::Lui {
         rd: Reg::A0,
         // 0xFFFFF000 as upper 20 bits (already shifted)
         imm: 0xfffff000u32.cast_signed(),
@@ -1018,7 +1018,7 @@ fn test_lui_negative() {
 
 #[test]
 fn test_auipc() {
-    let mut state = initialize_state(vec![Rv64Instruction::Auipc {
+    let mut state = initialize_state([Rv64Instruction::Auipc {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
         imm: 0x12345000,
@@ -1036,7 +1036,7 @@ fn test_auipc() {
 
 #[test]
 fn test_auipc_negative() {
-    let mut state = initialize_state(vec![Rv64Instruction::Auipc {
+    let mut state = initialize_state([Rv64Instruction::Auipc {
         rd: Reg::A0,
         // Negative immediate (all upper bits set)
         imm: 0xfffff000u32.cast_signed(),
@@ -1057,7 +1057,7 @@ fn test_auipc_negative() {
 
 #[test]
 fn test_fence() {
-    let mut state = initialize_state(vec![Rv64Instruction::Fence {
+    let mut state = initialize_state([Rv64Instruction::Fence {
         pred: 0xF,
         succ: 0xF,
     }]);
@@ -1069,7 +1069,7 @@ fn test_fence() {
 
 #[test]
 fn test_ebreak() {
-    let mut state = initialize_state(vec![Rv64Instruction::Ebreak]);
+    let mut state = initialize_state([Rv64Instruction::Ebreak]);
 
     execute(&mut state).unwrap();
 
@@ -1078,7 +1078,7 @@ fn test_ebreak() {
 
 #[test]
 fn test_ecall_unsupported() {
-    let mut state = initialize_state(vec![Rv64Instruction::Ecall]);
+    let mut state = initialize_state([Rv64Instruction::Ecall]);
 
     let result = execute(&mut state);
 
@@ -1090,7 +1090,7 @@ fn test_ecall_unsupported() {
 
 #[test]
 fn test_unimp() {
-    let mut state = initialize_state(vec![Rv64Instruction::Unimp]);
+    let mut state = initialize_state([Rv64Instruction::Unimp]);
 
     let result = execute(&mut state);
 
@@ -1104,7 +1104,7 @@ fn test_unimp() {
 
 #[test]
 fn test_out_of_bounds_read() {
-    let mut state = initialize_state(vec![Rv64Instruction::Ld {
+    let mut state = initialize_state([Rv64Instruction::Ld {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
@@ -1120,7 +1120,7 @@ fn test_out_of_bounds_read() {
 
 #[test]
 fn test_out_of_bounds_write() {
-    let mut state = initialize_state(vec![Rv64Instruction::Sd {
+    let mut state = initialize_state([Rv64Instruction::Sd {
         rs1: Reg::A0,
         rs2: Reg::A1,
         imm: 0,
@@ -1139,7 +1139,7 @@ fn test_out_of_bounds_write() {
 
 #[test]
 fn test_write_to_zero_register() {
-    let mut state = initialize_state(vec![Rv64Instruction::Addi {
+    let mut state = initialize_state([Rv64Instruction::Addi {
         rd: Reg::Zero,
         rs1: Reg::Zero,
         imm: 100,
@@ -1152,7 +1152,7 @@ fn test_write_to_zero_register() {
 
 #[test]
 fn test_read_from_zero_register() {
-    let mut state = initialize_state(vec![Rv64Instruction::Add {
+    let mut state = initialize_state([Rv64Instruction::Add {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,

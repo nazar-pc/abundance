@@ -60,11 +60,16 @@ where
         + Sized
         + 'static,
 {
+    /// The size of this type in bits
+    const BITS: u8;
+
     /// Convert to `u64`
     fn as_u64(&self) -> u64;
 }
 
 impl const RegType for u32 {
+    const BITS: u8 = u32::BITS as u8;
+
     #[inline(always)]
     fn as_u64(&self) -> u64 {
         u64::from(*self)
@@ -72,6 +77,8 @@ impl const RegType for u32 {
 }
 
 impl const RegType for u64 {
+    const BITS: u8 = u64::BITS as u8;
+
     #[inline(always)]
     fn as_u64(&self) -> u64 {
         *self
@@ -90,20 +97,23 @@ pub const unsafe trait Register:
     /// Canonically 32 unless E extension is used, in which case 16.
     const N: usize;
     /// XLEN
-    const XLEN: u8 = size_of::<Self::Type>() as u8 * u8::BITS as u8;
+    const XLEN: u8 = Self::Type::BITS;
+    /// Zero register
+    const ZERO: Self;
+    /// Stack pointer register
+    const SP: Self;
+    /// Return address register
+    const RA: Self;
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
     type Type: [const] RegType;
 
-    /// Whether the register is a zero register
-    fn is_zero(&self) -> bool;
-
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
 
     /// Offset in a set of registers
-    fn offset(self) -> usize;
+    fn offset(self) -> u8;
 }
 
 /// A set of RISC-V GPRs (General Purpose Registers)
@@ -132,7 +142,7 @@ where
 
 const impl<Reg> Registers<Reg>
 where
-    Reg: Register + [const] Eq,
+    Reg: Register,
     [(); Reg::N]:,
 {
     /// Read register value
@@ -141,13 +151,13 @@ where
     where
         Reg: [const] Register,
     {
-        if reg.is_zero() {
+        if reg == Reg::ZERO {
             // Always zero
             return Reg::Type::default();
         }
 
         // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(reg.offset()) }
+        *unsafe { self.regs.get_unchecked(usize::from(reg.offset())) }
     }
 
     /// Write register value
@@ -156,13 +166,13 @@ where
     where
         Reg: [const] Register,
     {
-        if reg.is_zero() {
+        if reg == Reg::ZERO {
             // Writes are ignored
             return;
         }
 
         // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
+        *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
     }
 }
 
@@ -274,12 +284,10 @@ impl<Type> const Eq for EReg<Type> {}
 // SAFETY: `Self::offset()` returns values within `0..Self::N` range
 unsafe impl const Register for EReg<u32> {
     const N: usize = 16;
+    const ZERO: Self = Self::Zero;
+    const SP: Self = Self::Sp;
+    const RA: Self = Self::Ra;
     type Type = u32;
-
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        matches!(self, Self::Zero)
-    }
 
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
@@ -305,21 +313,19 @@ unsafe impl const Register for EReg<u32> {
     }
 
     #[inline(always)]
-    fn offset(self) -> usize {
+    fn offset(self) -> u8 {
         // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        unsafe { core::mem::transmute::<Self, u8>(self) }
     }
 }
 
 // SAFETY: `Self::offset()` returns values within `0..Self::N` range
 unsafe impl const Register for EReg<u64> {
     const N: usize = 16;
+    const ZERO: Self = Self::Zero;
+    const SP: Self = Self::Sp;
+    const RA: Self = Self::Ra;
     type Type = u64;
-
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        matches!(self, Self::Zero)
-    }
 
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
@@ -345,12 +351,13 @@ unsafe impl const Register for EReg<u64> {
     }
 
     #[inline(always)]
-    fn offset(self) -> usize {
+    fn offset(self) -> u8 {
         // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        unsafe { core::mem::transmute::<Self, u8>(self) }
     }
 }
 
+// TODO: Reorder `t*` and `s*` registers to be next to each other for performance reasons?
 /// RISC-V general purpose register for RV32I/RV64I.
 ///
 /// Use `Type = u32` for RV32I and `Type = u64` for RV64I.
@@ -551,12 +558,10 @@ impl<Type> const Eq for Reg<Type> {}
 // SAFETY: `Self::offset()` returns values within `0..Self::N` range
 unsafe impl const Register for Reg<u32> {
     const N: usize = 32;
+    const ZERO: Self = Self::Zero;
+    const SP: Self = Self::Sp;
+    const RA: Self = Self::Ra;
     type Type = u32;
-
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        matches!(self, Self::Zero)
-    }
 
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
@@ -598,21 +603,19 @@ unsafe impl const Register for Reg<u32> {
     }
 
     #[inline(always)]
-    fn offset(self) -> usize {
+    fn offset(self) -> u8 {
         // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        unsafe { core::mem::transmute::<Self, u8>(self) }
     }
 }
 
 // SAFETY: `Self::offset()` returns values within `0..Self::N` range
 unsafe impl const Register for Reg<u64> {
     const N: usize = 32;
+    const ZERO: Self = Self::Zero;
+    const SP: Self = Self::Sp;
+    const RA: Self = Self::Ra;
     type Type = u64;
-
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        matches!(self, Self::Zero)
-    }
 
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
@@ -654,8 +657,8 @@ unsafe impl const Register for Reg<u64> {
     }
 
     #[inline(always)]
-    fn offset(self) -> usize {
+    fn offset(self) -> u8 {
         // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        unsafe { core::mem::transmute::<Self, u8>(self) }
     }
 }

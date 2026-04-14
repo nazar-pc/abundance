@@ -83,13 +83,13 @@ pub enum Rv32ZkndInstruction<Reg> {
 /// Encoding layout (R-type, opcode 0x33, funct3 0x0):
 ///
 /// ```text
-/// [31:30] bs       — 2-bit byte select
-/// [29:25] funct5   — 0b10101 (aes32dsi) / 0b10111 (aes32dsmi)
+/// [31:30] bs       - 2-bit byte select
+/// [29:25] funct5   - 0b10101 (aes32dsi) / 0b10111 (aes32dsmi)
 /// [24:20] rs2
 /// [19:15] rs1
-/// [14:12] funct3   — 0b000
+/// [14:12] funct3   - 0b000
 /// [11:7]  rd
-/// [6:0]   opcode   — 0b0110011 (OP)
+/// [6:0]   opcode   - 0b0110011 (OP)
 /// ```
 ///
 /// Ratified match/mask values (from riscv-opcodes):

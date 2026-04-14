@@ -102,6 +102,9 @@
     "Zbs": {
       "supported": true
     },
+    "Zca": {
+      "supported": true
+    },
     "Zicond": {
       "supported": true
     },

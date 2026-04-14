@@ -1,3 +1,5 @@
+#![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
+
 use crate::instructions::Instruction;
 use crate::instructions::rv32::Rv32Instruction;
 use crate::instructions::test_utils::{
@@ -872,7 +874,6 @@ fn test_fence_tso_invalid_variants() {
 
 #[test]
 fn test_ecall() {
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b000000000000_00000_000_00000_1110011u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(decoded, Rv32Instruction::Ecall);
@@ -880,7 +881,6 @@ fn test_ecall() {
 
 #[test]
 fn test_ebreak() {
-    #[expect(clippy::unusual_byte_groupings)]
     let inst = 0b000000000001_00000_000_00000_1110011u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(decoded, Rv32Instruction::Ebreak);
