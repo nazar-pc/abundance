@@ -48,8 +48,8 @@ where
 
     let vlmax = state.ext_state.vlmax_for_vtype(new_vtype);
 
-    let rs1_is_zero = rs1.is_zero();
-    let rd_is_zero = rd.is_zero();
+    let rs1_is_zero = rs1 == Reg::ZERO;
+    let rd_is_zero = rd == Reg::ZERO;
 
     let new_vl = if !rs1_is_zero {
         // Truncate to `u32`: `VLMAX` fits in `u32` (max 65536)
