@@ -191,9 +191,7 @@ where
         };
 
         let Some(instruction) = maybe_instruction else {
-            return Err(ExecutionError::IllegalInstruction {
-                address: self.pc - self.base_address,
-            });
+            return Err(ExecutionError::IllegalInstruction { address: self.pc });
         };
         self.pc += u32::from(instruction.size());
 
@@ -220,7 +218,10 @@ impl<I> TestInstructionFetcher<I> {
                 .flat_map(|instruction| {
                     let maybe_second = match instruction.size() {
                         2 => None,
-                        4 => Some(None),
+                        4 => {
+                            // Intentionally trigger illegal instruction on the second half-word
+                            Some(None)
+                        }
                         instruction_size => {
                             panic!("Unexpected instruction size {instruction_size}");
                         }
