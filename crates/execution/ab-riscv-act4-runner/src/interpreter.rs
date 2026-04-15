@@ -1,7 +1,4 @@
-use ab_riscv_interpreter::{
-    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
-};
+use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::ops::ControlFlow;
 
