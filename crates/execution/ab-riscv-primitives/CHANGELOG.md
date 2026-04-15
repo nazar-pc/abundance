@@ -1,3 +1,27 @@
+# 0.0.3
+
+Features:
+
+* Implemented new extensions (pass all ACT4 tests):
+    * Zbkb
+    * Zbkx
+    * Zca
+    * Zcb
+    * Zicond
+    * Zkn
+    * Zknd
+    * Zkne
+* Implemented new extensions (in good shape, but ACT4 tests are currently non-existing):
+    * Zcmp
+
+Improvements:
+
+* Added prelude module with re-export of everything for much more manageable imports
+
+Fixes:
+
+* Fix various Zve64x issues (most likely still buggy though)
+
 # 0.0.2
 
 Features:
