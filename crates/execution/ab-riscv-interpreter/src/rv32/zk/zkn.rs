@@ -12,8 +12,7 @@ use crate::rv32::zk::zkn::zkne::rv32_zkne_helpers;
 use crate::rv32::zk::zkn::zknh::rv32_zknh_helpers;
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::rv32::zk::zkn::Rv32ZknInstruction;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

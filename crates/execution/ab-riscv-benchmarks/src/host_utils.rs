@@ -5,14 +5,8 @@ use ab_contract_file::ContractInstruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::{
-    BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    InterpreterState, ProgramCounter, ProgramCounterError, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
-};
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
+use ab_riscv_interpreter::prelude::*;
+use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::mem::offset_of;

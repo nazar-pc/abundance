@@ -20,13 +20,8 @@ use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
 use crate::interpreter::{Act4InstructionFetcher, Act4SystemHandler};
-use ab_riscv_interpreter::{
-    BasicInt, Csrs, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, InterpreterState, ProgramCounter, VirtualMemory,
-};
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
-use ab_riscv_primitives::registers::machine::{MCauseException, MCsr};
+use ab_riscv_interpreter::prelude::*;
+use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use colored::Colorize;

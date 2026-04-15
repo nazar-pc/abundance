@@ -5,9 +5,7 @@ use crate::{
     FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
     ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::instructions::rv32::Rv32Instruction;
-use ab_riscv_primitives::registers::general_purpose::{Reg, Registers};
+use ab_riscv_primitives::prelude::*;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;

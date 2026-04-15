@@ -2,10 +2,7 @@ use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zve64x::arith::zve64x_arith_helpers::sign_extend;
 use crate::{ExecutableInstruction, ExecutionError};
-use ab_riscv_primitives::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
-use ab_riscv_primitives::instructions::v::{Vlmul, Vsew, Vtype, Vxrm};
-use ab_riscv_primitives::registers::general_purpose::Reg;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)

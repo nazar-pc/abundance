@@ -1,8 +1,6 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::rv32::zce::zcmp::ZcmpUrlist;
-use ab_riscv_primitives::instructions::rv64::zce::zcmp::Rv64ZcmpInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // CM.PUSH
 

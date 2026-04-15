@@ -1,8 +1,6 @@
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::instructions::rv32::c::zca::Rv32ZcaInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // C.ADDI4SPN
 

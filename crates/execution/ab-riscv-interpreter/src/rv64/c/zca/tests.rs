@@ -1,7 +1,6 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::rv64::c::zca::Rv64ZcaInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // C.ADDI4SPN
 

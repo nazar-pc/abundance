@@ -29,10 +29,7 @@ use crate::{
     VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::v::zve64x::Zve64xInstruction;
-use ab_riscv_primitives::instructions::v::{Eew, Vsew};
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register};
-use ab_riscv_primitives::registers::vector::{VCsr, VReg};
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
 

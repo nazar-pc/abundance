@@ -1,8 +1,6 @@
 use crate::rv64::test_utils::{execute, initialize_state};
 use crate::{CsrError, Csrs, ExecutionError};
-use ab_riscv_primitives::instructions::zicsr::ZicsrInstruction;
-use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 use core::assert_matches;
 
 // CSR address constants

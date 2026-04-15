@@ -15,8 +15,7 @@ use crate::{
     SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::rv32::Rv32Instruction;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

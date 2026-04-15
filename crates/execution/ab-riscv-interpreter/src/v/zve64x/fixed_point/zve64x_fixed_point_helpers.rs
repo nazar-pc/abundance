@@ -10,9 +10,7 @@ use crate::v::zve64x::arith::zve64x_arith_helpers::{
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::v::{Vsew, Vxrm};
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Compute the rounding increment for a right shift of `val` by `shift` bits.

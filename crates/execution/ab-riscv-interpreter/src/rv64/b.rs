@@ -8,8 +8,7 @@ pub mod zbs;
 use crate::rv64::b::zbb::rv64_zbb_helpers;
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::rv64::b::Rv64BInstruction;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

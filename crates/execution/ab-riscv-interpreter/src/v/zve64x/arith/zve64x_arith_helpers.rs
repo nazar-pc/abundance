@@ -4,9 +4,7 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::v::Vsew;
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`

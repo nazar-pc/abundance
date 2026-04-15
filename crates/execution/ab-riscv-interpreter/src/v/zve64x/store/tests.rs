@@ -1,10 +1,7 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{ExecutableInstruction, ExecutionError, VirtualMemory};
-use ab_riscv_primitives::instructions::v::zve64x::store::Zve64xStoreInstruction;
-use ab_riscv_primitives::instructions::v::{Eew, Vlmul, Vsew, Vtype};
-use ab_riscv_primitives::registers::general_purpose::Reg;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::array;
 
 // With TEST_VLEN=128 and TEST_VLENB=16:

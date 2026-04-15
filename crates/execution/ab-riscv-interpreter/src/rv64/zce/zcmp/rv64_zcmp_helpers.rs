@@ -3,8 +3,7 @@
 use crate::{
     ExecutionError, InterpreterState, ProgramCounter, SystemInstructionHandler, VirtualMemory,
 };
-use ab_riscv_primitives::instructions::rv32::zce::zcmp::ZcmpUrlist;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::prelude::*;
 
 /// Execute CM.PUSH: store registers below sp, then decrement sp
 #[inline(always)]

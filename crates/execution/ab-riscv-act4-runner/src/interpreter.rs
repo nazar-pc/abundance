@@ -1,9 +1,5 @@
-use ab_riscv_interpreter::{
-    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
-};
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
+use ab_riscv_interpreter::prelude::*;
+use ab_riscv_primitives::prelude::*;
 use std::ops::ControlFlow;
 
 pub(crate) struct Act4Memory<const BASE_ADDR: u64, const SIZE: usize> {

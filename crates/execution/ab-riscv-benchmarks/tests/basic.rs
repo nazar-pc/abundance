@@ -12,9 +12,8 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::{InterpreterState, VirtualMemory};
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::registers::general_purpose::Registers;
+use ab_riscv_interpreter::prelude::*;
+use ab_riscv_primitives::prelude::*;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::marker::PhantomData;

@@ -1,6 +1,5 @@
 use crate::rv32::test_utils::{execute, initialize_state};
-use ab_riscv_primitives::instructions::rv32::b::zbc::Rv32ZbcInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 #[test]
 fn test_clmul_simple() {
