@@ -3,6 +3,7 @@ use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 //  and such are not needed
 use ab_riscv_interpreter::rv32::b::zbb::rv32_zbb_helpers;
 use ab_riscv_interpreter::rv32::b::zbc::rv32_zbc_helpers;
+use ab_riscv_interpreter::rv32::zce::zcmp::rv32_zcmp_helpers;
 use ab_riscv_interpreter::rv32::zk::zbkb::rv32_zbkb_helpers;
 use ab_riscv_interpreter::rv32::zk::zbkx::rv32_zbkx_helpers;
 use ab_riscv_interpreter::rv32::zk::zkn::zknd::rv32_zknd_helpers;
@@ -32,8 +33,9 @@ use ab_riscv_primitives::instructions::rv32::b::zbb::Rv32ZbbInstruction;
 use ab_riscv_primitives::instructions::rv32::b::zbc::Rv32ZbcInstruction;
 use ab_riscv_primitives::instructions::rv32::b::zbs::Rv32ZbsInstruction;
 use ab_riscv_primitives::instructions::rv32::c::zca::Rv32ZcaInstruction;
-use ab_riscv_primitives::instructions::rv32::c::zcb::Rv32ZcbInstruction;
 use ab_riscv_primitives::instructions::rv32::m::Rv32MInstruction;
+use ab_riscv_primitives::instructions::rv32::zce::zcb::Rv32ZcbInstruction;
+use ab_riscv_primitives::instructions::rv32::zce::zcmp::{Rv32ZcmpInstruction, ZcmpUrlist};
 use ab_riscv_primitives::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv32::zk::zbkx::Rv32ZbkxInstruction;
 use ab_riscv_primitives::instructions::rv32::zk::zkn::zknd::{Rv32AesBs, Rv32ZkndInstruction};
@@ -73,6 +75,7 @@ pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionProto
         Rv32ZbcInstruction,
         Rv32ZcaInstruction,
         Rv32ZcbInstruction,
+        Rv32ZcmpInstruction,
         Rv32ZknInstruction,
         ZicondInstruction,
         ZicsrInstruction,
@@ -109,7 +112,7 @@ where
 #[instruction]
 impl<Reg> fmt::Display for AbundanceRv32IMaxInstructionPrototype<Reg>
 where
-    Reg: fmt::Display + Copy,
+    Reg: Register,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}

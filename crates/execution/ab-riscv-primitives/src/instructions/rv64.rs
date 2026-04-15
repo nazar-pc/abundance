@@ -5,6 +5,7 @@ pub mod c;
 pub mod m;
 #[cfg(test)]
 mod tests;
+pub mod zce;
 pub mod zk;
 
 use crate::instructions::Instruction;
