@@ -1,3 +1,28 @@
+# 0.0.3
+
+Features:
+
+* Implemented new extensions (pass all ACT4 tests):
+    * Zbkb
+    * Zbkx
+    * Zca
+    * Zcb
+    * Zicond
+    * Zkn
+    * Zknd
+    * Zkne
+* Implemented new extensions (in good shape, but ACT4 tests are currently non-existing):
+    * Zcmp
+
+Improvements:
+
+* Used hardware intrinsics for RV32 and RV64 in many more cases
+* Added prelude module with re-export of everything for much more manageable imports
+
+Fixes:
+
+* Fixed hardware intrinsics support for RV32 and RV64 (some are now checked in CI)
+
 # 0.0.2
 
 Features:
