@@ -9,9 +9,7 @@ use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::v::zve64x::config::Zve64xConfigInstruction;
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VCsr;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
 

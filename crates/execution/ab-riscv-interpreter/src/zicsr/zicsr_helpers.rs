@@ -1,8 +1,7 @@
 //! Opaque helpers for Zicsr extension
 
 use crate::{CsrError, Csrs};
-use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::prelude::*;
 
 /// CSR privilege level check helper.
 ///

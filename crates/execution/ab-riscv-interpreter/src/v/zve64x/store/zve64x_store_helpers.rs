@@ -6,9 +6,7 @@ use crate::v::zve64x::load::zve64x_load_helpers::{
 };
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory, VirtualMemoryError};
-use ab_riscv_primitives::instructions::v::Eew;
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Interpret `buf[..index_eew.bytes()]` as a little-endian unsigned integer and return it as

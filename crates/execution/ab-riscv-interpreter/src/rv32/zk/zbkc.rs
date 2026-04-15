@@ -3,8 +3,7 @@
 use crate::rv32::b::zbc::rv32_zbc_helpers;
 use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::rv32::zk::zbkc::Rv32ZbkcInstruction;
-use ab_riscv_primitives::registers::general_purpose::Register;
+use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]

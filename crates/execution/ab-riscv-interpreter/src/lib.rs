@@ -98,9 +98,7 @@ pub mod zicond;
 pub mod zicsr;
 
 use crate::private::BasicIntSealed;
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::{ControlFlow, Sub};

@@ -1,6 +1,6 @@
 //! Opaque helpers for RV64 Zknd extension
 
-use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::Rv64ZkndKsRnum;
+use ab_riscv_primitives::prelude::*;
 
 /// Key schedule operations shared across all backends.
 ///
@@ -8,7 +8,7 @@ use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::Rv64ZkndKsRnum;
 #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknd")))]
 mod ks {
     use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::SBOX;
-    use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::Rv64ZkndKsRnum;
+    use ab_riscv_primitives::prelude::*;
 
     /// Round constants `RC[0..=9]`, indexed by rnum (0-based).
     /// `RC[rnum]` corresponds to FIPS 197 `Rcon[rnum+1]`.

@@ -5,8 +5,7 @@ pub use crate::v::zve64x::arith::zve64x_arith_helpers::{OpSrc, check_vreg_group_
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
 use ab_riscv_primitives::instructions::v::Vsew;
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Check that a widening destination `vd` is aligned to `wide_group_regs` and fits within

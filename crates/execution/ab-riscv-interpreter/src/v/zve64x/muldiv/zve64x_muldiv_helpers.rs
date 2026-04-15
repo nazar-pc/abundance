@@ -9,9 +9,7 @@ use crate::v::zve64x::fixed_point::zve64x_fixed_point_helpers::read_wide_element
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::v::{Vlmul, Vsew};
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Compute the destination register count for a widening operation (`EMUL = 2 × LMUL`).

@@ -10,8 +10,7 @@ use crate::{
     ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
-use ab_riscv_primitives::instructions::v::zve64x::muldiv::Zve64xMulDivInstruction;
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register};
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
 

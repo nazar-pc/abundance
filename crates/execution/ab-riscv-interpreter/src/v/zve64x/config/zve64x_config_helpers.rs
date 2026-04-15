@@ -3,8 +3,7 @@
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, InterpreterState, ProgramCounter};
-use ab_riscv_primitives::instructions::v::Vtype;
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register};
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Apply `vsetvli` / `vsetvl` logic.

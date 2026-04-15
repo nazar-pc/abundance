@@ -1,6 +1,6 @@
 //! Opaque helpers for RV32 Zkne extension
 
-use ab_riscv_primitives::instructions::rv32::zk::zkn::zknd::Rv32AesBs;
+use ab_riscv_primitives::prelude::*;
 
 /// Software fallback for aes32esi and aes32esmi.
 ///

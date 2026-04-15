@@ -1,6 +1,5 @@
 use crate::rv64::test_utils::{execute, initialize_state};
-use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // aes64im - self-contained, no cross-instruction dependency
 

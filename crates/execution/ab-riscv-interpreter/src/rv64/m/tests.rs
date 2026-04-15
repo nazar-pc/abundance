@@ -1,6 +1,5 @@
 use crate::rv64::test_utils::{execute, initialize_state};
-use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // Multiplication Instructions
 

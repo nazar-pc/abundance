@@ -1,8 +1,6 @@
 use crate::rv32::test_utils::{execute, initialize_state};
 use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::gmul;
-use ab_riscv_primitives::instructions::rv32::zk::zkn::zknd::Rv32AesBs;
-use ab_riscv_primitives::instructions::rv32::zk::zkn::zkne::Rv32ZkneInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // aes32esi
 //

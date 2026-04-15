@@ -24,9 +24,7 @@ use ab_riscv_interpreter::{
     BasicInt, Csrs, ExecutableInstruction, ExecutionError, FetchInstructionResult,
     InstructionFetcher, InterpreterState, ProgramCounter, VirtualMemory,
 };
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::registers::general_purpose::{RegType, Register, Registers};
-use ab_riscv_primitives::registers::machine::{MCauseException, MCsr};
+use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use colored::Colorize;

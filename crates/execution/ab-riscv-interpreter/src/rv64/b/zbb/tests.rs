@@ -1,6 +1,5 @@
 use crate::rv64::test_utils::{execute, initialize_state};
-use ab_riscv_primitives::instructions::rv64::b::zbb::Rv64ZbbInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 #[test]
 fn test_andn() {

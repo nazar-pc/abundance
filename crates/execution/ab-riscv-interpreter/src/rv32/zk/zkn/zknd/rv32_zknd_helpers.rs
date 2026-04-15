@@ -1,6 +1,6 @@
 //! Opaque helpers for RV32 Zknd extension
 
-use ab_riscv_primitives::instructions::rv32::zk::zkn::zknd::Rv32AesBs;
+use ab_riscv_primitives::prelude::*;
 
 /// AES forward S-box (SubBytes, used only for the key schedule)
 #[cfg(not(all(

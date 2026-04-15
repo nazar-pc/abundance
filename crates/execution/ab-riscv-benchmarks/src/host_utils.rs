@@ -10,9 +10,7 @@ use ab_riscv_interpreter::{
     InterpreterState, ProgramCounter, ProgramCounterError, SystemInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::general_purpose::{Register, Registers};
+use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::mem::offset_of;

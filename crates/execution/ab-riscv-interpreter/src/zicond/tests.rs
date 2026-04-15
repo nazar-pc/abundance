@@ -1,6 +1,5 @@
 use crate::rv64::test_utils::{execute, initialize_state};
-use ab_riscv_primitives::instructions::zicond::ZicondInstruction;
-use ab_riscv_primitives::registers::general_purpose::Reg;
+use ab_riscv_primitives::prelude::*;
 
 // CZERO.EQZ - rd = (rs2 == 0) ? 0 : rs1
 

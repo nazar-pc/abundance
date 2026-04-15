@@ -4,9 +4,7 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::arith::zve64x_arith_helpers::{write_element_u64, write_mask_bit};
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::{InterpreterState, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instructions::v::Vsew;
-use ab_riscv_primitives::registers::general_purpose::Register;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Execute a mask-register logical operation on the full `VLENB`-byte mask registers.

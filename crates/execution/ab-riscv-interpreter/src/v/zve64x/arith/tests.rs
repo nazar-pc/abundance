@@ -1,10 +1,7 @@
 use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{ExecutableInstruction, ExecutionError};
-use ab_riscv_primitives::instructions::v::zve64x::arith::Zve64xArithInstruction;
-use ab_riscv_primitives::instructions::v::{Vlmul, Vsew, Vtype};
-use ab_riscv_primitives::registers::general_purpose::Reg;
-use ab_riscv_primitives::registers::vector::VReg;
+use ab_riscv_primitives::prelude::*;
 
 /// Encode a raw vtype value (vta=false, vma=false)
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {

@@ -8,12 +8,7 @@ use crate::{
     ExecutionError, FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
     ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
-use ab_riscv_primitives::instructions::v::Vtype;
-use ab_riscv_primitives::privilege::PrivilegeLevel;
-use ab_riscv_primitives::registers::general_purpose::{Reg, Registers};
-use ab_riscv_primitives::registers::vector::VCsr;
+use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;

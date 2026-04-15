@@ -13,8 +13,7 @@ use ab_riscv_benchmarks::host_utils::{
     execute,
 };
 use ab_riscv_interpreter::{InterpreterState, VirtualMemory};
-use ab_riscv_primitives::instructions::Instruction;
-use ab_riscv_primitives::registers::general_purpose::Registers;
+use ab_riscv_primitives::prelude::*;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::marker::PhantomData;
