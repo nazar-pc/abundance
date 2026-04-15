@@ -3,6 +3,7 @@ use ab_riscv_primitives::registers::general_purpose::{Reg, RegType};
 //  and such are not needed
 use ab_riscv_interpreter::rv64::b::zbb::rv64_zbb_helpers;
 use ab_riscv_interpreter::rv64::b::zbc::rv64_zbc_helpers;
+use ab_riscv_interpreter::rv64::zce::zcmp::rv64_zcmp_helpers;
 use ab_riscv_interpreter::rv64::zk::zbkx::rv64_zbkx_helpers;
 use ab_riscv_interpreter::rv64::zk::zkn::zknd::rv64_zknd_helpers;
 use ab_riscv_interpreter::rv64::zk::zkn::zkne::rv64_zkne_helpers;
@@ -26,6 +27,7 @@ use ab_riscv_interpreter::{
 };
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::instructions::Instruction;
+use ab_riscv_primitives::instructions::rv32::zce::zcmp::ZcmpUrlist;
 use ab_riscv_primitives::instructions::rv64::Rv64Instruction;
 use ab_riscv_primitives::instructions::rv64::b::zba::Rv64ZbaInstruction;
 use ab_riscv_primitives::instructions::rv64::b::zbb::Rv64ZbbInstruction;
@@ -34,6 +36,7 @@ use ab_riscv_primitives::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instructions::rv64::c::zca::Rv64ZcaInstruction;
 use ab_riscv_primitives::instructions::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instructions::rv64::zce::zcb::Rv64ZcbInstruction;
+use ab_riscv_primitives::instructions::rv64::zce::zcmp::Rv64ZcmpInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;
 use ab_riscv_primitives::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
@@ -72,6 +75,7 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
         Rv64ZbcInstruction,
         Rv64ZcaInstruction,
         Rv64ZcbInstruction,
+        Rv64ZcmpInstruction,
         Rv64ZknInstruction,
         ZicondInstruction,
         ZicsrInstruction,
@@ -108,7 +112,7 @@ where
 #[instruction]
 impl<Reg> fmt::Display for AbundanceRv64IMaxInstructionPrototype<Reg>
 where
-    Reg: fmt::Display + Copy,
+    Reg: Register,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}

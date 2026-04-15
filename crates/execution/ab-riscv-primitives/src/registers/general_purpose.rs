@@ -88,10 +88,15 @@ impl const RegType for u64 {
 /// GPR (General Purpose Register)
 ///
 /// # Safety
-/// `Self::offset()` must return values in `0..Self::N` range.
+/// `Self::offset()` must return values in `0..Self::N` range. `Self::from_bits()` must return
+/// `Some()` for `0..=31` if `Self::RVE = false` and `0..=15` if `Self::RVE = true`.
 pub const unsafe trait Register:
     fmt::Display + fmt::Debug + [const] Eq + [const] Destruct + Copy + Send + Sync + Sized + 'static
 {
+    /// Whether this is RVE variant with the number of general purpose registers reduced to 16
+    const RVE: bool;
+    // TODO: Get rid of this field, replace with a separate trait that `Registers` will use to get
+    //  the number of "slots" to store registers in
     /// The number of general purpose registers.
     ///
     /// Canonically 32 unless E extension is used, in which case 16.
@@ -104,6 +109,10 @@ pub const unsafe trait Register:
     const SP: Self;
     /// Return address register
     const RA: Self;
+    /// Function argument register a0
+    const A0: Self;
+    /// Function argument register a1
+    const A1: Self;
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
@@ -281,12 +290,16 @@ impl<Type> const PartialEq for EReg<Type> {
 
 impl<Type> const Eq for EReg<Type> {}
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range
+// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
+// `Some()` for `0..=15`
 unsafe impl const Register for EReg<u32> {
+    const RVE: bool = true;
     const N: usize = 16;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
+    const A0: Self = Self::A0;
+    const A1: Self = Self::A1;
     type Type = u32;
 
     #[inline(always)]
@@ -319,12 +332,16 @@ unsafe impl const Register for EReg<u32> {
     }
 }
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range
+// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
+// `Some()` for `0..=15`
 unsafe impl const Register for EReg<u64> {
+    const RVE: bool = true;
     const N: usize = 16;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
+    const A0: Self = Self::A0;
+    const A1: Self = Self::A1;
     type Type = u64;
 
     #[inline(always)]
@@ -555,12 +572,16 @@ impl<Type> const PartialEq for Reg<Type> {
 
 impl<Type> const Eq for Reg<Type> {}
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range
+// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
+// `Some()` for `0..=31`
 unsafe impl const Register for Reg<u32> {
+    const RVE: bool = false;
     const N: usize = 32;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
+    const A0: Self = Self::A0;
+    const A1: Self = Self::A1;
     type Type = u32;
 
     #[inline(always)]
@@ -609,12 +630,16 @@ unsafe impl const Register for Reg<u32> {
     }
 }
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range
+// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
+// `Some()` for `0..=31`
 unsafe impl const Register for Reg<u64> {
+    const RVE: bool = false;
     const N: usize = 32;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
+    const A0: Self = Self::A0;
+    const A1: Self = Self::A1;
     type Type = u64;
 
     #[inline(always)]
