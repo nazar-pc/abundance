@@ -1,7 +1,7 @@
 #![expect(clippy::identity_op, reason = "Test readability")]
 
 use crate::instructions::Instruction;
-use crate::instructions::rv32::c::zcb::Rv32ZcbInstruction;
+use crate::instructions::rv32::zce::zcb::Rv32ZcbInstruction;
 use crate::registers::general_purpose::Reg;
 
 /// Build a Q00 Zcb load/store: funct3=100, sub=bits\[12:10].

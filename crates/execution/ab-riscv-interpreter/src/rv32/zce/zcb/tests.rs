@@ -1,6 +1,6 @@
 use crate::VirtualMemory;
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use ab_riscv_primitives::instructions::rv32::c::zcb::Rv32ZcbInstruction;
+use ab_riscv_primitives::instructions::rv32::zce::zcb::Rv32ZcbInstruction;
 use ab_riscv_primitives::registers::general_purpose::Reg;
 
 // C.LBU

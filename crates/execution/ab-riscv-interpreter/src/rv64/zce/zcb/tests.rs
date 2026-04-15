@@ -1,6 +1,6 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, VirtualMemory};
-use ab_riscv_primitives::instructions::rv64::c::zcb::Rv64ZcbInstruction;
+use ab_riscv_primitives::instructions::rv64::zce::zcb::Rv64ZcbInstruction;
 use ab_riscv_primitives::registers::general_purpose::Reg;
 
 // C.LBU

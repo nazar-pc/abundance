@@ -7,6 +7,7 @@ pub mod m;
 pub(crate) mod test_utils;
 #[cfg(test)]
 mod tests;
+pub mod zce;
 pub mod zk;
 
 use crate::{
