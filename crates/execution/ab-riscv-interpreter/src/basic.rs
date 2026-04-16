@@ -1,16 +1,19 @@
 //! Basic implementations of various interpreter traits
 
 use crate::{
-    Address, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, VirtualMemory,
+    Address, CustomErrorPlaceholder, ExecutionError, FetchInstructionResult, InstructionFetcher,
+    ProgramCounter, ProgramCounterError, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
-/// Basic instruction fetcher implementation
+/// Basic instruction fetcher implementation.
+///
+/// Note that it loads instructions from anywhere in memory. This works, but it is likely that you
+/// want to restrict this to a specific executable region of memory.
 #[derive(Debug, Copy, Clone)]
-pub struct BasicInstructionFetcher<I, CustomError>
+pub struct BasicInstructionFetcher<I, CustomError = CustomErrorPlaceholder>
 where
     I: Instruction,
 {
@@ -33,7 +36,7 @@ where
     #[inline]
     fn set_pc(
         &mut self,
-        memory: &Memory,
+        _memory: &Memory,
         pc: Address<I>,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
         if pc == self.return_trap_address {
@@ -43,8 +46,6 @@ where
         if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
-
-        memory.read::<u32>(pc.as_u64())?;
 
         self.pc = pc;
 
@@ -63,12 +64,18 @@ where
         &mut self,
         memory: &Memory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
-        // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
-        // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
-        // one instruction can't result in out-of-bounds access.
-        let instruction = unsafe { memory.read_unchecked(self.pc.as_u64()) };
-        // SAFETY: All instructions are valid, according to the constructor contract
-        let instruction = unsafe { I::try_decode(instruction).unwrap_unchecked() };
+        let instruction = memory.read(self.pc.as_u64()).or_else(|error| {
+            // Attempt to read a 16-bit compressed instruction
+            if let Ok(instruction) = memory.read::<u16>(self.pc.as_u64())
+                && (instruction & 0b11) != 0b11
+            {
+                return Ok(u32::from(instruction));
+            }
+            Err(error)
+        })?;
+
+        let instruction = I::try_decode(instruction)
+            .ok_or(ExecutionError::IllegalInstruction { address: self.pc })?;
         self.pc += instruction.size().into();
 
         Ok(FetchInstructionResult::Instruction(instruction))
@@ -83,12 +90,8 @@ where
     ///
     /// `return_trap_address` is the address at which the interpreter will stop execution
     /// (gracefully).
-    ///
-    /// # Safety
-    /// The program counter must be valid and aligned, the instructions processed must be valid and
-    /// end with a jump instruction.
     #[inline(always)]
-    pub unsafe fn new(return_trap_address: Address<I>, pc: Address<I>) -> Self {
+    pub fn new(return_trap_address: Address<I>, pc: Address<I>) -> Self {
         Self {
             return_trap_address,
             pc,
