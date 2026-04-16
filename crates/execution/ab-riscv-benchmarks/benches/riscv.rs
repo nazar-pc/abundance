@@ -107,6 +107,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64
         - size_of::<Blake3HashChunkInternalArgs>().max(size_of::<Ed25519VerifyInternalArgs>())
             as u64;
+    // Stack pointer must be 16-byte aligned, according to the psABI
+    let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
     let benchmarks_blake3_hash_chunk_addr = MEMORY_BASE_ADDRESS
         + u64::from(
             *methods
@@ -204,9 +206,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                lazy_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                lazy_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -224,9 +224,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                eager_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                eager_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
@@ -286,9 +284,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                lazy_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                lazy_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -306,9 +302,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                eager_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                eager_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });

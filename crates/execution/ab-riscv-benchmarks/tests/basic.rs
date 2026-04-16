@@ -63,6 +63,8 @@ where
     let mut regs = Registers::default();
     // Internal arguments are the end of the memory region
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64 - size_of::<IA>() as u64;
+    // Stack pointer must be 16-byte aligned, according to the psABI
+    let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
 
     {
         let internal_args = create_internal_args(internal_args_addr);
@@ -79,7 +81,7 @@ where
 
     regs.write(ContractRegister::A0, internal_args_addr);
     // Stack is between internal arguments and contract memory
-    regs.write(ContractRegister::Sp, internal_args_addr);
+    regs.write(ContractRegister::Sp, stack_pointer);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
