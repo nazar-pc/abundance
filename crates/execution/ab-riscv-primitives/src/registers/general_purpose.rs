@@ -151,15 +151,12 @@ where
 
 const impl<Reg> Registers<Reg>
 where
-    Reg: Register,
+    Reg: [const] Register,
     [(); Reg::N]:,
 {
     /// Read register value
     #[inline(always)]
-    pub fn read(&self, reg: Reg) -> Reg::Type
-    where
-        Reg: [const] Register,
-    {
+    pub fn read(&self, reg: Reg) -> Reg::Type {
         if reg == Reg::ZERO {
             // Always zero
             return Reg::Type::default();
@@ -171,10 +168,7 @@ where
 
     /// Write register value
     #[inline(always)]
-    pub fn write(&mut self, reg: Reg, value: Reg::Type)
-    where
-        Reg: [const] Register,
-    {
+    pub fn write(&mut self, reg: Reg, value: Reg::Type) {
         if reg == Reg::ZERO {
             // Writes are ignored
             return;
