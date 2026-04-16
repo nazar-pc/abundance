@@ -1,5 +1,6 @@
 use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
-use crate::interpreter::{Act4InstructionFetcher, Act4Memory, Act4SystemHandler};
+use crate::interpreter::{Act4Memory, Act4SystemHandler};
+use ab_riscv_interpreter::basic::BasicInstructionFetcher;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
@@ -99,7 +100,7 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
                 <AbundanceRv32IMaxInstruction as Instruction>::Reg,
                 Self,
                 Act4Memory<0, 0>,
-                Act4InstructionFetcher<AbundanceRv32IMaxInstruction>,
+                BasicInstructionFetcher<AbundanceRv32IMaxInstruction>,
                 Act4SystemHandler,
                 _,
             >,
@@ -119,7 +120,7 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
                 <AbundanceRv32IMaxInstruction as Instruction>::Reg,
                 Self,
                 Act4Memory<0, 0>,
-                Act4InstructionFetcher<AbundanceRv32IMaxInstruction>,
+                BasicInstructionFetcher<AbundanceRv32IMaxInstruction>,
                 Act4SystemHandler,
                 _,
             >,

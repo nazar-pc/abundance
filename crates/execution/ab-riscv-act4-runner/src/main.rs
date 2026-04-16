@@ -19,7 +19,8 @@ use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
 use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
-use crate::interpreter::{Act4InstructionFetcher, Act4SystemHandler};
+use crate::interpreter::Act4SystemHandler;
+use ab_riscv_interpreter::basic::BasicInstructionFetcher;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -237,7 +238,10 @@ fn run_rv32i_max_test(
         regs: Registers::default(),
         ext_state: AbundanceRv32IMaxExtState::new(),
         memory: ram,
-        instruction_fetcher: Act4InstructionFetcher::<AbundanceRv32IMaxInstruction>::new(elf.entry),
+        instruction_fetcher: BasicInstructionFetcher::<AbundanceRv32IMaxInstruction>::new(
+            // Not used, setting to something that is unlikely to be used
+            0, elf.entry,
+        ),
         system_instruction_handler: Act4SystemHandler,
         custom_error: PhantomData,
     };
@@ -354,7 +358,10 @@ fn run_rv64i_max_test(
         regs: Registers::default(),
         ext_state: AbundanceRv64IMaxExtState::new(),
         memory: ram,
-        instruction_fetcher: Act4InstructionFetcher::<AbundanceRv64IMaxInstruction>::new(elf.entry),
+        instruction_fetcher: BasicInstructionFetcher::<AbundanceRv64IMaxInstruction>::new(
+            // Not used, setting to something that is unlikely to be used
+            0, elf.entry,
+        ),
         system_instruction_handler: Act4SystemHandler,
         custom_error: PhantomData,
     };
