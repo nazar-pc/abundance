@@ -3,11 +3,11 @@
 
 [goldmark]
 [goldmark.renderer]
-  unsafe = true
+unsafe = true
 
 [highlight]
-  noClasses = false
+style = 'base16-snazzy'
 
 [tableOfContents]
-  startLevel = 2
-  endLevel = 4
+startLevel = 2
+endLevel = 4
