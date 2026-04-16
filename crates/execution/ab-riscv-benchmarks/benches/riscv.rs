@@ -108,6 +108,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64
         - size_of::<Blake3HashChunkInternalArgs>().max(size_of::<Ed25519VerifyInternalArgs>())
             as u64;
+    let benchmarks_blake3_hash_chunk_addr = MEMORY_BASE_ADDRESS
+        + u64::from(
+            *methods
+                .get("benchmarks_blake3_hash_chunk".as_bytes())
+                .unwrap(),
+        );
+    let benchmarks_ed25519_verify_addr = MEMORY_BASE_ADDRESS
+        + u64::from(*methods.get("benchmarks_ed25519_verify".as_bytes()).unwrap());
 
     let mut lazy_state = InterpreterState {
         regs: Registers::default(),
@@ -144,7 +152,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .collect(),
                 TRAP_ADDRESS,
                 MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
-                MEMORY_BASE_ADDRESS,
+                benchmarks_blake3_hash_chunk_addr,
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
@@ -162,13 +170,6 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(Benchmarks::blake3_hash_chunk(black_box(&data_to_hash)));
             });
         });
-
-        let benchmarks_blake3_hash_chunk_addr = MEMORY_BASE_ADDRESS
-            + u64::from(
-                *methods
-                    .get("benchmarks_blake3_hash_chunk".as_bytes())
-                    .unwrap(),
-            );
 
         {
             let internal_args = Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash);
@@ -251,9 +252,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             });
         });
 
-        let benchmarks_ed25519_verify_addr = MEMORY_BASE_ADDRESS
-            + u64::from(*methods.get("benchmarks_ed25519_verify".as_bytes()).unwrap());
-
         {
             let internal_args =
                 Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message);
@@ -288,10 +286,10 @@ fn criterion_benchmark(c: &mut Criterion) {
                 lazy_state
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
-                lazy_state.regs.write(
-                    ContractRegister::Sp,
-                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
-                );
+                // Stack is between internal arguments and contract memory
+                lazy_state
+                    .regs
+                    .write(ContractRegister::Sp, internal_args_addr);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -308,10 +306,10 @@ fn criterion_benchmark(c: &mut Criterion) {
                 eager_state
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
-                eager_state.regs.write(
-                    ContractRegister::Sp,
-                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
-                );
+                // Stack is between internal arguments and contract memory
+                eager_state
+                    .regs
+                    .write(ContractRegister::Sp, internal_args_addr);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
