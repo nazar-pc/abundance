@@ -73,9 +73,9 @@ bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu-install = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "8494942c0be705049514c2515761da7ef24fcbeb", default-features = false }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0", default-features = false }
-clap = { version = "4.6.0", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
 colored = { version = "3.1.1" }
-const_format = "0.2.35"
+const_format = "0.2.36"
 core_affinity = "0.8.3"
 cpufeatures = "0.3.0"
 criterion = { version = "0.8.2", default-features = false }
@@ -102,7 +102,7 @@ libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p",
 libp2p-swarm-test = { version = "0.6.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
 memmap2 = "0.9.10"
 mimalloc = { version = "0.1.48", features = ["v3"] }
-multihash = "0.19.3"
+multihash = "0.19.4"
 nohash-hasher = "0.2.0"
 no-panic = "0.1.36"
 num_cpus = "1.17.0"
@@ -137,7 +137,7 @@ syn = "2.0.117"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.18", default-features = false }
 thread-priority = "3.0.0"
-tokio = { version = "1.51.1", default-features = false }
+tokio = { version = "1.52.1", default-features = false }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
