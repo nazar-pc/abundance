@@ -161,6 +161,7 @@ reed-solomon-simd = { opt-level = 3 }
 [profile.contract]
 inherits = "release"
 codegen-units = 1
+lto = "fat"
 
 [profile.production]
 inherits = "release"
