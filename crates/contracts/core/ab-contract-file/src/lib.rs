@@ -9,8 +9,8 @@
 //! * read-only data section: contains contract metadata among other things, allowing to decode
 //!   names and ABI of the methods mentioned above, and the number of methods in this metadata must
 //!   match the number of methods in the header
-//! * code section: contains only valid/supported RISC-V instructions, always ending with some kind
-//!   of jump instruction
+//! * code section: contains only valid/supported RISC-V instructions or 16-bit zero padding, always
+//!   ending with some kind of jump instruction
 //!
 //! This file is created from an ELF source file and can, technically, be converted back to it. Note
 //! that due to the intentional lack of the `.bss` section equivalent and many other features, only
@@ -28,6 +28,8 @@
 //! programmatically and using CLI interface.
 
 #![feature(
+    const_block_items,
+    const_cmp,
     const_trait_impl,
     maybe_uninit_fill,
     trusted_len,
@@ -63,6 +65,11 @@ pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
 pub type ContractRegister = Reg<u64>;
 /// An instruction type used by contracts
 pub type ContractInstruction = ContractInstructionPrototype<ContractRegister>;
+
+// Ensure expected size of the instruction enum
+const {
+    assert!(size_of::<ContractInstruction>() == 8);
+}
 
 /// Header of the contract file
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TrivialType)]
@@ -246,7 +253,7 @@ pub enum ContractFileParseError {
         metadata_num_methods: u16,
     },
     /// Invalid instruction encountered while parsing the code section
-    #[error("Invalid instruction encountered while parsing the code section: {instruction}")]
+    #[error("Invalid instruction encountered while parsing the code section: {instruction:#x}")]
     InvalidInstruction {
         /// Instruction
         instruction: u32,
@@ -427,7 +434,7 @@ impl<'a> ContractFile<'a> {
                     let address = contract_file_method_metadata.offset - read_only_section_offset
                         + read_only_padding_size;
 
-                    if !address.is_multiple_of(size_of::<u32>() as u32) {
+                    if !address.is_multiple_of(size_of::<u16>() as u32) {
                         return Err(ContractFileParseError::MethodUnaligned {
                             file_offset: contract_file_method_metadata.offset,
                             memory_address: address,
@@ -536,7 +543,7 @@ impl<'a> ContractFile<'a> {
             let address =
                 header.host_call_fn_offset - read_only_section_offset + read_only_padding_size;
 
-            if !address.is_multiple_of(size_of::<u32>() as u32) {
+            if !address.is_multiple_of(size_of::<u16>() as u32) {
                 return Err(ContractFileParseError::HostCallFnUnaligned {
                     file_offset: header.host_call_fn_offset,
                     memory_address: address,
@@ -546,44 +553,45 @@ impl<'a> ContractFile<'a> {
 
         // Ensure code only consists of expected instructions
         {
-            let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
+            let mut offset = code_section_offset as usize;
 
             let mut instruction = ContractInstruction::Unimp;
-            while let Some(instruction_bytes) =
-                remaining_code_file_bytes.split_off(..size_of::<u32>())
-            {
-                let instruction_word = u32::from_le_bytes([
-                    instruction_bytes[0],
-                    instruction_bytes[1],
-                    instruction_bytes[2],
-                    instruction_bytes[3],
-                ]);
-                instruction = ContractInstruction::try_decode(instruction_word).ok_or(
-                    ContractFileParseError::InvalidInstruction {
-                        instruction: instruction_word,
-                    },
-                )?;
+            while offset < file_bytes.len() {
+                let remaining = &file_bytes[offset..];
+
+                let instruction_word = if remaining.len() >= size_of::<u32>() {
+                    u32::from_le_bytes([remaining[0], remaining[1], remaining[2], remaining[3]])
+                } else if remaining.len() >= size_of::<u16>() {
+                    u32::from_le_bytes([remaining[0], remaining[1], 0, 0])
+                } else {
+                    // Need at least 2 bytes to read a compressed instruction
+                    return Err(ContractFileParseError::UnexpectedTrailingCodeBytes {
+                        num_bytes: remaining.len(),
+                    });
+                };
+
+                instruction = match ContractInstruction::try_decode(instruction_word) {
+                    Some(instruction) => instruction,
+                    None => {
+                        // TODO: LLVM uses zeroes for padding instead of something like c.nop, maybe
+                        //  rewrite during conversion from ELF?:
+                        //  https://github.com/riscv-non-isa/riscv-elf-psabi-doc/issues/497
+                        if instruction_word as u16 == 0 {
+                            offset += 2;
+                            continue;
+                        } else {
+                            return Err(ContractFileParseError::InvalidInstruction {
+                                instruction: instruction_word,
+                            });
+                        }
+                    }
+                };
+
+                offset += usize::from(instruction.size());
             }
 
-            let is_jump_instruction = matches!(
-                instruction,
-                ContractInstruction::Jalr { .. }
-                    | ContractInstruction::Beq { .. }
-                    | ContractInstruction::Bne { .. }
-                    | ContractInstruction::Blt { .. }
-                    | ContractInstruction::Bge { .. }
-                    | ContractInstruction::Bltu { .. }
-                    | ContractInstruction::Bgeu { .. }
-                    | ContractInstruction::Jal { .. }
-            );
-            if !is_jump_instruction {
+            if !instruction.is_jump() {
                 return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });
-            }
-
-            if !remaining_code_file_bytes.is_empty() {
-                return Err(ContractFileParseError::UnexpectedTrailingCodeBytes {
-                    num_bytes: remaining_code_file_bytes.len(),
-                });
             }
         }
 

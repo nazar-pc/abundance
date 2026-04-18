@@ -105,19 +105,7 @@ where
             // SAFETY: Program counter is trusted
             let instruction_fetcher = unsafe {
                 EagerTestInstructionFetcher::new(
-                    contract_file
-                        .get_code()
-                        .chunks_exact(size_of::<u32>())
-                        .map(|instruction| {
-                            let instruction = u32::from_le_bytes([
-                                instruction[0],
-                                instruction[1],
-                                instruction[2],
-                                instruction[3],
-                            ]);
-                            Instruction::try_decode(instruction).unwrap()
-                        })
-                        .collect(),
+                    contract_file.get_code(),
                     TRAP_ADDRESS,
                     MEMORY_BASE_ADDRESS
                         + contract_file.header().read_only_section_memory_size as u64,
