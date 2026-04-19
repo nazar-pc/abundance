@@ -276,6 +276,9 @@ where
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 
+        // Note: This will not allow reading a 16-bit instruction at the very end of memory range,
+        // but that is going to be the case here anyway since code is followed by read-write memory
+        // anyway
         memory.read::<u32>(pc)?;
 
         self.pc = pc;
@@ -294,7 +297,7 @@ where
         memory: &Memory,
     ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
-        // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
+        // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
         let instruction = unsafe { memory.read_unchecked(self.pc) };
         // SAFETY: All instructions are valid, according to the constructor contract
@@ -340,7 +343,7 @@ where
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
-        self.base_addr + self.instruction_offset as u64 * size_of::<u32>() as u64
+        self.base_addr + self.instruction_offset as u64 * size_of::<u16>() as u64
     }
 
     #[inline]
@@ -355,14 +358,14 @@ where
             return Ok(ControlFlow::Break(()));
         }
 
-        if !address.is_multiple_of(size_of::<u32>() as u64) {
+        if !address.is_multiple_of(size_of::<u16>() as u64) {
             return Err(ProgramCounterError::UnalignedInstruction { address });
         }
 
         let offset = address
             .checked_sub(self.base_addr)
             .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
-        let instruction_offset = offset / size_of::<u32>();
+        let instruction_offset = offset / size_of::<u16>();
 
         if instruction_offset >= self.instructions.len() {
             return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
@@ -384,10 +387,10 @@ where
         _memory: &Memory,
     ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64>> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
-        // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
+        // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
         let instruction = *unsafe { self.instructions.get_unchecked(self.instruction_offset) };
-        self.instruction_offset += usize::from(instruction.size()) / size_of::<u32>();
+        self.instruction_offset += usize::from(instruction.size()) / size_of::<u16>();
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
@@ -396,8 +399,8 @@ where
 impl EagerTestInstructionFetcher {
     /// Create a new instance with the specified instructions and base address.
     ///
-    /// Instructions are in the same order as they appear in the binary, and the base address
-    /// corresponds to the first instruction.
+    /// Instructions are decoded during instantiation of the instruction fetcher, and the base
+    /// address corresponds to the first instruction.
     ///
     /// `return_trap_address` is the address at which the interpreter will stop execution
     /// (gracefully).
@@ -407,16 +410,83 @@ impl EagerTestInstructionFetcher {
     /// jump instruction.
     #[inline(always)]
     pub unsafe fn new(
-        instructions: Vec<ContractInstruction>,
+        instructions: &[u8],
         return_trap_address: u64,
         base_addr: u64,
         pc: u64,
     ) -> Self {
+        let mut decoded_instructions = Vec::with_capacity(instructions.len() / size_of::<u16>());
+
+        let mut offset = 0;
+        while let Some(instruction_bytes) = instructions.get(offset..offset + size_of::<u32>()) {
+            let decoded_instruction = u32::from_le_bytes([
+                instruction_bytes[0],
+                instruction_bytes[1],
+                instruction_bytes[2],
+                instruction_bytes[3],
+            ]);
+            // TODO: LLVM uses zeroes for padding instead of something like c.nop, maybe
+            //  rewrite during conversion from ELF?:
+            //  https://github.com/riscv-non-isa/riscv-elf-psabi-doc/issues/497
+            let Some(decoded_instruction) = Instruction::try_decode(decoded_instruction) else {
+                decoded_instructions.push(ContractInstruction::Unimp);
+                offset += 2;
+                continue;
+            };
+            decoded_instructions.push(decoded_instruction);
+            match decoded_instruction.size() {
+                2 => {
+                    offset += 2;
+                }
+                4 => {
+                    // The second half of a 32-bit instruction is a valid offset and may or may not
+                    // decode to a valid instruction on its own. Try to decode it but ignore
+                    // decoding failures.
+
+                    offset += 2;
+
+                    // Could be both 16-bit and 32-bit instruction, need to handle end of the
+                    // instruction stream
+                    let instruction_word = if let Some(instruction_bytes) =
+                        instructions.get(offset..offset + size_of::<u32>())
+                    {
+                        u32::from_le_bytes([
+                            instruction_bytes[0],
+                            instruction_bytes[1],
+                            instruction_bytes[2],
+                            instruction_bytes[3],
+                        ])
+                    } else {
+                        u32::from_le_bytes([instruction_bytes[2], instruction_bytes[3], 0, 0])
+                    };
+
+                    decoded_instructions.push(
+                        Instruction::try_decode(instruction_word)
+                            .unwrap_or(ContractInstruction::Unimp),
+                    );
+                    offset += 2;
+                }
+                instruction_size => {
+                    unreachable!("Invalid instruction size {instruction_size}, expected 2 or 4");
+                }
+            }
+        }
+
+        let remainder_bytes = instructions.get(offset..).unwrap_or(&[]);
+
+        if remainder_bytes.len() == size_of::<u16>() {
+            let instruction_word =
+                u32::from_le_bytes([remainder_bytes[0], remainder_bytes[1], 0, 0]);
+            decoded_instructions.push(
+                Instruction::try_decode(instruction_word).unwrap_or(ContractInstruction::Unimp),
+            );
+        };
+
         Self {
-            instructions,
+            instructions: decoded_instructions,
             return_trap_address,
             base_addr,
-            instruction_offset: (pc - base_addr) as usize / size_of::<u32>(),
+            instruction_offset: (pc - base_addr) as usize / size_of::<u16>(),
         }
     }
 }

@@ -63,6 +63,8 @@ where
     let mut regs = Registers::default();
     // Internal arguments are the end of the memory region
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64 - size_of::<IA>() as u64;
+    // Stack pointer must be 16-byte aligned, according to the psABI
+    let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
 
     {
         let internal_args = create_internal_args(internal_args_addr);
@@ -79,7 +81,7 @@ where
 
     regs.write(ContractRegister::A0, internal_args_addr);
     // Stack is between internal arguments and contract memory
-    regs.write(ContractRegister::Sp, internal_args_addr);
+    regs.write(ContractRegister::Sp, stack_pointer);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
@@ -103,19 +105,7 @@ where
             // SAFETY: Program counter is trusted
             let instruction_fetcher = unsafe {
                 EagerTestInstructionFetcher::new(
-                    contract_file
-                        .get_code()
-                        .chunks_exact(size_of::<u32>())
-                        .map(|instruction| {
-                            let instruction = u32::from_le_bytes([
-                                instruction[0],
-                                instruction[1],
-                                instruction[2],
-                                instruction[3],
-                            ]);
-                            Instruction::try_decode(instruction).unwrap()
-                        })
-                        .collect(),
+                    contract_file.get_code(),
                     TRAP_ADDRESS,
                     MEMORY_BASE_ADDRESS
                         + contract_file.header().read_only_section_memory_size as u64,

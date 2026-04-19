@@ -30,6 +30,9 @@ use core::ops::ControlFlow;
         Sh1add,
     ],
     inherit = [
+        Rv64ZcaInstruction,
+        Rv64ZcbInstruction,
+        Rv64ZcmpInstruction,
         Rv64Instruction,
         Rv64MInstruction,
         Rv64BInstruction,
@@ -68,7 +71,7 @@ where
 #[instruction]
 impl<Reg> fmt::Display for ContractInstructionPrototype<Reg>
 where
-    Reg: fmt::Display + Copy,
+    Reg: Register,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -94,5 +97,30 @@ where
         state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
+    }
+}
+
+impl<Reg> ContractInstructionPrototype<Reg> {
+    /// Check if the instruction is a jump instruction of any kind (affects program counter)
+    #[inline]
+    pub fn is_jump(&self) -> bool {
+        matches!(
+            self,
+            Self::CJ { .. }
+                | Self::CBeqz { .. }
+                | Self::CBnez { .. }
+                | Self::CJr { .. }
+                | Self::CJalr { .. }
+                | Self::CmPopretz { .. }
+                | Self::CmPopret { .. }
+                | Self::Jalr { .. }
+                | Self::Beq { .. }
+                | Self::Bne { .. }
+                | Self::Blt { .. }
+                | Self::Bge { .. }
+                | Self::Bltu { .. }
+                | Self::Bgeu { .. }
+                | Self::Jal { .. }
+        )
     }
 }

@@ -4,7 +4,7 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::CHUNK_LEN;
-use ab_contract_file::{ContractFile, ContractInstruction, ContractRegister};
+use ab_contract_file::{ContractFile, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
@@ -36,6 +36,15 @@ fn criterion_benchmark(c: &mut Criterion) {
         Ok(())
     })
     .unwrap();
+
+    let benchmarks_blake3_hash_chunk_addr = MEMORY_BASE_ADDRESS
+        + u64::from(
+            *methods
+                .get("benchmarks_blake3_hash_chunk".as_bytes())
+                .unwrap(),
+        );
+    let benchmarks_ed25519_verify_addr = MEMORY_BASE_ADDRESS
+        + u64::from(*methods.get("benchmarks_ed25519_verify".as_bytes()).unwrap());
 
     {
         let mut group = c.benchmark_group("file");
@@ -70,19 +79,21 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
 
         let code = contract_file.get_code();
+        // Decoding is measured through instruction fetcher since that is basically all it does
+        // internally (+ memory allocation)
         group.bench_function("decode-instructions", |b| {
             b.iter(|| {
-                let mut instructions = Vec::with_capacity(code.len() / size_of::<u32>());
-                for instruction in code.chunks_exact(size_of::<u32>()) {
-                    let instruction = u32::from_le_bytes([
-                        instruction[0],
-                        instruction[1],
-                        instruction[2],
-                        instruction[3],
-                    ]);
-                    instructions.push(ContractInstruction::try_decode(instruction).unwrap());
-                }
-                black_box(instructions);
+                // SAFETY: Program counter is set later to the correct address
+                let instruction_fetcher = unsafe {
+                    EagerTestInstructionFetcher::new(
+                        code,
+                        TRAP_ADDRESS,
+                        MEMORY_BASE_ADDRESS
+                            + contract_file.header().read_only_section_memory_size as u64,
+                        benchmarks_blake3_hash_chunk_addr,
+                    )
+                };
+                black_box(instruction_fetcher);
             });
         });
     }
@@ -107,14 +118,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64
         - size_of::<Blake3HashChunkInternalArgs>().max(size_of::<Ed25519VerifyInternalArgs>())
             as u64;
-    let benchmarks_blake3_hash_chunk_addr = MEMORY_BASE_ADDRESS
-        + u64::from(
-            *methods
-                .get("benchmarks_blake3_hash_chunk".as_bytes())
-                .unwrap(),
-        );
-    let benchmarks_ed25519_verify_addr = MEMORY_BASE_ADDRESS
-        + u64::from(*methods.get("benchmarks_ed25519_verify".as_bytes()).unwrap());
+    // Stack pointer must be 16-byte aligned, according to the psABI
+    let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
 
     let mut lazy_state = InterpreterState {
         regs: Registers::default(),
@@ -136,19 +141,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         // SAFETY: Program counter is set later to the correct address
         instruction_fetcher: unsafe {
             EagerTestInstructionFetcher::new(
-                contract_file
-                    .get_code()
-                    .chunks_exact(size_of::<u32>())
-                    .map(|instruction| {
-                        let instruction = u32::from_le_bytes([
-                            instruction[0],
-                            instruction[1],
-                            instruction[2],
-                            instruction[3],
-                        ]);
-                        Instruction::try_decode(instruction).unwrap()
-                    })
-                    .collect(),
+                contract_file.get_code(),
                 TRAP_ADDRESS,
                 MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
                 benchmarks_blake3_hash_chunk_addr,
@@ -204,9 +197,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                lazy_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                lazy_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -224,9 +215,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                eager_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                eager_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
@@ -286,9 +275,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                lazy_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                lazy_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -306,9 +293,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .regs
                     .write(ContractRegister::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                eager_state
-                    .regs
-                    .write(ContractRegister::Sp, internal_args_addr);
+                eager_state.regs.write(ContractRegister::Sp, stack_pointer);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });

@@ -127,64 +127,6 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Act4Memory<BASE_ADDR, SIZE> {
     }
 }
 
-pub(crate) struct Act4InstructionFetcher<I>
-where
-    I: Instruction,
-{
-    pc: <I::Reg as Register>::Type,
-}
-
-impl<I, Memory> ProgramCounter<<I::Reg as Register>::Type, Memory> for Act4InstructionFetcher<I>
-where
-    I: Instruction,
-    Memory: VirtualMemory,
-{
-    #[inline(always)]
-    fn get_pc(&self) -> <I::Reg as Register>::Type {
-        self.pc
-    }
-
-    fn set_pc(
-        &mut self,
-        memory: &Memory,
-        pc: <I::Reg as Register>::Type,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<<I::Reg as Register>::Type>> {
-        if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
-            return Err(ProgramCounterError::UnalignedInstruction { address: pc });
-        }
-        memory.read::<u32>(pc.as_u64())?;
-        self.pc = pc;
-        Ok(ControlFlow::Continue(()))
-    }
-}
-
-impl<I, Memory> InstructionFetcher<I, Memory> for Act4InstructionFetcher<I>
-where
-    I: Instruction,
-    Memory: VirtualMemory,
-{
-    fn fetch_instruction(
-        &mut self,
-        memory: &Memory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<<I::Reg as Register>::Type>> {
-        let instruction = memory.read(self.pc.as_u64())?;
-        let instruction = I::try_decode(instruction)
-            .ok_or(ExecutionError::IllegalInstruction { address: self.pc })?;
-        self.pc += instruction.size().into();
-
-        Ok(FetchInstructionResult::Instruction(instruction))
-    }
-}
-
-impl<I> Act4InstructionFetcher<I>
-where
-    I: Instruction,
-{
-    pub(crate) fn new(pc: <I::Reg as Register>::Type) -> Self {
-        Self { pc }
-    }
-}
-
 pub(crate) struct Act4SystemHandler;
 
 impl<Reg, Memory, PC> SystemInstructionHandler<Reg, Memory, PC> for Act4SystemHandler

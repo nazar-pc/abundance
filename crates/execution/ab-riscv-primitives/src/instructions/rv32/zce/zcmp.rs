@@ -119,7 +119,10 @@ where
     /// Iterator over the absolute register numbers in this list.
     ///
     /// Order matches the spec push/pop order: ra first, then s0 ascending.
-    /// ra=x1, s0=x8, s1=x9, s2=x18..s9=x25, s11=x27 (s10=x26 absent).
+    /// ra=x1, s0=x8, s1=x9, s2=x18..s9=x25, s10=x26, s11=x27.
+    ///
+    /// Note: urlist=15 is {ra, s0-s11} (13 registers, including s10);
+    /// {ra, s0-s10} has no encoding.
     #[inline]
     pub fn reg_list(self) -> impl Iterator<Item = Reg> {
         let regs: &[u8] = match self.inner {
@@ -134,8 +137,7 @@ where
             ZcmpUrlistInner::RaS0S7 => &[1, 8, 9, 18, 19, 20, 21, 22, 23],
             ZcmpUrlistInner::RaS0S8 => &[1, 8, 9, 18, 19, 20, 21, 22, 23, 24],
             ZcmpUrlistInner::RaS0S9 => &[1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25],
-            // s10(x26) is skipped; urlist=15 saves ra+s0-s9+s11
-            ZcmpUrlistInner::RaS0S11 => &[1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 27],
+            ZcmpUrlistInner::RaS0S11 => &[1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
         };
 
         regs.iter().map(|&bits| {
@@ -277,23 +279,21 @@ where
                 let stack_adj = urlist.stack_adj_base() + spimm * 16;
                 match op_sel {
                     0b00 => Some(Self::CmPush { urlist, stack_adj }),
-                    0b01 => Some(Self::CmPopretz { urlist, stack_adj }),
-                    0b10 => Some(Self::CmPop { urlist, stack_adj }),
+                    0b01 => Some(Self::CmPop { urlist, stack_adj }),
+                    0b10 => Some(Self::CmPopretz { urlist, stack_adj }),
                     0b11 => Some(Self::CmPopret { urlist, stack_adj }),
                     _ => None,
                 }
             }
-            // CM.MVA01S / CM.MVSA01
+            // CM.MVA01S / CM.MVSA01: require bit 10 = 1 (full funct6 = 101_011)
             0b01 => {
-                let which = (inst >> 10) & 1;
-                let r1s_bits = ((inst >> 7) & 0b111) as u8;
-                let funct2b = ((inst >> 5) & 0b11) as u8;
-                let r2s_bits = ((inst >> 2) & 0b111) as u8;
-
-                // funct2b must be 0b11 for both instructions
-                if funct2b != 0b11 {
+                if (inst >> 10) & 1 != 1 {
                     None?;
                 }
+
+                let r1s_bits = ((inst >> 7) & 0b111) as u8;
+                let funct2 = ((inst >> 5) & 0b11) as u8;
+                let r2s_bits = ((inst >> 2) & 0b111) as u8;
 
                 // Reg::from_bits returns None for registers inaccessible in the current ISA
                 // variant. Under RVE this covers field > 1 (i.e. r1sc/r2sc > 1 in the spec
@@ -302,14 +302,17 @@ where
                 let r1s = Reg::from_bits(sreg_bits(r1s_bits))?;
                 let r2s = Reg::from_bits(sreg_bits(r2s_bits))?;
 
-                if which == 1 {
-                    Some(Self::CmMva01s { r1s, r2s })
-                } else {
-                    // CM.MVSA01 requires r1s' != r2s'
-                    if r1s_bits == r2s_bits {
-                        None?;
+                // funct2[6:5]: 0b11 -> CM.MVA01S, 0b01 -> CM.MVSA01, others reserved
+                match funct2 {
+                    0b11 => Some(Self::CmMva01s { r1s, r2s }),
+                    0b01 => {
+                        // CM.MVSA01 requires r1s' != r2s'
+                        if r1s_bits == r2s_bits {
+                            None?;
+                        }
+                        Some(Self::CmMvsa01 { r1s, r2s })
                     }
-                    Some(Self::CmMvsa01 { r1s, r2s })
+                    _ => None,
                 }
             }
             // funct2_12_11 values 0b00 and 0b10 are not defined by Zcmp
@@ -335,22 +338,16 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::CmPush { urlist, stack_adj } => {
-                // Recover the original spimm field for display:
-                // stack_adj = stack_adj_base + spimm * 16
-                let spimm = (stack_adj - urlist.stack_adj_base()) / 16;
-                write!(f, "cm.push {urlist}, -{spimm}")
+                write!(f, "cm.push {urlist}, -{stack_adj}")
             }
             Self::CmPop { urlist, stack_adj } => {
-                let spimm = (stack_adj - urlist.stack_adj_base()) / 16;
-                write!(f, "cm.pop {urlist}, {spimm}")
+                write!(f, "cm.pop {urlist}, {stack_adj}")
             }
             Self::CmPopretz { urlist, stack_adj } => {
-                let spimm = (stack_adj - urlist.stack_adj_base()) / 16;
-                write!(f, "cm.popretz {urlist}, {spimm}")
+                write!(f, "cm.popretz {urlist}, {stack_adj}")
             }
             Self::CmPopret { urlist, stack_adj } => {
-                let spimm = (stack_adj - urlist.stack_adj_base()) / 16;
-                write!(f, "cm.popret {urlist}, {spimm}")
+                write!(f, "cm.popret {urlist}, {stack_adj}")
             }
             Self::CmMva01s { r1s, r2s } => write!(f, "cm.mva01s {r1s}, {r2s}"),
             Self::CmMvsa01 { r1s, r2s } => write!(f, "cm.mvsa01 {r1s}, {r2s}"),
