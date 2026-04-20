@@ -137,9 +137,11 @@ fn test_caddi4spn_large_uimm() {
 }
 
 #[test]
-fn test_caddi4spn_reserved_zero() {
-    let inst = make_addi4spn(0, 0);
-    assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).is_none());
+fn test_caddi4spn_nzuimm0_nonzero_rd_reserved() {
+    // nzuimm=0 but rd'=1 (bits[4:2]=001): inst != 0, so reserved -> None
+    // bits[15:13]=000, bits[12:5]=0, bits[4:2]=001, bits[1:0]=00 => 0x0004
+    let inst = 0x0004;
+    assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
 #[test]
@@ -860,6 +862,22 @@ fn test_q10_funct3_111_reserved() {
     // C.FSWSP (Zcf) — not in Zca
     let inst = (0b111 << 13) | (0 << 12) | (10 << 7) | 0b10;
     assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
+}
+
+// Unimplemented/illegal
+
+#[test]
+fn test_cunimp() {
+    let inst = 0;
+    let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
+    assert_eq!(decoded, Rv32ZcaInstruction::CUnimp);
+}
+
+#[test]
+fn test_cunimp_ignores_upper_16_bits() {
+    let inst = 0xABCD_0000;
+    let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
+    assert_eq!(decoded, Rv32ZcaInstruction::CUnimp);
 }
 
 // Invalid / Reserved

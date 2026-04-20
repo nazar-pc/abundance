@@ -425,14 +425,10 @@ impl EagerTestInstructionFetcher {
                 instruction_bytes[2],
                 instruction_bytes[3],
             ]);
-            // TODO: LLVM uses zeroes for padding instead of something like c.nop, maybe
-            //  rewrite during conversion from ELF?:
-            //  https://github.com/riscv-non-isa/riscv-elf-psabi-doc/issues/497
-            let Some(decoded_instruction) = Instruction::try_decode(decoded_instruction) else {
-                decoded_instructions.push(ContractInstruction::Unimp);
-                offset += 2;
-                continue;
-            };
+            // Use `Unimp` as a fallback, though contract is expected to only contain legal
+            // instructions
+            let decoded_instruction =
+                Instruction::try_decode(decoded_instruction).unwrap_or(ContractInstruction::Unimp);
             decoded_instructions.push(decoded_instruction);
             match decoded_instruction.size() {
                 2 => {

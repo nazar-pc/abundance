@@ -11,6 +11,7 @@ use core::fmt;
 /// RISC-V RV32 Zca compressed instruction set
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[rustfmt::skip]
 pub enum Rv32ZcaInstruction<Reg> {
     // Quadrant 00
     /// C.ADDI4SPN  rd' = sp + nzuimm  (nzuimm != 0)
@@ -71,6 +72,9 @@ pub enum Rv32ZcaInstruction<Reg> {
     CAdd { rd: Reg, rs2: Reg },
     /// C.SWSP  mem32\[sp + uimm] = rs2
     CSwsp { rs2: Reg, uimm: u8 },
+
+    // Unimplemented/illegal
+    CUnimp,
 }
 
 #[instruction]
@@ -166,12 +170,17 @@ where
                     let imm3 = (inst >> 5) & 1;
                     let nzuimm = (imm9_6 << 6) | (imm5_4 << 4) | (imm3 << 3) | (imm2 << 2);
                     if nzuimm == 0 {
-                        // Reserved encoding
-                        None?;
+                        if inst == 0 {
+                            Some(Self::CUnimp)
+                        } else {
+                            // Reserved encoding
+                            None
+                        }
+                    } else {
+                        let rd_bits = prime_reg_bits(((inst >> 2) & 0b111) as u8);
+                        let rd = Reg::from_bits(rd_bits)?;
+                        Some(Self::CAddi4spn { rd, nzuimm })
                     }
-                    let rd_bits = prime_reg_bits(((inst >> 2) & 0b111) as u8);
-                    let rd = Reg::from_bits(rd_bits)?;
-                    Some(Self::CAddi4spn { rd, nzuimm })
                 }
                 // C.LW
                 // uimm[5:3] = inst[12:10], uimm[2] = inst[6], uimm[6] = inst[5]
@@ -495,6 +504,7 @@ where
             Self::CJalr { rs1 } => write!(f, "c.jalr {rs1}"),
             Self::CAdd { rd, rs2 } => write!(f, "c.add {rd}, {rs2}"),
             Self::CSwsp { rs2, uimm } => write!(f, "c.swsp {rs2}, {uimm}(sp)"),
+            Self::CUnimp => write!(f, "c.unimp"),
         }
     }
 }
