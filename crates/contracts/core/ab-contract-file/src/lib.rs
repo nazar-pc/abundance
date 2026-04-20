@@ -570,22 +570,11 @@ impl<'a> ContractFile<'a> {
                     });
                 };
 
-                instruction = match ContractInstruction::try_decode(instruction_word) {
-                    Some(instruction) => instruction,
-                    None => {
-                        // TODO: LLVM uses zeroes for padding instead of something like c.nop, maybe
-                        //  rewrite during conversion from ELF?:
-                        //  https://github.com/riscv-non-isa/riscv-elf-psabi-doc/issues/497
-                        if instruction_word as u16 == 0 {
-                            offset += 2;
-                            continue;
-                        } else {
-                            return Err(ContractFileParseError::InvalidInstruction {
-                                instruction: instruction_word,
-                            });
-                        }
-                    }
-                };
+                instruction = ContractInstruction::try_decode(instruction_word).ok_or(
+                    ContractFileParseError::InvalidInstruction {
+                        instruction: instruction_word,
+                    },
+                )?;
 
                 offset += usize::from(instruction.size());
             }

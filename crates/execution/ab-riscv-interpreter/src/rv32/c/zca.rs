@@ -186,6 +186,10 @@ where
                 let addr = state.regs.read(Reg::SP).wrapping_add(u32::from(uimm));
                 state.memory.write(u64::from(addr), state.regs.read(rs2))?;
             }
+            Self::CUnimp => {
+                let old_pc = state.instruction_fetcher.old_pc(size_of::<u16>() as u8);
+                return Err(ExecutionError::IllegalInstruction { address: old_pc });
+            }
         }
 
         Ok(ControlFlow::Continue(()))

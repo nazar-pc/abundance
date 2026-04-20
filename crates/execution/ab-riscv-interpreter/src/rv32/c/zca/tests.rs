@@ -453,6 +453,18 @@ fn test_cswsp() {
     );
 }
 
+#[test]
+fn test_cunimp() {
+    let mut state = initialize_state([Rv32ZcaInstruction::CUnimp]);
+
+    let result = execute(&mut state);
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
 // Memory errors
 
 #[test]

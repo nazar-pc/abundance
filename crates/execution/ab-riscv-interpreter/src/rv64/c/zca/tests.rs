@@ -515,3 +515,15 @@ fn test_csd_out_of_bounds() {
     let result = execute(&mut state);
     assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
 }
+
+#[test]
+fn test_cunimp() {
+    let mut state = initialize_state([Rv64ZcaInstruction::CUnimp]);
+
+    let result = execute(&mut state);
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
