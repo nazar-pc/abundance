@@ -12,8 +12,8 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
+use ab_riscv_interpreter::basic::BasicRegisters;
 use ab_riscv_interpreter::prelude::*;
-use ab_riscv_primitives::prelude::*;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -60,7 +60,7 @@ where
         );
     }
 
-    let mut regs = Registers::default();
+    let mut regs = BasicRegisters::default();
     // Internal arguments are the end of the memory region
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64 - size_of::<IA>() as u64;
     // Stack pointer must be 16-byte aligned, according to the psABI

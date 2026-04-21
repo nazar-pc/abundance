@@ -12,8 +12,8 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
+use ab_riscv_interpreter::basic::BasicRegisters;
 use ab_riscv_interpreter::prelude::*;
-use ab_riscv_primitives::prelude::*;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
@@ -122,7 +122,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
 
     let mut lazy_state = InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
@@ -135,7 +135,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     };
 
     let mut eager_state = InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address

@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::basic::BasicRegisters;
 use crate::{
     Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
     FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
@@ -245,7 +246,7 @@ where
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg<u32>>,
+        _regs: &mut BasicRegisters<Reg<u32>>,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
@@ -271,7 +272,7 @@ where
     Instructions: IntoIterator<Item = I>,
 {
     InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: (),
         memory: TestMemory::new(8192, u64::from(TEST_BASE_ADDR)),
         instruction_fetcher: TestInstructionFetcher::new(

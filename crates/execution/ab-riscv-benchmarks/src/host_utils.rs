@@ -5,6 +5,7 @@ use ab_contract_file::ContractInstruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
+use ab_riscv_interpreter::basic::BasicRegisters;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
@@ -511,7 +512,7 @@ where
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut BasicRegisters<Reg>,
         _memory: &mut Memory,
         _program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<u64, CustomError>> {

@@ -56,8 +56,10 @@
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
+    const_cmp,
     const_convert,
     const_default,
+    const_index,
     const_trait_impl,
     generic_const_exprs,
     result_option_map_or_default,
@@ -104,6 +106,7 @@ pub mod zicsr;
 
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
+use basic::BasicRegisters;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::{ControlFlow, Sub};
@@ -412,7 +415,7 @@ where
     /// Handle an `ecall` instruction
     fn handle_ecall(
         &mut self,
-        regs: &mut Registers<Reg>,
+        regs: &mut BasicRegisters<Reg>,
         memory: &mut Memory,
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>>;
@@ -422,7 +425,12 @@ where
     /// NOTE: the program counter here is the current value, meaning it is already incremented past
     /// the instruction itself.
     #[inline(always)]
-    fn handle_ebreak(&mut self, regs: &mut Registers<Reg>, memory: &mut Memory, pc: Reg::Type) {
+    fn handle_ebreak(
+        &mut self,
+        regs: &mut BasicRegisters<Reg>,
+        memory: &mut Memory,
+        pc: Reg::Type,
+    ) {
         // These are for cleaner trait API without leading `_` on arguments
         let _ = regs;
         let _ = memory;
@@ -445,7 +453,7 @@ pub struct InterpreterState<
     [(); Reg::N]:,
 {
     /// General purpose registers
-    pub regs: Registers<Reg>,
+    pub regs: BasicRegisters<Reg>,
     /// Extended state.
     ///
     /// Extensions might use this to place additional constraints on `ExtState` to require

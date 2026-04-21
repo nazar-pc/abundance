@@ -125,60 +125,6 @@ pub const unsafe trait Register:
     fn offset(self) -> u8;
 }
 
-/// A set of RISC-V GPRs (General Purpose Registers)
-#[derive(Debug, Clone, Copy)]
-#[repr(align(16))]
-pub struct Registers<Reg>
-where
-    Reg: Register,
-    [(); Reg::N]:,
-{
-    regs: [Reg::Type; Reg::N],
-}
-
-impl<Reg> Default for Registers<Reg>
-where
-    Reg: Register,
-    [(); Reg::N]:,
-{
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            regs: [Reg::Type::default(); Reg::N],
-        }
-    }
-}
-
-const impl<Reg> Registers<Reg>
-where
-    Reg: [const] Register,
-    [(); Reg::N]:,
-{
-    /// Read register value
-    #[inline(always)]
-    pub fn read(&self, reg: Reg) -> Reg::Type {
-        if reg == Reg::ZERO {
-            // Always zero
-            return Reg::Type::default();
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(usize::from(reg.offset())) }
-    }
-
-    /// Write register value
-    #[inline(always)]
-    pub fn write(&mut self, reg: Reg, value: Reg::Type) {
-        if reg == Reg::ZERO {
-            // Writes are ignored
-            return;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
-    }
-}
-
 /// RISC-V general purpose register for RV32E/RV64E.
 ///
 /// Use `Type = u32` for RV32E and `Type = u64` for RV64E.

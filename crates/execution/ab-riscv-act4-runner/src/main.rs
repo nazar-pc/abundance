@@ -20,7 +20,7 @@ use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
 use crate::interpreter::Act4SystemHandler;
-use ab_riscv_interpreter::basic::BasicInstructionFetcher;
+use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -235,7 +235,7 @@ fn run_rv32i_max_test(
     }
 
     let mut state = InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: AbundanceRv32IMaxExtState::new(),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<AbundanceRv32IMaxInstruction>::new(
@@ -355,7 +355,7 @@ fn run_rv64i_max_test(
     }
 
     let mut state = InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: AbundanceRv64IMaxExtState::new(),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<AbundanceRv64IMaxInstruction>::new(

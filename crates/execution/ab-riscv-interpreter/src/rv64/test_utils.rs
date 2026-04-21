@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::basic::BasicRegisters;
 use crate::v::vector_registers::{
     VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
 };
@@ -255,7 +256,7 @@ where
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg<u64>>,
+        _regs: &mut BasicRegisters<Reg<u64>>,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
@@ -474,7 +475,7 @@ where
     Instructions: IntoIterator<Item = I>,
 {
     InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: ExtState::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(

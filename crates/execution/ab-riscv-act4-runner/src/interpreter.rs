@@ -1,3 +1,4 @@
+use ab_riscv_interpreter::basic::BasicRegisters;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::ops::ControlFlow;
@@ -137,7 +138,7 @@ where
 {
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut BasicRegisters<Reg>,
         _memory: &mut Memory,
         _pc: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
