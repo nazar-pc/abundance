@@ -1,5 +1,5 @@
 use crate::rv64::test_utils::{execute, initialize_state};
-use crate::{CsrError, Csrs, ExecutionError};
+use crate::{CsrError, Csrs, ExecutionError, RegisterFile};
 use ab_riscv_primitives::prelude::*;
 use core::assert_matches;
 

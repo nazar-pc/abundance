@@ -502,16 +502,17 @@ impl<Reg> Default for NoopRv64SystemInstructionHandler<Reg> {
     }
 }
 
-impl<Reg, Memory, PC, CustomError> SystemInstructionHandler<Reg, Memory, PC, CustomError>
+impl<Reg, Regs, Memory, PC, CustomError>
+    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>
     for NoopRv64SystemInstructionHandler<Rv64Instruction<Reg>>
 where
     Reg: Register<Type = u64>,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
 {
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Regs,
         _memory: &mut Memory,
         _program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<u64, CustomError>> {
@@ -523,10 +524,9 @@ where
 }
 
 /// Execute [`ContractInstruction`]s
-#[expect(clippy::type_complexity)]
-pub fn execute<Memory, IF>(
+pub fn execute<Regs, Memory, IF>(
     state: &mut InterpreterState<
-        <ContractInstruction as Instruction>::Reg,
+        Regs,
         (),
         Memory,
         IF,
@@ -536,6 +536,7 @@ pub fn execute<Memory, IF>(
     >,
 ) -> Result<(), ExecutionError<u64>>
 where
+    Regs: RegisterFile<<ContractInstruction as Instruction>::Reg>,
     Memory: VirtualMemory,
     IF: InstructionFetcher<ContractInstruction, Memory>,
 {

@@ -129,15 +129,15 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Act4Memory<BASE_ADDR, SIZE> {
 
 pub(crate) struct Act4SystemHandler;
 
-impl<Reg, Memory, PC> SystemInstructionHandler<Reg, Memory, PC> for Act4SystemHandler
+impl<Reg, Regs, Memory, PC> SystemInstructionHandler<Reg, Regs, Memory, PC> for Act4SystemHandler
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
 {
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Regs,
         _memory: &mut Memory,
         _pc: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {

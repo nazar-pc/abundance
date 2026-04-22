@@ -1,5 +1,5 @@
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, VirtualMemory};
+use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 
 // C.ADDI4SPN

@@ -7,7 +7,8 @@ pub mod zve64x_widen_narrow_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -15,14 +16,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xWidenNarrowInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -34,7 +35,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
@@ -77,7 +78,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -85,8 +86,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -152,7 +157,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -160,7 +165,9 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -228,7 +235,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -236,8 +243,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -303,7 +314,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -311,7 +322,9 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -383,7 +396,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -391,8 +404,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -458,7 +475,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -466,7 +483,9 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -533,7 +552,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -541,8 +560,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -608,7 +631,7 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs2,
@@ -616,7 +639,9 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -688,9 +713,15 @@ where
                     },
                 )?;
                 // vs2 is the wide source; vs1 is narrow
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs1,
@@ -762,8 +793,12 @@ where
                     },
                 )?;
                 // For .wx scalar variants vd may alias vs2 (same wide group); no narrow vs1
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     wide_group_regs,
@@ -833,9 +868,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs1,
@@ -906,8 +947,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     wide_group_regs,
@@ -981,9 +1026,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs1,
@@ -1054,8 +1105,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     wide_group_regs,
@@ -1125,9 +1180,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_alignment(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vs1,
@@ -1198,8 +1259,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check(
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     wide_group_regs,
@@ -1274,9 +1339,17 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_narrow_alignment(state, vd, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1340,8 +1413,14 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_narrow_alignment(state, vd, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
+                zve64x_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1406,8 +1485,14 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_narrow_alignment(state, vd, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
+                zve64x_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1471,9 +1556,17 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_narrow_alignment(state, vd, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1537,8 +1630,14 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_narrow_alignment(state, vd, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
+                zve64x_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1603,8 +1702,14 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_widen_narrow_helpers::check_vd_narrow_alignment(state, vd, group_regs)?;
-                zve64x_widen_narrow_helpers::check_vs_wide_alignment(state, vs2, wide_group_regs)?;
+                zve64x_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    wide_group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1658,10 +1763,12 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 // EMUL for source = LMUL / 2; src_group = max(1, group_regs / 2)
                 let src_group = group_regs.max(2) / 2;
-                zve64x_widen_narrow_helpers::check_vs_ext_alignment(
+                zve64x_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _, _, _, _>(
                     state, vs2, src_group, vd, group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1706,10 +1813,12 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(4) / 4;
-                zve64x_widen_narrow_helpers::check_vs_ext_alignment(
+                zve64x_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _, _, _, _>(
                     state, vs2, src_group, vd, group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1754,10 +1863,12 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(8) / 8;
-                zve64x_widen_narrow_helpers::check_vs_ext_alignment(
+                zve64x_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _, _, _, _>(
                     state, vs2, src_group, vd, group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1801,10 +1912,12 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(2) / 2;
-                zve64x_widen_narrow_helpers::check_vs_ext_alignment(
+                zve64x_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _, _, _, _>(
                     state, vs2, src_group, vd, group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1848,10 +1961,12 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(4) / 4;
-                zve64x_widen_narrow_helpers::check_vs_ext_alignment(
+                zve64x_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _, _, _, _>(
                     state, vs2, src_group, vd, group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1895,10 +2010,12 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(8) / 8;
-                zve64x_widen_narrow_helpers::check_vs_ext_alignment(
+                zve64x_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _, _, _, _>(
                     state, vs2, src_group, vd, group_regs,
                 )?;
-                zve64x_widen_narrow_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state

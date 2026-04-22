@@ -26,7 +26,7 @@ use crate::v::zve64x::widen_narrow::zve64x_widen_narrow_helpers;
 use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
-    VirtualMemory,
+    RegisterFile, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -34,19 +34,18 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }

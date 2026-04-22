@@ -79,22 +79,21 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for ContractInstructionPrototype<Reg>
 where
     Reg: Register<Type = u64>,
-    [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }

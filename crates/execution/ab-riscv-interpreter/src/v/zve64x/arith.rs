@@ -7,7 +7,8 @@ pub mod zve64x_arith_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -15,14 +16,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xArithInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -34,7 +35,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // vadd
@@ -55,9 +56,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -101,8 +108,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -146,8 +157,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -193,9 +208,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -238,8 +259,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -283,8 +308,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -329,8 +358,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -375,9 +408,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -420,8 +459,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -465,8 +508,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -511,9 +558,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -556,8 +609,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -601,8 +658,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -647,9 +708,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -692,8 +759,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -737,8 +808,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -783,9 +858,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -829,8 +910,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -874,8 +959,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -921,9 +1010,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -971,8 +1066,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1020,8 +1119,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1066,9 +1169,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1115,8 +1224,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1164,8 +1277,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1213,9 +1330,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1261,8 +1384,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1309,9 +1436,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1362,8 +1495,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1416,9 +1553,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1464,8 +1607,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1512,9 +1659,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1565,8 +1718,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1619,10 +1776,18 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1663,8 +1828,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1704,8 +1873,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1746,10 +1919,18 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1788,8 +1969,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1829,8 +2014,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1871,10 +2060,18 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1913,8 +2110,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1955,10 +2156,18 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -1997,8 +2206,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2039,10 +2252,18 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2081,8 +2302,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2122,8 +2347,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2171,10 +2400,18 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2213,8 +2450,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2254,8 +2495,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2296,8 +2541,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2337,8 +2586,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2379,8 +2632,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());
@@ -2420,8 +2677,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_arith_helpers::check_mask_dest_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 let vstart = u32::from(state.ext_state.vstart());

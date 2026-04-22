@@ -2,7 +2,7 @@
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter};
+use crate::{ExecutionError, InterpreterState, ProgramCounter, RegisterFile};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
@@ -11,15 +11,15 @@ use core::fmt;
 /// Both share identical `AVL` resolution; they differ only in how the `vtype` value is obtained
 /// (immediate for `vsetvli`, register for `vsetvl`).
 #[doc(hidden)]
-pub fn apply_vsetvl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+pub fn apply_vsetvl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     rd: Reg,
     rs1: Reg,
     vtype_raw: Reg::Type,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -92,15 +92,15 @@ where
 /// `AVL` comes from 5-bit zero-extended immediate (0..31). No `rs1=x0/rd=x0` special casing
 /// applies to this variant.
 #[doc(hidden)]
-pub fn apply_vsetivli<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+pub fn apply_vsetivli<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     rd: Reg,
     uimm: u8,
     vtypei: u16,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

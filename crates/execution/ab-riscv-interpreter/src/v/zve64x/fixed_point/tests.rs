@@ -1,7 +1,7 @@
 use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zve64x::arith::zve64x_arith_helpers::sign_extend;
-use crate::{ExecutableInstruction, ExecutionError};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
 use ab_riscv_primitives::prelude::*;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {

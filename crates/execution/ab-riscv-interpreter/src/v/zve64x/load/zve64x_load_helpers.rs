@@ -67,14 +67,13 @@ pub fn groups_overlap(a: VReg, a_regs: u8, b: VReg, b_regs: u8) -> bool {
 /// Per spec, the base register of every register group must be a multiple of the group size.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_register_group_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_register_group_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vd = vd.bits();
@@ -93,8 +92,8 @@ where
 /// On `Ok`, `vd.bits() + nf * group_regs <= 32` is guaranteed.
 #[inline(always)]
 #[doc(hidden)]
-pub fn validate_segment_registers<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn validate_segment_registers<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vm: bool,
     group_regs: u8,
@@ -102,7 +101,6 @@ pub fn validate_segment_registers<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let group_regs = u32::from(group_regs);
@@ -225,8 +223,8 @@ fn read_mem_element(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_unit_stride_load<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vm: bool,
     vl: u32,
@@ -239,7 +237,6 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, PC, IH, CustomErro
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -350,8 +347,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_strided_load<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_strided_load<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vm: bool,
     vl: u32,
@@ -364,7 +361,6 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -439,8 +435,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_indexed_load<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -454,7 +450,6 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

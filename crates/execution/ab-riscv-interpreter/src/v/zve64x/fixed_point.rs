@@ -7,7 +7,8 @@ pub mod zve64x_fixed_point_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -15,14 +16,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xFixedPointInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -34,7 +35,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
@@ -55,9 +56,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -102,8 +109,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -149,8 +160,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -199,9 +214,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -246,8 +267,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -293,8 +318,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -342,9 +371,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -389,8 +424,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -437,9 +476,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -484,8 +529,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -532,9 +581,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -579,8 +634,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -627,9 +686,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -674,8 +739,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -722,9 +791,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -769,8 +844,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -817,9 +896,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -864,8 +949,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -912,9 +1001,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -959,8 +1054,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1007,9 +1106,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1058,8 +1163,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1108,8 +1217,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1160,9 +1273,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1209,8 +1328,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1258,8 +1381,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1309,13 +1436,21 @@ where
                     })?;
                 // Destination SEW must be <= 32 so that 2*SEW fits in 64 bits
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew(state, sew)?;
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
+                    state, sew,
+                )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 // vs2 holds 2*SEW elements; its register group is double-width
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 // vs1 is a normal SEW-wide source for the shift amount
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1359,10 +1494,16 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew(state, sew)?;
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
+                    state, sew,
+                )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1407,10 +1548,16 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew(state, sew)?;
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
+                    state, sew,
+                )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1456,11 +1603,19 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew(state, sew)?;
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
+                    state, sew,
+                )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment(state, vs2, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs(state, vs1, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1504,10 +1659,16 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew(state, sew)?;
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
+                    state, sew,
+                )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -1552,10 +1713,16 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew(state, sew)?;
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
+                    state, sew,
+                )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd(state, vd, group_regs)?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment(state, vs2, group_regs)?;
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state

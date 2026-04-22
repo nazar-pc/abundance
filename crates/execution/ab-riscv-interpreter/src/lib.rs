@@ -56,8 +56,10 @@
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
+    const_cmp,
     const_convert,
     const_default,
+    const_index,
     const_trait_impl,
     generic_const_exprs,
     result_option_map_or_default,
@@ -110,6 +112,18 @@ use core::ops::{ControlFlow, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 type Address<I> = RegisterType<I>;
+
+/// A GPR (General Purpose Register) file abstraction
+pub const trait RegisterFile<Reg>
+where
+    Reg: [const] Register,
+{
+    /// Read register value
+    fn read(&self, reg: Reg) -> Reg::Type;
+
+    /// Write register value
+    fn write(&mut self, reg: Reg, value: Reg::Type);
+}
 
 /// Errors for [`VirtualMemory`]
 #[derive(Debug, thiserror::Error)]
@@ -388,10 +402,10 @@ where
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
-pub trait SystemInstructionHandler<Reg, Memory, PC, CustomError = CustomErrorPlaceholder>
+pub trait SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError = CustomErrorPlaceholder>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
 {
     // TODO: Figure out the correct API for this method
     /// Handle a `fence` instruction
@@ -412,7 +426,7 @@ where
     /// Handle an `ecall` instruction
     fn handle_ecall(
         &mut self,
-        regs: &mut Registers<Reg>,
+        regs: &mut Regs,
         memory: &mut Memory,
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>>;
@@ -422,7 +436,7 @@ where
     /// NOTE: the program counter here is the current value, meaning it is already incremented past
     /// the instruction itself.
     #[inline(always)]
-    fn handle_ebreak(&mut self, regs: &mut Registers<Reg>, memory: &mut Memory, pc: Reg::Type) {
+    fn handle_ebreak(&mut self, regs: &mut Regs, memory: &mut Memory, pc: Reg::Type) {
         // These are for cleaner trait API without leading `_` on arguments
         let _ = regs;
         let _ = memory;
@@ -434,18 +448,15 @@ where
 /// Base interpreter state
 #[derive(Debug)]
 pub struct InterpreterState<
-    Reg,
+    Regs,
     ExtState,
     Memory,
     IF,
     InstructionHandler,
     CustomError = CustomErrorPlaceholder,
-> where
-    Reg: Register,
-    [(); Reg::N]:,
-{
+> {
     /// General purpose registers
-    pub regs: Registers<Reg>,
+    pub regs: Regs,
     /// Extended state.
     ///
     /// Extensions might use this to place additional constraints on `ExtState` to require

@@ -7,7 +7,8 @@ pub mod zve64x_load_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -15,14 +16,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xLoadInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -34,7 +35,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // Whole-register load: loads `nreg` consecutive registers starting at `vd` directly
@@ -153,7 +154,9 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vd, group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && zve64x_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -211,7 +214,9 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vd, group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && zve64x_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -267,7 +272,9 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vd, group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm && zve64x_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -332,8 +339,16 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vd, data_group_regs)?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vd,
+                    data_group_regs,
+                )?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 if zve64x_load_helpers::groups_overlap(vd, data_group_regs, vs2, index_group_regs) {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -407,8 +422,16 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vd, data_group_regs)?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vd,
+                    data_group_regs,
+                )?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 if zve64x_load_helpers::groups_overlap(vd, data_group_regs, vs2, index_group_regs) {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -473,7 +496,9 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::validate_segment_registers(state, vd, vm, group_regs, nf)?;
+                zve64x_load_helpers::validate_segment_registers::<Reg, _, _, _, _, _, _>(
+                    state, vd, vm, group_regs, nf,
+                )?;
                 if nf > zve64x_load_helpers::MAX_NF {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -536,7 +561,9 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::validate_segment_registers(state, vd, vm, group_regs, nf)?;
+                zve64x_load_helpers::validate_segment_registers::<Reg, _, _, _, _, _, _>(
+                    state, vd, vm, group_regs, nf,
+                )?;
                 if nf > zve64x_load_helpers::MAX_NF {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -593,7 +620,9 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::validate_segment_registers(state, vd, vm, group_regs, nf)?;
+                zve64x_load_helpers::validate_segment_registers::<Reg, _, _, _, _, _, _>(
+                    state, vd, vm, group_regs, nf,
+                )?;
                 let stride = state.regs.read(rs2).as_u64().cast_signed();
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
@@ -654,14 +683,18 @@ where
                 // `validate_segment_registers` is called before the per-field overlap loop so
                 // that `vd.bits() + f * data_group_regs < 32` is established for all `f < nf`,
                 // which is required by the `VReg::from_bits` call inside the loop.
-                zve64x_load_helpers::validate_segment_registers(
+                zve64x_load_helpers::validate_segment_registers::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vm,
                     data_group_regs,
                     nf,
                 )?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 for f in 0..nf {
                     // SAFETY: `vd.bits() + f * data_group_regs < 32` because
                     // `validate_segment_registers` established `vd.bits() + nf * data_group_regs
@@ -747,14 +780,18 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::validate_segment_registers(
+                zve64x_load_helpers::validate_segment_registers::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     vm,
                     data_group_regs,
                     nf,
                 )?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 for f in 0..nf {
                     // SAFETY: `vd.bits() + f * data_group_regs < 32` because
                     // `validate_segment_registers` established `vd.bits() + nf * data_group_regs

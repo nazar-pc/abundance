@@ -12,14 +12,13 @@ use core::fmt;
 /// `[0,32)`, without any source overlap check
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vd_widen_no_src_check<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vd_widen_no_src_check<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     wide_group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vd_idx = vd.bits();
@@ -35,8 +34,8 @@ where
 /// does not overlap `vd` (which occupies `group_regs` registers).
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vs_ext_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vs_ext_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs2: VReg,
     src_group_regs: u8,
     vd: VReg,
@@ -44,7 +43,6 @@ pub fn check_vs_ext_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vs2_idx = vs2.bits();
@@ -69,8 +67,8 @@ where
 /// `Vlmul::index_register_count(wide_eew, sew)`. `group_regs` is the narrow LMUL register count.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vd_widen_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vd_widen_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs_a: VReg,
     vs_b_opt: Option<VReg>,
@@ -79,7 +77,6 @@ pub fn check_vd_widen_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vd_idx = vd.bits();
@@ -109,14 +106,13 @@ where
 /// and fits within `[0, 32)`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vs_wide_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vs_wide_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs: VReg,
     wide_group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vs_idx = vs.bits();
@@ -135,14 +131,13 @@ where
 /// permit `vd` to alias the low half of the wide `vs2` register group per spec §11.7.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vd_narrow_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vd_narrow_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vd_idx = vd.bits();
@@ -270,8 +265,8 @@ pub fn sign_extend_bits(val: u64, bits: u32) -> i64 {
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widen_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -284,7 +279,6 @@ pub unsafe fn execute_widen_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -373,8 +367,8 @@ pub unsafe fn execute_widen_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widen_w_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -386,7 +380,6 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -474,8 +467,8 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_narrow_shift<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -486,7 +479,6 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, Memory, PC, IH, CustomError>(
     arithmetic: bool,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -574,8 +566,8 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_extension<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_extension<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -586,7 +578,6 @@ pub unsafe fn execute_extension<Reg, ExtState, Memory, PC, IH, CustomError>(
     sign: bool,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

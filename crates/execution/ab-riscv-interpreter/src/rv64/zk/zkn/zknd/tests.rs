@@ -1,6 +1,6 @@
+use crate::RegisterFile;
 use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::prelude::*;
-
 // aes64im - self-contained, no cross-instruction dependency
 
 // TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:

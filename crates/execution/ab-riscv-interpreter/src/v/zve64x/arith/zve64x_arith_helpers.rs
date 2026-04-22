@@ -10,14 +10,13 @@ use core::fmt;
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vreg_group_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vreg_group_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vreg: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vreg_idx = vreg.bits();
@@ -36,15 +35,14 @@ where
 /// the encoding is reserved and raises an illegal instruction.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_mask_dest_no_overlap<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_mask_dest_no_overlap<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     src_base: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     if group_regs > 1 {
@@ -171,8 +169,8 @@ pub enum OpSrc {
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_arith_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -183,7 +181,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -248,8 +245,8 @@ pub unsafe fn execute_arith_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_compare_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_compare_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -260,7 +257,6 @@ pub unsafe fn execute_compare_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

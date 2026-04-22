@@ -88,19 +88,13 @@ impl const RegType for u64 {
 /// GPR (General Purpose Register)
 ///
 /// # Safety
-/// `Self::offset()` must return values in `0..Self::N` range. `Self::from_bits()` must return
-/// `Some()` for `0..=31` if `Self::RVE = false` and `0..=15` if `Self::RVE = true`.
+/// `Self::from_bits()` must return `Some()` for `0..=31` if `Self::RVE = false` and `0..=15` if
+/// `Self::RVE = true`.
 pub const unsafe trait Register:
     fmt::Display + fmt::Debug + [const] Eq + [const] Destruct + Copy + Send + Sync + Sized + 'static
 {
     /// Whether this is RVE variant with the number of general purpose registers reduced to 16
     const RVE: bool;
-    // TODO: Get rid of this field, replace with a separate trait that `Registers` will use to get
-    //  the number of "slots" to store registers in
-    /// The number of general purpose registers.
-    ///
-    /// Canonically 32 unless E extension is used, in which case 16.
-    const N: usize;
     /// XLEN
     const XLEN: u8 = Self::Type::BITS;
     /// Zero register
@@ -120,63 +114,6 @@ pub const unsafe trait Register:
 
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
-
-    /// Offset in a set of registers
-    fn offset(self) -> u8;
-}
-
-/// A set of RISC-V GPRs (General Purpose Registers)
-#[derive(Debug, Clone, Copy)]
-#[repr(align(16))]
-pub struct Registers<Reg>
-where
-    Reg: Register,
-    [(); Reg::N]:,
-{
-    regs: [Reg::Type; Reg::N],
-}
-
-impl<Reg> Default for Registers<Reg>
-where
-    Reg: Register,
-    [(); Reg::N]:,
-{
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            regs: [Reg::Type::default(); Reg::N],
-        }
-    }
-}
-
-const impl<Reg> Registers<Reg>
-where
-    Reg: [const] Register,
-    [(); Reg::N]:,
-{
-    /// Read register value
-    #[inline(always)]
-    pub fn read(&self, reg: Reg) -> Reg::Type {
-        if reg == Reg::ZERO {
-            // Always zero
-            return Reg::Type::default();
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(usize::from(reg.offset())) }
-    }
-
-    /// Write register value
-    #[inline(always)]
-    pub fn write(&mut self, reg: Reg, value: Reg::Type) {
-        if reg == Reg::ZERO {
-            // Writes are ignored
-            return;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
-    }
 }
 
 /// RISC-V general purpose register for RV32E/RV64E.
@@ -284,11 +221,9 @@ impl<Type> const PartialEq for EReg<Type> {
 
 impl<Type> const Eq for EReg<Type> {}
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
-// `Some()` for `0..=15`
+// SAFETY: `Self::from_bits()` returns `Some()` for `0..=15`
 unsafe impl const Register for EReg<u32> {
     const RVE: bool = true;
-    const N: usize = 16;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -318,19 +253,11 @@ unsafe impl const Register for EReg<u32> {
             _ => None,
         }
     }
-
-    #[inline(always)]
-    fn offset(self) -> u8 {
-        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { core::mem::transmute::<Self, u8>(self) }
-    }
 }
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
-// `Some()` for `0..=15`
+// SAFETY: `Self::from_bits()` returns `Some()` for `0..=15`
 unsafe impl const Register for EReg<u64> {
     const RVE: bool = true;
-    const N: usize = 16;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -359,12 +286,6 @@ unsafe impl const Register for EReg<u64> {
             15 => Some(Self::A5),
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn offset(self) -> u8 {
-        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { core::mem::transmute::<Self, u8>(self) }
     }
 }
 
@@ -566,11 +487,9 @@ impl<Type> const PartialEq for Reg<Type> {
 
 impl<Type> const Eq for Reg<Type> {}
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
-// `Some()` for `0..=31`
+// SAFETY: `Self::from_bits()` returns `Some()` for `0..=31`
 unsafe impl const Register for Reg<u32> {
     const RVE: bool = false;
-    const N: usize = 32;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -616,19 +535,11 @@ unsafe impl const Register for Reg<u32> {
             _ => None,
         }
     }
-
-    #[inline(always)]
-    fn offset(self) -> u8 {
-        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { core::mem::transmute::<Self, u8>(self) }
-    }
 }
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range and `Self::from_bits()` returns
-// `Some()` for `0..=31`
+// SAFETY: `Self::from_bits()` returns `Some()` for `0..=31`
 unsafe impl const Register for Reg<u64> {
     const RVE: bool = false;
-    const N: usize = 32;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -673,11 +584,5 @@ unsafe impl const Register for Reg<u64> {
             31 => Some(Self::T6),
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn offset(self) -> u8 {
-        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { core::mem::transmute::<Self, u8>(self) }
     }
 }

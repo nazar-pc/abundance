@@ -434,8 +434,8 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_fixed_point_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_fixed_point_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -446,7 +446,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, Memory, PC, IH, CustomError,
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -510,8 +509,8 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, Memory, PC, IH, CustomError,
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_narrowing_clip_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -522,7 +521,6 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, Memory, PC, IH, CustomErr
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -578,13 +576,12 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, Memory, PC, IH, CustomErr
 /// Returns `Err(IllegalInstruction)` when `sew.bits() > 32`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_narrowing_sew<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_narrowing_sew<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     sew: Vsew,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     if sew.bits() > 32 {
@@ -598,14 +595,13 @@ where
 /// Check that `vs2` for a narrowing instruction is aligned to `2 * group_regs` and fits in [0,32).
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vs2_narrowing_alignment<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vs2_narrowing_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs2: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     // Per v-spec §5.2: narrowing requires EMUL_src = 2*LMUL <= 8.

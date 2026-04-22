@@ -3,25 +3,25 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
+use crate::{ExecutableInstruction, ExecutionError, InterpreterState, RegisterFile};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv64ZbsInstruction<Reg>
 where
     Reg: Register<Type = u64>,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Bset { rd, rs1, rs2 } => {

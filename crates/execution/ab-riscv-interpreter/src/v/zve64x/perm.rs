@@ -7,7 +7,8 @@ pub mod zve64x_perm_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -15,14 +16,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xPermInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -34,7 +35,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // vmv.x.s rd, vs2
@@ -134,10 +135,16 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 // vd must not overlap vs2
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -175,9 +182,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -216,8 +229,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -256,8 +273,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -298,9 +319,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -340,8 +367,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -380,11 +411,21 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs1, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs1, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -423,9 +464,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -464,9 +511,15 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
                         address: state
@@ -507,8 +560,12 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 // Compute EMUL for vs1 index register (EEW=16).
                 let index_group_regs = vtype
                     .vlmul()
@@ -521,11 +578,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs1, index_group_regs)?;
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs1,
+                    index_group_regs,
+                )?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 // vd and vs1 have different group sizes (group_regs vs index_group_regs),
                 // so the symmetric helper would use the wrong size for one of the intervals.
-                zve64x_perm_helpers::check_no_overlap_asymmetric(
+                zve64x_perm_helpers::check_no_overlap_asymmetric::<Reg, _, _, _, _, _, _>(
                     state,
                     vd,
                     group_regs,
@@ -583,12 +646,23 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs1, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs1, group_regs,
+                )?;
                 if !vm {
                     // vmerge: vs2 is read, vd must not overlap v0
-                    zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                    zve64x_perm_helpers::check_no_overlap(state, vd, VReg::V0, group_regs)?;
+                    zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                        state, vs2, group_regs,
+                    )?;
+                    zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                        state,
+                        vd,
+                        VReg::V0,
+                        group_regs,
+                    )?;
                 }
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
@@ -618,10 +692,19 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm {
-                    zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                    zve64x_perm_helpers::check_no_overlap(state, vd, VReg::V0, group_regs)?;
+                    zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                        state, vs2, group_regs,
+                    )?;
+                    zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                        state,
+                        vd,
+                        VReg::V0,
+                        group_regs,
+                    )?;
                 }
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
@@ -654,10 +737,19 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
                 if !vm {
-                    zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
-                    zve64x_perm_helpers::check_no_overlap(state, vd, VReg::V0, group_regs)?;
+                    zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                        state, vs2, group_regs,
+                    )?;
+                    zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                        state,
+                        vd,
+                        VReg::V0,
+                        group_regs,
+                    )?;
                 }
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
@@ -700,12 +792,18 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vd, group_regs)?;
-                zve64x_perm_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vd, group_regs,
+                )?;
+                zve64x_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 // vs1 is always a single mask register (no LMUL grouping)
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs2, group_regs)?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(
+                    state, vd, vs2, group_regs,
+                )?;
                 // vs1 is a mask register; check it doesn't overlap vd
-                zve64x_perm_helpers::check_no_overlap(state, vd, vs1, 1)?;
+                zve64x_perm_helpers::check_no_overlap::<Reg, _, _, _, _, _, _>(state, vd, vs1, 1)?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 unsafe {

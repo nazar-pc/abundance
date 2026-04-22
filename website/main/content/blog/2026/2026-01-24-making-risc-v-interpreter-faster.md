@@ -185,7 +185,6 @@ ExecutableInstruction<
 > for Rv64ZbsInstruction<Reg>
 where
     Reg: Register<Type=u64>,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn execute(
@@ -390,10 +389,9 @@ ExecutableInstruction<
 > for Rv64Instruction<Reg>
 where
     Reg: Register<Type=u64>,
-    [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: Rv64SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
 {
     #[inline(always)]
     fn execute(

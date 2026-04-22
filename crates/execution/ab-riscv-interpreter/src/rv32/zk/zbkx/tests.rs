@@ -1,6 +1,6 @@
+use crate::RegisterFile;
 use crate::rv32::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::prelude::*;
-
 // xperm4 tests
 
 #[test]

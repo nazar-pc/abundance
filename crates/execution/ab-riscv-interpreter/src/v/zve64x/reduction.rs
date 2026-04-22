@@ -8,7 +8,8 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::arith::zve64x_arith_helpers;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -16,14 +17,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xReductionInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -35,7 +36,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {
@@ -63,7 +64,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: `vs2` alignment checked; `vstart == 0` checked;
@@ -105,7 +108,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -146,7 +151,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -187,7 +194,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -228,7 +237,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -272,7 +283,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -321,7 +334,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -365,7 +380,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vredsum`
@@ -422,7 +439,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: `vs2` alignment checked; widening SEW constraint checked above;
@@ -473,7 +492,9 @@ where
                     })?;
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_arith_helpers::check_vreg_group_alignment(state, vs2, group_regs)?;
+                zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs2, group_regs,
+                )?;
                 let sew = vtype.vsew();
                 let vl = state.ext_state.vl();
                 // SAFETY: see `Vwredsumu`

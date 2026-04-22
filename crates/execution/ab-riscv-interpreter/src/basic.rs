@@ -1,12 +1,113 @@
 //! Basic implementations of various interpreter traits
 
+#[cfg(test)]
+mod tests;
+
 use crate::{
     Address, CustomErrorPlaceholder, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    ProgramCounter, ProgramCounterError, VirtualMemory,
+    ProgramCounter, ProgramCounterError, RegisterFile, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
+
+/// Basic general purpose register to be used with [`BasicRegisters`]
+///
+/// # Safety
+/// `Self::offset()` must return values in `0..Self::N` range. `Self::from_bits()` must return
+/// `Some()` for `0..=31` if `Self::RVE = false` and `0..=15` if `Self::RVE = true`.
+pub const unsafe trait BasicRegister
+where
+    Self: [const] Register,
+{
+    /// The number of general purpose registers.
+    ///
+    /// Canonically 32 unless E extension is used, in which case 16.
+    const N: usize;
+
+    /// Offset in a set of registers
+    fn offset(self) -> u8;
+}
+
+// SAFETY: `Self::offset()` returns values within `0..Self::N` range
+unsafe impl<Type> const BasicRegister for EReg<Type>
+where
+    Self: [const] Register,
+{
+    const N: usize = 16;
+
+    #[inline(always)]
+    fn offset(self) -> u8 {
+        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
+        unsafe { core::mem::transmute::<Self, u8>(self) }
+    }
+}
+
+// SAFETY: `Self::offset()` returns values within `0..Self::N` range
+unsafe impl<Type> const BasicRegister for Reg<Type>
+where
+    Self: [const] Register,
+{
+    const N: usize = 32;
+
+    #[inline(always)]
+    fn offset(self) -> u8 {
+        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
+        unsafe { core::mem::transmute::<Self, u8>(self) }
+    }
+}
+
+/// A basic set of RISC-V GPRs (General Purpose Registers)
+#[derive(Debug, Clone, Copy)]
+#[repr(align(16))]
+pub struct BasicRegisters<Reg>
+where
+    Reg: BasicRegister,
+    [(); Reg::N]:,
+{
+    regs: [Reg::Type; Reg::N],
+}
+
+impl<Reg> Default for BasicRegisters<Reg>
+where
+    Reg: BasicRegister,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            regs: [Reg::Type::default(); Reg::N],
+        }
+    }
+}
+
+impl<Reg> const RegisterFile<Reg> for BasicRegisters<Reg>
+where
+    Reg: [const] BasicRegister,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    fn read(&self, reg: Reg) -> Reg::Type {
+        if reg == Reg::ZERO {
+            // Always zero
+            return Reg::Type::default();
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked(usize::from(reg.offset())) }
+    }
+
+    #[inline(always)]
+    fn write(&mut self, reg: Reg, value: Reg::Type) {
+        if reg == Reg::ZERO {
+            // Writes are ignored
+            return;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
+    }
+}
 
 /// Basic instruction fetcher implementation.
 ///

@@ -1,12 +1,13 @@
 extern crate alloc;
 
+use crate::basic::BasicRegisters;
 use crate::v::vector_registers::{
     VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
 };
 use crate::{
     Address, BasicInt, CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction,
     ExecutionError, FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
-    ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    ProgramCounterError, RegisterFile, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -247,15 +248,16 @@ impl<I> TestInstructionFetcher<I> {
 
 pub(crate) struct TestInstructionHandler;
 
-impl<I> SystemInstructionHandler<Reg<u64>, TestMemory, TestInstructionFetcher<I>>
+impl<Regs, I> SystemInstructionHandler<Reg<u64>, Regs, TestMemory, TestInstructionFetcher<I>>
     for TestInstructionHandler
 where
     I: Instruction<Reg = Reg<u64>>,
+    Regs: RegisterFile<Reg<u64>>,
 {
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers<Reg<u64>>,
+        _regs: &mut Regs,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
@@ -459,7 +461,7 @@ impl ExtState {
 }
 
 pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
-    Reg<u64>,
+    BasicRegisters<Reg<u64>>,
     ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
@@ -474,7 +476,7 @@ where
     Instructions: IntoIterator<Item = I>,
 {
     InterpreterState {
-        regs: Registers::default(),
+        regs: BasicRegisters::default(),
         ext_state: ExtState::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(

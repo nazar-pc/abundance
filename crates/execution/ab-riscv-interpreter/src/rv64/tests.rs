@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use crate::{ExecutionError, ProgramCounter, VirtualMemory};
+use crate::{ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
 
