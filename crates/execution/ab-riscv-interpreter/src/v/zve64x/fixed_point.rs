@@ -6,10 +6,7 @@ pub mod zve64x_fixed_point_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
-use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
-    VirtualMemory,
-};
+use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -17,10 +14,8 @@ use core::ops::ControlFlow;
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for Zve64xFixedPointInstruction<Reg>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Zve64xFixedPointInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
@@ -35,50 +30,53 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        regs: &mut Regs,
+        ext_state: &mut ExtState,
+        _memory: &mut Memory,
+        program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
             Self::VsadduVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -93,43 +91,40 @@ where
                 }
             }
             Self::VsadduVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -144,45 +139,42 @@ where
                 }
             }
             Self::VsadduVi { vd, vs2, imm, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // Per v-spec §12.1 / §11.1: the 5-bit immediate is sign-extended to SEW,
                 // then interpreted as an unsigned SEW-wide value for the saturating add.
                 // Sign-extend i8 -> i64 -> bit-cast to u64; sat_addu masks to SEW internally.
                 let scalar = i64::from(imm).cast_unsigned();
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -198,45 +190,44 @@ where
             }
             // vsadd.vv / vsadd.vx / vsadd.vi - saturating signed add
             Self::VsaddVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -251,43 +242,40 @@ where
                 }
             }
             Self::VsaddVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -302,44 +290,41 @@ where
                 }
             }
             Self::VsaddVi { vd, vs2, imm, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // Sign-extend 5-bit immediate for signed sat add
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -355,45 +340,44 @@ where
             }
             // vssubu.vv / vssubu.vx - saturating unsigned subtract
             Self::VssubuVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -408,43 +392,40 @@ where
                 }
             }
             Self::VssubuVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -460,45 +441,44 @@ where
             }
             // vssub.vv / vssub.vx - saturating signed subtract
             Self::VssubVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -513,43 +493,40 @@ where
                 }
             }
             Self::VssubVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -565,45 +542,44 @@ where
             }
             // vaaddu.vv / vaaddu.vx - averaging unsigned add
             Self::VaadduVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -618,43 +594,40 @@ where
                 }
             }
             Self::VaadduVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -670,45 +643,44 @@ where
             }
             // vaadd.vv / vaadd.vx - averaging signed add
             Self::VaaddVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -723,43 +695,40 @@ where
                 }
             }
             Self::VaaddVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -775,45 +744,44 @@ where
             }
             // vasubu.vv / vasubu.vx - averaging unsigned subtract
             Self::VasubuVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -828,43 +796,40 @@ where
                 }
             }
             Self::VasubuVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -880,45 +845,44 @@ where
             }
             // vasub.vv / vasub.vx - averaging signed subtract
             Self::VasubVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -933,43 +897,40 @@ where
                 }
             }
             Self::VasubVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -985,45 +946,44 @@ where
             }
             // vsmul.vv / vsmul.vx - fractional multiply with rounding and saturation
             Self::VsmulVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -1038,43 +998,40 @@ where
                 }
             }
             Self::VsmulVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1090,45 +1047,44 @@ where
             }
             // vssrl.vv / vssrl.vx / vssrl.vi - scaling shift right logical
             Self::VssrlVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -1147,43 +1103,40 @@ where
                 }
             }
             Self::VssrlVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1201,44 +1154,41 @@ where
                 }
             }
             Self::VssrlVi { vd, vs2, imm, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // Immediate is unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = (u64::from(imm) & u64::from(sew.bits() - 1)) as u32;
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
@@ -1257,45 +1207,44 @@ where
             }
             // vssra.vv / vssra.vx / vssra.vi - scaling shift right arithmetic
             Self::VssraVv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -1312,43 +1261,40 @@ where
                 }
             }
             Self::VssraVx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1365,43 +1311,40 @@ where
                 }
             }
             Self::VssraVi { vd, vs2, imm, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
                 let sew = vtype.vsew();
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 let shamt = (u64::from(imm) & u64::from(sew.bits() - 1)) as u32;
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
@@ -1419,51 +1362,51 @@ where
             }
             // vnclipu.wv / vnclipu.wx / vnclipu.wi - narrowing unsigned clip
             Self::VnclipuWv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // Destination SEW must be <= 32 so that 2*SEW fits in 64 bits
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
-                    state, sew,
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
+                    program_counter,
+                    sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
                 // vs2 holds 2*SEW elements; its register group is double-width
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -1478,46 +1421,44 @@ where
                 }
             }
             Self::VnclipuWx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
-                    state, sew,
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
+                    program_counter,
+                    sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1532,45 +1473,43 @@ where
                 }
             }
             Self::VnclipuWi { vd, vs2, imm, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
-                    state, sew,
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
+                    program_counter,
+                    sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         // Immediate is the shift amount directly; masking done inside the helper
@@ -1587,48 +1526,48 @@ where
             }
             // vnclip.wv / vnclip.wx / vnclip.wi - narrowing signed clip
             Self::VnclipWv { vd, vs2, vs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
-                    state, sew,
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
+                    program_counter,
+                    sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _, _, _, _>(
-                    state, vs1, group_regs,
+                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                    program_counter,
+                    vs1,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Vreg(vs1.bits()),
@@ -1643,46 +1582,44 @@ where
                 }
             }
             Self::VnclipWx { vd, vs2, rs1, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
-                    state, sew,
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
+                    program_counter,
+                    sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
-                let scalar = state.regs.read(rs1).as_u64();
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
+                let scalar = regs.read(rs1).as_u64();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1697,45 +1634,43 @@ where
                 }
             }
             Self::VnclipWi { vd, vs2, imm, vm } => {
-                if !state.ext_state.vector_instructions_allowed() {
+                if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vtype = state
-                    .ext_state
+                let vtype = ext_state
                     .vtype()
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _, _, _, _>(
-                    state, sew,
+                zve64x_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
+                    program_counter,
+                    sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _, _, _, _>(
-                    state, vd, group_regs,
+                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _, _, _, _>(
-                    state, vs2, group_regs,
+                zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
                     Err(ExecutionError::IllegalInstruction {
-                        address: state
-                            .instruction_fetcher
-                            .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
+                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let vl = state.ext_state.vl();
-                let vstart = u32::from(state.ext_state.vstart());
+                let vl = ext_state.vl();
+                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
-                        state,
+                        ext_state,
                         vd,
                         vs2,
                         zve64x_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),

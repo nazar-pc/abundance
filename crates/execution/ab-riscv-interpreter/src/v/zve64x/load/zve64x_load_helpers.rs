@@ -2,7 +2,7 @@
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory, VirtualMemoryError};
+use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
@@ -67,8 +67,8 @@ pub fn groups_overlap(a: VReg, a_regs: u8, b: VReg, b_regs: u8) -> bool {
 /// Per spec, the base register of every register group must be a multiple of the group size.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_register_group_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_register_group_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vd: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
@@ -79,7 +79,7 @@ where
     let vd = vd.bits();
     if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -92,8 +92,8 @@ where
 /// On `Ok`, `vd.bits() + nf * group_regs <= 32` is guaranteed.
 #[inline(always)]
 #[doc(hidden)]
-pub fn validate_segment_registers<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn validate_segment_registers<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vd: VReg,
     vm: bool,
     group_regs: u8,
@@ -108,7 +108,7 @@ where
     let vd_idx = u32::from(vd.bits());
     if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     // When masked, no field group may contain v0 (index 0). Since groups are laid out
@@ -116,7 +116,7 @@ where
     // v0, which happens exactly when vd == 0.
     if !vm && vd_idx == 0 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -223,8 +223,9 @@ fn read_mem_element(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_unit_stride_load<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
+    ext_state: &mut ExtState,
+    memory: &Memory,
     vd: VReg,
     vm: bool,
     vl: u32,
@@ -242,14 +243,13 @@ where
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let elem_bytes = eew.bytes();
     let segment_stride = u64::from(nf) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
     for i in vstart..vl {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -269,7 +269,7 @@ where
 
         for f in 0..nf {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
-            match read_mem_element(&state.memory, addr, eew) {
+            match read_mem_element(memory, addr, eew) {
                 Ok(data) => {
                     // SAFETY: `f < nf` and the precondition on this function requires
                     // `nf <= MAX_NF` (the V spec encodes nf in 3 bits giving 1..=8 =
@@ -282,16 +282,16 @@ where
                 }
                 Err(mem_err) => {
                     if fault_only_first && i > 0 {
-                        state.ext_state.set_vl(i);
-                        state.ext_state.mark_vs_dirty();
-                        state.ext_state.reset_vstart();
+                        ext_state.set_vl(i);
+                        ext_state.mark_vs_dirty();
+                        ext_state.reset_vstart();
                         return Ok(());
                     }
                     if i > vstart {
                         // Elements [vstart, i) were committed; VS is now dirty.
-                        state.ext_state.mark_vs_dirty();
+                        ext_state.mark_vs_dirty();
                         // vstart records the faulting element for restartability.
-                        state.ext_state.set_vstart(i as u16);
+                        ext_state.set_vstart(i as u16);
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -319,7 +319,7 @@ where
             // above), so `f as usize < MAX_NF = field_buf.len()`.
             unsafe {
                 write_group_element(
-                    state.ext_state.write_vreg(),
+                    ext_state.write_vreg(),
                     field_base_reg,
                     i,
                     eew,
@@ -329,8 +329,8 @@ where
         }
     }
 
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
     Ok(())
 }
 
@@ -347,8 +347,9 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_strided_load<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
+    ext_state: &mut ExtState,
+    memory: &Memory,
     vd: VReg,
     vm: bool,
     vl: u32,
@@ -366,13 +367,12 @@ where
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let elem_bytes = eew.bytes();
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
     for i in vstart..vl {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -383,12 +383,12 @@ where
 
         for f in 0..nf {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
-            let data = match read_mem_element(&state.memory, addr, eew) {
+            let data = match read_mem_element(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
                     if f > 0 || i > vstart {
-                        state.ext_state.mark_vs_dirty();
-                        state.ext_state.set_vstart(i as u16);
+                        ext_state.mark_vs_dirty();
+                        ext_state.set_vstart(i as u16);
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -407,13 +407,13 @@ where
             //
             // Therefore, `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
             unsafe {
-                write_group_element(state.ext_state.write_vreg(), field_base_reg, i, eew, data);
+                write_group_element(ext_state.write_vreg(), field_base_reg, i, eew, data);
             }
         }
     }
 
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
     Ok(())
 }
 
@@ -435,8 +435,9 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_indexed_load<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
+    ext_state: &mut ExtState,
+    memory: &Memory,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -455,13 +456,12 @@ where
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let index_base_reg = usize::from(vs2.bits());
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
     for i in vstart..vl {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -475,21 +475,20 @@ where
         // `EMUL_index * (VLENB / index_eew.bytes()) = VLMAX`. Since `i < vl <= VLMAX`,
         // `i / (VLENB / index_eew.bytes()) < EMUL_index`, and therefore
         // `index_base_reg + i / (VLENB / index_eew.bytes()) < index_base_reg + EMUL_index <= 32`.
-        let index_buf = unsafe {
-            read_group_element(state.ext_state.read_vreg(), index_base_reg, i, index_eew)
-        };
+        let index_buf =
+            unsafe { read_group_element(ext_state.read_vreg(), index_base_reg, i, index_eew) };
         let offset = u64::from_le_bytes(index_buf);
         let elem_addr = base.wrapping_add(offset);
 
         let data_elem_bytes = data_eew.bytes();
         for f in 0..nf {
             let addr = elem_addr.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
-            let data = match read_mem_element(&state.memory, addr, data_eew) {
+            let data = match read_mem_element(memory, addr, data_eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
                     if f > 0 || i > vstart {
-                        state.ext_state.mark_vs_dirty();
-                        state.ext_state.set_vstart(i as u16);
+                        ext_state.mark_vs_dirty();
+                        ext_state.set_vstart(i as u16);
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -509,18 +508,12 @@ where
             // Therefore,
             // `field_base_reg + i / data_elems_per_reg < field_base_reg + data_group_regs <= 32`.
             unsafe {
-                write_group_element(
-                    state.ext_state.write_vreg(),
-                    field_base_reg,
-                    i,
-                    data_eew,
-                    data,
-                );
+                write_group_element(ext_state.write_vreg(), field_base_reg, i, data_eew, data);
             }
         }
     }
 
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
     Ok(())
 }

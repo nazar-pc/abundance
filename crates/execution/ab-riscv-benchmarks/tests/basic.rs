@@ -12,11 +12,10 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::basic::BasicRegisters;
+use ab_riscv_interpreter::basic::{BasicInterpreterState, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::{mem, ptr, slice};
 
@@ -89,13 +88,12 @@ where
             // SAFETY: Program counter and code are trusted
             let instruction_fetcher = unsafe { LazyInstructionFetcher::new(TRAP_ADDRESS, pc) };
 
-            let mut state = InterpreterState {
+            let mut state = BasicInterpreterState {
                 regs,
                 ext_state: (),
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-                custom_error: PhantomData,
             };
             execute(&mut state).unwrap();
 
@@ -113,13 +111,12 @@ where
                 )
             };
 
-            let mut state = InterpreterState {
+            let mut state = BasicInterpreterState {
                 regs,
                 ext_state: (),
                 memory,
                 instruction_fetcher,
                 system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-                custom_error: PhantomData,
             };
             execute(&mut state).unwrap();
 

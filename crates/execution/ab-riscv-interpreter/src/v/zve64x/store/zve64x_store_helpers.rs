@@ -5,7 +5,7 @@ use crate::v::zve64x::load::zve64x_load_helpers::{
     check_register_group_alignment, mask_bit, read_group_element, snapshot_mask,
 };
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory, VirtualMemoryError};
+use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
@@ -42,8 +42,8 @@ fn write_mem_element(
 /// applies only to load destinations.
 #[inline(always)]
 #[doc(hidden)]
-pub fn validate_segment_store_registers<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn validate_segment_store_registers<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vs3: VReg,
     group_regs: u8,
     nf: u8,
@@ -52,11 +52,11 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    check_register_group_alignment::<Reg, _, _, _, _, _, _>(state, vs3, group_regs)?;
+    check_register_group_alignment::<Reg, _, _, _>(program_counter, vs3, group_regs)?;
     let total = u32::from(vs3.bits()) + u32::from(nf) * u32::from(group_regs);
     if total > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -78,8 +78,9 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_unit_stride_store<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
+    ext_state: &mut ExtState,
+    memory: &mut Memory,
     vs3: VReg,
     vm: bool,
     vl: u32,
@@ -96,13 +97,12 @@ where
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let elem_bytes = eew.bytes();
     let segment_stride = u64::from(nf * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -125,22 +125,17 @@ where
             // Therefore,
             // `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
             let data = unsafe {
-                read_group_element(
-                    state.ext_state.read_vreg(),
-                    usize::from(field_base_reg),
-                    i,
-                    eew,
-                )
+                read_group_element(ext_state.read_vreg(), usize::from(field_base_reg), i, eew)
             };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
-            if let Err(error) = write_mem_element(&mut state.memory, addr, eew, data) {
-                state.ext_state.set_vstart(i as u16);
+            if let Err(error) = write_mem_element(memory, addr, eew, data) {
+                ext_state.set_vstart(i as u16);
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
     }
-    state.ext_state.reset_vstart();
+    ext_state.reset_vstart();
     Ok(())
 }
 
@@ -160,8 +155,9 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_strided_store<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
+    ext_state: &mut ExtState,
+    memory: &mut Memory,
     vs3: VReg,
     vm: bool,
     vl: u32,
@@ -179,12 +175,11 @@ where
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let elem_bytes = eew.bytes();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -197,22 +192,17 @@ where
             // i / elems_per_reg < field_base_reg + group_regs <= vs3.bits() + nf *
             // group_regs <= 32`.
             let data = unsafe {
-                read_group_element(
-                    state.ext_state.read_vreg(),
-                    usize::from(field_base_reg),
-                    i,
-                    eew,
-                )
+                read_group_element(ext_state.read_vreg(), usize::from(field_base_reg), i, eew)
             };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
-            if let Err(error) = write_mem_element(&mut state.memory, addr, eew, data) {
-                state.ext_state.set_vstart(i as u16);
+            if let Err(error) = write_mem_element(memory, addr, eew, data) {
+                ext_state.set_vstart(i as u16);
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
     }
-    state.ext_state.reset_vstart();
+    ext_state.reset_vstart();
     Ok(())
 }
 
@@ -237,8 +227,9 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_indexed_store<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
+    ext_state: &mut ExtState,
+    memory: &mut Memory,
     vs3: VReg,
     vs2: VReg,
     vm: bool,
@@ -257,12 +248,11 @@ where
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let data_elem_bytes = data_eew.bytes();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in vstart..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -270,12 +260,7 @@ where
         // SAFETY: `i < vl <= index_group_regs * VLENB / index_eew.bytes()` (precondition), so
         // `vs2.bits() + i / (VLENB / index_eew.bytes()) < vs2.bits() + index_group_regs <= 32`.
         let index_buf = unsafe {
-            read_group_element(
-                state.ext_state.read_vreg(),
-                usize::from(vs2.bits()),
-                i,
-                index_eew,
-            )
+            read_group_element(ext_state.read_vreg(), usize::from(vs2.bits()), i, index_eew)
         };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
@@ -288,7 +273,7 @@ where
             //                                    <= vs3.bits() + nf * data_group_regs <= 32`.
             let data = unsafe {
                 read_group_element(
-                    state.ext_state.read_vreg(),
+                    ext_state.read_vreg(),
                     usize::from(field_base_reg),
                     i,
                     data_eew,
@@ -296,12 +281,12 @@ where
             };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
-            if let Err(error) = write_mem_element(&mut state.memory, addr, data_eew, data) {
-                state.ext_state.set_vstart(i as u16);
+            if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
+                ext_state.set_vstart(i as u16);
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
     }
-    state.ext_state.reset_vstart();
+    ext_state.reset_vstart();
     Ok(())
 }

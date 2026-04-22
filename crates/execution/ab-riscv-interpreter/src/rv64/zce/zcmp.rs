@@ -5,8 +5,8 @@ pub mod rv64_zcmp_helpers;
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
-    SystemInstructionHandler, VirtualMemory,
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, SystemInstructionHandler,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -14,10 +14,8 @@ use core::ops::ControlFlow;
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for Rv64ZcmpInstruction<Reg>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Rv64ZcmpInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     Regs: RegisterFile<Reg>,
@@ -28,48 +26,50 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        regs: &mut Regs,
+        _ext_state: &mut ExtState,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::CmPush { urlist, stack_adj } => {
-                rv64_zcmp_helpers::do_push(state, urlist, stack_adj)?;
+                rv64_zcmp_helpers::do_push(regs, memory, urlist, stack_adj)?;
             }
             Self::CmPop { urlist, stack_adj } => {
-                rv64_zcmp_helpers::do_pop(state, urlist, stack_adj)?;
+                rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
             }
             Self::CmPopretz { urlist, stack_adj } => {
-                let ra_val = rv64_zcmp_helpers::do_pop(state, urlist, stack_adj)?;
+                let ra_val = rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
                 // Zero a0 before returning
-                state.regs.write(Reg::A0, 0);
+                regs.write(Reg::A0, 0);
                 // Jump to ra with LSB cleared (RISC-V mode bit)
                 let target = ra_val & !1;
-                return state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, target)
+                return program_counter
+                    .set_pc(memory, target)
                     .map_err(ExecutionError::from);
             }
             Self::CmPopret { urlist, stack_adj } => {
-                let ra_val = rv64_zcmp_helpers::do_pop(state, urlist, stack_adj)?;
+                let ra_val = rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
                 // Jump to ra with LSB cleared (RISC-V mode bit)
                 let target = ra_val & !1;
-                return state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, target)
+                return program_counter
+                    .set_pc(memory, target)
                     .map_err(ExecutionError::from);
             }
             Self::CmMva01s { r1s, r2s } => {
                 // Read both sources before any write to avoid aliasing
-                let v1 = state.regs.read(r1s);
-                let v2 = state.regs.read(r2s);
-                state.regs.write(Reg::A0, v1);
-                state.regs.write(Reg::A1, v2);
+                let v1 = regs.read(r1s);
+                let v2 = regs.read(r2s);
+                regs.write(Reg::A0, v1);
+                regs.write(Reg::A1, v2);
             }
             Self::CmMvsa01 { r1s, r2s } => {
                 // Read both sources before any write to avoid aliasing
-                let a0_val = state.regs.read(Reg::A0);
-                let a1_val = state.regs.read(Reg::A1);
-                state.regs.write(r1s, a0_val);
-                state.regs.write(r2s, a1_val);
+                let a0_val = regs.read(Reg::A0);
+                let a1_val = regs.read(Reg::A1);
+                regs.write(r1s, a0_val);
+                regs.write(r2s, a1_val);
             }
         }
 

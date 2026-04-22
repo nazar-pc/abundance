@@ -5,7 +5,7 @@ pub use crate::v::zve64x::arith::zve64x_arith_helpers::check_vreg_group_alignmen
 use crate::v::zve64x::arith::zve64x_arith_helpers::{read_element_u64, write_element_u64};
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
+use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
@@ -15,8 +15,8 @@ use core::fmt;
 /// [`check_no_overlap_asymmetric`].
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_no_overlap<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_no_overlap<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     a: VReg,
     b: VReg,
     count: u8,
@@ -33,7 +33,7 @@ where
     // (e.g., b_start=30 + count=8 = 38, which overflows u8).
     if a_start < b_start + count && b_start < a_start + count {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -46,8 +46,8 @@ where
 /// uses EEW=16-derived `index_group_regs`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_no_overlap_asymmetric<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_no_overlap_asymmetric<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     a: VReg,
     a_count: u8,
     b: VReg,
@@ -65,7 +65,7 @@ where
     // each starts before the other ends.
     if a_start < b_start + b_count && b_start < a_start + a_count {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -159,8 +159,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slideup<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -174,12 +174,10 @@ pub unsafe fn execute_slideup<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
@@ -193,7 +191,7 @@ pub unsafe fn execute_slideup<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
         let val = unsafe {
             read_element_u64(
-                state.ext_state.read_vreg(),
+                ext_state.read_vreg(),
                 usize::from(vs2_base),
                 src_idx as u32,
                 sew,
@@ -201,11 +199,11 @@ pub unsafe fn execute_slideup<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a vslidedown operation.
@@ -219,8 +217,8 @@ pub unsafe fn execute_slideup<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slidedown<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -235,12 +233,10 @@ pub unsafe fn execute_slidedown<Reg, Regs, ExtState, Memory, PC, IH, CustomError
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     for i in vstart..vl {
@@ -255,7 +251,7 @@ pub unsafe fn execute_slidedown<Reg, Regs, ExtState, Memory, PC, IH, CustomError
             // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
             unsafe {
                 read_element_u64(
-                    state.ext_state.read_vreg(),
+                    ext_state.read_vreg(),
                     usize::from(vs2_base),
                     src_idx as u32,
                     sew,
@@ -266,11 +262,11 @@ pub unsafe fn execute_slidedown<Reg, Regs, ExtState, Memory, PC, IH, CustomError
         };
         // SAFETY: i < vl <= vlmax <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a vslide1up operation.
@@ -286,8 +282,8 @@ pub unsafe fn execute_slidedown<Reg, Regs, ExtState, Memory, PC, IH, CustomError
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slide1up<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -301,12 +297,10 @@ pub unsafe fn execute_slide1up<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     for i in vstart..vl {
@@ -317,22 +311,15 @@ pub unsafe fn execute_slide1up<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
             scalar
         } else {
             // SAFETY: i - 1 < vl <= group_regs * elems_per_reg
-            unsafe {
-                read_element_u64(
-                    state.ext_state.read_vreg(),
-                    usize::from(vs2_base),
-                    i - 1,
-                    sew,
-                )
-            }
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i - 1, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a vslide1down operation.
@@ -352,8 +339,8 @@ pub unsafe fn execute_slide1up<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slide1down<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -367,12 +354,10 @@ pub unsafe fn execute_slide1down<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     for i in vstart..vl {
@@ -381,24 +366,17 @@ pub unsafe fn execute_slide1down<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
         }
         let val = if i + 1 < vl {
             // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
-            unsafe {
-                read_element_u64(
-                    state.ext_state.read_vreg(),
-                    usize::from(vs2_base),
-                    i + 1,
-                    sew,
-                )
-            }
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i + 1, sew) }
         } else {
             scalar
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute vrgather.vv: `vd[i] = (vs1[i] < vlmax) ? vs2[vs1[i]] : 0`.
@@ -410,8 +388,8 @@ pub unsafe fn execute_slide1down<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_rgather_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -426,12 +404,10 @@ pub unsafe fn execute_rgather_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     let vs1_base = vs1.bits();
@@ -441,12 +417,12 @@ pub unsafe fn execute_rgather_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
         let index =
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs1_base), i, sew) };
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
             unsafe {
                 read_element_u64(
-                    state.ext_state.read_vreg(),
+                    ext_state.read_vreg(),
                     usize::from(vs2_base),
                     index as u32,
                     sew,
@@ -457,11 +433,11 @@ pub unsafe fn execute_rgather_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute vrgather.vx / vrgather.vi: all active elements get `vs2[index]` or `0`.
@@ -473,8 +449,8 @@ pub unsafe fn execute_rgather_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_rgather_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -489,12 +465,10 @@ pub unsafe fn execute_rgather_scalar<Reg, Regs, ExtState, Memory, PC, IH, Custom
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     // Pre-compute the gathered value; it's the same for all elements.
@@ -502,7 +476,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Regs, ExtState, Memory, PC, IH, Custom
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
         unsafe {
             read_element_u64(
-                state.ext_state.read_vreg(),
+                ext_state.read_vreg(),
                 usize::from(vs2_base),
                 index as u32,
                 sew,
@@ -517,11 +491,11 @@ pub unsafe fn execute_rgather_scalar<Reg, Regs, ExtState, Memory, PC, IH, Custom
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute vrgatherei16.vv: `vd[i] = (vs1_16[i] < vlmax) ? vs2[vs1_16[i]] : 0`.
@@ -537,8 +511,8 @@ pub unsafe fn execute_rgather_scalar<Reg, Regs, ExtState, Memory, PC, IH, Custom
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -554,8 +528,6 @@ pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomErr
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // Maximum number of EEW=16 elements the index register group can hold.
@@ -568,7 +540,7 @@ pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomErr
         "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
     );
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     let vs1_base = vs1.bits();
@@ -579,19 +551,13 @@ pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomErr
         // Read 16-bit index from vs1; EEW=16 always.
         // SAFETY: i < vl <= index_capacity = index_group_regs * (VLENB/2), so element i
         // fits within the index register group.
-        let index = unsafe {
-            read_element_u64(
-                state.ext_state.read_vreg(),
-                usize::from(vs1_base),
-                i,
-                Vsew::E16,
-            )
-        };
+        let index =
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
             unsafe {
                 read_element_u64(
-                    state.ext_state.read_vreg(),
+                    ext_state.read_vreg(),
                     usize::from(vs2_base),
                     index as u32,
                     sew,
@@ -602,11 +568,11 @@ pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomErr
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute vmerge.vvm / vmv.v.v.
@@ -622,8 +588,8 @@ pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomErr
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_merge_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -637,13 +603,11 @@ pub unsafe fn execute_merge_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs1_base = vs1.bits();
     let vs2_base = vs2.bits();
@@ -651,17 +615,17 @@ pub unsafe fn execute_merge_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs1_base), i, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) }
         } else {
             // mask_set=false only reachable when vm=false (vmerge path).
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe { write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val) };
+        unsafe { write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val) };
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute vmerge.vxm / vmerge.vim / vmv.v.x / vmv.v.i.
@@ -677,8 +641,8 @@ pub unsafe fn execute_merge_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_merge_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -692,12 +656,10 @@ pub unsafe fn execute_merge_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     for i in vstart..vl {
@@ -705,13 +667,13 @@ pub unsafe fn execute_merge_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
             scalar
         } else {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe { write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, val) };
+        unsafe { write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val) };
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute vcompress.vm: pack active elements of vs2 (under vs1 mask) sequentially into vd.
@@ -726,8 +688,8 @@ pub unsafe fn execute_merge_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
 /// - `vl <= VLMAX`.
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_compress<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -739,15 +701,13 @@ pub unsafe fn execute_compress<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     let vs1_base = vs1.bits();
     let mask_bytes = vl.div_ceil(u8::BITS) as usize;
-    let vreg = state.ext_state.read_vreg();
+    let vreg = ext_state.read_vreg();
     let mut vs1_buf = [0u8; { ExtState::VLENB as usize }];
     // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
     unsafe {
@@ -762,16 +722,15 @@ pub unsafe fn execute_compress<Reg, Regs, ExtState, Memory, PC, IH, CustomError>
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg
-        let val =
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+        let val = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
         // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, out_idx, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd_base, out_idx, sew, val);
         }
         out_idx += 1;
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Copy `count` whole vector registers from `src_base` to `dst_base`.

@@ -12,13 +12,12 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::basic::BasicRegisters;
+use ab_riscv_interpreter::basic::{BasicInterpreterState, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::hint::black_box;
-use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::{mem, ptr, slice};
 
@@ -121,7 +120,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     // Stack pointer must be 16-byte aligned, according to the psABI
     let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
 
-    let mut lazy_state = InterpreterState {
+    let mut lazy_state = BasicInterpreterState {
         regs: BasicRegisters::default(),
         ext_state: (),
         memory,
@@ -131,10 +130,9 @@ fn criterion_benchmark(c: &mut Criterion) {
             LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-        custom_error: PhantomData,
     };
 
-    let mut eager_state = InterpreterState {
+    let mut eager_state = BasicInterpreterState {
         regs: BasicRegisters::default(),
         ext_state: (),
         memory,
@@ -148,7 +146,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         },
         system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
-        custom_error: PhantomData,
     };
 
     {

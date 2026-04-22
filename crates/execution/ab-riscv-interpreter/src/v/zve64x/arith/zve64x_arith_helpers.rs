@@ -3,15 +3,15 @@
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
+use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vreg_group_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vreg_group_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vreg: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
@@ -22,7 +22,7 @@ where
     let vreg_idx = vreg.bits();
     if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -35,8 +35,8 @@ where
 /// the encoding is reserved and raises an illegal instruction.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_mask_dest_no_overlap<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_mask_dest_no_overlap<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vd: VReg,
     src_base: VReg,
     group_regs: u8,
@@ -50,7 +50,7 @@ where
         let src = src_base.bits();
         if vd_idx >= src && vd_idx < src + group_regs {
             return Err(ExecutionError::IllegalInstruction {
-                address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+                address: program_counter.old_pc(INSTRUCTION_SIZE),
             });
         }
     }
@@ -169,8 +169,8 @@ pub enum OpSrc {
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -185,13 +185,11 @@ pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
@@ -203,15 +201,12 @@ pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
 
         // SAFETY: `vs2_base % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`,
         // so `vs2_base + i / elems_per_reg < vs2_base + group_regs <= 32`
-        let a =
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
 
         let b = match &src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe {
-                    read_element_u64(state.ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
-                }
+                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew) }
             }
             OpSrc::Scalar(val) => *val,
         };
@@ -221,12 +216,12 @@ pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
         // SAFETY: `vd_base % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`,
         // so `vd_base + i / elems_per_reg < vd_base + group_regs <= 32`
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
         }
     }
 
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a single-width element-wise integer compare over `vstart..vl`, writing one result
@@ -245,8 +240,8 @@ pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_compare_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -261,13 +256,11 @@ pub unsafe fn execute_compare_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> bool,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
     let vs2_base = vs2.bits();
 
@@ -279,15 +272,12 @@ pub unsafe fn execute_compare_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
         }
 
         // SAFETY: same argument as in `execute_arith_op`
-        let a =
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
 
         let b = match &src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe {
-                    read_element_u64(state.ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
-                }
+                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew) }
             }
             OpSrc::Scalar(val) => *val,
         };
@@ -296,12 +286,12 @@ pub unsafe fn execute_compare_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
 
         // SAFETY: `i < vl <= VLMAX <= VLEN`, so `i / 8 < VLEN / 8 = VLENB`
         unsafe {
-            write_mask_bit(state.ext_state.write_vreg(), vd, i, result);
+            write_mask_bit(ext_state.write_vreg(), vd, i, result);
         }
     }
 
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Sign-extend the low `sew.bits()` of `val` to a full `i64`

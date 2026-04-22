@@ -109,6 +109,25 @@ where
     }
 }
 
+/// Basic interpreter state
+#[derive(Debug)]
+pub struct BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler> {
+    /// General purpose registers
+    pub regs: Regs,
+    /// Extended state.
+    ///
+    /// Extensions might use this to place additional constraints on `ExtState` to require
+    /// additional registers or other resources. If no such extension is used, `()` can be used as
+    /// a placeholder.
+    pub ext_state: ExtState,
+    /// Memory
+    pub memory: Memory,
+    /// Instruction fetcher
+    pub instruction_fetcher: IF,
+    /// System instruction handler
+    pub system_instruction_handler: InstructionHandler,
+}
+
 /// Basic instruction fetcher implementation.
 ///
 /// Note that it loads instructions from anywhere in memory. This works, but it is likely that you

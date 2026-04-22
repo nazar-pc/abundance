@@ -20,7 +20,7 @@ use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
 use crate::interpreter::Act4SystemHandler;
-use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicRegisters};
+use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicInterpreterState, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -29,7 +29,6 @@ use colored::Colorize;
 use interpreter::Act4Memory;
 use object::{Object, ObjectSegment, ObjectSymbol};
 use std::fs;
-use std::marker::PhantomData;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
@@ -234,7 +233,7 @@ fn run_rv32i_max_test(
             .map_err(ExecutionError::from)?;
     }
 
-    let mut state = InterpreterState {
+    let mut state = BasicInterpreterState {
         regs: BasicRegisters::default(),
         ext_state: AbundanceRv32IMaxExtState::new(),
         memory: ram,
@@ -243,7 +242,6 @@ fn run_rv32i_max_test(
             0, elf.entry,
         ),
         system_instruction_handler: Act4SystemHandler,
-        custom_error: PhantomData,
     };
 
     loop {
@@ -313,7 +311,13 @@ fn run_rv32i_max_test(
             }
         };
 
-        match instruction.execute(&mut state) {
+        match instruction.execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        ) {
             Ok(ControlFlow::Continue(())) => {
                 if state
                     .memory
@@ -354,7 +358,7 @@ fn run_rv64i_max_test(
             .map_err(ExecutionError::from)?;
     }
 
-    let mut state = InterpreterState {
+    let mut state = BasicInterpreterState {
         regs: BasicRegisters::default(),
         ext_state: AbundanceRv64IMaxExtState::new(),
         memory: ram,
@@ -363,7 +367,6 @@ fn run_rv64i_max_test(
             0, elf.entry,
         ),
         system_instruction_handler: Act4SystemHandler,
-        custom_error: PhantomData,
     };
 
     loop {
@@ -433,7 +436,13 @@ fn run_rv64i_max_test(
             }
         };
 
-        match instruction.execute(&mut state) {
+        match instruction.execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        ) {
             Ok(ControlFlow::Continue(())) => {
                 if state
                     .memory

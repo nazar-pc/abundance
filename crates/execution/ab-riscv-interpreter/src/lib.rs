@@ -107,7 +107,6 @@ pub mod zicsr;
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
-use core::marker::PhantomData;
 use core::ops::{ControlFlow, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
@@ -445,37 +444,15 @@ where
     }
 }
 
-/// Base interpreter state
-#[derive(Debug)]
-pub struct InterpreterState<
+/// Trait for executable instructions
+pub trait ExecutableInstruction<
     Regs,
     ExtState,
     Memory,
-    IF,
+    PC,
     InstructionHandler,
     CustomError = CustomErrorPlaceholder,
-> {
-    /// General purpose registers
-    pub regs: Regs,
-    /// Extended state.
-    ///
-    /// Extensions might use this to place additional constraints on `ExtState` to require
-    /// additional registers or other resources. If no such extension is used, `()` can be used as
-    /// a placeholder.
-    pub ext_state: ExtState,
-    /// Memory
-    pub memory: Memory,
-    /// Instruction fetcher
-    pub instruction_fetcher: IF,
-    /// System instruction handler
-    pub system_instruction_handler: InstructionHandler,
-    /// Custom error phantom data
-    pub custom_error: PhantomData<CustomError>,
-}
-
-/// Trait for executable instructions
-pub trait ExecutableInstruction<State, CustomError = CustomErrorPlaceholder>
-where
+> where
     Self: Instruction,
 {
     /// Prepare CSR read.
@@ -542,9 +519,17 @@ where
         Ok(false)
     }
 
-    /// Execute instruction
+    /// Execute instruction.
+    ///
+    /// Instructions might place additional constraints on `ExtState` to require additional
+    /// registers or other resources. If no such constraint is used, `()` can be used as a
+    /// placeholder.
     fn execute(
         self,
-        state: &mut State,
+        regs: &mut Regs,
+        ext_state: &mut ExtState,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+        system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Address<Self>, CustomError>>;
 }
