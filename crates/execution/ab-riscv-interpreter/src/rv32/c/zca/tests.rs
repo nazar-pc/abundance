@@ -99,7 +99,13 @@ fn test_cjal_negative_offset() {
         instruction
     };
     instruction
-        .execute(&mut state)
+        .execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        )
         .unwrap()
         .continue_ok()
         .unwrap();

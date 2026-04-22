@@ -48,10 +48,8 @@ where
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for MachineModePlaceholder<Reg>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for MachineModePlaceholder<Reg>
 where
     Reg: Register,
 {
@@ -97,7 +95,11 @@ where
 
     fn execute(
         self,
-        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        regs: &mut Regs,
+        ext_state: &mut ExtState,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }

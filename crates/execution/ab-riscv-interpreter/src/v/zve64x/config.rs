@@ -5,10 +5,7 @@ mod tests;
 pub mod zve64x_config_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::{
-    CsrError, Csrs, ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
-    RegisterFile,
-};
+use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -16,10 +13,8 @@ use core::ops::ControlFlow;
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for Zve64xConfigInstruction<Reg>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Zve64xConfigInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
@@ -117,18 +112,43 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        regs: &mut Regs,
+        ext_state: &mut ExtState,
+        _memory: &mut Memory,
+        program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
-                zve64x_config_helpers::apply_vsetvl(state, rd, rs1, Reg::Type::from(vtypei))?;
+                zve64x_config_helpers::apply_vsetvl(
+                    regs,
+                    ext_state,
+                    program_counter,
+                    rd,
+                    rs1,
+                    Reg::Type::from(vtypei),
+                )?;
             }
             Self::Vsetivli { rd, uimm, vtypei } => {
-                zve64x_config_helpers::apply_vsetivli(state, rd, uimm, vtypei)?;
+                zve64x_config_helpers::apply_vsetivli(
+                    regs,
+                    ext_state,
+                    program_counter,
+                    rd,
+                    uimm,
+                    vtypei,
+                )?;
             }
             Self::Vsetvl { rd, rs1, rs2 } => {
-                let vtype_raw = state.regs.read(rs2);
-                zve64x_config_helpers::apply_vsetvl(state, rd, rs1, vtype_raw)?;
+                let vtype_raw = regs.read(rs2);
+                zve64x_config_helpers::apply_vsetvl(
+                    regs,
+                    ext_state,
+                    program_counter,
+                    rd,
+                    rs1,
+                    vtype_raw,
+                )?;
             }
         }
 

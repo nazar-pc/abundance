@@ -5,6 +5,7 @@ use ab_contract_file::ContractInstruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
+use ab_riscv_interpreter::basic::BasicInterpreterState;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
@@ -525,7 +526,7 @@ where
 
 /// Execute [`ContractInstruction`]s
 pub fn execute<Regs, Memory, IF>(
-    state: &mut InterpreterState<
+    state: &mut BasicInterpreterState<
         Regs,
         (),
         Memory,
@@ -551,7 +552,13 @@ where
             }
         };
 
-        match instruction.execute(state)? {
+        match instruction.execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        )? {
             ControlFlow::Continue(()) => {
                 continue;
             }

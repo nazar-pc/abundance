@@ -3,7 +3,7 @@
 use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zve64x::arith::zve64x_arith_helpers::{OpSrc, check_vreg_group_alignment};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
+use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -12,8 +12,8 @@ use core::fmt;
 /// `[0,32)`, without any source overlap check
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vd_widen_no_src_check<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vd_widen_no_src_check<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vd: VReg,
     wide_group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
@@ -24,7 +24,7 @@ where
     let vd_idx = vd.bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -34,8 +34,8 @@ where
 /// does not overlap `vd` (which occupies `group_regs` registers).
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vs_ext_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vs_ext_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vs2: VReg,
     src_group_regs: u8,
     vd: VReg,
@@ -48,13 +48,13 @@ where
     let vs2_idx = vs2.bits();
     if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     // vd and vs2 must not overlap
     if ranges_overlap(vd.bits(), group_regs, vs2_idx, src_group_regs) {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -67,8 +67,8 @@ where
 /// `Vlmul::index_register_count(wide_eew, sew)`. `group_regs` is the narrow LMUL register count.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vd_widen_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vd_widen_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vd: VReg,
     vs_a: VReg,
     vs_b_opt: Option<VReg>,
@@ -82,20 +82,20 @@ where
     let vd_idx = vd.bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     let va_idx = vs_a.bits();
     if ranges_overlap(vd_idx, wide_group_regs, va_idx, group_regs) {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     if let Some(vs_b) = vs_b_opt {
         let vb_idx = vs_b.bits();
         if ranges_overlap(vd_idx, wide_group_regs, vb_idx, group_regs) {
             return Err(ExecutionError::IllegalInstruction {
-                address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+                address: program_counter.old_pc(INSTRUCTION_SIZE),
             });
         }
     }
@@ -106,8 +106,8 @@ where
 /// and fits within `[0, 32)`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vs_wide_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vs_wide_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vs: VReg,
     wide_group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
@@ -118,7 +118,7 @@ where
     let vs_idx = vs.bits();
     if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -131,8 +131,8 @@ where
 /// permit `vd` to alias the low half of the wide `vs2` register group per spec §11.7.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vd_narrow_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vd_narrow_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vd: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
@@ -143,7 +143,7 @@ where
     let vd_idx = vd.bits();
     if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -265,8 +265,8 @@ pub fn sign_extend_bits(val: u64, bits: u32) -> i64 {
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -283,8 +283,6 @@ pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
     F: Fn(u64, u64) -> u64,
 {
@@ -294,7 +292,7 @@ pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
     let sew_bits = u32::from(sew.bits());
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
 
@@ -303,14 +301,8 @@ pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
             continue;
         }
         // SAFETY: `vs2` aligned to `group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
-        let raw_a = unsafe {
-            read_element_u64(
-                state.ext_state.read_vreg(),
-                usize::from(vs2_base),
-                i,
-                sew_bytes,
-            )
-        };
+        let raw_a =
+            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew_bytes) };
         let wide_a = if zero_extend_a {
             raw_a
         } else {
@@ -320,12 +312,7 @@ pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
                 let raw_b = unsafe {
-                    read_element_u64(
-                        state.ext_state.read_vreg(),
-                        usize::from(*vs1_base),
-                        i,
-                        sew_bytes,
-                    )
+                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew_bytes)
                 };
                 if zero_extend_b {
                     raw_b
@@ -339,17 +326,11 @@ pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
         // SAFETY: `vd` aligned to `2*group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
         // so `i < 2*group_regs * (VLENB / wide_sew_bytes)` - element fits in the wide group
         unsafe {
-            write_element_u64(
-                state.ext_state.write_vreg(),
-                vd_base,
-                i,
-                wide_sew_bytes,
-                result,
-            );
+            write_element_u64(ext_state.write_vreg(), vd_base, i, wide_sew_bytes, result);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a widening add/subtract where `vs2` is already 2×SEW wide.
@@ -367,8 +348,8 @@ pub unsafe fn execute_widen_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError,
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -384,8 +365,6 @@ pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
     F: Fn(u64, u64) -> u64,
 {
@@ -394,7 +373,7 @@ pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
     let sew_bits = u32::from(sew.bits());
 
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
 
@@ -406,7 +385,7 @@ pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
         // SAFETY: `vs2` aligned to `2*group_regs`; element `i` fits within it
         let wide_a = unsafe {
             read_element_u64(
-                state.ext_state.read_vreg(),
+                ext_state.read_vreg(),
                 usize::from(vs2_base),
                 i,
                 wide_sew_bytes,
@@ -418,12 +397,7 @@ pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew_bytes)`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
                 let raw_b = unsafe {
-                    read_element_u64(
-                        state.ext_state.read_vreg(),
-                        usize::from(*vs1_base),
-                        i,
-                        sew_bytes,
-                    )
+                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew_bytes)
                 };
                 if zero_extend_b {
                     raw_b
@@ -436,17 +410,11 @@ pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd
         unsafe {
-            write_element_u64(
-                state.ext_state.write_vreg(),
-                vd_base,
-                i,
-                wide_sew_bytes,
-                result,
-            );
+            write_element_u64(ext_state.write_vreg(), vd_base, i, wide_sew_bytes, result);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a narrowing right-shift.
@@ -467,8 +435,8 @@ pub unsafe fn execute_widen_w_op<Reg, Regs, ExtState, Memory, PC, IH, CustomErro
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -483,8 +451,6 @@ pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let sew_bytes = usize::from(sew.bytes());
@@ -495,7 +461,7 @@ pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
     let shamt_mask = u64::from(wide_sew_bits - 1);
 
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
 
@@ -506,7 +472,7 @@ pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
         // SAFETY: `vs2` is the wide source group
         let wide_val = unsafe {
             read_element_u64(
-                state.ext_state.read_vreg(),
+                ext_state.read_vreg(),
                 usize::from(vs2_base),
                 i,
                 wide_sew_bytes,
@@ -518,12 +484,7 @@ pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew_bytes)`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
                 let raw = unsafe {
-                    read_element_u64(
-                        state.ext_state.read_vreg(),
-                        usize::from(*vs1_base),
-                        i,
-                        sew_bytes,
-                    )
+                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew_bytes)
                 };
                 raw & shamt_mask
             }
@@ -542,11 +503,11 @@ pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
         let result = result_wide & ((1u64 << sew.bits()) - 1);
         // SAFETY: `vd` is the narrow destination group
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew_bytes, result);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew_bytes, result);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute an integer extension (vzext/vsext).
@@ -566,8 +527,8 @@ pub unsafe fn execute_narrow_shift<Reg, Regs, ExtState, Memory, PC, IH, CustomEr
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_extension<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -582,8 +543,6 @@ pub unsafe fn execute_extension<Reg, Regs, ExtState, Memory, PC, IH, CustomError
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
     let sew_bytes = usize::from(sew.bytes());
@@ -591,7 +550,7 @@ pub unsafe fn execute_extension<Reg, Regs, ExtState, Memory, PC, IH, CustomError
     let src_sew_bits = (u32::from(sew.bits())) / u32::from(factor);
 
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
 
@@ -602,7 +561,7 @@ pub unsafe fn execute_extension<Reg, Regs, ExtState, Memory, PC, IH, CustomError
         // SAFETY: vs2 group covers `vl` narrow elements
         let raw = unsafe {
             read_element_u64(
-                state.ext_state.read_vreg(),
+                ext_state.read_vreg(),
                 usize::from(vs2_base),
                 i,
                 src_sew_bytes,
@@ -615,9 +574,9 @@ pub unsafe fn execute_extension<Reg, Regs, ExtState, Memory, PC, IH, CustomError
         };
         // SAFETY: vd group covers `vl` wide elements
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew_bytes, result);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew_bytes, result);
         }
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }

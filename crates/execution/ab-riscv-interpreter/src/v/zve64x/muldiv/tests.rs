@@ -36,7 +36,15 @@ fn exec(
     state: &mut TestInterpreterState<Zve64xMulDivInstruction<Reg<u64>>>,
     instr: Zve64xMulDivInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
-    instr.execute(state).map(|_| ())
+    instr
+        .execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        )
+        .map(|_| ())
 }
 
 fn read_elem(

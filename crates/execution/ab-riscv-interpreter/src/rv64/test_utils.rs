@@ -1,19 +1,18 @@
 extern crate alloc;
 
-use crate::basic::BasicRegisters;
+use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::v::vector_registers::{
     VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
 };
 use crate::{
-    Address, BasicInt, CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction,
-    ExecutionError, FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
-    ProgramCounterError, RegisterFile, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
 pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
@@ -460,7 +459,7 @@ impl ExtState {
     }
 }
 
-pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
+pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
     BasicRegisters<Reg<u64>>,
     ExtState,
     TestMemory,
@@ -475,7 +474,7 @@ where
     I: Instruction<Reg = Reg<u64>>,
     Instructions: IntoIterator<Item = I>,
 {
-    InterpreterState {
+    BasicInterpreterState {
         regs: BasicRegisters::default(),
         ext_state: ExtState::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
@@ -486,7 +485,6 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
-        custom_error: PhantomData,
     }
 }
 
@@ -495,7 +493,13 @@ pub(crate) fn execute<I>(
 ) -> Result<(), ExecutionError<Address<I>>>
 where
     I: Instruction<Reg = Reg<u64>>
-        + ExecutableInstruction<TestInterpreterState<I>, CustomErrorPlaceholder>,
+        + ExecutableInstruction<
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<I>,
+            TestInstructionHandler,
+        >,
 {
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
@@ -508,7 +512,13 @@ where
             }
         };
 
-        match instruction.execute(state)? {
+        match instruction.execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        )? {
             ControlFlow::Continue(()) => {
                 continue;
             }

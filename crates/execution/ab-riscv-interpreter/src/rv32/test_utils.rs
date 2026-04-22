@@ -1,15 +1,14 @@
 extern crate alloc;
 
-use crate::basic::BasicRegisters;
+use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::{
-    Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
-    ProgramCounterError, RegisterFile, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
+    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
 pub(crate) const TEST_BASE_ADDR: u32 = 0x1000;
@@ -257,7 +256,7 @@ where
     }
 }
 
-pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
+pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
     BasicRegisters<Reg<u32>>,
     (),
     TestMemory,
@@ -272,7 +271,7 @@ where
     I: Instruction<Reg = Reg<u32>>,
     Instructions: IntoIterator<Item = I>,
 {
-    InterpreterState {
+    BasicInterpreterState {
         regs: BasicRegisters::default(),
         ext_state: (),
         memory: TestMemory::new(8192, u64::from(TEST_BASE_ADDR)),
@@ -283,7 +282,6 @@ where
             TEST_BASE_ADDR,
         ),
         system_instruction_handler: TestInstructionHandler,
-        custom_error: PhantomData,
     }
 }
 
@@ -292,7 +290,13 @@ pub(crate) fn execute<I>(
 ) -> Result<(), ExecutionError<Address<I>>>
 where
     I: Instruction<Reg = Reg<u32>>
-        + ExecutableInstruction<TestInterpreterState<I>, CustomErrorPlaceholder>,
+        + ExecutableInstruction<
+            BasicRegisters<Reg<u32>>,
+            (),
+            TestMemory,
+            TestInstructionFetcher<I>,
+            TestInstructionHandler,
+        >,
 {
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
@@ -305,7 +309,13 @@ where
             }
         };
 
-        match instruction.execute(state)? {
+        match instruction.execute(
+            &mut state.regs,
+            &mut state.ext_state,
+            &mut state.memory,
+            &mut state.instruction_fetcher,
+            &mut state.system_instruction_handler,
+        )? {
             ControlFlow::Continue(()) => {
                 continue;
             }

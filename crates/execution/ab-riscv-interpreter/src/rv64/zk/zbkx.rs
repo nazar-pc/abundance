@@ -4,17 +4,15 @@ pub mod rv64_zbkx_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, InterpreterState, RegisterFile};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for Rv64ZbkxInstruction<Reg>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Rv64ZbkxInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     Regs: RegisterFile<Reg>,
@@ -22,24 +20,24 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        regs: &mut Regs,
+        _ext_state: &mut ExtState,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Xperm4 { rd, rs1, rs2 } => {
-                let rs1_value = state.regs.read(rs1);
-                let rs2_value = state.regs.read(rs2);
+                let rs1_value = regs.read(rs1);
+                let rs2_value = regs.read(rs2);
 
-                state
-                    .regs
-                    .write(rd, rv64_zbkx_helpers::xperm4(rs1_value, rs2_value));
+                regs.write(rd, rv64_zbkx_helpers::xperm4(rs1_value, rs2_value));
             }
             Self::Xperm8 { rd, rs1, rs2 } => {
-                let rs1_value = state.regs.read(rs1);
-                let rs2_value = state.regs.read(rs2);
+                let rs1_value = regs.read(rs1);
+                let rs2_value = regs.read(rs2);
 
-                state
-                    .regs
-                    .write(rd, rv64_zbkx_helpers::xperm8(rs1_value, rs2_value));
+                regs.write(rd, rv64_zbkx_helpers::xperm8(rs1_value, rs2_value));
             }
         }
 

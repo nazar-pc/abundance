@@ -9,7 +9,7 @@ use crate::v::zve64x::arith::zve64x_arith_helpers::{
 };
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, InterpreterState, ProgramCounter, VirtualMemory};
+use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
@@ -434,8 +434,8 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_fixed_point_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -450,15 +450,13 @@ pub unsafe fn execute_fixed_point_op<Reg, Regs, ExtState, Memory, PC, IH, Custom
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let vxrm = state.ext_state.vxrm();
+    let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     let mut any_sat = false;
@@ -467,29 +465,26 @@ pub unsafe fn execute_fixed_point_op<Reg, Regs, ExtState, Memory, PC, IH, Custom
             continue;
         }
         // SAFETY: alignment and bounds checked by caller
-        let a =
-            unsafe { read_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
         let b = match &src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe {
-                    read_element_u64(state.ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
-                }
+                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew) }
             }
             OpSrc::Scalar(val) => *val,
         };
         let result = op(a, b, sew, vxrm, &mut any_sat);
         // SAFETY: alignment and bounds checked by caller
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
         }
     }
     if any_sat {
         // vxsat is sticky: OR in the new saturation flag
-        state.ext_state.set_vxsat(true);
+        ext_state.set_vxsat(true);
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Execute a narrowing fixed-point clip operation.
@@ -509,8 +504,8 @@ pub unsafe fn execute_fixed_point_op<Reg, Regs, ExtState, Memory, PC, IH, Custom
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_narrowing_clip_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
+    ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -525,15 +520,13 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Regs, ExtState, Memory, PC, IH, Cus
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let vxrm = state.ext_state.vxrm();
+    let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(state.ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let vd_base = vd.bits();
     let vs2_base = vs2.bits();
     let mut any_sat = false;
@@ -545,14 +538,13 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Regs, ExtState, Memory, PC, IH, Cus
         }
         // Read 2*SEW-wide source element
         // SAFETY: `vs2` double-width alignment checked by caller
-        let wide_a = unsafe {
-            read_wide_element_u64(state.ext_state.read_vreg(), usize::from(vs2_base), i, sew)
-        };
+        let wide_a =
+            unsafe { read_wide_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
         let shamt = match &src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: vs1 SEW-wide alignment checked by caller
                 let raw = unsafe {
-                    read_element_u64(state.ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
+                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
                 };
                 (raw & shamt_mask) as u32
             }
@@ -561,14 +553,14 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Regs, ExtState, Memory, PC, IH, Cus
         let result = op(wide_a, shamt, sew, vxrm, &mut any_sat);
         // SAFETY: `vd` alignment checked by caller
         unsafe {
-            write_element_u64(state.ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
         }
     }
     if any_sat {
-        state.ext_state.set_vxsat(true);
+        ext_state.set_vxsat(true);
     }
-    state.ext_state.mark_vs_dirty();
-    state.ext_state.reset_vstart();
+    ext_state.mark_vs_dirty();
+    ext_state.reset_vstart();
 }
 
 /// Verify that the destination SEW is valid for narrowing (must be at most 32 in Zve64x).
@@ -576,8 +568,8 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Regs, ExtState, Memory, PC, IH, Cus
 /// Returns `Err(IllegalInstruction)` when `sew.bits() > 32`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_narrowing_sew<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_narrowing_sew<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     sew: Vsew,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -586,7 +578,7 @@ where
 {
     if sew.bits() > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())
@@ -595,8 +587,8 @@ where
 /// Check that `vs2` for a narrowing instruction is aligned to `2 * group_regs` and fits in [0,32).
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_vs2_narrowing_alignment<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_vs2_narrowing_alignment<Reg, Memory, PC, CustomError>(
+    program_counter: &PC,
     vs2: VReg,
     group_regs: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
@@ -608,14 +600,14 @@ where
     // LMUL=8 with a narrowing instruction is reserved.
     if group_regs > 4 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     let double_group = group_regs * 2;
     let vs2_idx = vs2.bits();
     if !vs2_idx.is_multiple_of(double_group) || vs2_idx + double_group > 32 {
         return Err(ExecutionError::IllegalInstruction {
-            address: state.instruction_fetcher.old_pc(INSTRUCTION_SIZE),
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     Ok(())

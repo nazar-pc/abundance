@@ -1,4 +1,7 @@
-use crate::rv64::test_utils::{ExtState, TestInterpreterState, execute, initialize_state};
+use crate::basic::BasicRegisters;
+use crate::rv64::test_utils::{
+    ExtState, TestInstructionFetcher, TestInstructionHandler, TestMemory, execute, initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersBase, VectorRegistersExt};
 use crate::{Csrs, ExecutableInstruction, RegisterFile};
 use ab_riscv_primitives::prelude::*;
@@ -716,8 +719,11 @@ fn prepare_csr_read_passes_through_vector_csrs() {
     state.ext_state.init_vector_csrs();
 
     let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_read(&state.ext_state, VCsr::Vstart as u16, 42, &mut output);
     assert!(result.unwrap());
     assert_eq!(output, 42);
@@ -730,8 +736,11 @@ fn prepare_csr_read_ignores_non_vector_csrs() {
     state.ext_state.init_vector_csrs();
 
     let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_read(&state.ext_state, 0x300, 42, &mut output);
     // Returns Ok(false) meaning "not handled by this extension"
     assert!(!result.unwrap());
@@ -754,8 +763,11 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
     for csr_index in csr_indices {
         let mut output = 0u64;
         let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-            TestInterpreterState<Zve64xConfigInstruction<_>>,
-            _,
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+            TestInstructionHandler,
         >>::prepare_csr_read(&state.ext_state, csr_index, 0xFF, &mut output);
         assert!(result.unwrap(), "CSR {csr_index:#x} should be handled");
         assert_eq!(output, 0xFF, "CSR {csr_index:#x} should pass through");
@@ -769,8 +781,11 @@ fn prepare_csr_write_rejects_read_only_vl() {
     state.ext_state.init_vector_csrs();
 
     let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vl as u16, 42, &mut output);
     assert!(result.is_err());
 }
@@ -783,8 +798,11 @@ fn prepare_csr_write_rejects_read_only_vtype() {
 
     let result =
         <Zve64xConfigInstruction<_> as ExecutableInstruction<
-            TestInterpreterState<Zve64xConfigInstruction<_>>,
-            _,
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+            TestInstructionHandler,
         >>::prepare_csr_write(&mut state.ext_state, VCsr::Vtype as u16, 42, &mut output);
     assert!(result.is_err());
 }
@@ -797,8 +815,11 @@ fn prepare_csr_write_rejects_read_only_vlenb() {
 
     let result =
         <Zve64xConfigInstruction<_> as ExecutableInstruction<
-            TestInterpreterState<Zve64xConfigInstruction<_>>,
-            _,
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+            TestInstructionHandler,
         >>::prepare_csr_write(&mut state.ext_state, VCsr::Vlenb as u16, 42, &mut output);
     assert!(result.is_err());
 }
@@ -811,8 +832,11 @@ fn prepare_csr_write_vxsat_masks_to_1_bit() {
 
     let result =
         <Zve64xConfigInstruction<_> as ExecutableInstruction<
-            TestInterpreterState<Zve64xConfigInstruction<_>>,
-            _,
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+            TestInstructionHandler,
         >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxsat as u16, 0xFF, &mut output);
     assert!(result.unwrap());
     assert_eq!(output, 1);
@@ -826,8 +850,11 @@ fn prepare_csr_write_vxrm_masks_to_2_bits() {
 
     let result =
         <Zve64xConfigInstruction<_> as ExecutableInstruction<
-            TestInterpreterState<Zve64xConfigInstruction<_>>,
-            _,
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+            TestInstructionHandler,
         >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxrm as u16, 0xFF, &mut output);
     assert!(result.unwrap());
     assert_eq!(output, 0b11);
@@ -841,8 +868,11 @@ fn prepare_csr_write_vcsr_masks_to_3_bits() {
 
     let result =
         <Zve64xConfigInstruction<_> as ExecutableInstruction<
-            TestInterpreterState<Zve64xConfigInstruction<_>>,
-            _,
+            BasicRegisters<Reg<u64>>,
+            ExtState,
+            TestMemory,
+            TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+            TestInstructionHandler,
         >>::prepare_csr_write(&mut state.ext_state, VCsr::Vcsr as u16, 0xFFFF, &mut output);
     assert!(result.unwrap());
     assert_eq!(output, 0b111);
@@ -855,8 +885,11 @@ fn prepare_csr_write_vstart_passes_full_value() {
     state.ext_state.init_vector_csrs();
 
     let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(
         &mut state.ext_state,
         VCsr::Vstart as u16,
@@ -874,8 +907,11 @@ fn prepare_csr_write_ignores_non_vector_csrs() {
     state.ext_state.init_vector_csrs();
 
     let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, 0x300, 42, &mut output);
     assert!(!result.unwrap());
 }
@@ -1271,8 +1307,11 @@ fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
 
     let mut output = 0u64;
     let result = <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxsat as u16, 1, &mut output);
     assert!(result.unwrap());
     assert_eq!(output, 1);
@@ -1291,8 +1330,11 @@ fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
 
     let mut output = 0u64;
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxsat as u16, 0, &mut output)
     .unwrap();
 
@@ -1310,8 +1352,11 @@ fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
 
     let mut output = 0u64;
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxrm as u16, 0b11, &mut output)
     .unwrap();
     assert_eq!(output, 0b11);
@@ -1330,8 +1375,11 @@ fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
 
     let mut output = 0u64;
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxrm as u16, 0b00, &mut output)
     .unwrap();
 
@@ -1351,8 +1399,11 @@ fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
     let mut output = 0u64;
     // Write vcsr = 0b101 (vxrm=0b10, vxsat=1)
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vcsr as u16, 0b101, &mut output)
     .unwrap();
     assert_eq!(output, 0b101);
@@ -1374,8 +1425,11 @@ fn prepare_csr_write_vcsr_zero_clears_vxsat_and_vxrm() {
 
     let mut output = 0u64;
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vcsr as u16, 0, &mut output)
     .unwrap();
 
@@ -1394,8 +1448,11 @@ fn prepare_csr_write_vcsr_masks_then_mirrors() {
     let mut output = 0u64;
     // Write 0xFF to vcsr; should mask to 0b111, then mirror
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vcsr as u16, 0xFF, &mut output)
     .unwrap();
     assert_eq!(output, 0b111);
@@ -1416,8 +1473,11 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
 
     // Write vxrm=0b10 via vcsr
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vcsr as u16, 0b100, &mut output)
     .unwrap();
     // Now write the masked vcsr value to the CSR storage itself
@@ -1428,8 +1488,11 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
 
     // Write vxsat=1 directly
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_write(&mut state.ext_state, VCsr::Vxsat as u16, 1, &mut output)
     .unwrap();
     state
@@ -1464,8 +1527,11 @@ fn prepare_csr_read_vcsr_reflects_separate_csr_values() {
     let mut output = 0u64;
     let raw = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
     <Zve64xConfigInstruction<_> as ExecutableInstruction<
-        TestInterpreterState<Zve64xConfigInstruction<_>>,
-        _,
+        BasicRegisters<Reg<u64>>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xConfigInstruction<_>>,
+        TestInstructionHandler,
     >>::prepare_csr_read(&state.ext_state, VCsr::Vcsr as u16, raw, &mut output)
     .unwrap();
     assert_eq!(output, 0b101);

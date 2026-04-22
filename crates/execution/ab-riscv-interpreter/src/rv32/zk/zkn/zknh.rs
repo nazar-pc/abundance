@@ -4,17 +4,15 @@ pub mod rv32_zknh_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, InterpreterState, RegisterFile};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<
-        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-        CustomError,
-    > for Rv32ZknhInstruction<Reg>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Rv32ZknhInstruction<Reg>
 where
     Reg: Register<Type = u32>,
     Regs: RegisterFile<Reg>,
@@ -22,25 +20,29 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        regs: &mut Regs,
+        _ext_state: &mut ExtState,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // SHA-256 (single-register)
             Self::Sha256Sig0 { rd, rs1 } => {
-                let x = state.regs.read(rs1);
-                state.regs.write(rd, rv32_zknh_helpers::sha256sig0(x));
+                let x = regs.read(rs1);
+                regs.write(rd, rv32_zknh_helpers::sha256sig0(x));
             }
             Self::Sha256Sig1 { rd, rs1 } => {
-                let x = state.regs.read(rs1);
-                state.regs.write(rd, rv32_zknh_helpers::sha256sig1(x));
+                let x = regs.read(rs1);
+                regs.write(rd, rv32_zknh_helpers::sha256sig1(x));
             }
             Self::Sha256Sum0 { rd, rs1 } => {
-                let x = state.regs.read(rs1);
-                state.regs.write(rd, rv32_zknh_helpers::sha256sum0(x));
+                let x = regs.read(rs1);
+                regs.write(rd, rv32_zknh_helpers::sha256sum0(x));
             }
             Self::Sha256Sum1 { rd, rs1 } => {
-                let x = state.regs.read(rs1);
-                state.regs.write(rd, rv32_zknh_helpers::sha256sum1(x));
+                let x = regs.read(rs1);
+                regs.write(rd, rv32_zknh_helpers::sha256sum1(x));
             }
 
             // SHA-512 (two-register R-type)
@@ -58,46 +60,34 @@ where
             // The helpers receive (rs1, rs2) exactly as read from the register file;
             // they handle the asymmetric convention internally.
             Self::Sha512Sig0h { rd, rs1, rs2 } => {
-                let rs1_val = state.regs.read(rs1);
-                let rs2_val = state.regs.read(rs2);
-                state
-                    .regs
-                    .write(rd, rv32_zknh_helpers::sha512sig0h(rs1_val, rs2_val));
+                let rs1_val = regs.read(rs1);
+                let rs2_val = regs.read(rs2);
+                regs.write(rd, rv32_zknh_helpers::sha512sig0h(rs1_val, rs2_val));
             }
             Self::Sha512Sig0l { rd, rs1, rs2 } => {
-                let rs1_val = state.regs.read(rs1);
-                let rs2_val = state.regs.read(rs2);
-                state
-                    .regs
-                    .write(rd, rv32_zknh_helpers::sha512sig0l(rs1_val, rs2_val));
+                let rs1_val = regs.read(rs1);
+                let rs2_val = regs.read(rs2);
+                regs.write(rd, rv32_zknh_helpers::sha512sig0l(rs1_val, rs2_val));
             }
             Self::Sha512Sig1h { rd, rs1, rs2 } => {
-                let rs1_val = state.regs.read(rs1);
-                let rs2_val = state.regs.read(rs2);
-                state
-                    .regs
-                    .write(rd, rv32_zknh_helpers::sha512sig1h(rs1_val, rs2_val));
+                let rs1_val = regs.read(rs1);
+                let rs2_val = regs.read(rs2);
+                regs.write(rd, rv32_zknh_helpers::sha512sig1h(rs1_val, rs2_val));
             }
             Self::Sha512Sig1l { rd, rs1, rs2 } => {
-                let rs1_val = state.regs.read(rs1);
-                let rs2_val = state.regs.read(rs2);
-                state
-                    .regs
-                    .write(rd, rv32_zknh_helpers::sha512sig1l(rs1_val, rs2_val));
+                let rs1_val = regs.read(rs1);
+                let rs2_val = regs.read(rs2);
+                regs.write(rd, rv32_zknh_helpers::sha512sig1l(rs1_val, rs2_val));
             }
             Self::Sha512Sum0r { rd, rs1, rs2 } => {
-                let rs1_val = state.regs.read(rs1);
-                let rs2_val = state.regs.read(rs2);
-                state
-                    .regs
-                    .write(rd, rv32_zknh_helpers::sha512sum0r(rs1_val, rs2_val));
+                let rs1_val = regs.read(rs1);
+                let rs2_val = regs.read(rs2);
+                regs.write(rd, rv32_zknh_helpers::sha512sum0r(rs1_val, rs2_val));
             }
             Self::Sha512Sum1r { rd, rs1, rs2 } => {
-                let rs1_val = state.regs.read(rs1);
-                let rs2_val = state.regs.read(rs2);
-                state
-                    .regs
-                    .write(rd, rv32_zknh_helpers::sha512sum1r(rs1_val, rs2_val));
+                let rs1_val = regs.read(rs1);
+                let rs2_val = regs.read(rs2);
+                regs.write(rd, rv32_zknh_helpers::sha512sum1r(rs1_val, rs2_val));
             }
         }
 
