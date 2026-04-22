@@ -41,7 +41,10 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
         // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
         // and they really don't like using normal features for it
-        .env("RUSTFLAGS", "--cfg sha2_backend=\"riscv-zknh-compact\"")
+        .env(
+            "RUSTFLAGS",
+            "--cfg sha2_backend=\"riscv-zknh\" --cfg sha2_backend_riscv_zknh=\"compact\"",
+        )
         .args([
             "rustc",
             "-Zbuild-std=core",
