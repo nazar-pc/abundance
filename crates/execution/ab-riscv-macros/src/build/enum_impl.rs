@@ -296,6 +296,7 @@ pub(super) fn process_enum_decoding_impl(
     let mut all_try_decode_blocks = Vec::new();
     let mut all_dependency_alignment_blocks = Vec::new();
     let mut all_dependency_size_entries = Vec::new();
+    let mut all_where_predicates = Vec::new();
     {
         let mut all_dependencies = HashSet::new();
         all_dependencies.insert(enum_name.clone());
@@ -335,7 +336,30 @@ pub(super) fn process_enum_decoding_impl(
                     .collect::<Vec<_>>();
                 all_dependency_size_entries.push((variant_idents, dependency_blocks.size));
 
+                if let Some(where_clause) = &dependency_enum_impl.item_impl.generics.where_clause {
+                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
+                }
+
                 new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
+            }
+        }
+    }
+
+    if !all_where_predicates.is_empty() {
+        let where_clause = item_impl
+            .generics
+            .where_clause
+            .get_or_insert_with(|| parse_quote! { where });
+
+        let mut already_inserted = where_clause
+            .predicates
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+
+        for predicate in all_where_predicates {
+            if already_inserted.insert(predicate.clone()) {
+                where_clause.predicates.push(predicate);
             }
         }
     }
