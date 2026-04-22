@@ -4,11 +4,45 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::registers::general_purpose::Register;
+use crate::registers::general_purpose::{EReg, Reg, Register};
 use ab_riscv_macros::instruction;
 use core::fmt;
 use core::hint::unreachable_unchecked;
 use core::marker::PhantomData;
+
+/// General purpose register with additional constraints for Zcmp extension
+///
+/// # Safety
+/// [`Register::from_bits()`] must return `Some()` for:
+/// * `1`, `8`, `9` and `18..=27` if `Self::RVE = false`
+/// * `1`, `8` and `9` if `Self::RVE = true`
+pub const unsafe trait ZcmpRegister
+where
+    Self: [const] Register,
+{
+    /// Whether this is RVE variant with the number of general purpose registers reduced to 16
+    const RVE: bool;
+}
+
+// SAFETY: [`Reg::from_bits()`] returns Some for all valid register numbers
+unsafe impl const ZcmpRegister for Reg<u32> {
+    const RVE: bool = false;
+}
+
+// SAFETY: [`Reg::from_bits()`] returns Some for all valid register numbers
+unsafe impl const ZcmpRegister for Reg<u64> {
+    const RVE: bool = false;
+}
+
+// SAFETY: [`EReg::from_bits()`] returns Some for all valid register numbers
+unsafe impl const ZcmpRegister for EReg<u32> {
+    const RVE: bool = true;
+}
+
+// SAFETY: [`EReg::from_bits()`] returns Some for all valid register numbers
+unsafe impl const ZcmpRegister for EReg<u64> {
+    const RVE: bool = true;
+}
 
 /// Values 0..=3 are reserved by the spec; only 4..=15 are valid.
 /// Construct via [`ZcmpUrlist::try_from_raw`].
@@ -55,7 +89,7 @@ pub struct ZcmpUrlist<Reg> {
 
 impl<Reg> ZcmpUrlist<Reg>
 where
-    Reg: Register,
+    Reg: ZcmpRegister,
 {
     const XLEN_32: u8 = 32;
     const XLEN_64: u8 = 64;
@@ -68,7 +102,7 @@ where
     #[inline(always)]
     pub const fn try_from_raw(raw: u8) -> Option<Self>
     where
-        Reg: [const] Register,
+        Reg: [const] ZcmpRegister,
     {
         if !(Reg::XLEN == Self::XLEN_32 || Reg::XLEN == Self::XLEN_64) {
             return None;
@@ -242,7 +276,7 @@ pub enum Rv32ZcmpInstruction<Reg> {
 #[instruction]
 impl<Reg> const Instruction for Rv32ZcmpInstruction<Reg>
 where
-    Reg: [const] Register<Type = u32>,
+    Reg: [const] ZcmpRegister<Type = u32>,
 {
     type Reg = Reg;
 

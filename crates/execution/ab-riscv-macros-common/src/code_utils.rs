@@ -3,6 +3,8 @@
 
 const FROM_TRAIT_CONST_1: &str = "const trait ";
 const TO_TRAIT_CONST_1: &str = "trait _const";
+const FROM_TRAIT_CONST_2: &str = "const unsafe trait ";
+const TO_TRAIT_CONST_2: &str = "unsafe trait _const";
 const FROM_IMPL_CONST_1: &str = "> const ";
 const TO_IMPL_CONST_1: &str = "> cnst::";
 const FROM_IMPL_CONST_2: &str = "> const  ";
@@ -27,6 +29,7 @@ const TO_BRACKETS_CONST_2: &str = "BRCONST +";
 /// `syn` can parse it
 pub fn pre_process_rust_code(s: &mut str) {
     replace_inplace(s, FROM_TRAIT_CONST_1, TO_TRAIT_CONST_1);
+    replace_inplace(s, FROM_TRAIT_CONST_2, TO_TRAIT_CONST_2);
     replace_inplace(s, FROM_IMPL_CONST_1, TO_IMPL_CONST_1);
     replace_inplace(s, FROM_IMPL_CONST_2, TO_IMPL_CONST_2);
     replace_inplace(s, FROM_IMPL_CONST_REVERT_1, TO_IMPL_CONST_REVERT_1);
@@ -40,6 +43,7 @@ pub fn pre_process_rust_code(s: &mut str) {
 
 /// The inverse of [`pre_process_rust_code()`]
 pub fn post_process_rust_code(s: &mut str) {
+    replace_inplace(s, TO_TRAIT_CONST_2, FROM_TRAIT_CONST_2);
     replace_inplace(s, TO_TRAIT_CONST_1, FROM_TRAIT_CONST_1);
     replace_inplace(s, TO_IMPL_CONST_1, FROM_IMPL_CONST_1);
     replace_inplace(s, TO_IMPL_CONST_2, FROM_IMPL_CONST_2);
