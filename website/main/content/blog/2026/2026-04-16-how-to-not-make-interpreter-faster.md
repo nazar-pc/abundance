@@ -91,19 +91,18 @@ Here we parse the 32-bit instruction and then create enum variants for each dist
 is decoded, it is matched on for execution:
 
 ```rust
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
 ExecutableInstruction<
-    InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     CustomError,
 > for Rv32ZbaInstruction<Reg>
 where
     Reg: Register<Type=u32>,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::Sh1add { rd, rs1, rs2 } => {
@@ -204,18 +203,17 @@ pub struct Rv32ZbaInstructionMapExecute<Reg, ExtState, Memory, PC, InstructionHa
     phantom: PhantomData<(Reg, ExtState, Memory, PC, InstructionHandler, CustomError)>,
 }
 
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError> const Rv32ZbaInstructionMap<Reg>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError> const Rv32ZbaInstructionMap<Reg>
 for Rv32ZbaInstructionMapExecute<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
 where
     Reg: Register<Type=u32>,
-    [(); Reg::N]:,
     Reg: [ const ] Register,
 {
     type Output = (
         Rv32ZbaInstruction<Reg>,
         fn(
             Rv32ZbaInstruction<Reg>,
-            &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+            &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         ) -> Result<
             ControlFlow<()>,
             ExecutionError<<Reg as Register>::Type, CustomError>,
@@ -256,16 +254,15 @@ pub struct MappedExecutableRv32ZbaInstruction<
 >
 where
     Reg: Register<Type=u32>,
-    [(); Reg::N]:,
 {
     instruction: Rv32ZbaInstruction<Reg>,
     execute_fn: fn(
         Rv32ZbaInstruction<Reg>,
-        &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>>,
 }
 
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError> const Instruction
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError> const Instruction
 for MappedExecutableRv32ZbaInstruction<
     Reg,
     ExtState,
@@ -276,7 +273,6 @@ for MappedExecutableRv32ZbaInstruction<
 >
 where
     Reg: Register<Type=u32>,
-    [(); Reg::N]:,
     Reg: [ const ] Register,
 {
     type Reg = Reg;
@@ -299,9 +295,9 @@ where
     // ...
 }
 
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
 ExecutableInstruction<
-    InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     CustomError,
 >
 for MappedExecutableRv32ZbaInstruction<
@@ -314,12 +310,11 @@ for MappedExecutableRv32ZbaInstruction<
 >
 where
     Reg: Register<Type=u32>,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         (self.execute_fn)(self.instruction, state)
     }
@@ -650,7 +645,6 @@ register file I had looks like this:
 pub struct Registers<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
 {
     regs: [Reg::Type; Reg::N],
 }
@@ -658,7 +652,6 @@ where
 const impl<Reg> Registers<Reg>
 where
     Reg: [ const ] Register,
-    [(); Reg::N]:,
 {
     /// Read register value
     #[inline(always)]

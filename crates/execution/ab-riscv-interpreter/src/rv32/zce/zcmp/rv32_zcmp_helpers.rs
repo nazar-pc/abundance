@@ -1,24 +1,25 @@
 //! Opaque helpers for Zcmp extension
 
 use crate::{
-    ExecutionError, InterpreterState, ProgramCounter, SystemInstructionHandler, VirtualMemory,
+    ExecutionError, InterpreterState, ProgramCounter, RegisterFile, SystemInstructionHandler,
+    VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 
 /// Execute CM.PUSH: store registers below sp, then decrement sp
 #[inline(always)]
 #[doc(hidden)]
-pub fn do_push<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+pub fn do_push<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     urlist: ZcmpUrlist<Reg>,
     stack_adj: u32,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register<Type = u32>,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
 {
     let sp = state.regs.read(Reg::SP);
     // Store from sp-4 downward, highest-priority register first
@@ -35,17 +36,17 @@ where
 /// Returns the value of ra (x1) for use with popret/popretz.
 #[inline(always)]
 #[doc(hidden)]
-pub fn do_pop<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+pub fn do_pop<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     urlist: ZcmpUrlist<Reg>,
     stack_adj: u32,
 ) -> Result<u32, ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register<Type = u32>,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
 {
     let sp = state.regs.read(Reg::SP);
     let new_sp = sp.wrapping_add(stack_adj);

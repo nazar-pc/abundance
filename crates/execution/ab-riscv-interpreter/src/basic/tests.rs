@@ -1,3 +1,4 @@
+use crate::RegisterFile;
 use crate::basic::BasicRegisters;
 use ab_riscv_primitives::prelude::*;
 

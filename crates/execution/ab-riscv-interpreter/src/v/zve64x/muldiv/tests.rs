@@ -1,7 +1,7 @@
 use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zve64x::muldiv::zve64x_muldiv_helpers::widening_dest_register_count;
-use crate::{ExecutableInstruction, ExecutionError};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
 use ab_riscv_primitives::prelude::*;
 
 // With TEST_VLEN=128, VLENB=16:

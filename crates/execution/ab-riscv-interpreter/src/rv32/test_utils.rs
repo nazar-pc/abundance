@@ -4,7 +4,7 @@ use crate::basic::BasicRegisters;
 use crate::{
     Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
     FetchInstructionResult, InstructionFetcher, InterpreterState, ProgramCounter,
-    ProgramCounterError, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    ProgramCounterError, RegisterFile, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
@@ -238,15 +238,16 @@ impl<I> TestInstructionFetcher<I> {
 
 pub(crate) struct TestInstructionHandler;
 
-impl<I> SystemInstructionHandler<Reg<u32>, TestMemory, TestInstructionFetcher<I>>
+impl<Regs, I> SystemInstructionHandler<Reg<u32>, Regs, TestMemory, TestInstructionFetcher<I>>
     for TestInstructionHandler
 where
     I: Instruction<Reg = Reg<u32>>,
+    Regs: RegisterFile<Reg<u32>>,
 {
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut BasicRegisters<Reg<u32>>,
+        _regs: &mut Regs,
         _memory: &mut TestMemory,
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
@@ -257,7 +258,7 @@ where
 }
 
 pub(crate) type TestInterpreterState<Instruction> = InterpreterState<
-    Reg<u32>,
+    BasicRegisters<Reg<u32>>,
     (),
     TestMemory,
     TestInstructionFetcher<Instruction>,

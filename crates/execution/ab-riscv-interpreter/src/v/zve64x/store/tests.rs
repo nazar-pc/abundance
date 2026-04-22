@@ -1,6 +1,6 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::{ExecutableInstruction, ExecutionError, VirtualMemory};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 use core::array;
 

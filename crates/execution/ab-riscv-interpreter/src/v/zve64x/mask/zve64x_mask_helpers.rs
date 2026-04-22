@@ -3,7 +3,7 @@
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::arith::zve64x_arith_helpers::{write_element_u64, write_mask_bit};
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
-use crate::{InterpreterState, ProgramCounter, VirtualMemory};
+use crate::{InterpreterState, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
@@ -17,15 +17,14 @@ use core::fmt;
 /// The operation snaps both sources before writing, so `vd` may safely overlap either source.
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_mask_logical_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_mask_logical_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -82,8 +81,8 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, Memory, PC, IH, CustomError
 /// - `vstart <= vl`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vcpop<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_vcpop<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     rd: Reg,
     vs2: VReg,
     vm: bool,
@@ -91,7 +90,7 @@ pub unsafe fn execute_vcpop<Reg, ExtState, Memory, PC, IH, CustomError>(
     vstart: u32,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -134,8 +133,8 @@ pub unsafe fn execute_vcpop<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// - `vstart <= vl`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vfirst<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_vfirst<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     rd: Reg,
     vs2: VReg,
     vm: bool,
@@ -143,7 +142,7 @@ pub unsafe fn execute_vfirst<Reg, ExtState, Memory, PC, IH, CustomError>(
     vstart: u32,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -202,15 +201,14 @@ pub unsafe fn execute_vfirst<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vmsbf<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_vmsbf<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
     vl: u32,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -256,15 +254,14 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// Same as [`execute_vmsbf`].
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vmsof<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_vmsof<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
     vl: u32,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -310,15 +307,14 @@ pub unsafe fn execute_vmsof<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// Same as [`execute_vmsbf`].
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vmsif<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_vmsif<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
     vl: u32,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -371,8 +367,8 @@ pub unsafe fn execute_vmsif<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_viota<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -380,7 +376,6 @@ pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
     sew: Vsew,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -436,8 +431,8 @@ pub unsafe fn execute_viota<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vid<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_vid<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vm: bool,
     vl: u32,
@@ -445,7 +440,6 @@ pub unsafe fn execute_vid<Reg, ExtState, Memory, PC, IH, CustomError>(
     sew: Vsew,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

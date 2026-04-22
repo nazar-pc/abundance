@@ -8,7 +8,8 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::load::zve64x_load_helpers;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, VirtualMemory,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -16,14 +17,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Zve64xStoreInstruction<Reg>
 where
     Reg: Register,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -35,7 +36,7 @@ where
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             // Whole-register store: stores `nreg` consecutive registers starting at `vs3` directly
@@ -148,7 +149,9 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs3, group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs3, group_regs,
+                )?;
                 // SAFETY:
                 // - alignment: `check_register_group_alignment` verified `vs3 % group_regs == 0`
                 //   and `vs3 + group_regs <= 32`
@@ -201,7 +204,9 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs3, group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state, vs3, group_regs,
+                )?;
                 let stride = state.regs.read(rs2).as_u64().cast_signed();
                 // SAFETY: same preconditions as `Vse`.
                 unsafe {
@@ -252,8 +257,16 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs3, data_group_regs)?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs3,
+                    data_group_regs,
+                )?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 // SAFETY:
                 // - `vs3` alignment/bounds: `check_register_group_alignment` verified both
                 // - `vs2` alignment/bounds: `check_register_group_alignment` verified both
@@ -313,8 +326,16 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs3, data_group_regs)?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs3,
+                    data_group_regs,
+                )?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 // SAFETY: identical precondition argument to `Vsuxei`
                 unsafe {
                     zve64x_store_helpers::execute_indexed_store(
@@ -362,7 +383,9 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_store_helpers::validate_segment_store_registers(state, vs3, group_regs, nf)?;
+                zve64x_store_helpers::validate_segment_store_registers::<Reg, _, _, _, _, _, _>(
+                    state, vs3, group_regs, nf,
+                )?;
                 // SAFETY:
                 // - `validate_segment_store_registers` guarantees `vs3 % group_regs == 0` and `vs3
                 //   + nf * group_regs <= 32`
@@ -413,7 +436,9 @@ where
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     },
                 )?;
-                zve64x_store_helpers::validate_segment_store_registers(state, vs3, group_regs, nf)?;
+                zve64x_store_helpers::validate_segment_store_registers::<Reg, _, _, _, _, _, _>(
+                    state, vs3, group_regs, nf,
+                )?;
                 let stride = state.regs.read(rs2).as_u64().cast_signed();
                 // SAFETY: same as `Vsseg`.
                 unsafe {
@@ -465,13 +490,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_store_helpers::validate_segment_store_registers(
+                zve64x_store_helpers::validate_segment_store_registers::<Reg, _, _, _, _, _, _>(
                     state,
                     vs3,
                     data_group_regs,
                     nf,
                 )?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 // SAFETY:
                 // - `validate_segment_store_registers` covers `vs3` alignment/bounds
                 // - `check_register_group_alignment` covers `vs2` alignment/bounds
@@ -528,13 +557,17 @@ where
                             .instruction_fetcher
                             .old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                zve64x_store_helpers::validate_segment_store_registers(
+                zve64x_store_helpers::validate_segment_store_registers::<Reg, _, _, _, _, _, _>(
                     state,
                     vs3,
                     data_group_regs,
                     nf,
                 )?;
-                zve64x_load_helpers::check_register_group_alignment(state, vs2, index_group_regs)?;
+                zve64x_load_helpers::check_register_group_alignment::<Reg, _, _, _, _, _, _>(
+                    state,
+                    vs2,
+                    index_group_regs,
+                )?;
                 // SAFETY: identical precondition argument to `Vsuxseg`
                 unsafe {
                     zve64x_store_helpers::execute_indexed_store(

@@ -49,8 +49,8 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
 /// The spec prohibits any overlap between them.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_no_widening_overlap<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_no_widening_overlap<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs: VReg,
     dest_group_regs: u8,
@@ -58,7 +58,6 @@ pub fn check_no_widening_overlap<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let vd_start = vd.bits();
@@ -112,8 +111,8 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_arith_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_arith_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -124,7 +123,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -176,8 +174,8 @@ pub unsafe fn execute_arith_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widening_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widening_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -188,7 +186,6 @@ pub unsafe fn execute_widening_op<Reg, ExtState, Memory, PC, IH, CustomError, F>
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -240,8 +237,8 @@ pub unsafe fn execute_widening_op<Reg, ExtState, Memory, PC, IH, CustomError, F>
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_muladd_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_muladd_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     a_reg: u8,
     src: OpSrc,
@@ -252,7 +249,6 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -301,8 +297,8 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_muladd_scalar_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     scalar: u64,
     src: OpSrc,
@@ -313,7 +309,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, Memory, PC, IH, CustomErro
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -365,8 +360,8 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, Memory, PC, IH, CustomErro
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widening_muladd_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widening_muladd_op<Reg, Regs, ExtState, Memory, PC, IH, CustomError, F>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     a_reg: u8,
     src: OpSrc,
@@ -377,7 +372,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, Memory, PC, IH, CustomEr
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -429,8 +423,17 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, Memory, PC, IH, CustomEr
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, Memory, PC, IH, CustomError, F>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_widening_muladd_scalar_op<
+    Reg,
+    Regs,
+    ExtState,
+    Memory,
+    PC,
+    IH,
+    CustomError,
+    F,
+>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     scalar: u64,
     src: OpSrc,
@@ -441,7 +444,6 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, Memory, PC, IH, C
     op: F,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

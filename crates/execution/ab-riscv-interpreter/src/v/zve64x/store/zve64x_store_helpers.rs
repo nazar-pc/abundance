@@ -42,18 +42,17 @@ fn write_mem_element(
 /// applies only to load destinations.
 #[inline(always)]
 #[doc(hidden)]
-pub fn validate_segment_store_registers<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn validate_segment_store_registers<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs3: VReg,
     group_regs: u8,
     nf: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    check_register_group_alignment(state, vs3, group_regs)?;
+    check_register_group_alignment::<Reg, _, _, _, _, _, _>(state, vs3, group_regs)?;
     let total = u32::from(vs3.bits()) + u32::from(nf) * u32::from(group_regs);
     if total > 32 {
         return Err(ExecutionError::IllegalInstruction {
@@ -79,8 +78,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_unit_stride_store<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs3: VReg,
     vm: bool,
     vl: u32,
@@ -92,7 +91,6 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, PC, IH, CustomErr
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -162,8 +160,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_strided_store<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_strided_store<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs3: VReg,
     vm: bool,
     vl: u32,
@@ -176,7 +174,6 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -240,8 +237,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_indexed_store<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vs3: VReg,
     vs2: VReg,
     vm: bool,
@@ -255,7 +252,6 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

@@ -1,6 +1,6 @@
 use crate::rv64::test_utils::{ExtState, TestInterpreterState, execute, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersBase, VectorRegistersExt};
-use crate::{Csrs, ExecutableInstruction};
+use crate::{Csrs, ExecutableInstruction, RegisterFile};
 use ab_riscv_primitives::prelude::*;
 
 /// Encode a vtype immediate from SEW, LMUL, vta, vma fields

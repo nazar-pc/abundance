@@ -1,3 +1,4 @@
+use crate::RegisterFile;
 use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::prelude::*;
 

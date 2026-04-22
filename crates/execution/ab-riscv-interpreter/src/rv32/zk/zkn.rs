@@ -10,25 +10,24 @@ use crate::rv32::zk::zbkx::rv32_zbkx_helpers;
 use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers;
 use crate::rv32::zk::zkn::zkne::rv32_zkne_helpers;
 use crate::rv32::zk::zkn::zknh::rv32_zknh_helpers;
-use crate::{ExecutableInstruction, ExecutionError, InterpreterState};
+use crate::{ExecutableInstruction, ExecutionError, InterpreterState, RegisterFile};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv32ZknInstruction<Reg>
 where
     Reg: Register<Type = u32>,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Ok(ControlFlow::Continue(()))
     }

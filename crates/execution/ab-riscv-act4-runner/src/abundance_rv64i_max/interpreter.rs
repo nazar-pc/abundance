@@ -1,6 +1,6 @@
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::interpreter::{Act4Memory, Act4SystemHandler};
-use ab_riscv_interpreter::basic::BasicInstructionFetcher;
+use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
@@ -97,7 +97,7 @@ impl Csrs<<AbundanceRv64IMaxInstruction as Instruction>::Reg> for AbundanceRv64I
         let mut out = 0;
         if !<AbundanceRv64IMaxInstruction as ExecutableInstruction<
             InterpreterState<
-                <AbundanceRv64IMaxInstruction as Instruction>::Reg,
+                BasicRegisters<<AbundanceRv64IMaxInstruction as Instruction>::Reg>,
                 Self,
                 Act4Memory<0, 0>,
                 BasicInstructionFetcher<AbundanceRv64IMaxInstruction>,
@@ -117,7 +117,7 @@ impl Csrs<<AbundanceRv64IMaxInstruction as Instruction>::Reg> for AbundanceRv64I
         let mut out = 0;
         if !<AbundanceRv64IMaxInstruction as ExecutableInstruction<
             InterpreterState<
-                <AbundanceRv64IMaxInstruction as Instruction>::Reg,
+                BasicRegisters<<AbundanceRv64IMaxInstruction as Instruction>::Reg>,
                 Self,
                 Act4Memory<0, 0>,
                 BasicInstructionFetcher<AbundanceRv64IMaxInstruction>,

@@ -1,5 +1,5 @@
-use crate::VirtualMemory;
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
+use crate::{RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 
 // C.LBU

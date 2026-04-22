@@ -15,15 +15,14 @@ use core::fmt;
 /// [`check_no_overlap_asymmetric`].
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_no_overlap<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_no_overlap<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     a: VReg,
     b: VReg,
     count: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let a_start = u16::from(a.bits());
@@ -47,8 +46,8 @@ where
 /// uses EEW=16-derived `index_group_regs`.
 #[inline(always)]
 #[doc(hidden)]
-pub fn check_no_overlap_asymmetric<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub fn check_no_overlap_asymmetric<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     a: VReg,
     a_count: u8,
     b: VReg,
@@ -56,7 +55,6 @@ pub fn check_no_overlap_asymmetric<Reg, ExtState, Memory, PC, IH, CustomError>(
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let a_start = u16::from(a.bits());
@@ -161,8 +159,8 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slideup<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slideup<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -172,7 +170,6 @@ pub unsafe fn execute_slideup<Reg, ExtState, Memory, PC, IH, CustomError>(
     offset: u64,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -222,8 +219,8 @@ pub unsafe fn execute_slideup<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slidedown<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slidedown<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -234,7 +231,6 @@ pub unsafe fn execute_slidedown<Reg, ExtState, Memory, PC, IH, CustomError>(
     offset: u64,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -290,8 +286,8 @@ pub unsafe fn execute_slidedown<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slide1up<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slide1up<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -301,7 +297,6 @@ pub unsafe fn execute_slide1up<Reg, ExtState, Memory, PC, IH, CustomError>(
     scalar: u64,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -357,8 +352,8 @@ pub unsafe fn execute_slide1up<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_slide1down<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_slide1down<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -368,7 +363,6 @@ pub unsafe fn execute_slide1down<Reg, ExtState, Memory, PC, IH, CustomError>(
     scalar: u64,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -416,8 +410,8 @@ pub unsafe fn execute_slide1down<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_rgather_vv<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_rgather_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -428,7 +422,6 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, Memory, PC, IH, CustomError>(
     vlmax: u32,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -480,8 +473,8 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_rgather_scalar<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_rgather_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -492,7 +485,6 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, Memory, PC, IH, CustomError>
     index: u64,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -545,8 +537,8 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, Memory, PC, IH, CustomError>
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_rgatherei16<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_rgatherei16<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -558,7 +550,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, Memory, PC, IH, CustomError>(
     index_group_regs: u8,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -631,8 +622,8 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_merge_vv<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_merge_vv<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -642,7 +633,6 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, Memory, PC, IH, CustomError>(
     sew: Vsew,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -687,8 +677,8 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, Memory, PC, IH, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_merge_scalar<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_merge_scalar<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -698,7 +688,6 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, Memory, PC, IH, CustomError>(
     scalar: u64,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -737,8 +726,8 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, Memory, PC, IH, CustomError>(
 /// - `vl <= VLMAX`.
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_compress<Reg, ExtState, Memory, PC, IH, CustomError>(
-    state: &mut InterpreterState<Reg, ExtState, Memory, PC, IH, CustomError>,
+pub unsafe fn execute_compress<Reg, Regs, ExtState, Memory, PC, IH, CustomError>(
+    state: &mut InterpreterState<Regs, ExtState, Memory, PC, IH, CustomError>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -746,7 +735,6 @@ pub unsafe fn execute_compress<Reg, ExtState, Memory, PC, IH, CustomError>(
     sew: Vsew,
 ) where
     Reg: Register,
-    [(); Reg::N]:,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,

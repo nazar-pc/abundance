@@ -5,7 +5,7 @@ pub mod rv32_zcmp_helpers;
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter,
+    ExecutableInstruction, ExecutionError, InterpreterState, ProgramCounter, RegisterFile,
     SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
@@ -13,22 +13,22 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
-        InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
         CustomError,
     > for Rv32ZcmpInstruction<Reg>
 where
     Reg: Register<Type = u32>,
-    [(); Reg::N]:,
+    Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Memory, PC, CustomError>,
+    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
 {
     #[inline(always)]
     fn execute(
         self,
-        state: &mut InterpreterState<Reg, ExtState, Memory, PC, InstructionHandler, CustomError>,
+        state: &mut InterpreterState<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         match self {
             Self::CmPush { urlist, stack_adj } => {

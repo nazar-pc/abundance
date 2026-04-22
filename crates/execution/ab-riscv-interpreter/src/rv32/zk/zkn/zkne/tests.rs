@@ -1,7 +1,7 @@
+use crate::RegisterFile;
 use crate::rv32::test_utils::{execute, initialize_state};
 use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::gmul;
 use ab_riscv_primitives::prelude::*;
-
 // aes32esi
 //
 // Semantics: rd = rs1 ^ rol32(SBOX[(rs2 >> (bs*8)) & 0xff] as u32, bs*8)

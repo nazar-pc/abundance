@@ -16,7 +16,6 @@ pub fn check_csr_privilege_level<Reg, C, CustomError>(
 ) -> Result<(), CsrError<CustomError>>
 where
     Reg: Register,
-    [(); Reg::N]:,
     C: Csrs<Reg, CustomError>,
 {
     let current = csrs.privilege_level();
