@@ -11,7 +11,7 @@ pub use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 pub use crate::instructions::rv32::m::Rv32MInstruction;
 pub use crate::instructions::rv32::m::zmmul::Rv32ZmmulInstruction;
 pub use crate::instructions::rv32::zce::zcb::Rv32ZcbInstruction;
-pub use crate::instructions::rv32::zce::zcmp::{Rv32ZcmpInstruction, ZcmpUrlist};
+pub use crate::instructions::rv32::zce::zcmp::{Rv32ZcmpInstruction, ZcmpRegister, ZcmpUrlist};
 pub use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 pub use crate::instructions::rv32::zk::zbkc::Rv32ZbkcInstruction;
 pub use crate::instructions::rv32::zk::zbkx::Rv32ZbkxInstruction;

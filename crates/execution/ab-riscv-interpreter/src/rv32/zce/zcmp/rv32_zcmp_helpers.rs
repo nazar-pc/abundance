@@ -13,7 +13,7 @@ pub fn do_push<Reg, Regs, Memory, CustomError>(
     stack_adj: u32,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
-    Reg: Register<Type = u32>,
+    Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
 {
@@ -39,7 +39,7 @@ pub fn do_pop<Reg, Regs, Memory, CustomError>(
     stack_adj: u32,
 ) -> Result<u32, ExecutionError<Reg::Type, CustomError>>
 where
-    Reg: Register<Type = u32>,
+    Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
 {

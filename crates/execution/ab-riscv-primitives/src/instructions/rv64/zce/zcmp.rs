@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv32::zce::zcmp::ZcmpUrlist;
+use crate::instructions::rv32::zce::zcmp::{ZcmpRegister, ZcmpUrlist};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -44,7 +44,7 @@ pub enum Rv64ZcmpInstruction<Reg> {
 #[instruction]
 impl<Reg> const Instruction for Rv64ZcmpInstruction<Reg>
 where
-    Reg: [const] Register<Type = u64>,
+    Reg: [const] ZcmpRegister<Type = u64>,
 {
     type Reg = Reg;
 

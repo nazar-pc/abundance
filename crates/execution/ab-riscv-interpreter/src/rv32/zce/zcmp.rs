@@ -17,7 +17,7 @@ impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for Rv32ZcmpInstruction<Reg>
 where
-    Reg: Register<Type = u32>,
+    Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,

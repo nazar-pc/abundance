@@ -86,15 +86,10 @@ impl const RegType for u64 {
 }
 
 /// GPR (General Purpose Register)
-///
-/// # Safety
-/// `Self::from_bits()` must return `Some()` for `0..=31` if `Self::RVE = false` and `0..=15` if
-/// `Self::RVE = true`.
-pub const unsafe trait Register:
+pub const trait Register:
     fmt::Display + fmt::Debug + [const] Eq + [const] Destruct + Copy + Send + Sync + Sized + 'static
 {
     /// Whether this is RVE variant with the number of general purpose registers reduced to 16
-    const RVE: bool;
     /// XLEN
     const XLEN: u8 = Self::Type::BITS;
     /// Zero register
@@ -221,9 +216,7 @@ impl<Type> const PartialEq for EReg<Type> {
 
 impl<Type> const Eq for EReg<Type> {}
 
-// SAFETY: `Self::from_bits()` returns `Some()` for `0..=15`
-unsafe impl const Register for EReg<u32> {
-    const RVE: bool = true;
+impl const Register for EReg<u32> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -255,9 +248,7 @@ unsafe impl const Register for EReg<u32> {
     }
 }
 
-// SAFETY: `Self::from_bits()` returns `Some()` for `0..=15`
-unsafe impl const Register for EReg<u64> {
-    const RVE: bool = true;
+impl const Register for EReg<u64> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -289,7 +280,6 @@ unsafe impl const Register for EReg<u64> {
     }
 }
 
-// TODO: Reorder `t*` and `s*` registers to be next to each other for performance reasons?
 /// RISC-V general purpose register for RV32I/RV64I.
 ///
 /// Use `Type = u32` for RV32I and `Type = u64` for RV64I.
@@ -487,9 +477,7 @@ impl<Type> const PartialEq for Reg<Type> {
 
 impl<Type> const Eq for Reg<Type> {}
 
-// SAFETY: `Self::from_bits()` returns `Some()` for `0..=31`
-unsafe impl const Register for Reg<u32> {
-    const RVE: bool = false;
+impl const Register for Reg<u32> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -537,9 +525,7 @@ unsafe impl const Register for Reg<u32> {
     }
 }
 
-// SAFETY: `Self::from_bits()` returns `Some()` for `0..=31`
-unsafe impl const Register for Reg<u64> {
-    const RVE: bool = false;
+impl const Register for Reg<u64> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
