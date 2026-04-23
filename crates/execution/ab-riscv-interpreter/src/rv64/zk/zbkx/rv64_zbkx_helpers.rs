@@ -10,14 +10,18 @@ pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
         }
         _ => {
             // 16 nibbles for RV64; all indices 0–15 are in-bounds, so direct indexing is safe
-            let lut = core::array::from_fn::<_, 16, _>(|i| ((rs1 >> (i * 4)) & 0xf) as u8);
+            let mut lut = [0; 16];
+            for (i, l) in lut.iter_mut().enumerate() {
+                *l = ((rs1 >> (i * 4)) & 0xf) as u8;
+            }
             // For each nibble of rs2, look up directly from lut
-            let nibbles = core::array::from_fn::<_, 16, _>(|i| {
+            let mut result = 0;
+            for i in 0..16 {
                 let idx = ((rs2 >> (i * 4)) & 0xf) as usize;
-                lut[idx]
-            });
-            // Pack nibbles back into u64
-            nibbles.iter().enumerate().fold(0, |acc, (i, &n)| acc | (u64::from(n) << (i * 4)))
+                // Pack nibbles back into u64
+                result |= u64::from(lut[idx]) << (i * 4);
+            }
+            result
         }
     }
 }
@@ -32,9 +36,11 @@ pub fn xperm8(rs1: u64, rs2: u64) -> u64 {
         }
         _ => {
             let lut = rs1.to_le_bytes();
-            let result = rs2.to_le_bytes().map(|idx| {
-                *lut.get(usize::from(idx)).unwrap_or(&0)
-            });
+            let mut result = [0; _];
+            // Explicit loop to ensure inlining
+            for (&idx, r) in rs2.to_le_bytes().iter().zip(&mut result) {
+                *r = *lut.get(usize::from(idx)).unwrap_or(&0);
+            }
             u64::from_le_bytes(result)
         }
     }

@@ -44,7 +44,10 @@ where
             Self::Brev8 { rd, rs1 } => {
                 // Reverse bits within each byte of rs1
                 let src = regs.read(rs1);
-                let bytes = src.to_le_bytes().map(u8::reverse_bits);
+                let mut bytes = src.to_le_bytes();
+                for byte in &mut bytes {
+                    *byte = byte.reverse_bits();
+                }
                 regs.write(rd, u32::from_le_bytes(bytes));
             }
             Self::Zip { rd, rs1 } => {

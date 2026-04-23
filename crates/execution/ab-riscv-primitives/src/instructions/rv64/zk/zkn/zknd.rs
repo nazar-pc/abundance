@@ -25,14 +25,14 @@ pub enum Rv64ZkndKsRnum {
     Final = 0xA,
 }
 
-impl From<Rv64ZkndKsRnum> for u8 {
+impl const From<Rv64ZkndKsRnum> for u8 {
     #[inline(always)]
     fn from(rnum: Rv64ZkndKsRnum) -> Self {
         rnum as u8
     }
 }
 
-impl From<Rv64ZkndKsRnum> for usize {
+impl const From<Rv64ZkndKsRnum> for usize {
     #[inline(always)]
     fn from(rnum: Rv64ZkndKsRnum) -> Self {
         usize::from(rnum as u8)
@@ -46,6 +46,10 @@ impl fmt::Display for Rv64ZkndKsRnum {
 }
 
 impl Rv64ZkndKsRnum {
+    /// Round constants `RC[0..=9]`, indexed by rnum (0-based).
+    /// `RC[rnum]` corresponds to FIPS 197 `Rcon[rnum+1]`.
+    const RCON: [u8; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+
     /// Create from raw bits
     #[inline(always)]
     pub const fn from_bits(bits: u8) -> Option<Self> {
@@ -55,6 +59,16 @@ impl Rv64ZkndKsRnum {
             Some(unsafe { mem::transmute::<u8, Self>(bits) })
         } else {
             None
+        }
+    }
+
+    /// Round constant (unless final)
+    #[inline(always)]
+    pub const fn constant(self) -> Option<u8> {
+        if matches!(self, Rv64ZkndKsRnum::Final) {
+            None
+        } else {
+            Some(Self::RCON[usize::from(self)])
         }
     }
 }

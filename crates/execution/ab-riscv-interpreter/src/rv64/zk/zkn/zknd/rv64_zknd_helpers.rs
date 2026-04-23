@@ -10,10 +10,6 @@ mod ks {
     use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::SBOX;
     use ab_riscv_primitives::prelude::*;
 
-    /// Round constants `RC[0..=9]`, indexed by rnum (0-based).
-    /// `RC[rnum]` corresponds to FIPS 197 `Rcon[rnum+1]`.
-    const RCON: [u8; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
-
     /// AES key schedule step 1.
     ///
     /// Pseudocode (RISC-V Crypto spec Sail source):
@@ -40,8 +36,8 @@ mod ks {
         let b3 = u32::from(SBOX[((rotated >> 24) & 0xff) as usize]);
         let subbed = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
 
-        let result = if rnum != Rv64ZkndKsRnum::Final {
-            subbed ^ u32::from(RCON[usize::from(rnum)])
+        let result = if let Some(round_constant) = rnum.constant() {
+            subbed ^ u32::from(round_constant)
         } else {
             subbed
         };
