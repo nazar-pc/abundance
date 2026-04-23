@@ -10,7 +10,11 @@ pub fn orc_b(src: u64) -> u64 {
             unsafe { core::arch::riscv64::orc_b(src as usize) as u64 }
         }
         _ => {{
-            let bytes = src.to_le_bytes().map(|b| if b != 0 { 0xFFu8 } else { 0u8 });
+            let mut bytes = src.to_le_bytes();
+            // Explicit loop to ensure inlining
+            for byte in &mut bytes {
+                *byte = if *byte != 0 { 0xFF } else { 0 };
+            }
             u64::from_le_bytes(bytes)
         }}
     }
