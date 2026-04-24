@@ -2,7 +2,7 @@ use crate::utils::{AsyncJoinOnDrop, Handler, HandlerFn};
 use ab_core_primitives::hashes::Blake3Hash;
 use async_trait::async_trait;
 use event_listener_primitives::HandlerId;
-use fs2::FileExt;
+use fs4::FileExt;
 use futures::FutureExt;
 use futures::future::{Fuse, pending};
 use libp2p::multiaddr::Protocol;

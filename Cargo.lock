@@ -360,7 +360,7 @@ name = "ab-direct-io-file"
 version = "0.1.0"
 dependencies = [
  "chacha20 0.10.0",
- "fs2",
+ "fs4",
  "libc",
  "parking_lot 0.12.5",
  "tempfile",
@@ -523,7 +523,7 @@ dependencies = [
  "blake3",
  "chacha20 0.10.0",
  "criterion",
- "fs2",
+ "fs4",
  "futures",
  "libc",
  "parity-scale-codec",
@@ -591,7 +591,7 @@ dependencies = [
  "clap",
  "derive_more",
  "event-listener-primitives",
- "fs2",
+ "fs4",
  "futures",
  "futures-timer",
  "hex",
@@ -2443,23 +2443,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "fs4"
-version = "0.13.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8640e34b88f7652208ce9e88b1a37a2ae95227d84abec377ccd3c5cfeb141ed4"
+checksum = "4f8fa43de52e33bb8fc545448eb07d6e6248971c5d6b4947937e9395f6ff339d"
 dependencies = [
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3518,9 +3508,9 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "libc"
-version = "0.2.185"
+version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52ff2c0fe9bc6cb6b14a0592c2ff4fa9ceb83eea9db979b0487cd054946a2b8f"
+checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
 name = "libloading"
@@ -4445,9 +4435,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.39.0"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63944c133d03f44e75866bbd160b95af0ec3f6a13d936d69d31c81078cbc5baf"
+checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
 dependencies = [
  "memchr",
 ]

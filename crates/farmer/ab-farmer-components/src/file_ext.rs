@@ -109,7 +109,7 @@ impl FileExt for File {
     }
 
     fn preallocate(&self, len: u64) -> Result<()> {
-        fs2::FileExt::allocate(self, len)
+        fs4::FileExt::allocate(self, len)
     }
 
     fn advise_random_access(&self) -> Result<()> {
