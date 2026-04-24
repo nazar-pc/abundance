@@ -17,7 +17,7 @@ include = [
 all-features = true
 
 [dependencies]
-fs2 = { workspace = true }
+fs4 = { workspace = true }
 parking_lot = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]

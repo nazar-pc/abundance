@@ -247,7 +247,7 @@ impl DirectIoFile {
     /// Later writes within `len` will not fail due to lack of disk space.
     #[inline(always)]
     pub fn allocate(&self, len: u64) -> io::Result<()> {
-        fs2::FileExt::allocate(&self.file, len)
+        fs4::FileExt::allocate(&self.file, len)
     }
 
     /// Truncates or extends the underlying file, updating the size of this file to become `len`.
