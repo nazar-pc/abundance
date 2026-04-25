@@ -1,11 +1,9 @@
 use crate::RegisterFile;
 use crate::rv64::test_utils::{execute, initialize_state};
 use ab_riscv_primitives::prelude::*;
+
 // aes64es / aes64esm - verify non-trivial, distinct, asymmetric results
 
-// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
-//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
-#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[test]
 fn test_aes64es_nonzero() {
     let mut state = initialize_state([Rv64ZkneInstruction::Aes64Es {
@@ -19,9 +17,6 @@ fn test_aes64es_nonzero() {
     assert_ne!(state.regs.read(Reg::A2), 0u64);
 }
 
-// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
-//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
-#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[test]
 fn test_aes64esm_nonzero() {
     let mut state = initialize_state([Rv64ZkneInstruction::Aes64Esm {
@@ -35,9 +30,6 @@ fn test_aes64esm_nonzero() {
     assert_ne!(state.regs.read(Reg::A2), 0u64);
 }
 
-// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
-//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
-#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[test]
 fn test_aes64es_differs_from_aes64esm() {
     // Both instructions use the same inputs but produce different results because aes64esm applies
@@ -63,9 +55,6 @@ fn test_aes64es_differs_from_aes64esm() {
     assert_ne!(state_es.regs.read(Reg::A2), state_esm.regs.read(Reg::A2));
 }
 
-// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
-//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
-#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[test]
 fn test_aes64es_arg_swap_differs() {
     // aes64es(rs1, rs2) != aes64es(rs2, rs1) in general - verifies the half-state split is
@@ -91,9 +80,6 @@ fn test_aes64es_arg_swap_differs() {
     assert_ne!(state1.regs.read(Reg::A2), state2.regs.read(Reg::A2));
 }
 
-// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
-//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
-#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[test]
 fn test_aes64es_zero_input_known() {
     let mut state = initialize_state([Rv64ZkneInstruction::Aes64Es {
@@ -109,9 +95,6 @@ fn test_aes64es_zero_input_known() {
     assert_eq!(state.regs.read(Reg::A2), 0x6363636363636363u64);
 }
 
-// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
-//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
-#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[test]
 fn test_aes64esm_zero_input_known() {
     let mut state = initialize_state([Rv64ZkneInstruction::Aes64Esm {

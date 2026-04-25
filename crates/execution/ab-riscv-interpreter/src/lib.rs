@@ -66,6 +66,13 @@
     widening_mul
 )]
 #![cfg_attr(
+    not(any(
+        all(target_arch = "riscv32", target_feature = "zbkx"),
+        all(target_arch = "riscv64", target_feature = "zbkx")
+    )),
+    feature(portable_simd)
+)]
+#![cfg_attr(
     any(
         all(
             target_arch = "riscv32",
