@@ -1,6 +1,9 @@
 //! RV64 Zkne extension
 
 pub mod rv64_zkne_helpers;
+// TODO: `llvm.aarch64.crypto.aes*` is not supported in Miri yet:
+//  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
+#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[cfg(test)]
 mod tests;
 

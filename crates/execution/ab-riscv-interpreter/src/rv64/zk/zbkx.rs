@@ -1,6 +1,9 @@
 //! RV64 Zbkx extension
 
 pub mod rv64_zbkx_helpers;
+// TODO: Portable SIMD attempts to use unsupported intrinsics under Miri:
+//  https://github.com/rust-lang/portable-simd/issues/524
+#[cfg(not(all(miri, target_arch = "aarch64")))]
 #[cfg(test)]
 mod tests;
 
