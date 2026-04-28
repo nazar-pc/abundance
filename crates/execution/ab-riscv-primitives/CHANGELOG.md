@@ -1,3 +1,18 @@
+# 0.0.4
+
+Features:
+
+* Implement `c.unimp` pseudo-instruction
+
+Improvements:
+
+* `Registers` removed from primitives as it is very implementation-specific
+* Make `Register` trait safe
+
+Fixes:
+
+* Fix Zcmp instruction decoding, it now works with real-world binaries
+
 # 0.0.3
 
 Features:

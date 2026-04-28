@@ -1,3 +1,22 @@
+# 0.0.4
+
+Features:
+
+* Implement `c.unimp` pseudo-instruction
+* Introduce `RegisterFile` trait that allows customizing registers data structure with `BasicRegisters` that contains
+  implementation that previously existed in primitives
+
+Improvements:
+
+* Replace `state` argument in `ExecutableInstruction::execute()` with explicit arguments, opening paths for further
+  optimizations in the future, `InterpreterState` moved to `basic::BasicInterpreterState`
+* Modify some code that prevented inlining in the interpreter with explicit loops
+* Better `xperm4`/`xperm8` helpers with SIMD
+
+Fixes:
+
+* Make `BasicInstructionFetcher` support 16-bit instruction at the very end of the address space
+
 # 0.0.3
 
 Features:
