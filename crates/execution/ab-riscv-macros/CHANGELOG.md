@@ -1,3 +1,17 @@
+# 0.0.4
+
+Features:
+
+* Support for compressed instructions (composition of size and alignment methods)
+
+Improvements:
+
+* Combine `where` predicates on instruction decoding implementation
+
+Fixes:
+
+* Add support for `const unsafe trait`
+
 # 0.0.3
 
 Features:
