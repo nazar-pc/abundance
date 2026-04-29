@@ -4,7 +4,8 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::CHUNK_LEN;
-use ab_contract_file::{ContractFile, ContractRegister};
+use ab_contract_file::ContractFile;
+use ab_contract_file::instruction::ContractRegisters;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
@@ -12,8 +13,9 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::basic::{BasicInterpreterState, BasicRegisters};
+use ab_riscv_interpreter::basic::BasicInterpreterState;
 use ab_riscv_interpreter::prelude::*;
+use ab_riscv_primitives::prelude::Register;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
@@ -121,7 +123,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let stack_pointer = (internal_args_addr - 16).next_multiple_of(16);
 
     let mut lazy_state = BasicInterpreterState {
-        regs: BasicRegisters::default(),
+        regs: ContractRegisters::default(),
         ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
@@ -133,7 +135,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     };
 
     let mut eager_state = BasicInterpreterState {
-        regs: BasicRegisters::default(),
+        regs: ContractRegisters::default(),
         ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address
@@ -190,11 +192,9 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                lazy_state
-                    .regs
-                    .write(ContractRegister::A0, internal_args_addr);
+                lazy_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                lazy_state.regs.write(ContractRegister::Sp, stack_pointer);
+                lazy_state.regs.write(Register::SP, stack_pointer);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -208,11 +208,9 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                eager_state
-                    .regs
-                    .write(ContractRegister::A0, internal_args_addr);
+                eager_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                eager_state.regs.write(ContractRegister::Sp, stack_pointer);
+                eager_state.regs.write(Register::SP, stack_pointer);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
@@ -268,11 +266,9 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                lazy_state
-                    .regs
-                    .write(ContractRegister::A0, internal_args_addr);
+                lazy_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                lazy_state.regs.write(ContractRegister::Sp, stack_pointer);
+                lazy_state.regs.write(Register::SP, stack_pointer);
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -286,11 +282,9 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                eager_state
-                    .regs
-                    .write(ContractRegister::A0, internal_args_addr);
+                eager_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
-                eager_state.regs.write(ContractRegister::Sp, stack_pointer);
+                eager_state.regs.write(Register::SP, stack_pointer);
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });

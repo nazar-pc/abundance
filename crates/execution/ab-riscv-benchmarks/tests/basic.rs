@@ -4,7 +4,8 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
-use ab_contract_file::{ContractFile, ContractRegister};
+use ab_contract_file::ContractFile;
+use ab_contract_file::instruction::ContractRegisters;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
@@ -12,8 +13,9 @@ use ab_riscv_benchmarks::host_utils::{
     LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
     execute,
 };
-use ab_riscv_interpreter::basic::{BasicInterpreterState, BasicRegisters};
+use ab_riscv_interpreter::basic::BasicInterpreterState;
 use ab_riscv_interpreter::prelude::*;
+use ab_riscv_primitives::prelude::Register;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -59,7 +61,7 @@ where
         );
     }
 
-    let mut regs = BasicRegisters::default();
+    let mut regs = ContractRegisters::default();
     // Internal arguments are the end of the memory region
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64 - size_of::<IA>() as u64;
     // Stack pointer must be 16-byte aligned, according to the psABI
@@ -78,9 +80,9 @@ where
             .copy_from_slice(internal_args_bytes);
     }
 
-    regs.write(ContractRegister::A0, internal_args_addr);
+    regs.write(Register::A0, internal_args_addr);
     // Stack is between internal arguments and contract memory
-    regs.write(ContractRegister::Sp, stack_pointer);
+    regs.write(Register::SP, stack_pointer);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
