@@ -206,7 +206,7 @@ fn test_csw_max_uimm() {
 
 #[test]
 fn test_q00_funct3_001_reserved() {
-    // Zcb slot — must not decode as Zca
+    // Zcb slot - must not decode as Zca
     let inst = (0b001 << 13) | 0b00;
     assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
@@ -220,7 +220,7 @@ fn test_q00_funct3_011_reserved_in_rv32() {
 
 #[test]
 fn test_q00_funct3_100_reserved() {
-    // Zcb slot — must not decode as Zca
+    // Zcb slot - must not decode as Zca
     let inst = (0b100 << 13) | 0b00;
     assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
@@ -286,7 +286,7 @@ fn test_caddi_most_negative() {
 
 #[test]
 fn test_caddi_hint_rd0() {
-    // rd=0, nzimm≠0 is a hint — must be accepted
+    // rd=0, nzimm≠0 is a hint - must be accepted
     let inst = make_ci_q01(0b000, 0, 5);
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
@@ -363,7 +363,7 @@ fn test_cli_most_negative() {
 
 #[test]
 fn test_cli_hint_rd0() {
-    // rd=0 is a hint — must be accepted
+    // rd=0 is a hint - must be accepted
     let inst = make_ci_q01(0b010, 0, 3);
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
@@ -432,6 +432,34 @@ fn test_clui_reserved_zero() {
 }
 
 #[test]
+fn test_clui_hint_rd0_positive() {
+    // rd=0, nzimm>0 is a HINT - must be accepted
+    let inst = (0b011 << 13) | (0 << 12) | (0 << 7) | (1 << 2) | 0b01;
+    let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv32ZcaInstruction::CLui {
+            rd: Reg::Zero,
+            nzimm: 0x1000
+        }
+    );
+}
+
+#[test]
+fn test_clui_hint_rd0_negative() {
+    // rd=0, nzimm<0 is a HINT - must be accepted
+    let inst = (0b011 << 13) | (1 << 12) | (0 << 7) | (0b11111 << 2) | 0b01;
+    let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv32ZcaInstruction::CLui {
+            rd: Reg::Zero,
+            nzimm: -4096
+        }
+    );
+}
+
+#[test]
 fn test_csrli_basic() {
     let inst = (0b100 << 13) | (0 << 12) | (0b00 << 10) | (0 << 7) | (4 << 2) | 0b01;
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
@@ -446,7 +474,7 @@ fn test_csrli_basic() {
 
 #[test]
 fn test_csrli_hint_shamt0() {
-    // shamt=0 is a hint — must be accepted
+    // shamt=0 is a hint - must be accepted
     let inst = (0b100 << 13) | (0 << 12) | (0b00 << 10) | (0 << 7) | (0 << 2) | 0b01;
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
@@ -480,7 +508,7 @@ fn test_csrai_basic() {
 
 #[test]
 fn test_csrai_hint_shamt0() {
-    // shamt=0 is a hint — must be accepted
+    // shamt=0 is a hint - must be accepted
     let inst = (0b100 << 13) | (0 << 12) | (0b01 << 10) | (0 << 7) | (0 << 2) | 0b01;
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
@@ -660,7 +688,7 @@ fn test_cslli_basic() {
 
 #[test]
 fn test_cslli_hint_shamt0() {
-    // shamt=0, rd≠0: hint — must be accepted
+    // shamt=0, rd≠0: hint - must be accepted
     let inst = (0b000 << 13) | (0 << 12) | (10 << 7) | (0 << 2) | 0b10;
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
@@ -674,7 +702,7 @@ fn test_cslli_hint_shamt0() {
 
 #[test]
 fn test_cslli_hint_rd0() {
-    // rd=0, shamt≠0: hint — must be accepted
+    // rd=0, shamt≠0: hint - must be accepted
     let inst = (0b000 << 13) | (0 << 12) | (0 << 7) | (3 << 2) | 0b10;
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
@@ -729,14 +757,14 @@ fn test_clwsp_reserved_rd0() {
 
 #[test]
 fn test_q10_funct3_001_reserved() {
-    // C.FLWSP (Zcf) — not in Zca
+    // C.FLWSP (Zcf) - not in Zca
     let inst = (0b001 << 13) | (0 << 12) | (10 << 7) | (1 << 4) | 0b10;
     assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_q10_funct3_011_reserved() {
-    // C.FLDSP (Zcd) — not in Zca; also C.LDSP slot in RV64
+    // C.FLDSP (Zcd) - not in Zca; also C.LDSP slot in RV64
     let inst = (0b011 << 13) | (0 << 12) | (10 << 7) | (1 << 4) | 0b10;
     assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
@@ -769,7 +797,7 @@ fn test_cmv() {
 
 #[test]
 fn test_cmv_hint_rd0() {
-    // rd=0, rs2≠0: hint — must be accepted
+    // rd=0, rs2≠0: hint - must be accepted
     let inst = make_cr_q10(0b100, 0, 0, 11);
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
@@ -818,7 +846,7 @@ fn test_cadd() {
 
 #[test]
 fn test_cadd_hint_rd0() {
-    // rd=0, rs2≠0: hint — must be accepted
+    // rd=0, rs2≠0: hint - must be accepted
     let inst = make_cr_q10(0b100, 1, 0, 11);
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
@@ -859,7 +887,7 @@ fn test_cswsp_max_uimm() {
 
 #[test]
 fn test_q10_funct3_111_reserved() {
-    // C.FSWSP (Zcf) — not in Zca
+    // C.FSWSP (Zcf) - not in Zca
     let inst = (0b111 << 13) | (0 << 12) | (10 << 7) | 0b10;
     assert!(Rv32ZcaInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
@@ -892,7 +920,7 @@ fn test_quadrant_11_invalid() {
 
 #[test]
 fn test_ereg_clw_valid() {
-    // C.LW with prime registers (x8-x15) — valid for RV64E
+    // C.LW with prime registers (x8-x15) - valid for RV64E
     let inst = make_cl_cs(0b010, 0, 0b000, 1, 0, 0);
     let decoded = Rv32ZcaInstruction::<EReg<u32>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
@@ -907,7 +935,7 @@ fn test_ereg_clw_valid() {
 
 #[test]
 fn test_ereg_cslli_invalid_high_reg() {
-    // C.SLLI rd=x16 — x16 does not exist in EReg, from_bits must fail
+    // C.SLLI rd=x16 - x16 does not exist in EReg, from_bits must fail
     let inst = (0b000 << 13) | (0 << 12) | (16 << 7) | (3 << 2) | 0b10;
     assert!(Rv32ZcaInstruction::<EReg<u32>>::try_decode(inst).is_none());
 }
