@@ -53,15 +53,12 @@ impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
 where
     Reg: Register,
 {
-    fn prepare_csr_read<C>(
-        _csrs: &C,
+    fn prepare_csr_read(
+        _ext_state: &ExtState,
         csr_index: u16,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>>
-    where
-        C: Csrs<Self::Reg, CustomError>,
-    {
+    ) -> Result<bool, CsrError<CustomError>> {
         if let Some(
             MCsr::Mstatus | MCsr::Mtvec | MCsr::Mscratch | MCsr::Mepc | MCsr::Mcause | MCsr::Mtval,
         ) = MCsr::from_index(csr_index)
@@ -73,15 +70,12 @@ where
         }
     }
 
-    fn prepare_csr_write<C>(
-        _csrs: &mut C,
+    fn prepare_csr_write(
+        _ext_state: &mut ExtState,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>>
-    where
-        C: Csrs<Self::Reg, CustomError>,
-    {
+    ) -> Result<bool, CsrError<CustomError>> {
         if let Some(
             MCsr::Mstatus | MCsr::Mtvec | MCsr::Mscratch | MCsr::Mepc | MCsr::Mcause | MCsr::Mtval,
         ) = MCsr::from_index(csr_index)

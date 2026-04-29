@@ -476,17 +476,14 @@ pub trait ExecutableInstruction<
     /// If no extension returns `Ok(true)`, the read operation is implicitly rejected as illegal
     /// access.
     #[inline(always)]
-    fn prepare_csr_read<C>(
-        csrs: &C,
+    fn prepare_csr_read(
+        ext_state: &ExtState,
         csr_index: u16,
         raw_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
-    ) -> Result<bool, CsrError<CustomError>>
-    where
-        C: Csrs<Self::Reg, CustomError>,
-    {
+    ) -> Result<bool, CsrError<CustomError>> {
         // These are for cleaner trait API without leading `_` on arguments
-        let _ = csrs;
+        let _ = ext_state;
         let _ = csr_index;
         let _ = raw_value;
         let _ = output_value;
@@ -508,17 +505,14 @@ pub trait ExecutableInstruction<
     /// If no extension returns `Ok(true)`, the write operation is implicitly rejected as illegal
     /// access.
     #[inline(always)]
-    fn prepare_csr_write<C>(
-        csrs: &mut C,
+    fn prepare_csr_write(
+        ext_state: &mut ExtState,
         csr_index: u16,
         write_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
-    ) -> Result<bool, CsrError<CustomError>>
-    where
-        C: Csrs<Self::Reg, CustomError>,
-    {
+    ) -> Result<bool, CsrError<CustomError>> {
         // These are for cleaner trait API without leading `_` on arguments
-        let _ = csrs;
+        let _ = ext_state;
         let _ = csr_index;
         let _ = write_value;
         let _ = output_value;
