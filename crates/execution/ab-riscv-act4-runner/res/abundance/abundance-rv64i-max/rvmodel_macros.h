@@ -105,6 +105,10 @@
 #define RVMODEL_MTIME_ADDRESS    0x200bff8
 #define RVMODEL_MTIMECMP_ADDRESS 0x2004000
 
+// No timers
+
+#define RVMODEL_TIMER_INT_SOON_DELAY
+
 // ---------------------------------------------------------------------------
 // mtvec alignment.
 // ---------------------------------------------------------------------------
@@ -121,9 +125,7 @@
 #define RVMODEL_CLR_SSW_INT(_R1, _R2)
 #define RVMODEL_SET_SEXT_INT(_R1, _R2)
 #define RVMODEL_CLR_SEXT_INT(_R1, _R2)
-#define RVMODEL_CLR_MTIMER_INT(_R1, _R2)
 #define RVMODEL_CLR_STIMER_INT(_R1, _R2)
 #define RVMODEL_SET_VSW_INT(_R1, _R2)
 #define RVMODEL_CLR_VSW_INT(_R1, _R2)
-#define RVMODEL_CLR_VSTIMER_INT(_R1, _R2)
-#define RVMODEL_CLR_VSEXT_INT(_R1, _R2)
+#define RVMODEL_INTERRUPT_LATENCY
