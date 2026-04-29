@@ -28,6 +28,7 @@ use clap::{Parser, ValueEnum};
 use colored::Colorize;
 use interpreter::Act4Memory;
 use object::{Object, ObjectSegment, ObjectSymbol};
+use std::ffi::CStr;
 use std::fs;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
@@ -39,7 +40,6 @@ type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
 const RAM_SIZE: usize = 4 * 1024 * 1024;
-// TODO: This should be moved to primitives once privileged instructions are implemented
 const MRET_INSTRUCTION: u32 = 0x30200073;
 
 /// RISC-V ISA
@@ -73,6 +73,7 @@ where
     tohost_addr: u64,
     begin_signature: u64,
     end_signature: u64,
+    begin_failure_scratch: u64,
     // PT_LOAD segments with file data: (vaddr, bytes)
     segments: Vec<(u64, Vec<u8>)>,
 }
@@ -90,17 +91,21 @@ where
         let mut tohost_addr = None;
         let mut begin_signature = None;
         let mut end_signature = None;
+        let mut begin_failure_scratch = None;
         for sym in elf.symbols() {
             match sym.name().unwrap_or("") {
                 "tohost" => tohost_addr = Some(sym.address()),
                 "begin_signature" => begin_signature = Some(sym.address()),
                 "end_signature" => end_signature = Some(sym.address()),
+                "begin_failure_scratch" => begin_failure_scratch = Some(sym.address()),
                 _ => {}
             }
         }
         let tohost_addr = tohost_addr.context("Symbol `tohost` not found")?;
         let begin_signature = begin_signature.context("Symbol `begin_signature` not found")?;
         let end_signature = end_signature.context("Symbol `end_signature` not found")?;
+        let begin_failure_scratch =
+            begin_failure_scratch.context("Symbol `begin_failure_scratch` not found")?;
 
         let mut segments = Vec::new();
         for segment in elf.segments() {
@@ -128,6 +133,7 @@ where
             tohost_addr,
             begin_signature,
             end_signature,
+            begin_failure_scratch,
             segments,
         })
     }
@@ -169,6 +175,7 @@ where
 enum TestError<RegType> {
     HtifFail {
         exit_code: u64,
+        detail: String,
     },
     SignatureMismatch {
         word: usize,
@@ -219,6 +226,95 @@ where
             Some(raw_value)
         })
     }
+}
+
+fn read_cstring<const RAM_BASE: u64, const RAM_SIZE: usize>(
+    memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
+    addr: u64,
+) -> Option<String> {
+    let slice = memory.read_slice_up_to(addr, 512);
+    CStr::from_bytes_until_nul(slice)
+        .ok()?
+        .to_str()
+        .ok()
+        .map(str::to_owned)
+}
+
+fn read_failure_info<const RAM_BASE: u64, const RAM_SIZE: usize, RT>(
+    memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
+    begin_failure_scratch: u64,
+) -> Option<String>
+where
+    RT: RegType + BasicInt,
+{
+    // Offsets from `begin_failure_scratch` for the failure info fields.
+    //
+    // Layout defined in `tests/env/failure_code.h` (`RVTEST_FAILURE_DATA`):
+    // * `begin_failure_scratch` is the same address as `failure_type` (offset 0)
+    // * x0..x31 are saved at byte offsets 0..248, using a fixed 256-byte region (`.fill 64, 4`)
+    //   regardless of XLEN
+    // * The fields below follow the register save area at offset 256 (0x100)
+
+    /// Always `sw` (4 bytes): 0=int, 1=fp, 2=fflags, 3=trap handler, 4=vector
+    const FAILURE_TYPE: u64 = 0x000;
+    /// Always `sw` (4 bytes): raw instruction bits
+    const FAILING_INSTRUCTION: u64 = 0x100;
+    /// Always `sw` (4 bytes): register number
+    const FAILING_REG: u64 = 0x104;
+    /// XLEN-wide (`SREG`): PC of the failing instruction
+    const FAILING_ADDR: u64 = 0x108;
+    /// XLEN-wide (`SREG`): actual (bad) register value
+    const FAILING_VALUE: u64 = 0x110;
+    /// XLEN-wide (`SREG`): expected register value
+    const EXPECTED_VALUE: u64 = 0x118;
+    /// XLEN-wide (`SREG`): pointer to the test name string
+    const FAILURE_STRING_PTR: u64 = 0x120;
+
+    let failure_type = memory
+        .read::<u32>(begin_failure_scratch + FAILURE_TYPE)
+        .ok()?;
+    let raw_inst = memory
+        .read::<u32>(begin_failure_scratch + FAILING_INSTRUCTION)
+        .ok()?;
+    let failing_reg = memory
+        .read::<u32>(begin_failure_scratch + FAILING_REG)
+        .ok()?;
+    let failing_addr = memory
+        .read::<RT>(begin_failure_scratch + FAILING_ADDR)
+        .ok()?
+        .as_u64();
+    let actual_value = memory
+        .read::<RT>(begin_failure_scratch + FAILING_VALUE)
+        .ok()?
+        .as_u64();
+    let expected_value = memory
+        .read::<RT>(begin_failure_scratch + EXPECTED_VALUE)
+        .ok()?
+        .as_u64();
+    let str_ptr = memory
+        .read::<RT>(begin_failure_scratch + FAILURE_STRING_PTR)
+        .ok()?
+        .as_u64();
+
+    let test_name = read_cstring(memory, str_ptr).unwrap_or_else(|| "<unknown>".into());
+
+    let xlen_hex_width = size_of::<RT>() * 2;
+
+    let reg_prefix = match failure_type {
+        0 | 3 => "x",
+        1 | 2 => "f",
+        4 => "v",
+        _ => "?",
+    };
+
+    Some(format!(
+        "\n  test:     {test_name}\
+         \n  pc:       0x{failing_addr:0xlen_hex_width$x}\
+         \n  inst:     0x{raw_inst:08x}\
+         \n  reg:      {reg_prefix}{failing_reg}\
+         \n  actual:   0x{actual_value:0xlen_hex_width$x}\
+         \n  expected: 0x{expected_value:0xlen_hex_width$x}"
+    ))
 }
 
 // TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
@@ -490,8 +586,11 @@ where
     //   `tohost == 1`: pass
     //   `tohost == (n << 1) | 1`: fail with exit code `n`
     if tohost != 1 {
+        let detail = read_failure_info::<_, _, Reg::Type>(memory, elf.begin_failure_scratch)
+            .unwrap_or_default();
         return Err(TestError::HtifFail {
             exit_code: tohost >> 1,
+            detail,
         });
     }
 
@@ -518,7 +617,7 @@ where
         .copied()
         .array_chunks::<{ size_of::<Reg::Type>() }>()
         .map(|bytes| {
-            // SAFETY: Correct size with all bit pattens being valid
+            // SAFETY: Correct size with all bit patterns being valid
             unsafe { bytes.as_ptr().cast::<Reg::Type>().read_unaligned() }
         })
         .zip(
@@ -527,7 +626,7 @@ where
                 .copied()
                 .array_chunks::<{ size_of::<Reg::Type>() }>()
                 .map(|bytes| {
-                    // SAFETY: Correct size with all bit pattens being valid
+                    // SAFETY: Correct size with all bit patterns being valid
                     unsafe { bytes.as_ptr().cast::<Reg::Type>().read_unaligned() }
                 }),
         )
@@ -574,8 +673,11 @@ fn process_error<RT>(
     RT: RegType,
 {
     match error {
-        TestError::HtifFail { exit_code } => {
-            println!("{} {stem} (HTIF exit code {exit_code})", "FAIL".red());
+        TestError::HtifFail { exit_code, detail } => {
+            println!(
+                "{} {stem} (HTIF exit code {exit_code}){detail}",
+                "FAIL".red()
+            );
             *failed += 1;
         }
         TestError::SignatureMismatch {

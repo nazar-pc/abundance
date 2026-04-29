@@ -582,16 +582,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # 4.0.0
 
-      - name: Prepare
+      - name: Clone ACT4 repo
         run: |
-          mkdir /tmp/empty
+          git clone --depth 1 --revision=a79564408b94ac7ee3541486e7d4becd32544cfa \
+            https://github.com/riscv/riscv-arch-test \
+            riscv-arch-test
 
       # TODO: Use official image once it is available: https://github.com/riscv/riscv-arch-test/pull/1161
       - name: Build act4-build image
         id: build
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # 7.0.0
         with:
-          context: /tmp/empty
+          context: riscv-arch-test
           file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
           cache-from: type=gha,scope=act4-build-${{ runner.arch }}
           # Only save on `main` branch
@@ -601,28 +603,26 @@ jobs:
       - name: ACT4 tests
         working-directory: crates/execution/ab-riscv-act4-runner
         run: |
-          echo "Clone ACT4 repo"
-          git clone --depth 1 --branch cert-docs-2026-04-01-17-37-00ca3c9 \
-            https://github.com/riscv/riscv-arch-test \
-            res/riscv-arch-test
           echo "Building ELFs"
-          docker run --privileged \
-            -v ./res/riscv-arch-test:/mnt \
-            -v ./res/abundance:/mnt/config/abundance:ro \
+          mkdir work
+          docker run --rm \
+            -u $(id -u):$(id -g) \
+            -v ./work:/act4/work \
+            -v ./res/abundance:/act4/config/abundance:ro \
             -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
             ${{ steps.build.outputs.imageid }} \
             make
           
           echo "Running RV32 tests"
-          cargo run -- rv32 res/riscv-arch-test/work/abundance-rv32i-max
+          cargo run -- rv32 work/abundance-rv32i-max/elfs
           
           # Native CPU will use AES intrinsics for Zknd/Zkne implementation
           echo "Running RV64 tests (native)"
-          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
+          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run -- rv64 work/abundance-rv64i-max/elfs
           
           # And just to make sure, force-disable AES intrinsics and test software implementation
           echo "Running RV64 tests (-aes)"
-          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run -- rv64 res/riscv-arch-test/work/abundance-rv64i-max
+          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run -- rv64 work/abundance-rv64i-max/elfs
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
@@ -638,14 +638,9 @@ jobs:
       - act4
 
     steps:
-      - name: Check job statuses
-        # Another hack is to actually check the status of the dependencies or else it'll fall through
-        run: |
-          echo "Checking statuses..."
-          [[ "${{ needs.cargo-clippy.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.cargo-fmt.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.cargo-test.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.cargo-test-slow.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.contracts.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.no-panic.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.act4.result }}" == "success" ]] || exit 1
+      - name: Exit failure
+        if: "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}"
+        run: exit 1
+      - name: Exit success
+        if: "${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}"
+        run: exit 0

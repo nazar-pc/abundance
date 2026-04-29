@@ -314,10 +314,7 @@ where
                         let nzimm = (raw << 6) >> 6;
                         Some(Self::CAddi16sp { nzimm })
                     } else {
-                        // C.LUI  (rd=x0 is reserved)
-                        if rd_bits == 0 {
-                            None?;
-                        }
+                        // C.LUI (rd=x0 is a hint, still decoded)
                         let rd = Reg::from_bits(rd_bits)?;
                         // nzimm[17]    = inst[12]
                         // nzimm[16:12] = inst[6:2]

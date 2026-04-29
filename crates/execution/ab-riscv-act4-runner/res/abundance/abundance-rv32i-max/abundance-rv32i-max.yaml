@@ -4,9 +4,7 @@ $schema: config_schema.json#
 kind: architecture configuration
 type: fully configured
 name: abundance-rv32i-max
-description: >
-  Abundance RV32I-max core. RV32I + M, B (Zba/Zbb/Zbc/Zbs), Zknh, Zicsr, Zve64x (ELEN=64, VLEN=1024). Unaligned scalar
-  and vector memory accesses are legal. No F/D. No A. No C. Machine mode only (Sm 1.13).
+description: Abundance RV32I-max core
 
 implemented_extensions:
   - { name: I,        version: "= 2.1" }
@@ -85,40 +83,117 @@ params:
   # 32-element list: one boolean per counter (indices 0..31).
   # All false = no counters inhibited.
   COUNTINHIBIT_EN:
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
-    - false
+    - false # CY
+    - false # empty
+    - false # IR
+    - false # HPM3
+    - false # HPM4
+    - false # HPM5
+    - false # HPM6
+    - false # HPM7
+    - false # HPM8
+    - false # HPM9
+    - false # HPM10
+    - false # HPM11
+    - false # HPM12
+    - false # HPM13
+    - false # HPM14
+    - false # HPM15
+    - false # HPM16
+    - false # HPM17
+    - false # HPM18
+    - false # HPM19
+    - false # HPM20
+    - false # HPM21
+    - false # HPM22
+    - false # HPM23
+    - false # HPM24
+    - false # HPM25
+    - false # HPM26
+    - false # HPM27
+    - false # HPM28
+    - false # HPM29
+    - false # HPM30
+    - false # HPM31
 
   MSTATUS_VS_LEGAL_VALUES: [ 0, 1, 3 ]
+
+  # --- Performance counters ---
+  # No HPM counters implemented beyond the mandatory mcycle/minstret.
+  # 29 elements covering hpmcounter3..hpmcounter31.
+  HPM_COUNTER_EN:
+    - false # CY
+    - false # empty
+    - false # IR
+    - false # HPM3
+    - false # HPM4
+    - false # HPM5
+    - false # HPM6
+    - false # HPM7
+    - false # HPM8
+    - false # HPM9
+    - false # HPM10
+    - false # HPM11
+    - false # HPM12
+    - false # HPM13
+    - false # HPM14
+    - false # HPM15
+    - false # HPM16
+    - false # HPM17
+    - false # HPM18
+    - false # HPM19
+    - false # HPM20
+    - false # HPM21
+    - false # HPM22
+    - false # HPM23
+    - false # HPM24
+    - false # HPM25
+    - false # HPM26
+    - false # HPM27
+    - false # HPM28
+    - false # HPM29
+    - false # HPM30
+    - false # HPM31
+
+  # --- mcounteren ---
+  # No S/U modes, so mcounteren has no effect, but schema requires this.
+  # 29 elements, same indexing as HPM_COUNTER_EN.
+  MCOUNTENABLE_EN:
+    - false # CY
+    - false # TM
+    - false # IR
+    - false # HPM3
+    - false # HPM4
+    - false # HPM5
+    - false # HPM6
+    - false # HPM7
+    - false # HPM8
+    - false # HPM9
+    - false # HPM10
+    - false # HPM11
+    - false # HPM12
+    - false # HPM13
+    - false # HPM14
+    - false # HPM15
+    - false # HPM16
+    - false # HPM17
+    - false # HPM18
+    - false # HPM19
+    - false # HPM20
+    - false # HPM21
+    - false # HPM22
+    - false # HPM23
+    - false # HPM24
+    - false # HPM25
+    - false # HPM26
+    - false # HPM27
+    - false # HPM28
+    - false # HPM29
+    - false # HPM30
+    - false # HPM31
+
+  # --- PMP ---
+  NUM_PMP_ENTRIES: 0
 
   # --- Misaligned scalar memory ---
   MISALIGNED_LDST: true
