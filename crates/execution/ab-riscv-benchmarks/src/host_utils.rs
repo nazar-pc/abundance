@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
-use ab_contract_file::ContractInstruction;
+use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
@@ -273,7 +273,9 @@ where
             return Ok(ControlFlow::Break(()));
         }
 
-        if !pc.is_multiple_of(u64::from(ContractInstruction::alignment())) {
+        if !pc.is_multiple_of(u64::from(
+            ContractInstruction::<ContractRegister>::alignment(),
+        )) {
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 

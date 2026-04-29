@@ -30,12 +30,15 @@
 #![feature(
     const_block_items,
     const_cmp,
+    const_convert,
+    const_index,
     const_trait_impl,
     maybe_uninit_fill,
     trusted_len,
     const_try,
     const_try_residual,
     try_blocks,
+    variant_count,
     widening_mul
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
@@ -44,9 +47,9 @@
 #![feature(generic_const_exprs)]
 #![no_std]
 
-pub mod contract_instruction_prototype;
+pub mod instruction;
 
-use crate::contract_instruction_prototype::ContractInstructionPrototype;
+use crate::instruction::ContractInstruction;
 use ab_contracts_common::metadata::decode::{
     MetadataDecoder, MetadataDecodingError, MetadataItem, MethodMetadataItem,
     MethodsMetadataDecoder,
@@ -61,10 +64,6 @@ use tracing::{debug, trace};
 
 /// Magic bytes at the beginning of the file
 pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
-/// A register type used by contracts
-pub type ContractRegister = Reg<u64>;
-/// An instruction type used by contracts
-pub type ContractInstruction = ContractInstructionPrototype<ContractRegister>;
 
 // Ensure expected size of the instruction enum
 const {
@@ -531,7 +530,7 @@ impl<'a> ContractFile<'a> {
                 },
             ) = (first, second)
             {
-                auipc_rd == jalr_rs1 && jalr_rd == ContractRegister::Zero
+                auipc_rd == jalr_rs1 && jalr_rd == Register::ZERO
             } else {
                 false
             };

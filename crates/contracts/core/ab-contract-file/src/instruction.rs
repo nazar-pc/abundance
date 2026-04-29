@@ -1,0 +1,361 @@
+use ab_riscv_interpreter::prelude::*;
+use ab_riscv_macros::{instruction, instruction_execution};
+use ab_riscv_primitives::prelude::*;
+use core::fmt;
+use core::mem::variant_count;
+use core::ops::ControlFlow;
+
+/// Registers used by contracts
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ContractRegisters {
+    // `-1` because zero register doesn't need to be stored explicitly
+    regs: [u64; variant_count::<ContractRegister>() - 1],
+}
+
+impl const RegisterFile<ContractRegister> for ContractRegisters {
+    #[inline(always)]
+    fn read(&self, reg: ContractRegister) -> u64 {
+        if reg == ContractRegister::Zero {
+            // Always zero
+            return 0;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked(usize::from(reg as u8)) }
+    }
+
+    #[inline(always)]
+    fn write(&mut self, reg: ContractRegister, value: u64) {
+        if reg == ContractRegister::Zero {
+            // Writes are ignored
+            return;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked_mut(usize::from(reg as u8)) } = value;
+    }
+}
+
+/// A register type used by contracts.
+///
+/// `gp` and `tp` registers are excluded because they are not present in contracts.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum ContractRegister {
+    /// Always zero: `x0`
+    Zero = 255,
+    /// Return address: `x1`
+    Ra = 0,
+    /// Stack pointer: `x2`
+    Sp = 1,
+    /// Temporary/alternate return address: `x5`
+    T0 = 2,
+    /// Temporary: `x6`
+    T1 = 3,
+    /// Temporary: `x7`
+    T2 = 4,
+    /// Saved register/frame pointer: `x8`
+    S0 = 5,
+    /// Saved register: `x9`
+    S1 = 6,
+    /// Function argument/return value: `x10`
+    A0 = 7,
+    /// Function argument/return value: `x11`
+    A1 = 8,
+    /// Function argument: `x12`
+    A2 = 9,
+    /// Function argument: `x13`
+    A3 = 10,
+    /// Function argument: `x14`
+    A4 = 11,
+    /// Function argument: `x15`
+    A5 = 12,
+    /// Function argument: `x16`
+    A6 = 13,
+    /// Function argument: `x17`
+    A7 = 14,
+    /// Saved register: `x18`
+    S2 = 15,
+    /// Saved register: `x19`
+    S3 = 16,
+    /// Saved register: `x20`
+    S4 = 17,
+    /// Saved register: `x21`
+    S5 = 18,
+    /// Saved register: `x22`
+    S6 = 19,
+    /// Saved register: `x23`
+    S7 = 20,
+    /// Saved register: `x24`
+    S8 = 21,
+    /// Saved register: `x25`
+    S9 = 22,
+    /// Saved register: `x26`
+    S10 = 23,
+    /// Saved register: `x27`
+    S11 = 24,
+    /// Temporary: `x28`
+    T3 = 25,
+    /// Temporary: `x29`
+    T4 = 26,
+    /// Temporary: `x30`
+    T5 = 27,
+    /// Temporary: `x31`
+    T6 = 28,
+}
+
+impl fmt::Display for ContractRegister {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Zero => write!(f, "zero"),
+            Self::Ra => write!(f, "ra"),
+            Self::Sp => write!(f, "sp"),
+            Self::T0 => write!(f, "t0"),
+            Self::T1 => write!(f, "t1"),
+            Self::T2 => write!(f, "t2"),
+            Self::S0 => write!(f, "s0"),
+            Self::S1 => write!(f, "s1"),
+            Self::A0 => write!(f, "a0"),
+            Self::A1 => write!(f, "a1"),
+            Self::A2 => write!(f, "a2"),
+            Self::A3 => write!(f, "a3"),
+            Self::A4 => write!(f, "a4"),
+            Self::A5 => write!(f, "a5"),
+            Self::A6 => write!(f, "a6"),
+            Self::A7 => write!(f, "a7"),
+            Self::S2 => write!(f, "s2"),
+            Self::S3 => write!(f, "s3"),
+            Self::S4 => write!(f, "s4"),
+            Self::S5 => write!(f, "s5"),
+            Self::S6 => write!(f, "s6"),
+            Self::S7 => write!(f, "s7"),
+            Self::S8 => write!(f, "s8"),
+            Self::S9 => write!(f, "s9"),
+            Self::S10 => write!(f, "s10"),
+            Self::S11 => write!(f, "s11"),
+            Self::T3 => write!(f, "t3"),
+            Self::T4 => write!(f, "t4"),
+            Self::T5 => write!(f, "t5"),
+            Self::T6 => write!(f, "t6"),
+        }
+    }
+}
+
+impl fmt::Debug for ContractRegister {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+impl const PartialEq for ContractRegister {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        // This is quite ugly, but the default `derive` isn't `const` there doesn't seem to be a
+        // much better way with `Phantom` variant
+        matches!(
+            (self, other),
+            (Self::Zero, Self::Zero)
+                | (Self::Ra, Self::Ra)
+                | (Self::Sp, Self::Sp)
+                | (Self::T0, Self::T0)
+                | (Self::T1, Self::T1)
+                | (Self::T2, Self::T2)
+                | (Self::S0, Self::S0)
+                | (Self::S1, Self::S1)
+                | (Self::A0, Self::A0)
+                | (Self::A1, Self::A1)
+                | (Self::A2, Self::A2)
+                | (Self::A3, Self::A3)
+                | (Self::A4, Self::A4)
+                | (Self::A5, Self::A5)
+                | (Self::A6, Self::A6)
+                | (Self::A7, Self::A7)
+                | (Self::S2, Self::S2)
+                | (Self::S3, Self::S3)
+                | (Self::S4, Self::S4)
+                | (Self::S5, Self::S5)
+                | (Self::S6, Self::S6)
+                | (Self::S7, Self::S7)
+                | (Self::S8, Self::S8)
+                | (Self::S9, Self::S9)
+                | (Self::S10, Self::S10)
+                | (Self::S11, Self::S11)
+                | (Self::T3, Self::T3)
+                | (Self::T4, Self::T4)
+                | (Self::T5, Self::T5)
+                | (Self::T6, Self::T6)
+        )
+    }
+}
+
+impl const Eq for ContractRegister {}
+
+impl const Register for ContractRegister {
+    const ZERO: Self = Self::Zero;
+    const SP: Self = Self::Sp;
+    const RA: Self = Self::Ra;
+    const A0: Self = Self::A0;
+    const A1: Self = Self::A1;
+    type Type = u64;
+
+    #[inline(always)]
+    fn from_bits(bits: u8) -> Option<Self> {
+        match bits {
+            0 => Some(Self::Zero),
+            1 => Some(Self::Ra),
+            2 => Some(Self::Sp),
+            5 => Some(Self::T0),
+            6 => Some(Self::T1),
+            7 => Some(Self::T2),
+            8 => Some(Self::S0),
+            9 => Some(Self::S1),
+            10 => Some(Self::A0),
+            11 => Some(Self::A1),
+            12 => Some(Self::A2),
+            13 => Some(Self::A3),
+            14 => Some(Self::A4),
+            15 => Some(Self::A5),
+            16 => Some(Self::A6),
+            17 => Some(Self::A7),
+            18 => Some(Self::S2),
+            19 => Some(Self::S3),
+            20 => Some(Self::S4),
+            21 => Some(Self::S5),
+            22 => Some(Self::S6),
+            23 => Some(Self::S7),
+            24 => Some(Self::S8),
+            25 => Some(Self::S9),
+            26 => Some(Self::S10),
+            27 => Some(Self::S11),
+            28 => Some(Self::T3),
+            29 => Some(Self::T4),
+            30 => Some(Self::T5),
+            31 => Some(Self::T6),
+            _ => None,
+        }
+    }
+}
+
+/// SAFETY: `Self::from_bits()` returns `Some()` for `1`, `8`, `9` and `18..=27`
+unsafe impl const ZcmpRegister for ContractRegister {
+    const RVE: bool = false;
+}
+
+/// An instruction type used by contracts
+#[instruction(
+    ignore = [Fence, FenceTso, Ecall],
+    reorder = [
+        Ld,
+        Sd,
+        Add,
+        Addi,
+        Xor,
+        Rori,
+        Srli,
+        Or,
+        And,
+        Slli,
+        Lbu,
+        Auipc,
+        Jalr,
+        Sb,
+        Roriw,
+        Sub,
+        Sltu,
+        Mulhu,
+        Mul,
+        Sh1add,
+    ],
+    inherit = [
+        Rv64ZcaInstruction,
+        Rv64ZcbInstruction,
+        Rv64ZcmpInstruction,
+        Rv64Instruction,
+        Rv64MInstruction,
+        Rv64BInstruction,
+        Rv64ZbcInstruction,
+        Rv64ZknInstruction,
+        ZicondInstruction,
+        Rv64ZknhInstruction,
+    ],
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContractInstruction<Reg = ContractRegister> {}
+
+#[instruction]
+impl<Reg> const Instruction for ContractInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+{
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn alignment() -> u8 {
+        align_of::<u32>() as u8
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for ContractInstruction<Reg>
+where
+    Reg: Register,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+#[instruction_execution]
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for ContractInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        regs: &mut Regs,
+        _ext_state: &mut ExtState,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+        system_instruction_handler: &mut InstructionHandler,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        Ok(ControlFlow::Continue(()))
+    }
+}
+
+impl<Reg> ContractInstruction<Reg> {
+    /// Check if the instruction is a jump instruction of any kind (affects program counter)
+    #[inline]
+    pub fn is_jump(&self) -> bool {
+        matches!(
+            self,
+            Self::CJ { .. }
+                | Self::CBeqz { .. }
+                | Self::CBnez { .. }
+                | Self::CJr { .. }
+                | Self::CJalr { .. }
+                | Self::CmPopretz { .. }
+                | Self::CmPopret { .. }
+                | Self::Jalr { .. }
+                | Self::Beq { .. }
+                | Self::Bne { .. }
+                | Self::Blt { .. }
+                | Self::Bge { .. }
+                | Self::Bltu { .. }
+                | Self::Bgeu { .. }
+                | Self::Jal { .. }
+        )
+    }
+}
