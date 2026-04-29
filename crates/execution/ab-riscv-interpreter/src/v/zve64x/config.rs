@@ -5,7 +5,7 @@ mod tests;
 pub mod zve64x_config_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile};
+use crate::{CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -28,15 +28,12 @@ where
     ///
     /// All vector CSRs are accessible from unprivileged code (U-mode).
     /// Reads are pass-through: the raw value stored in the CSR is the output value.
-    fn prepare_csr_read<C>(
-        _csrs: &C,
+    fn prepare_csr_read(
+        _ext_state: &ExtState,
         csr_index: u16,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>>
-    where
-        C: Csrs<Self::Reg, CustomError>,
-    {
+    ) -> Result<bool, CsrError<CustomError>> {
         if VCsr::from_index(csr_index).is_some() {
             *output_value = raw_value;
             Ok(true)
@@ -54,15 +51,12 @@ where
     /// - `vxrm`: only bits `[1:0]` are writable; mirrors into `vcsr[2:1]`
     /// - `vcsr`: only bits `[2:0]` are writable; mirrors into `vxsat` and `vxrm`
     /// - `vstart`: full XLEN write allowed (WARL, implementation may restrict range)
-    fn prepare_csr_write<C>(
-        csrs: &mut C,
+    fn prepare_csr_write(
+        ext_state: &mut ExtState,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>>
-    where
-        C: Csrs<Self::Reg, CustomError>,
-    {
+    ) -> Result<bool, CsrError<CustomError>> {
         if let Some(vcsr) = VCsr::from_index(csr_index) {
             // WARL: mask to valid bits, zero upper bits
             *output_value = match vcsr {
@@ -74,27 +68,27 @@ where
                 VCsr::Vxsat => {
                     let masked = write_value & Reg::Type::from(1u8);
                     // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
-                    let old_vcsr = csrs.read_csr(VCsr::Vcsr as u16)?;
+                    let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-                    csrs.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
+                    ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
                     masked
                 }
                 VCsr::Vxrm => {
                     let masked = write_value & Reg::Type::from(0b11u8);
                     // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
-                    let old_vcsr = csrs.read_csr(VCsr::Vcsr as u16)?;
+                    let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1);
-                    csrs.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
+                    ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
                     masked
                 }
                 VCsr::Vcsr => {
                     // Mirror `vcsr[0]` -> `vxsat`
                     let new_vxsat = write_value & Reg::Type::from(1u8);
-                    csrs.write_csr(VCsr::Vxsat as u16, new_vxsat)?;
+                    ext_state.write_csr(VCsr::Vxsat as u16, new_vxsat)?;
 
                     // Mirror `vcsr[2:1]` -> `vxrm`
                     let new_vxrm = (write_value >> 1) & Reg::Type::from(0b11u8);
-                    csrs.write_csr(VCsr::Vxrm as u16, new_vxrm)?;
+                    ext_state.write_csr(VCsr::Vxrm as u16, new_vxrm)?;
 
                     write_value & Reg::Type::from(0b111u8)
                 }
