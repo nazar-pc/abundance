@@ -478,7 +478,7 @@ impl EagerTestInstructionFetcher {
             decoded_instructions.push(
                 Instruction::try_decode(instruction_word).unwrap_or(ContractInstruction::Unimp),
             );
-        };
+        }
 
         Self {
             instructions: decoded_instructions,
