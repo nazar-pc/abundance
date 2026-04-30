@@ -10,10 +10,9 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
-    execute,
+    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::basic::BasicInterpreterState;
+use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::Register;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -131,7 +130,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         instruction_fetcher: unsafe {
             LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
         },
-        system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+        system_instruction_handler: IgnoreEcallSystemInstructionHandler,
     };
 
     let mut eager_state = BasicInterpreterState {
@@ -147,7 +146,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 benchmarks_blake3_hash_chunk_addr,
             )
         },
-        system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+        system_instruction_handler: IgnoreEcallSystemInstructionHandler,
     };
 
     {
