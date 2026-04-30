@@ -44,7 +44,7 @@ ab-merkle-tree = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true, features = ["alloc", "parallel"] }
 anyhow = { workspace = true }
 async-lock = { workspace = true, features = ["std"] }
-backoff = { workspace = true, features = ["futures", "tokio"] }
+backon = { workspace = true, features = ["tokio-sleep"] }
 blake3 = { workspace = true, features = ["rayon"] }
 schnellru = { workspace = true }
 fs4 = { workspace = true }

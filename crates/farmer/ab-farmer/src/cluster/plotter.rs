@@ -18,8 +18,7 @@ use ab_farmer_components::sector::sector_size;
 use anyhow::anyhow;
 use async_nats::RequestErrorKind;
 use async_trait::async_trait;
-use backoff::ExponentialBackoff;
-use backoff::backoff::Backoff;
+use backon::{BackoffBuilder, ExponentialBackoff, ExponentialBuilder};
 use bytes::Bytes;
 use derive_more::Display;
 use event_listener_primitives::{Bag, HandlerId};
@@ -129,7 +128,7 @@ struct Handlers {
 #[derive(Debug)]
 pub struct ClusterPlotter {
     sector_encoding_semaphore: Arc<Semaphore>,
-    retry_backoff_policy: ExponentialBackoff,
+    retry_backoff_policy: ExponentialBuilder,
     nats_client: NatsClient,
     handlers: Arc<Handlers>,
     tasks_sender: mpsc::Sender<AsyncJoinOnDrop<()>>,
@@ -248,7 +247,7 @@ impl ClusterPlotter {
     pub fn new(
         nats_client: NatsClient,
         sector_encoding_concurrency: NonZeroUsize,
-        retry_backoff_policy: ExponentialBackoff,
+        retry_backoff_policy: ExponentialBuilder,
     ) -> Self {
         let sector_encoding_semaphore = Arc::new(Semaphore::new(sector_encoding_concurrency.get()));
 
@@ -321,8 +320,7 @@ impl ClusterPlotter {
             handlers: Arc::clone(&self.handlers),
         };
 
-        let mut retry_backoff_policy = self.retry_backoff_policy.clone();
-        retry_backoff_policy.reset();
+        let mut retry_backoff_policy = self.retry_backoff_policy.build();
 
         // Try to get plotter instance here first as a backpressure measure
         let free_plotter_instance_fut = get_free_plotter_instance(
@@ -486,7 +484,7 @@ where
                 return Some(free_instance);
             }
             Ok(None) => {
-                if let Some(delay) = retry_backoff_policy.next_backoff() {
+                if let Some(delay) = retry_backoff_policy.next() {
                     debug!("Instance was occupied, retrying #1");
 
                     tokio::time::sleep(delay).await;
@@ -505,7 +503,7 @@ where
             }
             Err(error) => match error.kind() {
                 RequestErrorKind::TimedOut => {
-                    if let Some(delay) = retry_backoff_policy.next_backoff() {
+                    if let Some(delay) = retry_backoff_policy.next() {
                         debug!("Plotter request timed out, retrying");
 
                         tokio::time::sleep(delay).await;
@@ -523,7 +521,7 @@ where
                     }
                 }
                 RequestErrorKind::NoResponders => {
-                    if let Some(delay) = retry_backoff_policy.next_backoff() {
+                    if let Some(delay) = retry_backoff_policy.next() {
                         debug!("No plotters, retrying");
 
                         tokio::time::sleep(delay).await;
@@ -587,7 +585,7 @@ where
         ClusterSectorPlottingProgress::Occupied => {
             debug!(%free_instance, "Instance was occupied, retrying #2");
 
-            if let Some(delay) = retry_backoff_policy.next_backoff() {
+            if let Some(delay) = retry_backoff_policy.next() {
                 debug!("Instance was occupied, retrying #2");
 
                 tokio::time::sleep(delay).await;
