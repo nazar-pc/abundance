@@ -5,11 +5,10 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::basic::BasicInterpreterState;
+use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -479,7 +478,7 @@ impl EagerTestInstructionFetcher {
             decoded_instructions.push(
                 Instruction::try_decode(instruction_word).unwrap_or(ContractInstruction::Unimp),
             );
-        };
+        }
 
         Self {
             instructions: decoded_instructions,
@@ -490,53 +489,9 @@ impl EagerTestInstructionFetcher {
     }
 }
 
-/// System instruction handler that does nothing
-#[derive(Debug, Clone, Copy)]
-pub struct NoopRv64SystemInstructionHandler<Instruction> {
-    _phantom: PhantomData<Instruction>,
-}
-
-impl<Reg> Default for NoopRv64SystemInstructionHandler<Reg> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<Reg, Regs, Memory, PC, CustomError>
-    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>
-    for NoopRv64SystemInstructionHandler<Rv64Instruction<Reg>>
-where
-    Reg: Register<Type = u64>,
-    Regs: RegisterFile<Reg>,
-{
-    #[inline(always)]
-    fn handle_ecall(
-        &mut self,
-        _regs: &mut Regs,
-        _memory: &mut Memory,
-        _program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64, CustomError>> {
-        // SAFETY: Contracts are statically known to not contain `ecall` instructions
-        // unsafe { unreachable_unchecked() }
-        // For some known reason this is faster than `unreachable_unchecked()`
-        Ok(ControlFlow::Continue(()))
-    }
-}
-
 /// Execute [`ContractInstruction`]s
 pub fn execute<Regs, Memory, IF>(
-    state: &mut BasicInterpreterState<
-        Regs,
-        (),
-        Memory,
-        IF,
-        NoopRv64SystemInstructionHandler<
-            Rv64Instruction<<ContractInstruction as Instruction>::Reg>,
-        >,
-    >,
+    state: &mut BasicInterpreterState<Regs, (), Memory, IF, IgnoreEcallSystemInstructionHandler>,
 ) -> Result<(), ExecutionError<u64>>
 where
     Regs: RegisterFile<<ContractInstruction as Instruction>::Reg>,

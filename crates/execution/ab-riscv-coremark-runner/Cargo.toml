@@ -1,0 +1,33 @@
+[package]
+name = "ab-riscv-coremark-runner"
+description = "Runner for Coremark benchmark"
+license = "0BSD AND Apache-2.0"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/build.rs",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-riscv-interpreter = { workspace = true }
+ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
+ab-riscv-primitives = { workspace = true }
+anyhow = { workspace = true }
+object = { workspace = true, features = ["elf", "read_core"] }
+
+[build-dependencies]
+ab-riscv-macros = { workspace = true, features = ["build"] }
+
+[features]
+# This feature makes ELF building required, but not enabled by default to avoid requiring `riscv64-unknown-elf-gcc` for
+# everyone who tries to compile other parts of this repo
+build-elf-required = []
+
+[lints]
+workspace = true

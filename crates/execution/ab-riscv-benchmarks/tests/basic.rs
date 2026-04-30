@@ -10,10 +10,9 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    LazyInstructionFetcher, NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
-    execute,
+    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::basic::BasicInterpreterState;
+use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::Register;
 use ed25519_dalek::{Signer, SigningKey};
@@ -95,7 +94,7 @@ where
                 ext_state: (),
                 memory,
                 instruction_fetcher,
-                system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+                system_instruction_handler: IgnoreEcallSystemInstructionHandler,
             };
             execute(&mut state).unwrap();
 
@@ -118,7 +117,7 @@ where
                 ext_state: (),
                 memory,
                 instruction_fetcher,
-                system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+                system_instruction_handler: IgnoreEcallSystemInstructionHandler,
             };
             execute(&mut state).unwrap();
 

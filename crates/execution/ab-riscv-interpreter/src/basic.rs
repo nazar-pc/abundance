@@ -5,7 +5,7 @@ mod tests;
 
 use crate::{
     Address, CustomErrorPlaceholder, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    ProgramCounter, ProgramCounterError, RegisterFile, VirtualMemory,
+    ProgramCounter, ProgramCounterError, RegisterFile, SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 use core::marker::PhantomData;
@@ -217,5 +217,27 @@ where
             pc,
             _phantom: PhantomData,
         }
+    }
+}
+
+/// System instruction handler that ignores all system calls and does nothing for other system
+/// instructions
+#[derive(Debug, Default, Clone, Copy)]
+pub struct IgnoreEcallSystemInstructionHandler;
+
+impl<Reg, Regs, Memory, PC, CustomError>
+    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>
+    for IgnoreEcallSystemInstructionHandler
+where
+    Reg: Register,
+    Regs: RegisterFile<Reg>,
+{
+    fn handle_ecall(
+        &mut self,
+        _regs: &mut Regs,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        Ok(ControlFlow::Continue(()))
     }
 }

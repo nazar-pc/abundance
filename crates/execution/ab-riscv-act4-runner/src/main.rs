@@ -231,13 +231,9 @@ where
 fn read_cstring<const RAM_BASE: u64, const RAM_SIZE: usize>(
     memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
     addr: u64,
-) -> Option<String> {
+) -> Option<&str> {
     let slice = memory.read_slice_up_to(addr, 512);
-    CStr::from_bytes_until_nul(slice)
-        .ok()?
-        .to_str()
-        .ok()
-        .map(str::to_owned)
+    CStr::from_bytes_until_nul(slice).ok()?.to_str().ok()
 }
 
 fn read_failure_info<const RAM_BASE: u64, const RAM_SIZE: usize, RT>(
@@ -296,7 +292,7 @@ where
         .ok()?
         .as_u64();
 
-    let test_name = read_cstring(memory, str_ptr).unwrap_or_else(|| "<unknown>".into());
+    let test_name = read_cstring(memory, str_ptr).unwrap_or("<unknown>");
 
     let xlen_hex_width = size_of::<RT>() * 2;
 
