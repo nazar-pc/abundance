@@ -18,7 +18,7 @@ ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 async-lock = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
-backoff = { workspace = true, features = ["futures", "tokio"] }
+backon = { workspace = true, features = ["tokio-sleep"] }
 blake3 = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }

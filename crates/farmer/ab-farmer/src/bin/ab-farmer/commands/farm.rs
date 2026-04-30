@@ -28,7 +28,7 @@ use ab_networking::utils::piece_provider::PieceProvider;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
-use backoff::ExponentialBackoff;
+use backon::ExponentialBuilder;
 use bytesize::ByteSize;
 use clap::{Parser, ValueHint};
 use futures::channel::oneshot;
@@ -416,14 +416,12 @@ where
         Arc::clone(&plotted_pieces),
         DsnCacheRetryPolicy {
             max_retries: PIECE_GETTER_MAX_RETRIES,
-            backoff: ExponentialBackoff {
-                initial_interval: GET_PIECE_INITIAL_INTERVAL,
-                max_interval: GET_PIECE_MAX_INTERVAL,
+            backoff: ExponentialBuilder::default()
+                .with_factor(1.75)
+                .with_min_delay(GET_PIECE_INITIAL_INTERVAL)
+                .with_max_delay(GET_PIECE_MAX_INTERVAL)
                 // Try until we get a valid piece
-                max_elapsed_time: None,
-                multiplier: 1.75,
-                ..ExponentialBackoff::default()
-            },
+                .without_max_times(),
         },
     );
 

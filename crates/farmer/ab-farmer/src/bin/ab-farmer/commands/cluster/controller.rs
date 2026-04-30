@@ -18,7 +18,7 @@ use ab_farmer::utils::{AsyncJoinOnDrop, run_future_in_dedicated_thread};
 use ab_networking::utils::piece_provider::PieceProvider;
 use anyhow::anyhow;
 use async_lock::{RwLock as AsyncRwLock, Semaphore};
-use backoff::ExponentialBackoff;
+use backon::ExponentialBuilder;
 use clap::{Parser, ValueHint};
 use futures::channel::oneshot;
 use futures::stream::FuturesUnordered;
@@ -192,14 +192,12 @@ pub(super) async fn controller(
                 Arc::clone(&plotted_pieces),
                 DsnCacheRetryPolicy {
                     max_retries: PIECE_GETTER_MAX_RETRIES,
-                    backoff: ExponentialBackoff {
-                        initial_interval: GET_PIECE_INITIAL_INTERVAL,
-                        max_interval: GET_PIECE_MAX_INTERVAL,
+                    backoff: ExponentialBuilder::default()
+                        .with_factor(1.75)
+                        .with_min_delay(GET_PIECE_INITIAL_INTERVAL)
+                        .with_max_delay(GET_PIECE_MAX_INTERVAL)
                         // Try until we get a valid piece
-                        max_elapsed_time: None,
-                        multiplier: 1.75,
-                        ..ExponentialBackoff::default()
-                    },
+                        .without_max_times(),
                 },
             );
 
@@ -222,14 +220,12 @@ pub(super) async fn controller(
         Arc::clone(&plotted_pieces),
         DsnCacheRetryPolicy {
             max_retries: PIECE_GETTER_MAX_RETRIES,
-            backoff: ExponentialBackoff {
-                initial_interval: GET_PIECE_INITIAL_INTERVAL,
-                max_interval: GET_PIECE_MAX_INTERVAL,
+            backoff: ExponentialBuilder::default()
+                .with_factor(1.75)
+                .with_min_delay(GET_PIECE_INITIAL_INTERVAL)
+                .with_max_delay(GET_PIECE_MAX_INTERVAL)
                 // Try until we get a valid piece
-                max_elapsed_time: None,
-                multiplier: 1.75,
-                ..ExponentialBackoff::default()
-            },
+                .without_max_times(),
         },
     );
 
