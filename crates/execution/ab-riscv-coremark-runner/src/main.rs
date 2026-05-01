@@ -28,6 +28,7 @@ use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
 use core::ops::ControlFlow;
 use std::ffi::CStr;
+use std::hint::cold_path;
 
 /// Coremark ELF binary compiled by build.rs for the RISC-V guest
 const COREMARK_ELF: &[u8] = include_bytes!(env!("COREMARK_ELF"));
@@ -61,10 +62,20 @@ where
     IF: InstructionFetcher<CoremarkInstruction, Memory> + ProgramCounter<u64, Memory>,
 {
     loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
-            FetchInstructionResult::Instruction(i) => i,
-            FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => continue,
-            FetchInstructionResult::ControlFlow(ControlFlow::Break(())) => break,
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
+            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
+            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+                cold_path();
+                continue;
+            }
+            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+                cold_path();
+                break;
+            }
+            Err(error) => {
+                cold_path();
+                return Err(error);
+            }
         };
 
         match instruction.execute(
@@ -73,9 +84,18 @@ where
             &mut state.memory,
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
-        )? {
-            ControlFlow::Continue(()) => continue,
-            ControlFlow::Break(()) => break,
+        ) {
+            Ok(ControlFlow::Continue(())) => {
+                continue;
+            }
+            Ok(ControlFlow::Break(())) => {
+                cold_path();
+                break;
+            }
+            Err(error) => {
+                cold_path();
+                return Err(error);
+            }
         }
     }
 
