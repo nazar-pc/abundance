@@ -8,6 +8,7 @@ use crate::{
     ProgramCounter, ProgramCounterError, RegisterFile, SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
+use core::hint::cold_path;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
@@ -160,10 +161,12 @@ where
         pc: Address<I>,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
         if pc == self.return_trap_address {
+            cold_path();
             return Ok(ControlFlow::Break(()));
         }
 
         if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
+            cold_path();
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 
@@ -184,7 +187,8 @@ where
         &mut self,
         memory: &Memory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
-        let instruction = memory.read(self.pc.as_u64()).or_else(|error| {
+        let instruction = match memory.read(self.pc.as_u64()).or_else(|error| {
+            cold_path();
             // Attempt to read a 16-bit compressed instruction
             if let Ok(instruction) = memory.read::<u16>(self.pc.as_u64())
                 && (instruction & 0b11) != 0b11
@@ -192,10 +196,18 @@ where
                 return Ok(u32::from(instruction));
             }
             Err(error)
-        })?;
+        }) {
+            Ok(instruction) => instruction,
+            Err(error) => {
+                cold_path();
+                return Err(ExecutionError::MemoryAccess(error));
+            }
+        };
 
-        let instruction = I::try_decode(instruction)
-            .ok_or(ExecutionError::IllegalInstruction { address: self.pc })?;
+        let Some(instruction) = I::try_decode(instruction) else {
+            cold_path();
+            return Err(ExecutionError::IllegalInstruction { address: self.pc });
+        };
         self.pc += instruction.size().into();
 
         Ok(FetchInstructionResult::Instruction(instruction))

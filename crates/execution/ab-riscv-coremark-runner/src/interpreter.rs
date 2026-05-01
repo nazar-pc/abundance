@@ -2,6 +2,7 @@ use crate::instruction::CoremarkInstruction;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
+use std::hint::cold_path;
 
 /// Flat guest memory
 #[derive(Debug, Copy, Clone)]
@@ -18,6 +19,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for GuestMemory<BASE
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
         }
 
@@ -51,6 +53,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for GuestMemory<BASE
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
         }
 
@@ -64,6 +67,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for GuestMemory<BASE
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
+            cold_path();
             return &[];
         }
 
@@ -78,6 +82,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for GuestMemory<BASE
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
         }
 
@@ -97,15 +102,21 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for GuestMemory<BASE
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
         }
 
         let len = data.len();
-        self.data
+        let Some(target_data) = self
+            .data
             .get_mut(offset as usize..)
             .and_then(|data| data.get_mut(..len))
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?
-            .copy_from_slice(data);
+        else {
+            cold_path();
+            return Err(VirtualMemoryError::OutOfBoundsWrite { address });
+        };
+
+        target_data.copy_from_slice(data);
 
         Ok(())
     }
@@ -144,19 +155,26 @@ where
         let address = pc;
 
         if address == self.return_trap_address {
+            cold_path();
             return Ok(ControlFlow::Break(()));
         }
 
         if !address.is_multiple_of(size_of::<u16>() as u64) {
+            cold_path();
             return Err(ProgramCounterError::UnalignedInstruction { address });
         }
 
-        let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+        let Some(offset) = address.checked_sub(self.base_addr) else {
+            cold_path();
+            return Err(ProgramCounterError::MemoryAccess(
+                VirtualMemoryError::OutOfBoundsRead { address },
+            ));
+        };
+        let offset = offset as usize;
         let instruction_offset = offset / size_of::<u16>();
 
         if instruction_offset >= self.instructions.len() {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
         }
 

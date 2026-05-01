@@ -9,6 +9,7 @@ use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstru
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
+use core::hint::cold_path;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -128,6 +129,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
         }
 
@@ -161,6 +163,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
         }
 
@@ -174,6 +177,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
+            cold_path();
             return &[];
         }
 
@@ -188,6 +192,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
         }
 
@@ -207,15 +212,21 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         let offset = address.wrapping_sub(BASE_ADDR);
 
         if offset > self.data.len() as u64 {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
         }
 
         let len = data.len();
-        self.data
+        let Some(target_data) = self
+            .data
             .get_mut(offset as usize..)
             .and_then(|data| data.get_mut(..len))
-            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?
-            .copy_from_slice(data);
+        else {
+            cold_path();
+            return Err(VirtualMemoryError::OutOfBoundsWrite { address });
+        };
+
+        target_data.copy_from_slice(data);
 
         Ok(())
     }
@@ -234,11 +245,14 @@ impl<const BASE_ADDR: u64, const SIZE: usize> TestMemory<BASE_ADDR, SIZE> {
         address: u64,
         size: usize,
     ) -> Result<&mut [u8], VirtualMemoryError> {
-        let offset = address
-            .checked_sub(BASE_ADDR)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+        let Some(offset) = address.checked_sub(BASE_ADDR) else {
+            cold_path();
+            return Err(VirtualMemoryError::OutOfBoundsRead { address });
+        };
+        let offset = offset as usize;
 
         if offset + size > self.data.len() {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
         }
 
@@ -269,19 +283,24 @@ where
         pc: u64,
     ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
         if pc == self.return_trap_address {
+            cold_path();
             return Ok(ControlFlow::Break(()));
         }
 
         if !pc.is_multiple_of(u64::from(
             ContractInstruction::<ContractRegister>::alignment(),
         )) {
+            cold_path();
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 
         // Note: This will not allow reading a 16-bit instruction at the very end of memory range,
         // but that is going to be the case here anyway since code is followed by read-write memory
         // anyway
-        memory.read::<u32>(pc)?;
+        if let Err(error) = memory.read::<u32>(pc) {
+            cold_path();
+            return Err(error.into());
+        }
 
         self.pc = pc;
 
@@ -357,19 +376,26 @@ where
         let address = pc;
 
         if address == self.return_trap_address {
+            cold_path();
             return Ok(ControlFlow::Break(()));
         }
 
         if !address.is_multiple_of(size_of::<u16>() as u64) {
+            cold_path();
             return Err(ProgramCounterError::UnalignedInstruction { address });
         }
 
-        let offset = address
-            .checked_sub(self.base_addr)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+        let Some(offset) = address.checked_sub(self.base_addr) else {
+            cold_path();
+            return Err(ProgramCounterError::MemoryAccess(
+                VirtualMemoryError::OutOfBoundsRead { address },
+            ));
+        };
+        let offset = offset as usize;
         let instruction_offset = offset / size_of::<u16>();
 
         if instruction_offset >= self.instructions.len() {
+            cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
         }
 
@@ -499,13 +525,19 @@ where
     IF: InstructionFetcher<ContractInstruction, Memory>,
 {
     loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
-            FetchInstructionResult::Instruction(instruction) => instruction,
-            FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
+            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
+            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+                cold_path();
                 continue;
             }
-            FetchInstructionResult::ControlFlow(ControlFlow::Break(())) => {
+            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+                cold_path();
                 break;
+            }
+            Err(error) => {
+                cold_path();
+                return Err(error);
             }
         };
 
@@ -515,12 +547,17 @@ where
             &mut state.memory,
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
-        )? {
-            ControlFlow::Continue(()) => {
+        ) {
+            Ok(ControlFlow::Continue(())) => {
                 continue;
             }
-            ControlFlow::Break(()) => {
+            Ok(ControlFlow::Break(())) => {
+                cold_path();
                 break;
+            }
+            Err(error) => {
+                cold_path();
+                return Err(error);
             }
         }
     }
