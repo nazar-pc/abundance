@@ -259,12 +259,6 @@ pub trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> 
 /// Execution errors
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
-    /// Unaligned instruction fetch
-    #[error("Unaligned instruction fetch at address {address:#x}")]
-    UnalignedInstructionFetch {
-        /// Address of the unaligned instruction fetch
-        address: Address,
-    },
     /// Program counter error
     #[error("Program counter error: {0}")]
     ProgramCounter(#[from] ProgramCounterError<Address, CustomError>),
