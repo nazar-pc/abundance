@@ -2,14 +2,12 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
-use core::mem::variant_count;
 use core::ops::ControlFlow;
 
 /// Registers used by contracts
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ContractRegisters {
-    // `-1` because zero register doesn't need to be stored explicitly
-    regs: [u64; variant_count::<ContractRegister>() - 1],
+    regs: [u64; 32],
 }
 
 impl const RegisterFile<ContractRegister> for ContractRegisters {
@@ -43,65 +41,69 @@ impl const RegisterFile<ContractRegister> for ContractRegisters {
 #[repr(u8)]
 pub enum ContractRegister {
     /// Always zero: `x0`
-    Zero = 255,
+    Zero = 0,
     /// Return address: `x1`
-    Ra = 0,
+    Ra = 1,
     /// Stack pointer: `x2`
-    Sp = 1,
+    Sp = 2,
+    // /// Global pointer: `x3`
+    // Gp = 3,
+    // /// Thread pointer: `x4`
+    // Tp = 4,
     /// Temporary/alternate return address: `x5`
-    T0 = 2,
+    T0 = 5,
     /// Temporary: `x6`
-    T1 = 3,
+    T1 = 6,
     /// Temporary: `x7`
-    T2 = 4,
+    T2 = 7,
     /// Saved register/frame pointer: `x8`
-    S0 = 5,
+    S0 = 8,
     /// Saved register: `x9`
-    S1 = 6,
+    S1 = 9,
     /// Function argument/return value: `x10`
-    A0 = 7,
+    A0 = 10,
     /// Function argument/return value: `x11`
-    A1 = 8,
+    A1 = 11,
     /// Function argument: `x12`
-    A2 = 9,
+    A2 = 12,
     /// Function argument: `x13`
-    A3 = 10,
+    A3 = 13,
     /// Function argument: `x14`
-    A4 = 11,
+    A4 = 14,
     /// Function argument: `x15`
-    A5 = 12,
+    A5 = 15,
     /// Function argument: `x16`
-    A6 = 13,
+    A6 = 16,
     /// Function argument: `x17`
-    A7 = 14,
+    A7 = 17,
     /// Saved register: `x18`
-    S2 = 15,
+    S2 = 18,
     /// Saved register: `x19`
-    S3 = 16,
+    S3 = 19,
     /// Saved register: `x20`
-    S4 = 17,
+    S4 = 20,
     /// Saved register: `x21`
-    S5 = 18,
+    S5 = 21,
     /// Saved register: `x22`
-    S6 = 19,
+    S6 = 22,
     /// Saved register: `x23`
-    S7 = 20,
+    S7 = 23,
     /// Saved register: `x24`
-    S8 = 21,
+    S8 = 24,
     /// Saved register: `x25`
-    S9 = 22,
+    S9 = 25,
     /// Saved register: `x26`
-    S10 = 23,
+    S10 = 26,
     /// Saved register: `x27`
-    S11 = 24,
+    S11 = 27,
     /// Temporary: `x28`
-    T3 = 25,
+    T3 = 28,
     /// Temporary: `x29`
-    T4 = 26,
+    T4 = 29,
     /// Temporary: `x30`
-    T5 = 27,
+    T5 = 30,
     /// Temporary: `x31`
-    T6 = 28,
+    T6 = 31,
 }
 
 impl fmt::Display for ContractRegister {

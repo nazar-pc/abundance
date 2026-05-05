@@ -38,7 +38,6 @@
     const_try,
     const_try_residual,
     try_blocks,
-    variant_count,
     widening_mul
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
