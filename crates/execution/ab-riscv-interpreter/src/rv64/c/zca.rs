@@ -30,7 +30,10 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             // Quadrant 00
             Self::CAddi4spn { rd, nzuimm } => {
@@ -118,6 +121,7 @@ where
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
                 return program_counter
                     .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CBeqz { rs1, imm } => {
@@ -125,6 +129,7 @@ where
                     let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
                     return program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -133,6 +138,7 @@ where
                     let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
                     return program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -156,6 +162,7 @@ where
                 let target = regs.read(rs1) & !1;
                 return program_counter
                     .set_pc(memory, target)
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CMv { rd, rs2 } => {
@@ -170,6 +177,7 @@ where
                 regs.write(Reg::RA, return_addr);
                 return program_counter
                     .set_pc(memory, target)
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CAdd { rd, rs2 } => {
@@ -190,6 +198,6 @@ where
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

@@ -410,7 +410,8 @@ fn run_rv32i_max_test(
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         ) {
-            Ok(ControlFlow::Continue(())) => {
+            Ok(ControlFlow::Continue((rd, rd_value))) => {
+                state.regs.write(rd, rd_value);
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
@@ -535,7 +536,8 @@ fn run_rv64i_max_test(
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         ) {
-            Ok(ControlFlow::Continue(())) => {
+            Ok(ControlFlow::Continue((rd, rd_value))) => {
+                state.regs.write(rd, rd_value);
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?

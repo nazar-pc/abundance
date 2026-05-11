@@ -85,7 +85,8 @@ where
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         ) {
-            Ok(ControlFlow::Continue(())) => {
+            Ok(ControlFlow::Continue((rd, rd_value))) => {
+                state.regs.write(rd, rd_value);
                 continue;
             }
             Ok(ControlFlow::Break(())) => {

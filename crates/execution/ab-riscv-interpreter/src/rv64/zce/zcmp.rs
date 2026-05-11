@@ -31,7 +31,10 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             Self::CmPush { urlist, stack_adj } => {
                 rv64_zcmp_helpers::do_push(regs, memory, urlist, stack_adj)?;
@@ -47,6 +50,7 @@ where
                 let target = ra_val & !1;
                 return program_counter
                     .set_pc(memory, target)
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CmPopret { urlist, stack_adj } => {
@@ -55,6 +59,7 @@ where
                 let target = ra_val & !1;
                 return program_counter
                     .set_pc(memory, target)
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CmMva01s { rs1, rs2 } => {
@@ -73,6 +78,6 @@ where
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

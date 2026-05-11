@@ -36,7 +36,10 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
@@ -461,6 +464,6 @@ where
             Self::PhantomZve64xReduction(_) => unreachable!("Never constructed"),
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

@@ -106,6 +106,13 @@ pub enum ContractRegister {
     T6 = 31,
 }
 
+impl const Default for ContractRegister {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::Zero
+    }
+}
+
 impl fmt::Display for ContractRegister {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -310,8 +317,11 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        Ok(ControlFlow::Continue(()))
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }
 

@@ -519,6 +519,12 @@ pub trait ExecutableInstruction<
     /// Instructions might place additional constraints on `ExtState` to require additional
     /// registers or other resources. If no such constraint is used, `()` can be used as a
     /// placeholder.
+    ///
+    /// On success `Ok(ControlFlow::Continue((rd, rd_value)))` is returned, which will be written
+    /// into the register file. In most cases this is the only register that needs to be written. If
+    /// no value needs to be written, `Ok(ControlFlow::Continue(Default::default()))` should be
+    /// returned, which corresponds to `Ok(ControlFlow::Continue(Reg::ZERO, 0))` and is no-op.
+    #[expect(clippy::type_complexity, reason = "Generic return type")]
     fn execute(
         self,
         regs: &mut Regs,
@@ -526,5 +532,8 @@ pub trait ExecutableInstruction<
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<Self>, CustomError>>;
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Address<Self>, CustomError>,
+    >;
 }

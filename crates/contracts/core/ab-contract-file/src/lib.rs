@@ -31,6 +31,7 @@
     const_block_items,
     const_cmp,
     const_convert,
+    const_default,
     const_index,
     const_trait_impl,
     maybe_uninit_fill,

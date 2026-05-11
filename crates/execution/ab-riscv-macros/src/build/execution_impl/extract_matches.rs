@@ -4,7 +4,7 @@ use syn::token::Semi;
 use syn::{Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Pat, PathArguments, Stmt, parse_quote};
 
 fn is_exact_ok(expr: &Expr) -> bool {
-    let expected = quote! { Ok(ControlFlow::Continue(())) };
+    let expected = quote! { Ok(ControlFlow::Continue(Default::default())) };
     let actual = expr.to_token_stream();
     actual.to_string() == expected.to_string()
 }
@@ -49,7 +49,7 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
         let mut arm = arm.clone();
         // If not a block then must be an expression, which we'll keep as is
         if let Expr::Block(ExprBlock { block, .. }) = arm.body.as_mut() {
-            let continue_expr = parse_quote! { Ok(ControlFlow::Continue(())) };
+            let continue_expr = parse_quote! { Ok(ControlFlow::Continue(Default::default())) };
             if let Some(last_statement) = block.stmts.last_mut() {
                 // Has at least one statement
                 if let Stmt::Expr(expr, maybe_semicolon) = last_statement {
@@ -65,7 +65,8 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 // Replace `return T` with `T`
                                 inner_expr.as_ref().clone()
                             } else {
-                                // Replace `return` with `Ok(ControlFlow::Continue(()))`
+                                // Replace `return` with
+                                // `Ok(ControlFlow::Continue(Default::default()))`
                                 continue_expr
                             }
                         }
@@ -74,14 +75,16 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 // Ensure that the last statement ends with `;` even if it returns a
                                 // unit value already
                                 maybe_semicolon.replace(Semi::default());
-                                // Insert `Ok(ControlFlow::Continue(()))` at the end of the block
+                                // Insert `Ok(ControlFlow::Continue(Default::default()))` at the end
+                                // of the block
                                 block.stmts.push(Stmt::Expr(continue_expr, None));
                             }
                         }
                     }
                 }
             } else {
-                // No statements, insert `Ok(ControlFlow::Continue(()))` at the end of the block
+                // No statements, insert `Ok(ControlFlow::Continue(Default::default()))` at the end
+                // of the block
                 block.stmts.push(Stmt::Expr(continue_expr, None));
             }
         }
@@ -133,14 +136,16 @@ pub(super) fn extract_variant_arms(
 
         let Stmt::Expr(ok_expr, None) = second_stmt else {
             return Err(anyhow::anyhow!(
-                "Second statement must be exactly `Ok(ControlFlow::Continue(()))`: {}",
+                "Second statement must be exactly `Ok(ControlFlow::Continue(Default::default()))`: \
+                {}",
                 second_stmt.to_token_stream()
             ));
         };
 
         if !is_exact_ok(ok_expr) {
             return Err(anyhow::anyhow!(
-                "Second statement must be exactly `Ok(ControlFlow::Continue(()))`: {}",
+                "Second statement must be exactly `Ok(ControlFlow::Continue(Default::default()))`: \
+                {}",
                 second_stmt.to_token_stream()
             ));
         }
@@ -160,7 +165,8 @@ pub(super) fn extract_variant_arms(
         } else {
             Err(anyhow::anyhow!(
                 "Single tail expression must be either `match` on `self` or \
-                `Ok(ControlFlow::Continue(()))`"
+                `Ok(ControlFlow::Continue(Default::default()))`: {}",
+                expr.to_token_stream()
             ))
         }
     }

@@ -177,6 +177,9 @@ pub(super) fn process_execution_impl(
                 item_impl.self_ty.to_token_stream()
             ))?
         };
+        // execute_fn.attrs.push(
+        //     parse_quote! { #[expect(clippy::type_complexity, reason = "Generic return type")] },
+        // );
         let execute_block = &mut execute_fn.block;
 
         let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
