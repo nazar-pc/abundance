@@ -62,11 +62,11 @@ where
             }
             Self::CJal { imm } => {
                 let return_addr = program_counter.get_pc();
-                let result = (Reg::RA, return_addr);
+                regs.write(Reg::RA, return_addr);
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
                 program_counter
                     .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))
-                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from)
             }
             Self::CLi { rd, imm } => {
@@ -164,10 +164,10 @@ where
             Self::CJalr { rs1 } => {
                 let target = regs.read(rs1) & !1;
                 let return_addr = program_counter.get_pc();
-                let result = (Reg::RA, return_addr);
+                regs.write(Reg::RA, return_addr);
                 return program_counter
                     .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CAdd { rd, rs2 } => {

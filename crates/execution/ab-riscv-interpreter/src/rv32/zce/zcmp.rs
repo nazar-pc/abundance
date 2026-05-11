@@ -46,12 +46,12 @@ where
             Self::CmPopretz { urlist, stack_adj } => {
                 let ra_val = rv32_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
                 // Zero a0 before returning
-                let result = (Reg::A0, 0);
+                regs.write(Reg::A0, 0);
                 // Jump to ra with LSB cleared (RISC-V mode bit)
                 let target = ra_val & !1;
                 program_counter
                     .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from)
             }
             Self::CmPopret { urlist, stack_adj } => {

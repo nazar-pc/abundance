@@ -183,10 +183,10 @@ where
             Self::CJalr { rs1 } => {
                 let target = regs.read(rs1) & !1;
                 let return_addr = program_counter.get_pc();
-                let result = (Reg::RA, return_addr);
+                regs.write(Reg::RA, return_addr);
                 return program_counter
                     .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
             Self::CAdd { rd, rs2 } => {

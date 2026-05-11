@@ -220,10 +220,10 @@ where
 
             Self::Jalr { rd, rs1, imm } => {
                 let target = (regs.read(rs1).wrapping_add(i64::from(imm).cast_unsigned())) & !1u64;
-                let result = (rd, program_counter.get_pc());
+                regs.write(rd, program_counter.get_pc());
                 return program_counter
                     .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
 
@@ -330,10 +330,10 @@ where
             Self::Jal { rd, imm } => {
                 let pc = program_counter.get_pc();
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                let result = (rd, pc);
+                regs.write(rd, pc);
                 return program_counter
                     .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
 
