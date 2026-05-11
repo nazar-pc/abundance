@@ -37,47 +37,46 @@ where
     > {
         match self {
             Self::CmPush { urlist, stack_adj } => {
-                rv64_zcmp_helpers::do_push(regs, memory, urlist, stack_adj)?;
+                rv64_zcmp_helpers::do_push(regs, memory, urlist, stack_adj)
             }
             Self::CmPop { urlist, stack_adj } => {
                 rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
+                Ok(ControlFlow::Continue(Default::default()))
             }
             Self::CmPopretz { urlist, stack_adj } => {
                 let ra_val = rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
                 // Zero a0 before returning
-                regs.write(Reg::A0, 0);
+                let result = (Reg::A0, 0);
                 // Jump to ra with LSB cleared (RISC-V mode bit)
                 let target = ra_val & !1;
-                return program_counter
+                program_counter
                     .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+                    .map(|control_flow| control_flow.map_continue(|()| result))
+                    .map_err(ExecutionError::from)
             }
             Self::CmPopret { urlist, stack_adj } => {
                 let ra_val = rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
                 // Jump to ra with LSB cleared (RISC-V mode bit)
                 let target = ra_val & !1;
-                return program_counter
+                program_counter
                     .set_pc(memory, target)
                     .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+                    .map_err(ExecutionError::from)
             }
             Self::CmMva01s { rs1, rs2 } => {
                 // Read both sources before any write to avoid aliasing
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
                 regs.write(Reg::A0, v1);
-                regs.write(Reg::A1, v2);
+                Ok(ControlFlow::Continue((Reg::A1, v2)))
             }
             Self::CmMvsa01 { rs1, rs2 } => {
                 // Read both sources before any write to avoid aliasing
                 let a0_val = regs.read(Reg::A0);
                 let a1_val = regs.read(Reg::A1);
                 regs.write(rs1, a0_val);
-                regs.write(rs2, a1_val);
+                Ok(ControlFlow::Continue((rs2, a1_val)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

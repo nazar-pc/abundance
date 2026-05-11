@@ -33,28 +33,38 @@ where
             Self::Aes64Ds { rd, rs1, rs2 } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zknd_helpers::aes64ds(v1, v2));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64ds(v1, v2),
+                )))
             }
             Self::Aes64Dsm { rd, rs1, rs2 } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zknd_helpers::aes64dsm(v1, v2));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64dsm(v1, v2),
+                )))
             }
             Self::Aes64Im { rd, rs1 } => {
                 let v1 = regs.read(rs1);
-                regs.write(rd, rv64_zknd_helpers::aes64im(v1));
+                Ok(ControlFlow::Continue((rd, rv64_zknd_helpers::aes64im(v1))))
             }
             Self::Aes64Ks1i { rd, rs1, rnum } => {
                 let v1 = regs.read(rs1);
-                regs.write(rd, rv64_zknd_helpers::aes64ks1i(v1, rnum));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64ks1i(v1, rnum),
+                )))
             }
             Self::Aes64Ks2 { rd, rs1, rs2 } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zknd_helpers::aes64ks2(v1, v2));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64ks2(v1, v2),
+                )))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

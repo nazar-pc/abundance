@@ -37,15 +37,19 @@ where
             Self::Aes64Es { rd, rs1, rs2 } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zkne_helpers::aes64es(v1, v2));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zkne_helpers::aes64es(v1, v2),
+                )))
             }
             Self::Aes64Esm { rd, rs1, rs2 } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zkne_helpers::aes64esm(v1, v2));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zkne_helpers::aes64esm(v1, v2),
+                )))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

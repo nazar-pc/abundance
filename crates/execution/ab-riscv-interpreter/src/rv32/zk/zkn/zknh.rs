@@ -33,19 +33,31 @@ where
             // SHA-256 (single-register)
             Self::Sha256Sig0 { rd, rs1 } => {
                 let x = regs.read(rs1);
-                regs.write(rd, rv32_zknh_helpers::sha256sig0(x));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha256sig0(x),
+                )))
             }
             Self::Sha256Sig1 { rd, rs1 } => {
                 let x = regs.read(rs1);
-                regs.write(rd, rv32_zknh_helpers::sha256sig1(x));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha256sig1(x),
+                )))
             }
             Self::Sha256Sum0 { rd, rs1 } => {
                 let x = regs.read(rs1);
-                regs.write(rd, rv32_zknh_helpers::sha256sum0(x));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha256sum0(x),
+                )))
             }
             Self::Sha256Sum1 { rd, rs1 } => {
                 let x = regs.read(rs1);
-                regs.write(rd, rv32_zknh_helpers::sha256sum1(x));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha256sum1(x),
+                )))
             }
 
             // SHA-512 (two-register R-type)
@@ -65,35 +77,51 @@ where
             Self::Sha512Sig0h { rd, rs1, rs2 } => {
                 let rs1_val = regs.read(rs1);
                 let rs2_val = regs.read(rs2);
-                regs.write(rd, rv32_zknh_helpers::sha512sig0h(rs1_val, rs2_val));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha512sig0h(rs1_val, rs2_val),
+                )))
             }
             Self::Sha512Sig0l { rd, rs1, rs2 } => {
                 let rs1_val = regs.read(rs1);
                 let rs2_val = regs.read(rs2);
-                regs.write(rd, rv32_zknh_helpers::sha512sig0l(rs1_val, rs2_val));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha512sig0l(rs1_val, rs2_val),
+                )))
             }
             Self::Sha512Sig1h { rd, rs1, rs2 } => {
                 let rs1_val = regs.read(rs1);
                 let rs2_val = regs.read(rs2);
-                regs.write(rd, rv32_zknh_helpers::sha512sig1h(rs1_val, rs2_val));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha512sig1h(rs1_val, rs2_val),
+                )))
             }
             Self::Sha512Sig1l { rd, rs1, rs2 } => {
                 let rs1_val = regs.read(rs1);
                 let rs2_val = regs.read(rs2);
-                regs.write(rd, rv32_zknh_helpers::sha512sig1l(rs1_val, rs2_val));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha512sig1l(rs1_val, rs2_val),
+                )))
             }
             Self::Sha512Sum0r { rd, rs1, rs2 } => {
                 let rs1_val = regs.read(rs1);
                 let rs2_val = regs.read(rs2);
-                regs.write(rd, rv32_zknh_helpers::sha512sum0r(rs1_val, rs2_val));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha512sum0r(rs1_val, rs2_val),
+                )))
             }
             Self::Sha512Sum1r { rd, rs1, rs2 } => {
                 let rs1_val = regs.read(rs1);
                 let rs2_val = regs.read(rs2);
-                regs.write(rd, rv32_zknh_helpers::sha512sum1r(rs1_val, rs2_val));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zknh_helpers::sha512sum1r(rs1_val, rs2_val),
+                )))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

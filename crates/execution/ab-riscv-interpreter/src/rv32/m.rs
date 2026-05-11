@@ -32,7 +32,7 @@ where
         match self {
             Self::Mul { rd, rs1, rs2 } => {
                 let value = regs.read(rs1).wrapping_mul(regs.read(rs2));
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Mulh { rd, rs1, rs2 } => {
                 // Signed × signed: widen to i64, take upper 32 bits
@@ -40,19 +40,19 @@ where
                     .read(rs1)
                     .cast_signed()
                     .widening_mul(regs.read(rs2).cast_signed());
-                regs.write(rd, prod.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, prod.cast_unsigned())))
             }
             Self::Mulhsu { rd, rs1, rs2 } => {
                 // Signed × unsigned: widen to i64, take upper 32 bits
                 let prod = i64::from(regs.read(rs1).cast_signed()) * i64::from(regs.read(rs2));
                 let value = prod >> 32;
-                regs.write(rd, value.cast_unsigned() as u32);
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned() as u32)))
             }
             Self::Mulhu { rd, rs1, rs2 } => {
                 // Unsigned × unsigned: widen to u64, take upper 32 bits
                 let prod = u64::from(regs.read(rs1)) * u64::from(regs.read(rs2));
                 let value = prod >> 32;
-                regs.write(rd, value as u32);
+                Ok(ControlFlow::Continue((rd, value as u32)))
             }
             Self::Div { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1).cast_signed();
@@ -64,13 +64,13 @@ where
                 } else {
                     dividend / divisor
                 };
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
             Self::Divu { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1);
                 let divisor = regs.read(rs2);
                 let value = dividend.checked_div(divisor).unwrap_or(u32::MAX);
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Rem { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1).cast_signed();
@@ -82,7 +82,7 @@ where
                 } else {
                     dividend % divisor
                 };
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
             Self::Remu { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1);
@@ -92,10 +92,8 @@ where
                 } else {
                     dividend % divisor
                 };
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

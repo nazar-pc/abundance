@@ -34,14 +34,14 @@ where
                 // lower 32 bits of rs2 into upper 32 bits of rd.
                 let lo = regs.read(rs1) & 0x0000_0000_FFFF_FFFFu64;
                 let hi = (regs.read(rs2) & 0x0000_0000_FFFF_FFFFu64) << 32;
-                regs.write(rd, lo | hi);
+                Ok(ControlFlow::Continue((rd, lo | hi)))
             }
             Self::Packh { rd, rs1, rs2 } => {
                 // Pack low byte of rs1 into bits [7:0], low byte of rs2 into bits [15:8].
                 // Upper bits of rd are zeroed.
                 let lo = regs.read(rs1) & 0xFF;
                 let hi = (regs.read(rs2) & 0xFF) << 8;
-                regs.write(rd, lo | hi);
+                Ok(ControlFlow::Continue((rd, lo | hi)))
             }
             Self::Packw { rd, rs1, rs2 } => {
                 // Pack low 16 bits of rs1 into bits [15:0] of the 32-bit result,
@@ -50,7 +50,7 @@ where
                 let hi = (regs.read(rs2) & 0xFFFF) << 16;
                 let word = (lo | hi) as u32;
                 let value = i64::from(word.cast_signed()).cast_unsigned();
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Brev8 { rd, rs1 } => {
                 // Reverse bits within each byte of rs1
@@ -59,10 +59,8 @@ where
                 for byte in &mut bytes {
                     *byte = byte.reverse_bits();
                 }
-                regs.write(rd, u64::from_le_bytes(bytes));
+                Ok(ControlFlow::Continue((rd, u64::from_le_bytes(bytes))))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

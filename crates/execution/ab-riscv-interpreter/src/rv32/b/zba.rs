@@ -31,18 +31,16 @@ where
         match self {
             Self::Sh1add { rd, rs1, rs2 } => {
                 let value = (regs.read(rs1) << 1).wrapping_add(regs.read(rs2));
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Sh2add { rd, rs1, rs2 } => {
                 let value = (regs.read(rs1) << 2).wrapping_add(regs.read(rs2));
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Sh3add { rd, rs1, rs2 } => {
                 let value = (regs.read(rs1) << 3).wrapping_add(regs.read(rs2));
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

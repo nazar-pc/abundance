@@ -34,22 +34,20 @@ where
                 let a = regs.read(rs1);
                 let b = regs.read(rs2);
 
-                regs.write(rd, rv64_zbc_helpers::clmul(a, b));
+                Ok(ControlFlow::Continue((rd, rv64_zbc_helpers::clmul(a, b))))
             }
             Self::Clmulh { rd, rs1, rs2 } => {
                 let a = regs.read(rs1);
                 let b = regs.read(rs2);
 
-                regs.write(rd, rv64_zbc_helpers::clmulh(a, b));
+                Ok(ControlFlow::Continue((rd, rv64_zbc_helpers::clmulh(a, b))))
             }
             Self::Clmulr { rd, rs1, rs2 } => {
                 let a = regs.read(rs1);
                 let b = regs.read(rs2);
 
-                regs.write(rd, rv64_zbc_helpers::clmulr(a, b));
+                Ok(ControlFlow::Continue((rd, rv64_zbc_helpers::clmulr(a, b))))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

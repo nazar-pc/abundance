@@ -98,7 +98,7 @@ fn test_cjal_negative_offset() {
             .unwrap();
         instruction
     };
-    instruction
+    let (rd, rd_value) = instruction
         .execute(
             &mut state.regs,
             &mut state.ext_state,
@@ -109,6 +109,7 @@ fn test_cjal_negative_offset() {
         .unwrap()
         .continue_ok()
         .unwrap();
+    state.regs.write(rd, rd_value);
     assert_eq!(state.regs.read(Reg::Ra), pc_before + 2);
     assert_eq!(
         state.instruction_fetcher.get_pc(),

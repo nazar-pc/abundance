@@ -33,45 +33,43 @@ where
                 // Only the bottom 5 bits for RV32
                 let index = regs.read(rs2) & 0x1f;
                 let result = regs.read(rs1) | (1u32 << index);
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Bseti { rd, rs1, shamt } => {
                 let index = shamt;
                 let result = regs.read(rs1) | (1u32 << index);
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Bclr { rd, rs1, rs2 } => {
                 let index = regs.read(rs2) & 0x1f;
                 let result = regs.read(rs1) & !(1u32 << index);
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Bclri { rd, rs1, shamt } => {
                 let index = shamt;
                 let result = regs.read(rs1) & !(1u32 << index);
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Binv { rd, rs1, rs2 } => {
                 let index = regs.read(rs2) & 0x1f;
                 let result = regs.read(rs1) ^ (1u32 << index);
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Binvi { rd, rs1, shamt } => {
                 let index = shamt;
                 let result = regs.read(rs1) ^ (1u32 << index);
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Bext { rd, rs1, rs2 } => {
                 let index = regs.read(rs2) & 0x1f;
                 let result = (regs.read(rs1) >> index) & 1;
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
             Self::Bexti { rd, rs1, shamt } => {
                 let index = shamt;
                 let result = (regs.read(rs1) >> index) & 1;
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

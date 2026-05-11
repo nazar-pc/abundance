@@ -37,16 +37,20 @@ where
                 let rs1_value = regs.read(rs1);
                 let rs2_value = regs.read(rs2);
 
-                regs.write(rd, rv32_zbkx_helpers::xperm4(rs1_value, rs2_value));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zbkx_helpers::xperm4(rs1_value, rs2_value),
+                )))
             }
             Self::Xperm8 { rd, rs1, rs2 } => {
                 let rs1_value = regs.read(rs1);
                 let rs2_value = regs.read(rs2);
 
-                regs.write(rd, rv32_zbkx_helpers::xperm8(rs1_value, rs2_value));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zbkx_helpers::xperm8(rs1_value, rs2_value),
+                )))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

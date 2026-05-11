@@ -35,14 +35,14 @@ where
                 // low 16 bits of rs2 into rd[31:16].
                 let lo = regs.read(rs1) & 0x0000_FFFFu32;
                 let hi = (regs.read(rs2) & 0x0000_FFFFu32) << 16;
-                regs.write(rd, lo | hi);
+                Ok(ControlFlow::Continue((rd, lo | hi)))
             }
             Self::Packh { rd, rs1, rs2 } => {
                 // Pack low byte of rs1 into bits [7:0], low byte of rs2 into bits [15:8].
                 // Upper bits of rd are zeroed.
                 let lo = regs.read(rs1) & 0xFF;
                 let hi = (regs.read(rs2) & 0xFF) << 8;
-                regs.write(rd, lo | hi);
+                Ok(ControlFlow::Continue((rd, lo | hi)))
             }
             Self::Brev8 { rd, rs1 } => {
                 // Reverse bits within each byte of rs1
@@ -51,7 +51,7 @@ where
                 for byte in &mut bytes {
                     *byte = byte.reverse_bits();
                 }
-                regs.write(rd, u32::from_le_bytes(bytes));
+                Ok(ControlFlow::Continue((rd, u32::from_le_bytes(bytes))))
             }
             Self::Zip { rd, rs1 } => {
                 // Bit-interleave: scatter bits of rs1 so that
@@ -60,7 +60,7 @@ where
                 // for i in 0..16.
                 let src = regs.read(rs1);
 
-                regs.write(rd, rv32_zbkb_helpers::zip(src));
+                Ok(ControlFlow::Continue((rd, rv32_zbkb_helpers::zip(src))))
             }
             Self::Unzip { rd, rs1 } => {
                 // Inverse of zip: gather bits of rs1 so that
@@ -69,10 +69,8 @@ where
                 // for i in 0..16.
                 let src = regs.read(rs1);
 
-                regs.write(rd, rv32_zbkb_helpers::unzip(src));
+                Ok(ControlFlow::Continue((rd, rv32_zbkb_helpers::unzip(src))))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

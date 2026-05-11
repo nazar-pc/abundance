@@ -40,7 +40,7 @@ where
                 } else {
                     src
                 };
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
 
             // Conditional zero, nonzero.
@@ -54,10 +54,8 @@ where
                 } else {
                     src
                 };
-                regs.write(rd, result);
+                Ok(ControlFlow::Continue((rd, result)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

@@ -38,56 +38,57 @@ where
             Self::CLbu { rd, rs1, uimm } => {
                 let addr = regs.read(rs1).wrapping_add(u64::from(uimm));
                 let value = memory.read::<u8>(addr)?;
-                regs.write(rd, u64::from(value));
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::CLh { rd, rs1, uimm } => {
                 let addr = regs.read(rs1).wrapping_add(u64::from(uimm));
                 let value = i64::from(memory.read::<i16>(addr)?);
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
             Self::CLhu { rd, rs1, uimm } => {
                 let addr = regs.read(rs1).wrapping_add(u64::from(uimm));
                 let value = memory.read::<u16>(addr)?;
-                regs.write(rd, u64::from(value));
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::CSb { rs1, rs2, uimm } => {
                 let addr = regs.read(rs1).wrapping_add(u64::from(uimm));
                 memory.write(addr, regs.read(rs2) as u8)?;
+                Ok(ControlFlow::Continue(Default::default()))
             }
             Self::CSh { rs1, rs2, uimm } => {
                 let addr = regs.read(rs1).wrapping_add(u64::from(uimm));
                 memory.write(addr, regs.read(rs2) as u16)?;
+
+                Ok(ControlFlow::Continue(Default::default()))
             }
             Self::CZextB { rd } => {
                 let value = regs.read(rd) & 0xff;
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::CSextB { rd } => {
                 let value = i64::from(regs.read(rd) as i8);
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
             Self::CZextH { rd } => {
                 let value = regs.read(rd) & 0xffff;
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::CSextH { rd } => {
                 let value = i64::from(regs.read(rd) as i16);
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
             Self::CZextW { rd } => {
                 let value = regs.read(rd) & 0xffff_ffff;
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::CNot { rd } => {
                 let value = !regs.read(rd);
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
             Self::CMul { rd, rs2 } => {
                 let value = regs.read(rd).wrapping_mul(regs.read(rs2));
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

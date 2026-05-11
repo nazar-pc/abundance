@@ -33,15 +33,19 @@ where
             Self::Aes32Esi { rd, rs1, rs2, bs } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv32_zkne_helpers::aes32esi(v1, v2, bs));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zkne_helpers::aes32esi(v1, v2, bs),
+                )))
             }
             Self::Aes32Esmi { rd, rs1, rs2, bs } => {
                 let v1 = regs.read(rs1);
                 let v2 = regs.read(rs2);
-                regs.write(rd, rv32_zkne_helpers::aes32esmi(v1, v2, bs));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv32_zkne_helpers::aes32esmi(v1, v2, bs),
+                )))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }
