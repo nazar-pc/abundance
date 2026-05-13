@@ -10,7 +10,7 @@ pub fn do_push<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
-    stack_adj: u32,
+    stack_adj: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: ZcmpRegister<Type = u32>,
@@ -24,7 +24,7 @@ where
         memory.write(store_addr, regs.read(reg))?;
         store_addr = store_addr.wrapping_sub(size_of::<Reg::Type>() as u64);
     }
-    regs.write(Reg::SP, sp.wrapping_sub(stack_adj));
+    regs.write(Reg::SP, sp.wrapping_sub(u32::from(stack_adj)));
     Ok(())
 }
 
@@ -36,7 +36,7 @@ pub fn do_pop<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
-    stack_adj: u32,
+    stack_adj: u8,
 ) -> Result<u32, ExecutionError<Reg::Type, CustomError>>
 where
     Reg: ZcmpRegister<Type = u32>,
@@ -44,7 +44,7 @@ where
     Memory: VirtualMemory,
 {
     let sp = regs.read(Reg::SP);
-    let new_sp = sp.wrapping_add(stack_adj);
+    let new_sp = sp.wrapping_add(u32::from(stack_adj));
     // Restore from [new_sp-4, new_sp-8, ...], matching push order
     let mut load_addr = u64::from(new_sp.wrapping_sub(size_of::<Reg::Type>() as u32));
     for reg in urlist.reg_list() {

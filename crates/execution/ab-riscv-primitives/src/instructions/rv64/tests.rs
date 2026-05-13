@@ -5,6 +5,7 @@ use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::test_utils::{
     make_b_type, make_i_type, make_j_type, make_r_type, make_s_type, make_u_type,
 };
+use crate::instructions::utils::{I24, I24WithZeroedBits};
 use crate::registers::general_purpose::{EReg, Reg};
 
 // R-type
@@ -883,7 +884,7 @@ fn test_beq() {
             Rv64Instruction::Beq {
                 rs1: Reg::Ra,
                 rs2: Reg::Sp,
-                imm: 0x100
+                imm: I24::from_i32(0x100)
             }
         );
     }
@@ -897,7 +898,7 @@ fn test_beq() {
             Rv64Instruction::Beq {
                 rs1: Reg::Ra,
                 rs2: Reg::Sp,
-                imm: -8
+                imm: I24::from_i32(-8)
             }
         );
     }
@@ -912,7 +913,7 @@ fn test_bne() {
         Rv64Instruction::Bne {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: 0x100
+            imm: I24::from_i32(0x100)
         }
     );
 }
@@ -926,7 +927,7 @@ fn test_blt() {
         Rv64Instruction::Blt {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: 0x100
+            imm: I24::from_i32(0x100)
         }
     );
 }
@@ -940,7 +941,7 @@ fn test_bge() {
         Rv64Instruction::Bge {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: 0x100
+            imm: I24::from_i32(0x100)
         }
     );
 }
@@ -954,7 +955,7 @@ fn test_bltu() {
         Rv64Instruction::Bltu {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: 0x100
+            imm: I24::from_i32(0x100)
         }
     );
 }
@@ -968,7 +969,7 @@ fn test_bgeu() {
         Rv64Instruction::Bgeu {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: 0x100
+            imm: I24::from_i32(0x100)
         }
     );
 }
@@ -983,7 +984,7 @@ fn test_lui() {
         decoded,
         Rv64Instruction::Lui {
             rd: Reg::Ra,
-            imm: 0x12345000
+            imm: I24WithZeroedBits::from_i32(0x12345000)
         }
     );
 }
@@ -998,7 +999,7 @@ fn test_auipc() {
         decoded,
         Rv64Instruction::Auipc {
             rd: Reg::Ra,
-            imm: 0x12345000
+            imm: I24WithZeroedBits::from_i32(0x12345000)
         }
     );
 }
@@ -1015,7 +1016,7 @@ fn test_jal() {
             decoded,
             Rv64Instruction::Jal {
                 rd: Reg::Ra,
-                imm: 0x1000
+                imm: I24::from_i32(0x1000)
             }
         );
     }
@@ -1028,7 +1029,7 @@ fn test_jal() {
             decoded,
             Rv64Instruction::Jal {
                 rd: Reg::Ra,
-                imm: -0x1000
+                imm: I24::from_i32(-0x1000)
             }
         );
     }

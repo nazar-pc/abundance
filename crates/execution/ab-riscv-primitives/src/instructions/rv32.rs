@@ -9,6 +9,7 @@ pub mod zce;
 pub mod zk;
 
 use crate::instructions::Instruction;
+use crate::instructions::utils::{I24, I24WithZeroedBits};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -56,21 +57,21 @@ pub enum Rv32Instruction<Reg> {
     Sw { rs2: Reg, rs1: Reg, imm: i16 },
 
     // B-type
-    Beq { rs1: Reg, rs2: Reg, imm: i32 },
-    Bne { rs1: Reg, rs2: Reg, imm: i32 },
-    Blt { rs1: Reg, rs2: Reg, imm: i32 },
-    Bge { rs1: Reg, rs2: Reg, imm: i32 },
-    Bltu { rs1: Reg, rs2: Reg, imm: i32 },
-    Bgeu { rs1: Reg, rs2: Reg, imm: i32 },
+    Beq { rs1: Reg, rs2: Reg, imm: I24 },
+    Bne { rs1: Reg, rs2: Reg, imm: I24 },
+    Blt { rs1: Reg, rs2: Reg, imm: I24 },
+    Bge { rs1: Reg, rs2: Reg, imm: I24 },
+    Bltu { rs1: Reg, rs2: Reg, imm: I24 },
+    Bgeu { rs1: Reg, rs2: Reg, imm: I24 },
 
     // Lui (U-type)
-    Lui { rd: Reg, imm: i32 },
+    Lui { rd: Reg, imm: I24WithZeroedBits<12> },
 
     // Auipc (U-type)
-    Auipc { rd: Reg, imm: i32 },
+    Auipc { rd: Reg, imm: I24WithZeroedBits<12> },
 
     // Jal (J-type)
-    Jal { rd: Reg, imm: i32 },
+    Jal { rd: Reg, imm: I24 },
 
     // Fence
     Fence { pred: u8, succ: u8 },
@@ -204,7 +205,7 @@ where
                 let imm11 = ((instruction >> 7) & 1).cast_signed();
                 let imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
                 // Sign extend
-                let imm = (imm << 19) >> 19;
+                let imm = I24::from_i32((imm << 19) >> 19);
                 match funct3 {
                     0b000 => Some(Self::Beq { rs1, rs2, imm }),
                     0b001 => Some(Self::Bne { rs1, rs2, imm }),
@@ -218,13 +219,13 @@ where
             // Lui (U-type)
             0b0110111 => {
                 let rd = Reg::from_bits(rd_bits)?;
-                let imm = (instruction & 0xffff_f000).cast_signed();
+                let imm = I24WithZeroedBits::from_i32((instruction & 0xffff_f000).cast_signed());
                 Some(Self::Lui { rd, imm })
             }
             // Auipc (U-type)
             0b0010111 => {
                 let rd = Reg::from_bits(rd_bits)?;
-                let imm = (instruction & 0xffff_f000).cast_signed();
+                let imm = I24WithZeroedBits::from_i32((instruction & 0xffff_f000).cast_signed());
                 Some(Self::Auipc { rd, imm })
             }
             // Jal (J-type)
@@ -236,7 +237,7 @@ where
                 let imm19_12 = ((instruction >> 12) & 0b1111_1111).cast_signed();
                 let imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
                 // Sign extend
-                let imm = (imm << 11) >> 11;
+                let imm = I24::from_i32((imm << 11) >> 11);
                 Some(Self::Jal { rd, imm })
             }
             // Fence (I-type like, simplified for EM)

@@ -71,7 +71,7 @@ where
                 regs.write(Reg::SP, value);
             }
             Self::CLui { rd, nzimm } => {
-                regs.write(rd, nzimm.cast_unsigned());
+                regs.write(rd, nzimm.to_i32().cast_unsigned());
             }
             Self::CSrli { rd, shamt } => {
                 let value = regs.read(rd) >> shamt;

@@ -185,7 +185,7 @@ fn test_caddi16sp_negative() {
 fn test_clui() {
     let mut state = initialize_state([Rv32ZcaInstruction::CLui {
         rd: Reg::A0,
-        nzimm: 0x1000,
+        nzimm: I24::from_i32(0x1000),
     }]);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x1000);
