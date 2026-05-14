@@ -6,7 +6,8 @@ pub mod zve64x_config_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::{
-    CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2Operands,
+    CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -108,6 +109,7 @@ where
     #[inline(always)]
     fn execute(
         self,
+        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,

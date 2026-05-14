@@ -458,6 +458,19 @@ pub struct Rs1Rs2Operands<Reg> {
     pub rs2: Reg,
 }
 
+/// `rs1`/`rs2` instruction operands
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Rs1Rs2OperandValues<RegType> {
+    /// `rs1` operand value.
+    ///
+    /// Zero if `rs1` was missing in the original instruction definition.
+    pub rs1_value: RegType,
+    /// `rs2` operand value.
+    ///
+    /// Zero if `rs2` was missing in the original instruction definition.
+    pub rs2_value: RegType,
+}
+
 /// Trait for executable instructions
 pub trait ExecutableInstruction<
     Regs,
@@ -546,6 +559,7 @@ pub trait ExecutableInstruction<
     #[expect(clippy::type_complexity, reason = "Generic return type")]
     fn execute(
         self,
+        rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         memory: &mut Memory,

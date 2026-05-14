@@ -4,8 +4,8 @@
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2Operands,
-    SystemInstructionHandler, VirtualMemory,
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -25,6 +25,7 @@ where
     #[inline(always)]
     fn execute(
         self,
+        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         _ext_state: &mut ExtState,
         memory: &mut Memory,

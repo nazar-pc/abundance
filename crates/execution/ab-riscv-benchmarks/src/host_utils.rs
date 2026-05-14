@@ -555,7 +555,20 @@ where
             }
         };
 
+        let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+            Regs,
+            (),
+            Memory,
+            IF,
+            IgnoreEcallSystemInstructionHandler,
+        >>::get_rs1_rs2_operands(instruction);
+        let rs1rs2_values = Rs1Rs2OperandValues {
+            rs1_value: state.regs.read(rs1),
+            rs2_value: state.regs.read(rs2),
+        };
+
         match instruction.execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,

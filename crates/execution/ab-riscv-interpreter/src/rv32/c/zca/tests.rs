@@ -112,6 +112,7 @@ fn test_cjal_negative_offset() {
     };
     let (rd, rd_value) = instruction
         .execute(
+            Default::default(),
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,

@@ -89,6 +89,7 @@ where
 
     fn execute(
         self,
+        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,

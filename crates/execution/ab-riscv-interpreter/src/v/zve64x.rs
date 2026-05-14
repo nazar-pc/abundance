@@ -26,7 +26,7 @@ use crate::v::zve64x::widen_narrow::zve64x_widen_narrow_helpers;
 use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile,
-    Rs1Rs2Operands, VirtualMemory,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -43,6 +43,7 @@ where
     #[inline(always)]
     fn execute(
         self,
+        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         memory: &mut Memory,
