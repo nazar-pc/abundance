@@ -300,8 +300,8 @@ fn test_cm_mva01s_s0_s1() {
     assert_eq!(
         decoded,
         Rv32ZcmpInstruction::CmMva01s {
-            r1s: Reg::S0,
-            r2s: Reg::S1,
+            rs1: Reg::S0,
+            rs2: Reg::S1,
         }
     );
 }
@@ -314,8 +314,8 @@ fn test_cm_mva01s_same_reg() {
     assert_eq!(
         decoded,
         Rv32ZcmpInstruction::CmMva01s {
-            r1s: Reg::S2,
-            r2s: Reg::S2,
+            rs1: Reg::S2,
+            rs2: Reg::S2,
         }
     );
 }
@@ -336,8 +336,8 @@ fn test_cm_mva01s_all_s_regs() {
     for (field, &expected) in expected_regs.iter().enumerate() {
         let inst = make_mv_pair(MV_FUNCT2_MVA01S, field as u16, 0);
         let decoded = Rv32ZcmpInstruction::<Reg<u32>>::try_decode(inst).unwrap();
-        if let Rv32ZcmpInstruction::CmMva01s { r1s, .. } = decoded {
-            assert_eq!(r1s, expected, "field={field}");
+        if let Rv32ZcmpInstruction::CmMva01s { rs1, .. } = decoded {
+            assert_eq!(rs1, expected, "field={field}");
         } else {
             panic!("wrong variant for field={field}");
         }
@@ -362,7 +362,7 @@ fn test_cm_mva01s_binutils_reference_encodings() {
         let decoded = Rv32ZcmpInstruction::<Reg<u32>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv32ZcmpInstruction::CmMva01s { r1s, r2s },
+            Rv32ZcmpInstruction::CmMva01s { rs1: r1s, rs2: r2s },
             "raw={raw:#06x}"
         );
     }
@@ -378,8 +378,8 @@ fn test_cm_mvsa01_distinct_regs() {
     assert_eq!(
         decoded,
         Rv32ZcmpInstruction::CmMvsa01 {
-            r1s: Reg::S0,
-            r2s: Reg::S2,
+            rs1: Reg::S0,
+            rs2: Reg::S2,
         }
     );
 }
@@ -408,7 +408,7 @@ fn test_cm_mvsa01_binutils_reference_encodings() {
         let decoded = Rv32ZcmpInstruction::<Reg<u32>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv32ZcmpInstruction::CmMvsa01 { r1s, r2s },
+            Rv32ZcmpInstruction::CmMvsa01 { rs1: r1s, rs2: r2s },
             "raw={raw:#06x}"
         );
     }
