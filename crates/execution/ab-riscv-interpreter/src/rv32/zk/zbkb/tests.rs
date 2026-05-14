@@ -76,6 +76,7 @@ fn test_brev8() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // Each byte has its bits reversed individually:
@@ -92,6 +93,7 @@ fn test_brev8_all_ones() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // 0xFF reversed is 0xFF
@@ -107,6 +109,7 @@ fn test_brev8_single_byte() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // 0x01 = 0b00000001 reversed is 0b10000000 = 0x80
@@ -122,6 +125,7 @@ fn test_brev8_zero() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0u32);
@@ -136,6 +140,7 @@ fn test_zip_lower_half_only() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Zip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // Only bit 0 set in lower half: should scatter to rd[0]
@@ -151,6 +156,7 @@ fn test_zip_upper_half_only() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Zip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // Only bit 16 set (upper half bit 0): should scatter to rd[1]
@@ -166,6 +172,7 @@ fn test_zip_all_ones() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Zip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // All bits set: zip of all-ones is all-ones
@@ -181,6 +188,7 @@ fn test_zip_zero() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Zip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0u32);
@@ -195,6 +203,7 @@ fn test_unzip_lower_half_only() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Unzip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // rd[0] (even) -> result[0]; rd[1] (odd) -> result[16]
@@ -211,6 +220,7 @@ fn test_unzip_all_ones() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Unzip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF_FFFFu32);
@@ -225,6 +235,7 @@ fn test_unzip_zero() {
     let mut state = initialize_state([Rv32ZbkbInstruction::Unzip {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0u32);
@@ -243,10 +254,12 @@ fn test_zip_then_unzip_is_identity() {
         Rv32ZbkbInstruction::Zip {
             rd: Reg::A1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
         Rv32ZbkbInstruction::Unzip {
             rd: Reg::A2,
             rs1: Reg::A1,
+            rs2: Reg::Zero,
         },
     ]);
 
@@ -266,10 +279,12 @@ fn test_unzip_then_zip_is_identity() {
         Rv32ZbkbInstruction::Unzip {
             rd: Reg::A1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
         Rv32ZbkbInstruction::Zip {
             rd: Reg::A2,
             rs1: Reg::A1,
+            rs2: Reg::Zero,
         },
     ]);
 

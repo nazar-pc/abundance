@@ -1,7 +1,10 @@
 use quote::{ToTokens, quote};
 use std::iter;
 use syn::token::Semi;
-use syn::{Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Pat, PathArguments, Stmt, parse_quote};
+use syn::{
+    Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Member, Pat, PatRest, PathArguments, Stmt,
+    parse_quote,
+};
 
 fn is_exact_ok(expr: &Expr) -> bool {
     let expected = quote! { Ok(ControlFlow::Continue(Default::default())) };
@@ -28,7 +31,6 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
 
     let path = match &arm.pat {
         Pat::Struct(pat_struct) => &pat_struct.path,
-        Pat::TupleStruct(pat_tuple_struct) => &pat_tuple_struct.path,
         Pat::Path(expr_path) => &expr_path.path,
         _ => Err(anyhow::anyhow!(
             "`match` pattern must be `Self::Variant`, `Self::Variant {{ .. }}` or \
@@ -47,6 +49,36 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
         && segments.next().is_none()
     {
         let mut arm = arm.clone();
+
+        // Fix up match pattern after `rs1`/`rs2` fields were added automatically
+        if let Pat::Struct(pat_struct) = &mut arm.pat {
+            if pat_struct.rest.is_none() {
+                let mut rs1_found = false;
+                let mut rs2_found = false;
+                for field in &pat_struct.fields {
+                    let Member::Named(ident) = &field.member else {
+                        break;
+                    };
+
+                    if ident == "rs1" {
+                        rs1_found = true;
+                    } else if ident == "rs2" {
+                        rs2_found = true;
+                    }
+                }
+
+                if !rs1_found || !rs2_found {
+                    pat_struct.rest.replace(PatRest {
+                        attrs: vec![],
+                        dot2_token: Default::default(),
+                    });
+                }
+            }
+        } else {
+            // Must be path otherwise, replace it with a trivial struct
+            arm.pat = parse_quote! { #path { .. } };
+        }
+
         // If not a block then must be an expression, which we'll keep as is
         if let Expr::Block(ExprBlock { block, .. }) = arm.body.as_mut() {
             let continue_expr = parse_quote! { Ok(ControlFlow::Continue(Default::default())) };

@@ -36,6 +36,8 @@ fn test_vmv_x_s() {
         Some(Zve64xPermInstruction::VmvXS {
             rd: Reg::Ra,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -49,6 +51,8 @@ fn test_vmv_x_s_different_regs() {
         Some(Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -79,6 +83,7 @@ fn test_vmv_s_x() {
         Some(Zve64xPermInstruction::VmvSX {
             vd: VReg::V3,
             rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -111,6 +116,8 @@ fn test_vrgather_vv() {
             vs2: VReg::V3,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -126,6 +133,8 @@ fn test_vrgather_vv_masked() {
             vs2: VReg::V12,
             vs1: VReg::V10,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -144,6 +153,7 @@ fn test_vrgather_vx() {
             vs2: VReg::V8,
             rs1: Reg::T0,
             vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -159,6 +169,7 @@ fn test_vrgather_vx_masked() {
             vs2: VReg::V8,
             rs1: Reg::T0,
             vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -177,6 +188,8 @@ fn test_vrgather_vi() {
             vs2: VReg::V8,
             uimm: 7,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -192,6 +205,8 @@ fn test_vrgather_vi_max_uimm() {
             vs2: VReg::V8,
             uimm: 31,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -210,6 +225,8 @@ fn test_vrgatherei16_vv() {
             vs2: VReg::V3,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -225,6 +242,8 @@ fn test_vrgatherei16_vv_masked() {
             vs2: VReg::V24,
             vs1: VReg::V20,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -243,6 +262,7 @@ fn test_vslideup_vx() {
             vs2: VReg::V8,
             rs1: Reg::T0,
             vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -258,6 +278,7 @@ fn test_vslideup_vx_masked() {
             vs2: VReg::V8,
             rs1: Reg::T0,
             vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -276,6 +297,8 @@ fn test_vslideup_vi() {
             vs2: VReg::V8,
             uimm: 3,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -291,6 +314,8 @@ fn test_vslideup_vi_masked() {
             vs2: VReg::V8,
             uimm: 3,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -309,6 +334,7 @@ fn test_vslide1up_vx() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -324,6 +350,7 @@ fn test_vslide1up_vx_masked() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -342,6 +369,7 @@ fn test_vslidedown_vx() {
             vs2: VReg::V8,
             rs1: Reg::T0,
             vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -357,6 +385,7 @@ fn test_vslidedown_vx_masked() {
             vs2: VReg::V8,
             rs1: Reg::T0,
             vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -375,6 +404,8 @@ fn test_vslidedown_vi() {
             vs2: VReg::V8,
             uimm: 15,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -393,6 +424,7 @@ fn test_vslide1down_vx() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -408,6 +440,7 @@ fn test_vslide1down_vx_masked() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -426,6 +459,8 @@ fn test_vmerge_vvm_masked() {
             vs2: VReg::V12,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -442,6 +477,8 @@ fn test_vmv_v_v() {
             vs2: VReg::V0,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -460,6 +497,7 @@ fn test_vmerge_vxm_masked() {
             vs2: VReg::V12,
             rs1: Reg::T0,
             vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -476,6 +514,7 @@ fn test_vmv_v_x() {
             vs2: VReg::V0,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -494,6 +533,8 @@ fn test_vmerge_vim_masked() {
             vs2: VReg::V12,
             simm5: 5,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -510,6 +551,8 @@ fn test_vmv_v_i() {
             vs2: VReg::V0,
             simm5: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -526,6 +569,8 @@ fn test_vmv_v_i_negative_imm() {
             vs2: VReg::V0,
             simm5: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -542,6 +587,8 @@ fn test_vmv_v_i_min_negative() {
             vs2: VReg::V0,
             simm5: -16,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -567,6 +614,8 @@ fn test_vcompress_vm() {
             vd: VReg::V1,
             vs2: VReg::V3,
             vs1: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -581,6 +630,8 @@ fn test_vcompress_vm_different_regs() {
             vd: VReg::V16,
             vs2: VReg::V24,
             vs1: VReg::V0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -605,6 +656,8 @@ fn test_vmv1r_v() {
         Some(Zve64xPermInstruction::Vmv1rV {
             vd: VReg::V1,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -621,6 +674,8 @@ fn test_vmv2r_v() {
         Some(Zve64xPermInstruction::Vmv2rV {
             vd: VReg::V2,
             vs2: VReg::V4,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -637,6 +692,8 @@ fn test_vmv4r_v() {
         Some(Zve64xPermInstruction::Vmv4rV {
             vd: VReg::V4,
             vs2: VReg::V8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -653,6 +710,8 @@ fn test_vmv8r_v() {
         Some(Zve64xPermInstruction::Vmv8rV {
             vd: VReg::V8,
             vs2: VReg::V16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }

@@ -127,7 +127,9 @@ fn test_caddi4spn_basic() {
         decoded,
         Rv64ZcaInstruction::CAddi4spn {
             rd: Reg::S0,
-            nzuimm: 4
+            nzuimm: 4,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -141,7 +143,9 @@ fn test_caddi4spn_large_uimm() {
         decoded,
         Rv64ZcaInstruction::CAddi4spn {
             rd: Reg::S1,
-            nzuimm: 1020
+            nzuimm: 1020,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -164,7 +168,8 @@ fn test_clw_basic() {
         Rv64ZcaInstruction::CLw {
             rd: Reg::S0,
             rs1: Reg::S1,
-            uimm: 4
+            uimm: 4,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -179,7 +184,8 @@ fn test_clw_max_uimm() {
         Rv64ZcaInstruction::CLw {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 124
+            uimm: 124,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -194,7 +200,8 @@ fn test_cld_basic() {
         Rv64ZcaInstruction::CLd {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 8
+            uimm: 8,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -209,7 +216,8 @@ fn test_cld_max_uimm() {
         Rv64ZcaInstruction::CLd {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 248
+            uimm: 248,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -224,7 +232,7 @@ fn test_csw_basic() {
         Rv64ZcaInstruction::CSw {
             rs1: Reg::S0,
             rs2: Reg::S1,
-            uimm: 4
+            uimm: 4,
         }
     );
 }
@@ -239,7 +247,7 @@ fn test_csd_basic() {
         Rv64ZcaInstruction::CSd {
             rs1: Reg::S0,
             rs2: Reg::S1,
-            uimm: 24
+            uimm: 24,
         }
     );
 }
@@ -264,7 +272,13 @@ fn test_q00_funct3_100_reserved() {
 fn test_cnop() {
     let inst = 0b000_0_00000_00000_01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CNop);
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CNop {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -275,7 +289,9 @@ fn test_caddi_positive() {
         decoded,
         Rv64ZcaInstruction::CAddi {
             rd: Reg::A0,
-            nzimm: 5
+            nzimm: 5,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -289,7 +305,9 @@ fn test_caddi_negative() {
         decoded,
         Rv64ZcaInstruction::CAddi {
             rd: Reg::A0,
-            nzimm: -1
+            nzimm: -1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -303,7 +321,9 @@ fn test_caddi_most_negative() {
         decoded,
         Rv64ZcaInstruction::CAddi {
             rd: Reg::A0,
-            nzimm: -32
+            nzimm: -32,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -317,7 +337,9 @@ fn test_caddi_hint_rd0() {
         decoded,
         Rv64ZcaInstruction::CAddi {
             rd: Reg::Zero,
-            nzimm: 5
+            nzimm: 5,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -330,7 +352,9 @@ fn test_caddiw_positive() {
         decoded,
         Rv64ZcaInstruction::CAddiw {
             rd: Reg::A0,
-            imm: 10
+            imm: 10,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -344,7 +368,9 @@ fn test_caddiw_negative() {
         decoded,
         Rv64ZcaInstruction::CAddiw {
             rd: Reg::A0,
-            imm: -2
+            imm: -2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -363,7 +389,9 @@ fn test_cli_basic() {
         decoded,
         Rv64ZcaInstruction::CLi {
             rd: Reg::A0,
-            imm: 7
+            imm: 7,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -377,7 +405,9 @@ fn test_cli_negative() {
         decoded,
         Rv64ZcaInstruction::CLi {
             rd: Reg::A0,
-            imm: -8
+            imm: -8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -391,7 +421,9 @@ fn test_cli_most_negative() {
         decoded,
         Rv64ZcaInstruction::CLi {
             rd: Reg::A0,
-            imm: -32
+            imm: -32,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -405,7 +437,9 @@ fn test_cli_hint_rd0() {
         decoded,
         Rv64ZcaInstruction::CLi {
             rd: Reg::Zero,
-            imm: 3
+            imm: 3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -415,7 +449,14 @@ fn test_caddi16sp_positive() {
     // nzimm=16: imm4=1, others=0
     let inst = (0b011 << 13) | (0 << 12) | (2 << 7) | (1 << 6) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CAddi16sp { nzimm: 16 });
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CAddi16sp {
+            nzimm: 16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -424,7 +465,14 @@ fn test_caddi16sp_negative() {
     let inst =
         (0b011 << 13) | (1 << 12) | (2 << 7) | (1 << 6) | (1 << 5) | (0b11 << 3) | (1 << 2) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CAddi16sp { nzimm: -16 });
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CAddi16sp {
+            nzimm: -16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -442,7 +490,9 @@ fn test_clui() {
         decoded,
         Rv64ZcaInstruction::CLui {
             rd: Reg::A0,
-            nzimm: I24::from_i32(0x1000)
+            nzimm: I24::from_i32(0x1000),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -456,7 +506,9 @@ fn test_clui_negative() {
         decoded,
         Rv64ZcaInstruction::CLui {
             rd: Reg::A0,
-            nzimm: I24::from_i32(-4096)
+            nzimm: I24::from_i32(-4096),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -476,7 +528,9 @@ fn test_clui_hint_rd0_positive() {
         decoded,
         Rv64ZcaInstruction::CLui {
             rd: Reg::Zero,
-            nzimm: I24::from_i32(0x1000)
+            nzimm: I24::from_i32(0x1000),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -490,7 +544,9 @@ fn test_clui_hint_rd0_negative() {
         decoded,
         Rv64ZcaInstruction::CLui {
             rd: Reg::Zero,
-            nzimm: I24::from_i32(-4096)
+            nzimm: I24::from_i32(-4096),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -503,7 +559,9 @@ fn test_csrli_basic() {
         decoded,
         Rv64ZcaInstruction::CSrli {
             rd: Reg::S0,
-            shamt: 4
+            shamt: 4,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -517,7 +575,9 @@ fn test_csrli_shamt63() {
         decoded,
         Rv64ZcaInstruction::CSrli {
             rd: Reg::S0,
-            shamt: 63
+            shamt: 63,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -531,7 +591,9 @@ fn test_csrli_hint_shamt0() {
         decoded,
         Rv64ZcaInstruction::CSrli {
             rd: Reg::S0,
-            shamt: 0
+            shamt: 0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -544,7 +606,9 @@ fn test_csrai_basic() {
         decoded,
         Rv64ZcaInstruction::CSrai {
             rd: Reg::S0,
-            shamt: 8
+            shamt: 8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -558,7 +622,9 @@ fn test_csrai_hint_shamt0() {
         decoded,
         Rv64ZcaInstruction::CSrai {
             rd: Reg::S0,
-            shamt: 0
+            shamt: 0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -572,7 +638,9 @@ fn test_candi() {
         decoded,
         Rv64ZcaInstruction::CAndi {
             rd: Reg::S0,
-            imm: -1
+            imm: -1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -586,7 +654,9 @@ fn test_candi_most_negative() {
         decoded,
         Rv64ZcaInstruction::CAndi {
             rd: Reg::S0,
-            imm: -32
+            imm: -32,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -599,7 +669,8 @@ fn test_csub() {
         decoded,
         Rv64ZcaInstruction::CSub {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -612,7 +683,8 @@ fn test_cxor() {
         decoded,
         Rv64ZcaInstruction::CXor {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -625,7 +697,8 @@ fn test_cor() {
         decoded,
         Rv64ZcaInstruction::COr {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -638,7 +711,8 @@ fn test_cand() {
         decoded,
         Rv64ZcaInstruction::CAnd {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -651,7 +725,8 @@ fn test_csubw() {
         decoded,
         Rv64ZcaInstruction::CSubw {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -664,7 +739,8 @@ fn test_caddw() {
         decoded,
         Rv64ZcaInstruction::CAddw {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -687,14 +763,28 @@ fn test_ca_arith_bit12_1_funct2b_11_reserved() {
 fn test_cj_positive() {
     let inst = make_cj(256);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CJ { imm: 256 });
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CJ {
+            imm: 256,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_cj_negative() {
     let inst = make_cj(-256);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CJ { imm: -256 });
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CJ {
+            imm: -256,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -705,7 +795,8 @@ fn test_cbeqz_positive() {
         decoded,
         Rv64ZcaInstruction::CBeqz {
             rs1: Reg::S0,
-            imm: 16
+            imm: 16,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -718,7 +809,8 @@ fn test_cbeqz_negative() {
         decoded,
         Rv64ZcaInstruction::CBeqz {
             rs1: Reg::S0,
-            imm: -8
+            imm: -8,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -731,7 +823,8 @@ fn test_cbnez_positive() {
         decoded,
         Rv64ZcaInstruction::CBnez {
             rs1: Reg::S1,
-            imm: 32
+            imm: 32,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -746,7 +839,9 @@ fn test_cslli_basic() {
         decoded,
         Rv64ZcaInstruction::CSlli {
             rd: Reg::A0,
-            shamt: 3
+            shamt: 3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -760,7 +855,9 @@ fn test_cslli_shamt63() {
         decoded,
         Rv64ZcaInstruction::CSlli {
             rd: Reg::A0,
-            shamt: 63
+            shamt: 63,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -774,7 +871,9 @@ fn test_cslli_hint_shamt0() {
         decoded,
         Rv64ZcaInstruction::CSlli {
             rd: Reg::A0,
-            shamt: 0
+            shamt: 0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -788,7 +887,9 @@ fn test_cslli_hint_rd0() {
         decoded,
         Rv64ZcaInstruction::CSlli {
             rd: Reg::Zero,
-            shamt: 3
+            shamt: 3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -802,7 +903,9 @@ fn test_clwsp_basic() {
         decoded,
         Rv64ZcaInstruction::CLwsp {
             rd: Reg::A0,
-            uimm: 4
+            uimm: 4,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -816,7 +919,9 @@ fn test_clwsp_max_uimm() {
         decoded,
         Rv64ZcaInstruction::CLwsp {
             rd: Reg::A0,
-            uimm: 252
+            uimm: 252,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -836,7 +941,9 @@ fn test_cldsp_basic() {
         decoded,
         Rv64ZcaInstruction::CLdsp {
             rd: Reg::A0,
-            uimm: 8
+            uimm: 8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -851,7 +958,13 @@ fn test_cldsp_reserved_rd0() {
 fn test_cjr() {
     let inst = make_cr_q10(0b100, 0, 10, 0);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CJr { rs1: Reg::A0 });
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CJr {
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -868,7 +981,8 @@ fn test_cmv() {
         decoded,
         Rv64ZcaInstruction::CMv {
             rd: Reg::A0,
-            rs2: Reg::A1
+            rs2: Reg::A1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -882,7 +996,8 @@ fn test_cmv_hint_rd0() {
         decoded,
         Rv64ZcaInstruction::CMv {
             rd: Reg::Zero,
-            rs2: Reg::A1
+            rs2: Reg::A1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -899,14 +1014,26 @@ fn test_cmv_rs2_0_decodes_as_cjr() {
 fn test_cebreak() {
     let inst = make_cr_q10(0b100, 1, 0, 0);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CEbreak);
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CEbreak {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_cjalr() {
     let inst = make_cr_q10(0b100, 1, 10, 0);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CJalr { rs1: Reg::A0 });
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CJalr {
+            rs1: Reg::A0,
+            rs2: Reg::Zero
+        }
+    );
 }
 
 #[test]
@@ -917,7 +1044,8 @@ fn test_cadd() {
         decoded,
         Rv64ZcaInstruction::CAdd {
             rd: Reg::A0,
-            rs2: Reg::A1
+            rs2: Reg::A1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -931,7 +1059,8 @@ fn test_cadd_hint_rd0() {
         decoded,
         Rv64ZcaInstruction::CAdd {
             rd: Reg::Zero,
-            rs2: Reg::A1
+            rs2: Reg::A1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -944,7 +1073,8 @@ fn test_cswsp_basic() {
         decoded,
         Rv64ZcaInstruction::CSwsp {
             rs2: Reg::A0,
-            uimm: 4
+            uimm: 4,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -958,7 +1088,8 @@ fn test_cswsp_max_uimm() {
         decoded,
         Rv64ZcaInstruction::CSwsp {
             rs2: Reg::A0,
-            uimm: 252
+            uimm: 252,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -972,7 +1103,8 @@ fn test_csdsp_basic() {
         decoded,
         Rv64ZcaInstruction::CSdsp {
             rs2: Reg::A0,
-            uimm: 8
+            uimm: 8,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -986,7 +1118,8 @@ fn test_csdsp_max_uimm() {
         decoded,
         Rv64ZcaInstruction::CSdsp {
             rs2: Reg::A0,
-            uimm: 504
+            uimm: 504,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -997,14 +1130,26 @@ fn test_csdsp_max_uimm() {
 fn test_cunimp() {
     let inst = 0;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CUnimp);
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CUnimp {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_cunimp_ignores_upper_16_bits() {
     let inst = 0xABCD_0000;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv64ZcaInstruction::CUnimp);
+    assert_eq!(
+        decoded,
+        Rv64ZcaInstruction::CUnimp {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 // Invalid / Reserved
@@ -1028,7 +1173,8 @@ fn test_ereg_clw_valid() {
         Rv64ZcaInstruction::CLw {
             rd: EReg::S0,
             rs1: EReg::S0,
-            uimm: 4
+            uimm: 4,
+            rs2: EReg::Zero,
         }
     );
 }

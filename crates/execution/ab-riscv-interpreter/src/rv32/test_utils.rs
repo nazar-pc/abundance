@@ -251,7 +251,13 @@ where
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
         Err(ExecutionError::EcallUnsupported {
-            address: program_counter.old_pc(Rv32Instruction::<Reg<u32>>::Ecall.size()),
+            address: program_counter.old_pc(
+                Rv32Instruction::<Reg<u32>>::Ecall {
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                }
+                .size(),
+            ),
         })
     }
 }

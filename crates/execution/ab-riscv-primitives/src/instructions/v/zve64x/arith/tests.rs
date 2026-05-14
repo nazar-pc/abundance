@@ -34,7 +34,9 @@ fn test_vadd_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -49,7 +51,9 @@ fn test_vadd_vv_masked() {
             vd: VReg::V6,
             vs2: VReg::V4,
             vs1: VReg::V5,
-            vm: false
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -64,7 +68,8 @@ fn test_vadd_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -80,7 +85,9 @@ fn test_vadd_vi_positive() {
             vd: VReg::V1,
             vs2: VReg::V8,
             imm: 5,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -96,7 +103,9 @@ fn test_vadd_vi_negative() {
             vd: VReg::V1,
             vs2: VReg::V8,
             imm: -1,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -112,7 +121,9 @@ fn test_vadd_vi_min_imm() {
             vd: VReg::V2,
             vs2: VReg::V4,
             imm: -16,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -129,7 +140,9 @@ fn test_vsub_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -144,7 +157,8 @@ fn test_vsub_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -161,7 +175,8 @@ fn test_vrsub_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -176,7 +191,9 @@ fn test_vrsub_vi() {
             vd: VReg::V1,
             vs2: VReg::V2,
             imm: 0,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -193,7 +210,9 @@ fn test_vand_vv() {
             vd: VReg::V10,
             vs2: VReg::V8,
             vs1: VReg::V9,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -208,7 +227,8 @@ fn test_vand_vx() {
             vd: VReg::V10,
             vs2: VReg::V8,
             rs1: Reg::T2,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -223,7 +243,9 @@ fn test_vand_vi() {
             vd: VReg::V2,
             vs2: VReg::V4,
             imm: 15,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -240,7 +262,9 @@ fn test_vor_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -255,7 +279,8 @@ fn test_vor_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::Gp,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -270,7 +295,9 @@ fn test_vor_vi() {
             vd: VReg::V1,
             vs2: VReg::V2,
             imm: -1,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -287,7 +314,9 @@ fn test_vxor_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -302,7 +331,8 @@ fn test_vxor_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::Gp,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -317,7 +347,9 @@ fn test_vxor_vi() {
             vd: VReg::V1,
             vs2: VReg::V2,
             imm: -1,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -334,7 +366,9 @@ fn test_vsll_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -349,7 +383,8 @@ fn test_vsll_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -365,7 +400,9 @@ fn test_vsll_vi() {
             vd: VReg::V24,
             vs2: VReg::V16,
             uimm: 8,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -381,7 +418,9 @@ fn test_vsll_vi_max_uimm() {
             vd: VReg::V2,
             vs2: VReg::V4,
             uimm: 31,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -398,7 +437,9 @@ fn test_vsrl_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -413,7 +454,8 @@ fn test_vsrl_vx() {
             vd: VReg::V8,
             vs2: VReg::V8,
             rs1: Reg::T1,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -429,7 +471,9 @@ fn test_vsrl_vi() {
             vd: VReg::V8,
             vs2: VReg::V8,
             uimm: 3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -446,7 +490,9 @@ fn test_vsra_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -461,7 +507,9 @@ fn test_vsra_vi() {
             vd: VReg::V2,
             vs2: VReg::V4,
             uimm: 7,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -478,7 +526,9 @@ fn test_vminu_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -493,7 +543,8 @@ fn test_vminu_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -508,7 +559,9 @@ fn test_vmin_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -523,7 +576,8 @@ fn test_vmin_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -538,7 +592,9 @@ fn test_vmaxu_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -553,7 +609,8 @@ fn test_vmaxu_vx_masked() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: false
+            vm: false,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -568,7 +625,9 @@ fn test_vmax_vv() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -583,7 +642,8 @@ fn test_vmax_vx() {
             vd: VReg::V1,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -600,7 +660,9 @@ fn test_vmseq_vv() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -615,7 +677,8 @@ fn test_vmseq_vx() {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -630,7 +693,9 @@ fn test_vmseq_vi() {
             vd: VReg::V0,
             vs2: VReg::V2,
             imm: 0,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -645,7 +710,9 @@ fn test_vmsne_vv() {
             vd: VReg::V16,
             vs2: VReg::V8,
             vs1: VReg::V6,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -661,7 +728,9 @@ fn test_vmsne_vi() {
             vd: VReg::V16,
             vs2: VReg::V8,
             imm: 2,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -678,7 +747,9 @@ fn test_vmsltu_vv() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -693,7 +764,8 @@ fn test_vmsltu_vx() {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -708,7 +780,9 @@ fn test_vmslt_vv() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -723,7 +797,8 @@ fn test_vmslt_vx() {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -740,7 +815,9 @@ fn test_vmsleu_vv() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -755,7 +832,8 @@ fn test_vmsleu_vx() {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::T0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -770,7 +848,9 @@ fn test_vmsleu_vi() {
             vd: VReg::V0,
             vs2: VReg::V2,
             imm: 15,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -785,7 +865,9 @@ fn test_vmsle_vv() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V3,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -800,7 +882,9 @@ fn test_vmsle_vi() {
             vd: VReg::V0,
             vs2: VReg::V2,
             imm: -2,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -817,7 +901,8 @@ fn test_vmsgtu_vx() {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -832,7 +917,9 @@ fn test_vmsgtu_vi() {
             vd: VReg::V0,
             vs2: VReg::V2,
             imm: 9,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -847,7 +934,8 @@ fn test_vmsgt_vx() {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::A0,
-            vm: true
+            vm: true,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -862,7 +950,9 @@ fn test_vmsgt_vi() {
             vd: VReg::V0,
             vs2: VReg::V2,
             imm: -4,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -938,7 +1028,9 @@ fn test_vadd_vv_high_regs() {
             vd: VReg::V29,
             vs2: VReg::V31,
             vs1: VReg::V30,
-            vm: true
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }

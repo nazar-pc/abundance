@@ -70,6 +70,7 @@ fn test_aes64im() {
         Some(Rv64ZkndInstruction::Aes64Im {
             rd: Reg::Ra,
             rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -85,6 +86,7 @@ fn test_aes64im_nonzero_rs2_rejected() {
         Some(Rv64ZkndInstruction::Aes64Im {
             rd: Reg::Ra,
             rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -111,6 +113,7 @@ fn test_aes64ks1i_rnum_0() {
             rd: Reg::Ra,
             rs1: Reg::Sp,
             rnum: Rv64ZkndKsRnum::R0,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -126,6 +129,7 @@ fn test_aes64ks1i_rnum_7() {
             rd: Reg::Ra,
             rs1: Reg::Sp,
             rnum: Rv64ZkndKsRnum::R7,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -141,6 +145,7 @@ fn test_aes64ks1i_rnum_10() {
             rd: Reg::Ra,
             rs1: Reg::Sp,
             rnum: Rv64ZkndKsRnum::Final,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -163,6 +168,7 @@ fn test_aes64im_bit4_zero_rnum0() {
         Some(Rv64ZkndInstruction::Aes64Im {
             rd: Reg::Ra,
             rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

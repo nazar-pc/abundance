@@ -139,6 +139,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Rv64ZcmpInstruction<Reg>
 where
     Reg: Register,

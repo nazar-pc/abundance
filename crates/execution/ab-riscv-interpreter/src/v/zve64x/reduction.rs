@@ -461,7 +461,6 @@ where
                     );
                 }
             }
-            Self::PhantomZve64xReduction(_) => unreachable!("Never constructed"),
         }
 
         Ok(ControlFlow::Continue(Default::default()))

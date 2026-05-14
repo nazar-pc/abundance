@@ -67,7 +67,8 @@ fn test_brev8() {
         decoded,
         Some(Rv64ZbkbInstruction::Brev8 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

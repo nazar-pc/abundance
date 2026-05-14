@@ -25,6 +25,7 @@ fn test_bseti_basic() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0b1000);
@@ -74,6 +75,7 @@ fn test_bclri_basic() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
@@ -123,6 +125,7 @@ fn test_binvi_basic() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0b1010);
@@ -179,6 +182,7 @@ fn test_bexti_basic() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 2,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0b1010);
@@ -236,6 +240,7 @@ fn test_combination() {
             rd: Reg::A3,
             rs1: Reg::A2,
             shamt: 10,
+            rs2: Reg::Zero,
         },
         // Extract bit 5
         Rv64ZbsInstruction::Bext {

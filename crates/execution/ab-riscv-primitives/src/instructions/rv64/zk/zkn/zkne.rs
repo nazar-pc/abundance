@@ -78,7 +78,9 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Aes64Es { rd, rs1, rs2 } => write!(f, "aes64es {rd}, {rs1}, {rs2}"),
+            Self::Aes64Es {
+                rd: rd1, rs1, rs2, ..
+            } => write!(f, "aes64es {rd1}, {rs1}, {rs2}"),
             Self::Aes64Esm { rd, rs1, rs2 } => write!(f, "aes64esm {rd}, {rs1}, {rs2}"),
         }
     }

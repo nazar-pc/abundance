@@ -312,6 +312,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xPermInstruction<Reg>
 where
     Reg: fmt::Display,

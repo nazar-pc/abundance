@@ -12,7 +12,8 @@ fn test_csrrw() {
         Some(ZicsrInstruction::Csrrw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            csr: 0x305
+            csr: 0x305,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -26,7 +27,8 @@ fn test_csrrs() {
         Some(ZicsrInstruction::Csrrs {
             rd: Reg::Gp,
             rs1: Reg::Tp,
-            csr: 0x341
+            csr: 0x341,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -40,7 +42,8 @@ fn test_csrrc() {
         Some(ZicsrInstruction::Csrrc {
             rd: Reg::T0,
             rs1: Reg::T1,
-            csr: 0x300
+            csr: 0x300,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -54,7 +57,9 @@ fn test_csrrwi() {
         Some(ZicsrInstruction::Csrrwi {
             rd: Reg::T2,
             zimm: 0b10101,
-            csr: 0x7c0
+            csr: 0x7c0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -68,7 +73,9 @@ fn test_csrrsi() {
         Some(ZicsrInstruction::Csrrsi {
             rd: Reg::S0,
             zimm: 0b00001,
-            csr: 0x7c1
+            csr: 0x7c1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -82,7 +89,9 @@ fn test_csrrci() {
         Some(ZicsrInstruction::Csrrci {
             rd: Reg::S1,
             zimm: 0b11111,
-            csr: 0x7c2
+            csr: 0x7c2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -96,7 +105,8 @@ fn test_csrrw_nop_like_encoding() {
         Some(ZicsrInstruction::Csrrw {
             rd: Reg::Zero,
             rs1: Reg::Zero,
-            csr: 0x000
+            csr: 0x000,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -110,7 +120,9 @@ fn test_csrrwi_nop_like_encoding() {
         Some(ZicsrInstruction::Csrrwi {
             rd: Reg::Zero,
             zimm: 0,
-            csr: 0x000
+            csr: 0x000,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }

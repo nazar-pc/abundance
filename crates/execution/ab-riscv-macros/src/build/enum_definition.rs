@@ -7,12 +7,12 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
-use std::{env, fs};
+use std::{env, fs, mem};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
-    Error, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file, parse_quote, parse_str,
-    parse2,
+    Error, Fields, FieldsNamed, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file,
+    parse_quote, parse_str, parse2,
 };
 
 const ENUM_DEFINITION_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEFINITION_PATH";
@@ -140,11 +140,56 @@ pub(super) fn collect_enum_definitions_from_dependencies()
 }
 
 fn output_processed_enum_definition(
-    item_enum: ItemEnum,
+    mut item_enum: ItemEnum,
     dependencies: Vec<Ident>,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
+    for variant in &mut item_enum.variants {
+        let mut sorted_fields: FieldsNamed = parse_quote! {{
+            #[
+                doc = "First register operand (placeholder, instruction doesn't have it, should be \
+                set to Reg::ZERO)"
+            ]
+            #[doc(hidden)]
+            rs1: Reg,
+            #[
+                doc = "Second register operand (placeholder, instruction doesn't have it, should \
+                be set to Reg::ZERO)"
+            ]
+            #[doc(hidden)]
+            rs2: Reg,
+        }};
+        match &mut variant.fields {
+            Fields::Named(fields) => {
+                for field in mem::take(&mut fields.named) {
+                    if let Some(ident) = &field.ident {
+                        if ident == "rs1" {
+                            sorted_fields.named[0] = field;
+                            continue;
+                        } else if ident == "rs2" {
+                            sorted_fields.named[1] = field;
+                            continue;
+                        }
+                    }
+                    sorted_fields.named.push(field);
+                }
+            }
+            Fields::Unnamed(_) => {
+                return Err(anyhow::anyhow!(
+                    "Enum variants must use named fields: {}::{}(..)",
+                    item_enum.ident,
+                    variant.ident
+                ));
+            }
+            Fields::Unit => {
+                // Nothing to do here
+            }
+        }
+
+        variant.fields = Fields::Named(sorted_fields);
+    }
+
     let enum_name = item_enum.ident.clone();
     let enum_file_path = out_dir.join(format!("{}_definition.rs", enum_name));
     let code = item_enum.to_token_stream().to_string();
@@ -230,6 +275,28 @@ pub(super) fn process_enum_definition(
     if !has_repr_align {
         // Alignment improves performance significantly during execution
         item_enum.attrs.push(parse_quote! { #[repr(align(4))] });
+    }
+
+    let has_repr_c_ux = item_enum.attrs.iter().any(|attr| {
+        if !attr.path().is_ident("repr") {
+            return false;
+        }
+        // Parse the repr(...) token stream and look for align(...)
+        attr.parse_args_with(|input: ParseStream<'_>| {
+            let nested = input.parse_terminated(Meta::parse, Token![,])?;
+            Ok(nested.iter().any(|meta| {
+                meta.path().is_ident("C")
+                    || meta.path().is_ident("u8")
+                    || meta.path().is_ident("u16")
+            }))
+        })
+        .unwrap_or_default()
+    });
+
+    if !has_repr_c_ux {
+        // `u16` is a bit larger than necessary in the simplest case, but it is also consistently a
+        // bit faster for some reason
+        item_enum.attrs.push(parse_quote! { #[repr(u16)] });
     }
 
     let dependencies = match attribute.meta {

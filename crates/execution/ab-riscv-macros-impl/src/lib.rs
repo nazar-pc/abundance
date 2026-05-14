@@ -9,8 +9,14 @@ use proc_macro::TokenStream;
 ///
 /// # Enum definition
 ///
-/// When applied to the enum definition, it can be used as simply `#[instruction]` to make an enum
-/// with instructions available for inheritance.
+/// When applied to the enum definition, it will reorder variant fields and expose an enum with
+/// instructions as a dependency.
+///
+/// The fields are reordered as follows: `rs1` > `rs2` > others. This is helpful for
+/// high-performance execution implementation. If `rs1` or `rs2` are not present, they will be added
+/// automatically, and all implementations annotated with `#[instruction]` or
+/// `#[instruction_execution]` will be automatically updated accordingly, but tests and other usages
+/// will have to specify those fields explicitly.
 ///
 /// More complex syntax is used when inheriting instructions:
 /// ```rust,ignore

@@ -98,6 +98,8 @@ fn vredsum_e8_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -119,6 +121,8 @@ fn vredsum_e8_m1_wraps() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -139,6 +143,8 @@ fn vredsum_e16_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -159,6 +165,8 @@ fn vredsum_e32_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -178,6 +186,8 @@ fn vredsum_e64_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -200,6 +210,8 @@ fn vredsum_vl_zero_leaves_vd_undisturbed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -225,6 +237,8 @@ fn vredsum_masked_skips_inactive() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -250,6 +264,8 @@ fn vredsum_all_masked_out_writes_vs1_zero() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -272,6 +288,8 @@ fn vredsum_m2_uses_group() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -297,6 +315,8 @@ fn vredand_e8_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -316,6 +336,8 @@ fn vredand_e64_identity() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -335,6 +357,8 @@ fn vredand_vl_zero_leaves_vd_undisturbed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -359,6 +383,8 @@ fn vredor_e8_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -377,6 +403,8 @@ fn vredor_vl_zero_leaves_vd_undisturbed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -401,6 +429,8 @@ fn vredxor_e32_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -422,6 +452,8 @@ fn vredxor_e8_parity() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -445,6 +477,8 @@ fn vredminu_e8_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -465,6 +499,8 @@ fn vredminu_e32_initial_wins() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -485,6 +521,8 @@ fn vredminu_treats_as_unsigned() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -511,6 +549,8 @@ fn vredmin_e8_m1_signed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -531,6 +571,8 @@ fn vredmin_e32_initial_is_most_negative() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -554,6 +596,8 @@ fn vredmaxu_e8_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -574,6 +618,8 @@ fn vredmaxu_treats_as_unsigned() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -598,6 +644,8 @@ fn vredmax_e8_m1_signed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -618,6 +666,8 @@ fn vredmax_e32_initial_is_largest() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -642,6 +692,8 @@ fn vwredsumu_e8_to_e16_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -664,6 +716,8 @@ fn vwredsumu_e8_to_e16_zero_extends() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -684,6 +738,8 @@ fn vwredsumu_e16_to_e32_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -703,6 +759,8 @@ fn vwredsumu_e32_to_e64_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -722,6 +780,8 @@ fn vwredsumu_vl_zero_leaves_vd_undisturbed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -744,6 +804,8 @@ fn vwredsum_e8_to_e16_sign_extends() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -765,6 +827,8 @@ fn vwredsum_e8_to_e16_mixed_signs() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -784,6 +848,8 @@ fn vwredsum_e16_to_e32_sign_extends() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -802,6 +868,8 @@ fn vwredsum_e32_to_e64_sign_extends() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -824,6 +892,8 @@ fn vwredsum_vl_zero_leaves_vd_undisturbed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -843,6 +913,8 @@ fn vwredsumu_e64_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -861,6 +933,8 @@ fn vwredsum_e64_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -882,6 +956,8 @@ fn reduction_vector_not_allowed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -901,6 +977,8 @@ fn reduction_invalid_vtype_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -919,6 +997,8 @@ fn reduction_misaligned_vs2_m2_is_illegal() {
             vs2: VReg::V3,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -940,6 +1020,8 @@ fn reduction_nonzero_vstart_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -959,6 +1041,8 @@ fn widening_reduction_nonzero_vstart_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -981,6 +1065,8 @@ fn reduction_vstart_reset_after_execution() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -999,6 +1085,8 @@ fn reduction_marks_vs_dirty() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1023,6 +1111,8 @@ fn reduction_vd_element_zero_only_written() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1051,6 +1141,8 @@ fn vredmin_vs_vredminu_differ_on_high_bit() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1061,6 +1153,8 @@ fn vredmin_vs_vredminu_differ_on_high_bit() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1085,6 +1179,8 @@ fn vredmax_vs_vredmaxu_differ_on_high_bit() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1095,6 +1191,8 @@ fn vredmax_vs_vredmaxu_differ_on_high_bit() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1117,6 +1215,8 @@ fn vwredsumu_vs_vwredsum_differ_on_high_bit() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1127,6 +1227,8 @@ fn vwredsumu_vs_vwredsum_differ_on_high_bit() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();

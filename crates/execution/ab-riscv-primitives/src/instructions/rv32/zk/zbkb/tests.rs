@@ -53,7 +53,8 @@ fn test_brev8() {
         decoded,
         Some(Rv32ZbkbInstruction::Brev8 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -67,7 +68,8 @@ fn test_zip() {
         decoded,
         Some(Rv32ZbkbInstruction::Zip {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -81,7 +83,8 @@ fn test_unzip() {
         decoded,
         Some(Rv32ZbkbInstruction::Unzip {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

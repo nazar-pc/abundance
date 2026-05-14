@@ -10,6 +10,8 @@ fn test_cm_push_ra_only_decrements_sp() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x400;
     state.regs.write(Reg::Sp, sp_start);
@@ -29,6 +31,8 @@ fn test_cm_push_stack_adj_adds_extra() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 32,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x400;
     state.regs.write(Reg::Sp, sp_start);
@@ -49,6 +53,8 @@ fn test_cm_push_ra_s0() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x400;
     state.regs.write(Reg::Sp, sp_start);
@@ -73,6 +79,8 @@ fn test_cm_push_ra_s0_s1() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x500;
     state.regs.write(Reg::Sp, sp_start);
@@ -101,6 +109,8 @@ fn test_cm_push_max_urlist() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(15).unwrap(),
         stack_adj: 64,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x800;
     state.regs.write(Reg::Sp, sp_start);
@@ -117,6 +127,8 @@ fn test_cm_pop_restores_and_increments_sp() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -136,6 +148,8 @@ fn test_cm_pop_ra_s0() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -160,6 +174,8 @@ fn test_cm_pop_stack_adj_extra() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 32,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -180,6 +196,8 @@ fn test_cm_popretz_zeros_a0_and_jumps() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPopretz {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -201,6 +219,8 @@ fn test_cm_popretz_clears_lsb_of_return_addr() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPopretz {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -221,6 +241,8 @@ fn test_cm_popret_restores_and_jumps() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPopret {
         urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -246,6 +268,8 @@ fn test_cm_popret_clears_lsb_of_return_addr() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPopret {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_start = TEST_BASE_ADDR + 0x300;
     state.regs.write(Reg::Sp, sp_start);
@@ -319,6 +343,8 @@ fn test_push_pop_round_trip_ra_s0_s1() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::Sp, sp_start);
     state.regs.write(Reg::Ra, 0xAAAA);
@@ -332,6 +358,8 @@ fn test_push_pop_round_trip_ra_s0_s1() {
     let mut state2 = initialize_state([Rv32ZcmpInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state2.regs.write(Reg::Sp, sp_after_push);
     for offset in 0u32..64 {
@@ -355,6 +383,8 @@ fn test_cm_push_oob_memory() {
     let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::Sp, 2);
     let result = execute(&mut state);

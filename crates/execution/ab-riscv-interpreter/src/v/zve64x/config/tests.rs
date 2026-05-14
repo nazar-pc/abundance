@@ -39,6 +39,7 @@ fn vsetvli_sets_vl_and_rd_from_avl() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
@@ -61,6 +62,7 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 100);
@@ -78,6 +80,7 @@ fn vsetvli_avl_zero_gives_vl_zero() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 0);
@@ -97,6 +100,7 @@ fn vsetvli_avl_equals_vlmax() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 16);
@@ -114,6 +118,7 @@ fn vsetvli_rd_x0_discards_result() {
         rd: Reg::Zero,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
@@ -136,6 +141,7 @@ fn vsetvli_e8_m8_gives_max_vlmax() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 200);
@@ -154,6 +160,7 @@ fn vsetvli_e64_m1() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -174,6 +181,7 @@ fn vsetvli_e32_mf2() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
@@ -192,6 +200,7 @@ fn vsetvli_e8_mf8() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -211,6 +220,7 @@ fn vsetvli_ta_ma_flags_preserved() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -231,6 +241,7 @@ fn vsetvli_tu_mu_flags_preserved() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -252,6 +263,7 @@ fn vsetvli_unsupported_sew_sets_vill() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
@@ -271,6 +283,7 @@ fn vsetvli_reserved_vlmul_sets_vill() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
@@ -290,6 +303,7 @@ fn vsetvli_vlmax_zero_sets_vill() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -309,6 +323,7 @@ fn vsetvli_reserved_upper_bits_set_vill() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -329,6 +344,7 @@ fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
         rd: Reg::A0,
         rs1: Reg::Zero,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -346,6 +362,7 @@ fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
         rd: Reg::A0,
         rs1: Reg::Zero,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -364,12 +381,14 @@ fn vsetvli_rs1_x0_rd_x0_keeps_vl_when_vlmax_unchanged() {
             rd: Reg::A0,
             rs1: Reg::A1,
             vtypei: vtypei_1,
+            rs2: Reg::Zero,
         },
         // Then: vsetvli x0, x0, e32,m1,ta,ma -> same VLMAX, keep vl=3
         Zve64xConfigInstruction::Vsetvli {
             rd: Reg::Zero,
             rs1: Reg::Zero,
             vtypei: encode_vtype(Vsew::E32, Vlmul::M1, true, true),
+            rs2: Reg::Zero,
         },
     ]);
     state.ext_state.init_vector_csrs();
@@ -393,12 +412,14 @@ fn vsetvli_rs1_x0_rd_x0_vill_when_vlmax_changes() {
             rd: Reg::A0,
             rs1: Reg::A1,
             vtypei: encode_vtype(Vsew::E32, Vlmul::M1, false, false),
+            rs2: Reg::Zero,
         },
         // Then: vsetvli x0, x0, e8,m1 -> VLMAX would be 16 != 4 -> vill
         Zve64xConfigInstruction::Vsetvli {
             rd: Reg::Zero,
             rs1: Reg::Zero,
             vtypei: encode_vtype(Vsew::E8, Vlmul::M1, false, false),
+            rs2: Reg::Zero,
         },
     ]);
     state.ext_state.init_vector_csrs();
@@ -420,6 +441,8 @@ fn vsetivli_basic() {
         rd: Reg::A0,
         uimm: 3,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -437,6 +460,8 @@ fn vsetivli_avl_zero() {
         rd: Reg::A0,
         uimm: 0,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -455,6 +480,8 @@ fn vsetivli_max_immediate() {
         rd: Reg::A0,
         uimm: 31,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -472,6 +499,8 @@ fn vsetivli_avl_within_vlmax() {
         rd: Reg::A0,
         uimm: 20,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -489,6 +518,8 @@ fn vsetivli_unsupported_sets_vill() {
         rd: Reg::A0,
         uimm: 5,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -507,6 +538,8 @@ fn vsetivli_with_ta_ma() {
         rd: Reg::A0,
         uimm: 10,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -633,6 +666,7 @@ fn vsetvli_marks_dirty() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -650,6 +684,8 @@ fn vsetvli_unsupported_still_marks_dirty() {
         rd: Reg::A0,
         uimm: 1,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
 
@@ -667,6 +703,7 @@ fn vsetvli_fails_when_vector_disabled() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -683,6 +720,8 @@ fn vsetivli_fails_when_vector_disabled() {
         rd: Reg::A0,
         uimm: 5,
         vtypei,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.ext_state.set_vector_allowed(false);
@@ -925,6 +964,7 @@ fn vtype_csr_raw_value_matches_decoded() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -943,6 +983,7 @@ fn vtype_csr_vill_sets_bit_63() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
@@ -960,6 +1001,7 @@ fn vl_csr_matches_vl_value() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
@@ -987,11 +1029,13 @@ fn sequential_vsetvli_overrides_previous() {
             rd: Reg::A0,
             rs1: Reg::A1,
             vtypei: encode_vtype(Vsew::E32, Vlmul::M1, false, false),
+            rs2: Reg::Zero,
         },
         Zve64xConfigInstruction::Vsetvli {
             rd: Reg::A2,
             rs1: Reg::A3,
             vtypei: encode_vtype(Vsew::E8, Vlmul::M2, true, true),
+            rs2: Reg::Zero,
         },
     ]);
     state.ext_state.init_vector_csrs();
@@ -1019,12 +1063,14 @@ fn vsetvli_after_vill_recovers() {
             rd: Reg::A0,
             rs1: Reg::A1,
             vtypei: 0b100,
+            rs2: Reg::Zero,
         },
         // Second: valid config should recover
         Zve64xConfigInstruction::Vsetvli {
             rd: Reg::A2,
             rs1: Reg::A3,
             vtypei: encode_vtype(Vsew::E32, Vlmul::M1, false, false),
+            rs2: Reg::Zero,
         },
     ]);
     state.ext_state.init_vector_csrs();
@@ -1048,12 +1094,15 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
             rd: Reg::A0,
             uimm: 5,
             vtypei: encode_vtype(Vsew::E16, Vlmul::M1, false, false),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         // Change to ta,ma but keep same SEW/LMUL (same VLMAX=8)
         Zve64xConfigInstruction::Vsetvli {
             rd: Reg::Zero,
             rs1: Reg::Zero,
             vtypei: encode_vtype(Vsew::E16, Vlmul::M1, true, true),
+            rs2: Reg::Zero,
         },
     ]);
     state.ext_state.init_vector_csrs();
@@ -1078,6 +1127,7 @@ fn vsetvli_large_avl_in_register() {
         rd: Reg::A0,
         rs1: Reg::A1,
         vtypei,
+        rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
     state.regs.write(Reg::A1, u64::MAX);

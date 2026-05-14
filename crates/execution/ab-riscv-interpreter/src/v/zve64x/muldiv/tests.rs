@@ -141,6 +141,8 @@ fn vmul_vv_e32_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -168,6 +170,8 @@ fn vmul_vv_e8_wraps() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -187,6 +191,7 @@ fn vmul_vx_e64_m1() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -216,6 +221,8 @@ fn vmul_masked_skips_inactive() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -242,6 +249,8 @@ fn vmulh_vv_e8_positive() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -262,6 +271,8 @@ fn vmulh_vv_e16_large() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -284,6 +295,8 @@ fn vmulh_vv_e16_signed_negative_result() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -304,6 +317,7 @@ fn vmulh_vx_e32() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -320,6 +334,8 @@ fn vmulh_illegal_for_sew64() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -343,6 +359,8 @@ fn vmulhu_vv_e8() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -362,6 +380,7 @@ fn vmulhu_vx_e16() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -378,6 +397,8 @@ fn vmulhu_illegal_for_sew64() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -401,6 +422,8 @@ fn vmulhsu_vv_e8_positive_result() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -420,6 +443,8 @@ fn vmulhsu_vv_e8_negative_signed() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -436,6 +461,8 @@ fn vmulhsu_illegal_for_sew64() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -462,6 +489,8 @@ fn vdivu_vv_e32_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -488,6 +517,8 @@ fn vdivu_vv_e32_div_by_zero_returns_all_ones() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -508,6 +539,7 @@ fn vdivu_vx_e8_div_by_zero() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -526,6 +558,8 @@ fn vdivu_vv_e64_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -555,6 +589,8 @@ fn vdiv_vv_e32_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -577,6 +613,8 @@ fn vdiv_vv_e32_div_by_zero_returns_neg1() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -599,6 +637,8 @@ fn vdiv_vv_e16_signed_overflow_returns_min() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -624,6 +664,7 @@ fn vdiv_vx_e64_neg() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -650,6 +691,8 @@ fn vremu_vv_e32_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -674,6 +717,8 @@ fn vremu_vv_e8_div_by_zero_returns_dividend() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -695,6 +740,7 @@ fn vremu_vx_e16() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -732,6 +778,8 @@ fn vrem_vv_e32_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -752,6 +800,8 @@ fn vrem_vv_e16_div_by_zero_returns_dividend() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -774,6 +824,8 @@ fn vrem_vv_e32_signed_overflow_returns_zero() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -800,6 +852,7 @@ fn vrem_vx_e8() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -826,6 +879,8 @@ fn vwmulu_vv_e8_to_e16() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -853,6 +908,7 @@ fn vwmulu_vx_e16_to_e32() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -875,6 +931,8 @@ fn vwmulu_illegal_for_sew64() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -894,6 +952,8 @@ fn vwmulu_overlap_rejected() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -913,6 +973,8 @@ fn vwmulu_m8_is_illegal() {
             vs2: VReg::V0,
             vs1: VReg::V8,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -938,6 +1000,8 @@ fn vwmulu_mf2_e8_correct_result() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -965,6 +1029,8 @@ fn vwmulu_mf2_no_false_overlap_rejection() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(result.is_ok());
@@ -983,6 +1049,8 @@ fn vwmulu_mf2_overlap_still_rejected() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1003,6 +1071,8 @@ fn vwmulu_m1_overlap_uses_2_dest_regs() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1022,6 +1092,8 @@ fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
             vs2: VReg::V5,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1051,6 +1123,8 @@ fn vwmul_vv_e8_signed() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1082,6 +1156,7 @@ fn vwmul_vx_e16_signed() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1111,6 +1186,8 @@ fn vwmulsu_vv_e8_signed_unsigned() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1142,6 +1219,8 @@ fn vmacc_vv_e32_basic() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1168,6 +1247,7 @@ fn vmacc_vx_e64_basic() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1199,6 +1279,8 @@ fn vnmsac_vv_e32() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1221,6 +1303,7 @@ fn vnmsac_vx_e8_wraps() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1250,6 +1333,8 @@ fn vmadd_vv_e32() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1273,6 +1358,7 @@ fn vmadd_vx_e16() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1299,6 +1385,8 @@ fn vnmsub_vv_e32() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1319,6 +1407,7 @@ fn vnmsub_vx_e64_wraps() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1351,6 +1440,8 @@ fn vwmaccu_vv_e8_basic() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1376,6 +1467,7 @@ fn vwmaccu_vx_e16() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1408,6 +1500,8 @@ fn vwmacc_vv_e8_signed() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1438,6 +1532,8 @@ fn vwmacc_mf2_e16_basic() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1474,6 +1570,8 @@ fn vwmaccsu_vv_e8() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1508,6 +1606,7 @@ fn vwmaccus_vx_e8() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1540,6 +1639,7 @@ fn vwmaccsu_vx_e8() {
             rs1: Reg::A0,
             vs2: VReg::V4,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1565,6 +1665,8 @@ fn vector_instructions_not_allowed() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1585,6 +1687,8 @@ fn vtype_not_configured_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1604,6 +1708,8 @@ fn vd_unaligned_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1623,6 +1729,8 @@ fn masked_vd_v0_is_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1648,6 +1756,8 @@ fn vstart_respected_for_mul() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1672,6 +1782,8 @@ fn vl_zero_writes_nothing() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1690,18 +1802,24 @@ fn widening_mul_illegal_for_sew64() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMulDivInstruction::VwmulsuVv {
             vd: VReg::V8,
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMulDivInstruction::VwmulVv {
             vd: VReg::V8,
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     ] {
         let result = exec(&mut state, instr);
@@ -1721,18 +1839,24 @@ fn widening_muladd_illegal_for_sew64() {
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMulDivInstruction::VwmaccVv {
             vd: VReg::V8,
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMulDivInstruction::VwmaccsuVv {
             vd: VReg::V8,
             vs1: VReg::V2,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     ] {
         let result = exec(&mut state, instr);
@@ -1755,6 +1879,8 @@ fn vdivu_e64_div_by_zero() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1773,6 +1899,8 @@ fn vdiv_e64_signed_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1795,6 +1923,8 @@ fn vrem_e64_signed_overflow_returns_zero() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1823,6 +1953,8 @@ fn set_mask_bit_helper_works() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();

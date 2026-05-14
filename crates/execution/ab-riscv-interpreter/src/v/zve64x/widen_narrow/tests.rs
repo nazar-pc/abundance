@@ -103,6 +103,8 @@ fn vwaddu_vv_e8_m1_zero_extends() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -131,6 +133,8 @@ fn vwaddu_vv_e16_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -153,6 +157,8 @@ fn vwaddu_vv_e32_m1_basic() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -177,6 +183,7 @@ fn vwaddu_vx_e8_m1_zero_extends_scalar() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -200,6 +207,7 @@ fn vwaddu_vx_e8_m1_scalar_not_truncated_to_sew() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -224,6 +232,8 @@ fn vwadd_vv_e8_m1_sign_extends() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -246,6 +256,8 @@ fn vwadd_vv_e32_m1_sign_extends() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -269,6 +281,7 @@ fn vwadd_vx_e16_m1_sign_extends_scalar() {
             vs2: VReg::V2,
             rs1: Reg::A1,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -291,6 +304,7 @@ fn vwadd_vx_e8_m1_scalar_sign_extended_from_xlen_not_sew() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -310,6 +324,7 @@ fn vwadd_vx_e8_m1_negative_xlen_scalar() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -331,6 +346,8 @@ fn vwsubu_vv_e8_m1_zero_extends() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -353,6 +370,8 @@ fn vwsub_vv_e8_m1_sign_extends() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -373,6 +392,7 @@ fn vwsub_vx_e32_m1_sign_extends() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -404,6 +424,8 @@ fn vwaddu_wv_e8_m1_wide_plus_narrow() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -427,6 +449,7 @@ fn vwaddu_wx_e16_m1_wide_plus_scalar() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -453,6 +476,7 @@ fn vwaddu_wx_e8_m1_scalar_not_truncated() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -477,6 +501,8 @@ fn vwadd_wv_e8_m1_sign_extends_narrow() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -502,6 +528,7 @@ fn vwadd_wx_e32_m1_sign_extends_scalar() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -526,6 +553,8 @@ fn vwsubu_wv_e8_m1_zero_extends_narrow() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -546,6 +575,7 @@ fn vwsubu_wx_e16_m1_scalar() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -568,6 +598,8 @@ fn vwsub_wv_e8_m1_sign_extends_narrow() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -587,6 +619,7 @@ fn vwsub_wx_e32_m1_sign_extends_scalar() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -611,6 +644,8 @@ fn vnsrl_wv_e8_m1_logical_shift() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -641,6 +676,8 @@ fn vnsrl_wv_e16_m1_shamt_masked_to_5_bits() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -663,6 +700,7 @@ fn vnsrl_wx_e32_m1_logical_no_sign_fill() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -682,6 +720,8 @@ fn vnsrl_wi_e8_m1_immediate_shift() {
             vs2: VReg::V8,
             uimm: 8,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -707,6 +747,8 @@ fn vnsra_wv_e8_m1_arithmetic_sign_fills() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -730,6 +772,7 @@ fn vnsra_wx_e32_m1_sign_fills() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -751,6 +794,7 @@ fn vnsra_wx_e16_m1_sign_fills_into_result() {
             vs2: VReg::V8,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -770,6 +814,8 @@ fn vnsra_wi_e8_m1_immediate() {
             vs2: VReg::V8,
             uimm: 8,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -794,6 +840,8 @@ fn vzext_vf2_e16_m1_zero_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -820,6 +868,8 @@ fn vzext_vf2_e32_m1_zero_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -838,6 +888,8 @@ fn vzext_vf2_e64_m1_zero_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -863,6 +915,8 @@ fn vzext_vf4_e32_m1_zero_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -887,6 +941,8 @@ fn vzext_vf4_e64_m1_zero_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -908,6 +964,8 @@ fn vzext_vf8_e64_m1_zero_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -930,6 +988,8 @@ fn vsext_vf2_e16_m1_sign_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -956,6 +1016,8 @@ fn vsext_vf2_e32_m1_positive_unchanged() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -976,6 +1038,8 @@ fn vsext_vf2_e64_m1_sign_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1002,6 +1066,8 @@ fn vsext_vf4_e32_m1_sign_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1020,6 +1086,8 @@ fn vsext_vf4_e64_m1_sign_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1043,6 +1111,8 @@ fn vsext_vf8_e64_m1_sign_extends() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1073,6 +1143,8 @@ fn vwaddu_vv_e8_m1_masked_skips_inactive() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1099,6 +1171,8 @@ fn vnsrl_wv_e8_m1_masked_skips_inactive() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1125,6 +1199,8 @@ fn vsext_vf2_e16_m1_masked_skips_inactive() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1153,6 +1229,8 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1179,6 +1257,8 @@ fn vwaddu_vv_e64_m1_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1197,6 +1277,8 @@ fn vwadd_vv_e64_m1_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1215,6 +1297,8 @@ fn vwsubu_vv_e64_m1_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1234,6 +1318,8 @@ fn vnsrl_e64_m1_illegal() {
             vs2: VReg::V8,
             uimm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1252,6 +1338,8 @@ fn vnsra_e64_m1_illegal() {
             vs2: VReg::V8,
             uimm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1272,6 +1360,8 @@ fn vzext_vf4_e16_illegal_sew_too_small() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1289,6 +1379,8 @@ fn vsext_vf4_e16_illegal_sew_too_small() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1307,6 +1399,8 @@ fn vzext_vf8_e32_illegal_sew_too_small() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1324,6 +1418,8 @@ fn vsext_vf8_e32_illegal_sew_too_small() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1342,6 +1438,8 @@ fn vzext_vf2_e8_illegal_sew_too_small() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1363,6 +1461,8 @@ fn vwaddu_vv_masked_vd_v0_illegal() {
             vs2: VReg::V4,
             vs1: VReg::V8,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1381,6 +1481,8 @@ fn vnsrl_masked_vd_v0_illegal() {
             vs2: VReg::V4,
             uimm: 0,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1398,6 +1500,8 @@ fn vzext_vf2_masked_vd_v0_illegal() {
             vd: VReg::V0,
             vs2: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1420,6 +1524,8 @@ fn vwaddu_vv_vtype_not_set_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1439,6 +1545,8 @@ fn vnsrl_vtype_not_set_illegal() {
             vs2: VReg::V8,
             uimm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1460,6 +1568,8 @@ fn vwaddu_vv_not_allowed_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1478,6 +1588,8 @@ fn vsext_vf2_not_allowed_illegal() {
             vd: VReg::V8,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1499,6 +1611,8 @@ fn vwaddu_vv_vd_misaligned_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1518,6 +1632,8 @@ fn vwaddu_vv_vd_overlaps_vs2_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1537,6 +1653,8 @@ fn vwaddu_vv_vd_overlaps_vs1_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1555,6 +1673,8 @@ fn vzext_vf2_vd_overlaps_vs2_illegal() {
             vd: VReg::V8,
             vs2: VReg::V8,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1580,6 +1700,8 @@ fn vwaddu_vv_e8_m2_multi_register_group() {
             vs2: VReg::V8,
             vs1: VReg::V12,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1607,6 +1729,7 @@ fn vnsrl_e16_m2_multi_register_group() {
             vs2: VReg::V16,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1635,6 +1758,8 @@ fn vwaddu_vv_vl_zero_nop() {
             vs2: VReg::V2,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1667,6 +1792,8 @@ fn vnsrl_wi_e8_m1_uimm_masked_to_log2_2sew() {
             // 16 in 5-bit uimm field; masked to 4 bits = 0
             uimm: 16,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1692,6 +1819,8 @@ fn vwaddu_wv_vd_aliases_vs2_legal() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();

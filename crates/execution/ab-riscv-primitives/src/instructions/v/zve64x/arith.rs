@@ -289,6 +289,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xArithInstruction<Reg>
 where
     Reg: fmt::Display,

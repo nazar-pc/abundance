@@ -9,6 +9,8 @@ fn test_caddi4spn() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAddi4spn {
         rd: Reg::A0,
         nzuimm: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::Sp, 100);
     execute(&mut state).unwrap();
@@ -23,6 +25,7 @@ fn test_clw_sign_extends() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<i32>(addr, -42).unwrap();
@@ -53,6 +56,7 @@ fn test_cld() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state
@@ -85,7 +89,10 @@ fn test_csd() {
 
 #[test]
 fn test_cnop() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CNop]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CNop {
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::Zero), 0);
 }
@@ -97,6 +104,8 @@ fn test_caddi_positive() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAddi {
         rd: Reg::A0,
         nzimm: 5,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 10);
     execute(&mut state).unwrap();
@@ -108,6 +117,8 @@ fn test_caddi_negative() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAddi {
         rd: Reg::A0,
         nzimm: -1,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 1);
     execute(&mut state).unwrap();
@@ -122,6 +133,8 @@ fn test_caddiw_wraps_to_32bit() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAddiw {
         rd: Reg::A0,
         imm: 1,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0x7FFF_FFFF);
     execute(&mut state).unwrap();
@@ -135,6 +148,8 @@ fn test_cli() {
     let mut state = initialize_state([Rv64ZcaInstruction::CLi {
         rd: Reg::A0,
         imm: -7,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), (-7i64).cast_unsigned());
@@ -144,7 +159,11 @@ fn test_cli() {
 
 #[test]
 fn test_caddi16sp_positive() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CAddi16sp { nzimm: 64 }]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CAddi16sp {
+        nzimm: 64,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::Sp, 256);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::Sp), 320);
@@ -152,7 +171,11 @@ fn test_caddi16sp_positive() {
 
 #[test]
 fn test_caddi16sp_negative() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CAddi16sp { nzimm: -32 }]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CAddi16sp {
+        nzimm: -32,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::Sp, 256);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::Sp), 224);
@@ -165,6 +188,8 @@ fn test_clui() {
     let mut state = initialize_state([Rv64ZcaInstruction::CLui {
         rd: Reg::A0,
         nzimm: I24::from_i32(0x1000),
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x1000);
@@ -177,6 +202,8 @@ fn test_csrli() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSrli {
         rd: Reg::S0,
         shamt: 4,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0xFFFF_FFFF_FFFF_FFFF);
     execute(&mut state).unwrap();
@@ -188,6 +215,8 @@ fn test_csrai() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSrai {
         rd: Reg::S0,
         shamt: 4,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0xFFFF_FFFF_FFFF_F000);
     execute(&mut state).unwrap();
@@ -202,6 +231,8 @@ fn test_candi_mask() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAndi {
         rd: Reg::S0,
         imm: 0x0F,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0xFF);
     execute(&mut state).unwrap();
@@ -214,6 +245,8 @@ fn test_candi_negative_sign_extends() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAndi {
         rd: Reg::S0,
         imm: -1,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0xDEAD_BEEF);
     execute(&mut state).unwrap();
@@ -227,6 +260,7 @@ fn test_csub() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSub {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 10);
     state.regs.write(Reg::S1, 3);
@@ -239,6 +273,7 @@ fn test_cxor() {
     let mut state = initialize_state([Rv64ZcaInstruction::CXor {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0b1010);
     state.regs.write(Reg::S1, 0b1100);
@@ -251,6 +286,7 @@ fn test_cor() {
     let mut state = initialize_state([Rv64ZcaInstruction::COr {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0b1010);
     state.regs.write(Reg::S1, 0b0101);
@@ -263,6 +299,7 @@ fn test_cand() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAnd {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0b1010);
     state.regs.write(Reg::S1, 0b1100);
@@ -275,6 +312,7 @@ fn test_csubw_sign_extends() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSubw {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 1);
     state.regs.write(Reg::S1, 2);
@@ -287,6 +325,7 @@ fn test_caddw_sign_extends() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAddw {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0x7FFF_FFFF);
     state.regs.write(Reg::S1, 1);
@@ -298,7 +337,11 @@ fn test_caddw_sign_extends() {
 
 #[test]
 fn test_cj() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CJ { imm: 4 }]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CJ {
+        imm: 4,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     let initial_pc = state.instruction_fetcher.get_pc();
     execute(&mut state).unwrap();
     assert_eq!(
@@ -312,6 +355,7 @@ fn test_cbeqz_taken() {
     let mut state = initialize_state([Rv64ZcaInstruction::CBeqz {
         rs1: Reg::S0,
         imm: 8,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 0);
     let initial_pc = state.instruction_fetcher.get_pc();
@@ -328,10 +372,13 @@ fn test_cbeqz_not_taken() {
         Rv64ZcaInstruction::CBeqz {
             rs1: Reg::S0,
             imm: 8,
+            rs2: Reg::Zero,
         },
         Rv64ZcaInstruction::CAddi {
             rd: Reg::A0,
             nzimm: 42,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     ]);
     state.regs.write(Reg::S0, 1);
@@ -344,6 +391,7 @@ fn test_cbnez_taken() {
     let mut state = initialize_state([Rv64ZcaInstruction::CBnez {
         rs1: Reg::S0,
         imm: 4,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 99);
     let initial_pc = state.instruction_fetcher.get_pc();
@@ -361,6 +409,8 @@ fn test_clwsp() {
     let mut state = initialize_state([Rv64ZcaInstruction::CLwsp {
         rd: Reg::A0,
         uimm: 0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_addr = TEST_BASE_ADDR + 0x200;
     state.memory.write::<i32>(sp_addr, -100).unwrap();
@@ -374,6 +424,8 @@ fn test_cldsp() {
     let mut state = initialize_state([Rv64ZcaInstruction::CLdsp {
         rd: Reg::A0,
         uimm: 16,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     let sp_addr = TEST_BASE_ADDR + 0x200;
     state
@@ -389,7 +441,10 @@ fn test_cldsp() {
 
 #[test]
 fn test_cjr() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CJr { rs1: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CJr {
+        rs1: Reg::A0,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR + 0x100);
     execute(&mut state).unwrap();
     assert_eq!(state.instruction_fetcher.get_pc(), TEST_BASE_ADDR + 0x100);
@@ -397,7 +452,10 @@ fn test_cjr() {
 
 #[test]
 fn test_cjr_clears_lsb() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CJr { rs1: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CJr {
+        rs1: Reg::A0,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR + 0x101);
     execute(&mut state).unwrap();
     assert_eq!(state.instruction_fetcher.get_pc(), TEST_BASE_ADDR + 0x100);
@@ -408,6 +466,7 @@ fn test_cmv() {
     let mut state = initialize_state([Rv64ZcaInstruction::CMv {
         rd: Reg::A0,
         rs2: Reg::A1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::A1, 42);
     execute(&mut state).unwrap();
@@ -416,7 +475,10 @@ fn test_cmv() {
 
 #[test]
 fn test_cjalr() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CJalr { rs1: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CJalr {
+        rs1: Reg::A0,
+        rs2: Reg::Zero,
+    }]);
     let initial_pc = state.instruction_fetcher.get_pc();
     state.regs.write(Reg::A0, TEST_BASE_ADDR + 0x100);
     execute(&mut state).unwrap();
@@ -430,6 +492,7 @@ fn test_cadd() {
     let mut state = initialize_state([Rv64ZcaInstruction::CAdd {
         rd: Reg::A0,
         rs2: Reg::A1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 10);
     state.regs.write(Reg::A1, 20);
@@ -442,6 +505,8 @@ fn test_cslli() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSlli {
         rd: Reg::A0,
         shamt: 3,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 1);
     execute(&mut state).unwrap();
@@ -455,6 +520,7 @@ fn test_cswsp() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSwsp {
         rs2: Reg::A0,
         uimm: 0,
+        rs1: Reg::Zero,
     }]);
     let sp_addr = TEST_BASE_ADDR + 0x200;
     state.regs.write(Reg::Sp, sp_addr);
@@ -468,6 +534,7 @@ fn test_csdsp() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSdsp {
         rs2: Reg::A0,
         uimm: 8,
+        rs1: Reg::Zero,
     }]);
     let sp_addr = TEST_BASE_ADDR + 0x200;
     state.regs.write(Reg::Sp, sp_addr);
@@ -485,7 +552,10 @@ fn test_csdsp() {
 fn test_write_to_zero_via_addi() {
     // C.ADDI with rd=Zero should not change x0
     // (In compressed format rd=Zero with ADDI is C.NOP; we test via regular path)
-    let mut state = initialize_state([Rv64ZcaInstruction::CNop]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CNop {
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::Zero), 0);
 }
@@ -498,6 +568,7 @@ fn test_clw_out_of_bounds() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
     let result = execute(&mut state);
@@ -518,7 +589,10 @@ fn test_csd_out_of_bounds() {
 
 #[test]
 fn test_cunimp() {
-    let mut state = initialize_state([Rv64ZcaInstruction::CUnimp]);
+    let mut state = initialize_state([Rv64ZcaInstruction::CUnimp {
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
 
     let result = execute(&mut state);
 

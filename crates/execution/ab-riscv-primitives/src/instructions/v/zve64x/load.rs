@@ -253,6 +253,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xLoadInstruction<Reg>
 where
     Reg: fmt::Display,

@@ -371,6 +371,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Rv32ZcmpInstruction<Reg>
 where
     Reg: Register,

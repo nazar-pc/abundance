@@ -249,6 +249,7 @@ fn test_addi() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 5,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -264,6 +265,7 @@ fn test_addi_negative() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: -5,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -279,6 +281,7 @@ fn test_slti() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 10,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, (-5i32).cast_unsigned());
@@ -294,6 +297,7 @@ fn test_sltiu() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: -1,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 5);
@@ -309,6 +313,7 @@ fn test_xori() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0xAA,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFF);
@@ -324,6 +329,7 @@ fn test_ori() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0x0F,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xF0);
@@ -339,6 +345,7 @@ fn test_andi() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0x0F,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFF);
@@ -354,6 +361,7 @@ fn test_slli() {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 4,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 1);
@@ -369,6 +377,7 @@ fn test_srli() {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 2,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 16);
@@ -384,6 +393,7 @@ fn test_srai() {
         rd: Reg::A1,
         rs1: Reg::A0,
         shamt: 2,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, (-16i32).cast_unsigned());
@@ -401,6 +411,7 @@ fn test_lb() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 10,
+        rs2: Reg::Zero,
     }]);
 
     let data_addr = TEST_BASE_ADDR + 0x100;
@@ -421,6 +432,7 @@ fn test_lh() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
+        rs2: Reg::Zero,
     }]);
 
     let data_addr = TEST_BASE_ADDR + 0x100;
@@ -441,6 +453,7 @@ fn test_lw() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
+        rs2: Reg::Zero,
     }]);
 
     let data_addr = TEST_BASE_ADDR + 0x100;
@@ -461,6 +474,7 @@ fn test_lbu() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
+        rs2: Reg::Zero,
     }]);
 
     let data_addr = TEST_BASE_ADDR + 0x100;
@@ -481,6 +495,7 @@ fn test_lhu() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
+        rs2: Reg::Zero,
     }]);
 
     let data_addr = TEST_BASE_ADDR + 0x100;
@@ -589,6 +604,7 @@ fn test_beq_not_taken() {
             rs1: Reg::Zero,
             // This should execute
             imm: 99,
+            rs2: Reg::Zero,
         },
     ]);
 
@@ -710,18 +726,22 @@ fn test_jal() {
             rd: Reg::Ra,
             // Skip next instruction
             imm: I24::from_i32(8),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
             rs1: Reg::Zero,
             // Should be skipped
             imm: 99,
+            rs2: Reg::Zero,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
             rs1: Reg::Zero,
             // Should execute
             imm: 42,
+            rs2: Reg::Zero,
         },
     ]);
 
@@ -742,18 +762,21 @@ fn test_jalr() {
             rd: Reg::Ra,
             rs1: Reg::A0,
             imm: 0,
+            rs2: Reg::Zero,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
             rs1: Reg::Zero,
             // Should be skipped
             imm: 99,
+            rs2: Reg::Zero,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
             rs1: Reg::Zero,
             // Should execute
             imm: 42,
+            rs2: Reg::Zero,
         },
     ]);
 
@@ -776,16 +799,19 @@ fn test_jalr_clear_lsb() {
             rd: Reg::Ra,
             rs1: Reg::A0,
             imm: 0,
+            rs2: Reg::Zero,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
             rs1: Reg::Zero,
             imm: 99,
+            rs2: Reg::Zero,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
             rs1: Reg::Zero,
             imm: 42,
+            rs2: Reg::Zero,
         },
     ]);
 
@@ -809,6 +835,8 @@ fn test_lui() {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
         imm: I24WithZeroedBits::from_i32(0x12345000u32.cast_signed()),
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
 
     execute(&mut state).unwrap();
@@ -821,6 +849,8 @@ fn test_lui_negative() {
     let mut state = initialize_state([Rv32Instruction::Lui {
         rd: Reg::A0,
         imm: I24WithZeroedBits::from_i32(0xfffff000u32.cast_signed()),
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
 
     execute(&mut state).unwrap();
@@ -835,6 +865,8 @@ fn test_auipc() {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
         imm: I24WithZeroedBits::from_i32(0x12345000u32.cast_signed()),
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
 
     let initial_pc = state.instruction_fetcher.get_pc();
@@ -852,6 +884,8 @@ fn test_auipc_negative() {
     let mut state = initialize_state([Rv32Instruction::Auipc {
         rd: Reg::A0,
         imm: I24WithZeroedBits::from_i32(0xfffff000u32.cast_signed()),
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
 
     let initial_pc = state.instruction_fetcher.get_pc();
@@ -872,6 +906,8 @@ fn test_fence() {
     let mut state = initialize_state([Rv32Instruction::Fence {
         pred: 0xF,
         succ: 0xF,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
     }]);
 
     execute(&mut state).unwrap();
@@ -881,7 +917,10 @@ fn test_fence() {
 
 #[test]
 fn test_ebreak() {
-    let mut state = initialize_state([Rv32Instruction::Ebreak]);
+    let mut state = initialize_state([Rv32Instruction::Ebreak {
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
 
     execute(&mut state).unwrap();
 
@@ -890,7 +929,10 @@ fn test_ebreak() {
 
 #[test]
 fn test_ecall_unsupported() {
-    let mut state = initialize_state([Rv32Instruction::Ecall]);
+    let mut state = initialize_state([Rv32Instruction::Ecall {
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
 
     let result = execute(&mut state);
 
@@ -902,7 +944,10 @@ fn test_ecall_unsupported() {
 
 #[test]
 fn test_unimp() {
-    let mut state = initialize_state([Rv32Instruction::Unimp]);
+    let mut state = initialize_state([Rv32Instruction::Unimp {
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
 
     let result = execute(&mut state);
 
@@ -920,6 +965,7 @@ fn test_out_of_bounds_read() {
         rd: Reg::A1,
         rs1: Reg::A0,
         imm: 0,
+        rs2: Reg::Zero,
     }]);
 
     // Invalid address
@@ -955,6 +1001,7 @@ fn test_write_to_zero_register() {
         rd: Reg::Zero,
         rs1: Reg::Zero,
         imm: 100,
+        rs2: Reg::Zero,
     }]);
 
     execute(&mut state).unwrap();

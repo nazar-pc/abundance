@@ -26,7 +26,8 @@ fn test_bseti() {
         Some(Rv64ZbsInstruction::Bseti {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5
+            shamt: 5,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -54,7 +55,8 @@ fn test_bclri() {
         Some(Rv64ZbsInstruction::Bclri {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 10
+            shamt: 10,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -82,7 +84,8 @@ fn test_binvi() {
         Some(Rv64ZbsInstruction::Binvi {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 63
+            shamt: 63,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -110,7 +113,8 @@ fn test_bexti() {
         Some(Rv64ZbsInstruction::Bexti {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 31
+            shamt: 31,
+            rs2: Reg::Zero,
         })
     );
 }

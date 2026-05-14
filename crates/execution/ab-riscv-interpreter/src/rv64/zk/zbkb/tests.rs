@@ -112,6 +112,7 @@ fn test_brev8() {
     let mut state = initialize_state([Rv64ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // Each byte has its bits reversed individually:
@@ -129,6 +130,7 @@ fn test_brev8_all_ones() {
     let mut state = initialize_state([Rv64ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // 0xFF reversed is 0xFF
@@ -144,6 +146,7 @@ fn test_brev8_single_byte() {
     let mut state = initialize_state([Rv64ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     // 0x01 = 0b00000001 reversed is 0b10000000 = 0x80
@@ -159,6 +162,7 @@ fn test_brev8_zero() {
     let mut state = initialize_state([Rv64ZbkbInstruction::Brev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0u64);

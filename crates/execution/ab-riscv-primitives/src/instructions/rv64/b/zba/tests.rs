@@ -68,7 +68,8 @@ fn test_slli_uw() {
         Some(Rv64ZbaInstruction::SlliUw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 40
+            shamt: 40,
+            rs2: Reg::Zero,
         })
     );
 }

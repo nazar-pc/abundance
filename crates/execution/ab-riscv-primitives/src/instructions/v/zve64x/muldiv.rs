@@ -216,6 +216,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xMulDivInstruction<Reg>
 where
     Reg: fmt::Display,

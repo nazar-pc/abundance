@@ -56,7 +56,8 @@ fn test_clz() {
         decoded,
         Some(Rv32ZbbInstruction::Clz {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -70,7 +71,8 @@ fn test_ctz() {
         decoded,
         Some(Rv32ZbbInstruction::Ctz {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -84,7 +86,8 @@ fn test_cpop() {
         decoded,
         Some(Rv32ZbbInstruction::Cpop {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -98,7 +101,8 @@ fn test_sext_b() {
         decoded,
         Some(Rv32ZbbInstruction::Sextb {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -112,7 +116,8 @@ fn test_sext_h() {
         decoded,
         Some(Rv32ZbbInstruction::Sexth {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -211,7 +216,8 @@ fn test_rori() {
         Some(Rv32ZbbInstruction::Rori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5
+            shamt: 5,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -225,7 +231,8 @@ fn test_zext_h() {
         decoded,
         Some(Rv32ZbbInstruction::Zexth {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -246,7 +253,8 @@ fn test_orc_b() {
         decoded,
         Some(Rv32ZbbInstruction::Orcb {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -260,7 +268,8 @@ fn test_rev8() {
         decoded,
         Some(Rv32ZbbInstruction::Rev8 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

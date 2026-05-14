@@ -1,6 +1,8 @@
+mod add_missing_fields;
 mod forbidden_checker;
 mod ignored_variants_remover;
 
+use crate::build::enum_impl::add_missing_fields::add_missing_rs_fields;
 use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
 use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
@@ -13,8 +15,8 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
 use syn::{
-    Block, Expr, Fields, FnArg, Ident, ImplItem, ItemImpl, Pat, Stmt, Type, parse_file,
-    parse_quote, parse_str,
+    Block, Expr, Fields, FnArg, Ident, ImplItem, ItemImpl, Member, Pat, PatRest, Stmt, Type,
+    parse_file, parse_quote, parse_str,
 };
 
 const ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_ORIGINAL_IMPL_PATH";
@@ -395,6 +397,8 @@ pub(super) fn process_enum_decoding_impl(
         { None }
     }};
 
+    add_missing_rs_fields(try_decode_block);
+
     // Process `alignment()` method: combine all unique bodies with `.min(...)` calls, keeping
     // the own block last. Bodies that are token-identical are deduplicated to avoid redundant
     // comparisons at runtime.
@@ -541,19 +545,55 @@ pub(super) fn process_enum_display_impl(
         .map(|instruction| instruction.ident.clone())
         .collect::<HashSet<_>>();
 
-    expr_match.arms.retain(|arm| {
+    expr_match.arms.retain_mut(|arm| {
         let path = match &arm.pat {
-            Pat::Struct(pat_struct) => &pat_struct.path,
-            Pat::TupleStruct(pat_tuple_struct) => &pat_tuple_struct.path,
-            Pat::Path(expr_path) => &expr_path.path,
+            Pat::Struct(pat_struct) => pat_struct.path.clone(),
+            Pat::Path(expr_path) => expr_path.path.clone(),
             _ => {
                 return false;
             }
         };
 
-        path.segments
+        if !path
+            .segments
             .last()
             .map_or_default(|path_segment| allowed_instruction.contains(&path_segment.ident))
+        {
+            return false;
+        }
+
+        let Pat::Struct(pat_struct) = &mut arm.pat else {
+            // Must be path otherwise, replace it with a trivial struct
+            arm.pat = parse_quote! { #path { .. } };
+            return true;
+        };
+
+        if pat_struct.rest.is_some() {
+            return true;
+        }
+
+        let mut rs1_found = false;
+        let mut rs2_found = false;
+        for field in &pat_struct.fields {
+            let Member::Named(ident) = &field.member else {
+                return false;
+            };
+
+            if ident == "rs1" {
+                rs1_found = true;
+            } else if ident == "rs2" {
+                rs2_found = true;
+            }
+        }
+
+        if !rs1_found || !rs2_found {
+            pat_struct.rest.replace(PatRest {
+                attrs: vec![],
+                dot2_token: Default::default(),
+            });
+        }
+
+        true
     });
 
     // The order of variants is not identical to the enum definition for simplicity. It should not

@@ -93,6 +93,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Rv64MInstruction<Reg>
 where
     Reg: fmt::Display,

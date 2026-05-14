@@ -31,6 +31,8 @@ fn test_vredsum() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -46,6 +48,8 @@ fn test_vredand() {
             vs2: VReg::V4,
             vs1: VReg::V5,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -61,6 +65,8 @@ fn test_vredor() {
             vs2: VReg::V8,
             vs1: VReg::V9,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -76,6 +82,8 @@ fn test_vredxor() {
             vs2: VReg::V12,
             vs1: VReg::V13,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -91,6 +99,8 @@ fn test_vredminu() {
             vs2: VReg::V16,
             vs1: VReg::V17,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -106,6 +116,8 @@ fn test_vredmin() {
             vs2: VReg::V20,
             vs1: VReg::V21,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -121,6 +133,8 @@ fn test_vredmaxu() {
             vs2: VReg::V24,
             vs1: VReg::V25,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -136,6 +150,8 @@ fn test_vredmax() {
             vs2: VReg::V28,
             vs1: VReg::V29,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -153,6 +169,8 @@ fn test_vwredsumu() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -168,6 +186,8 @@ fn test_vwredsum() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -185,6 +205,8 @@ fn test_vredsum_masked() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -200,6 +222,8 @@ fn test_vredand_masked() {
             vs2: VReg::V4,
             vs1: VReg::V5,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -215,6 +239,8 @@ fn test_vwredsumu_masked() {
             vs2: VReg::V8,
             vs1: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -230,6 +256,8 @@ fn test_vwredsum_masked() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -247,6 +275,8 @@ fn test_vredsum_v0() {
             vs2: VReg::V0,
             vs1: VReg::V0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -262,6 +292,8 @@ fn test_vredmax_v31() {
             vs2: VReg::V31,
             vs1: VReg::V31,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }

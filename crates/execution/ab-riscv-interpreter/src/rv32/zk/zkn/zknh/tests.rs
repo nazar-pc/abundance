@@ -8,6 +8,7 @@ fn test_sha256_sig0_simple() {
     let mut state = initialize_state([Rv32ZknhInstruction::Sha256Sig0 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0x1234_5678u32);
     execute(&mut state).unwrap();
@@ -23,6 +24,7 @@ fn test_sha256_sig0_zero() {
     let mut state = initialize_state([Rv32ZknhInstruction::Sha256Sig0 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0u32);
     execute(&mut state).unwrap();
@@ -34,6 +36,7 @@ fn test_sha256_sig0_all_ones() {
     let mut state = initialize_state([Rv32ZknhInstruction::Sha256Sig0 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, u32::MAX);
     execute(&mut state).unwrap();
@@ -49,6 +52,7 @@ fn test_sha256_sig1_simple() {
     let mut state = initialize_state([Rv32ZknhInstruction::Sha256Sig1 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0x1234_5678u32);
     execute(&mut state).unwrap();
@@ -64,6 +68,7 @@ fn test_sha256_sum0_simple() {
     let mut state = initialize_state([Rv32ZknhInstruction::Sha256Sum0 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0xdead_beefu32);
     execute(&mut state).unwrap();
@@ -79,6 +84,7 @@ fn test_sha256_sum1_simple() {
     let mut state = initialize_state([Rv32ZknhInstruction::Sha256Sum1 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0xdead_beefu32);
     execute(&mut state).unwrap();
@@ -630,6 +636,7 @@ fn test_zknh_combination() {
         Rv32ZknhInstruction::Sha256Sum0 {
             rd: Reg::A2,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
         // sum1r: rs1=LOW, rs2=HIGH
         Rv32ZknhInstruction::Sha512Sum1r {
