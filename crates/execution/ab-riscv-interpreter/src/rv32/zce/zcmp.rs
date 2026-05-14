@@ -5,8 +5,8 @@ pub mod rv32_zcmp_helpers;
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, SystemInstructionHandler,
-    VirtualMemory,
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2Operands,
+    SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;

@@ -30,6 +30,6 @@ pub use crate::v::zve64x::zve64x_helpers;
 pub use crate::zicsr::zicsr_helpers;
 pub use crate::{
     BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
+    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2Operands,
     SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };

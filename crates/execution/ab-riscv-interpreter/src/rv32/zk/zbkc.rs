@@ -1,7 +1,7 @@
 //! RV32 Zbkc extension (subset of Zbc extension)
 
 use crate::rv32::b::zbc::rv32_zbc_helpers;
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2Operands};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;

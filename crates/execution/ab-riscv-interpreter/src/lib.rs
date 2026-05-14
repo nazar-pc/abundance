@@ -445,6 +445,19 @@ where
     }
 }
 
+/// `rs1`/`rs2` instruction operands
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Rs1Rs2Operands<Reg> {
+    /// `rs1` operand.
+    ///
+    /// Zero register if `rs1` was missing in the original instruction definition.
+    pub rs1: Reg,
+    /// `rs2` operand.
+    ///
+    /// Zero register if `rs2` was missing in the original instruction definition.
+    pub rs2: Reg,
+}
+
 /// Trait for executable instructions
 pub trait ExecutableInstruction<
     Regs,
@@ -513,6 +526,12 @@ pub trait ExecutableInstruction<
         // The default implementation is to not allow anything
         Ok(false)
     }
+
+    /// `rs1`/`rs2` instruction operands.
+    ///
+    /// Returns zero register for `rs1`/rs2` that were missing in the original instruction
+    /// definition.
+    fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
 
     /// Execute instruction.
     ///

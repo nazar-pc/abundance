@@ -289,19 +289,27 @@ pub(super) fn process_execution_impl(
             .iter()
             .map(|variant| {
                 let ident = &variant.ident;
-                all_instructions.remove(ident).with_context(|| {
-                    format!(
-                        "Instruction `{ident}` not found in all_instructions for enum `{enum_name}`"
-                    )
-                })
+                all_instructions
+                    .remove(ident)
+                    .with_context(|| {
+                        format!(
+                            "Instruction `{ident}` not found in all_instructions for enum \
+                            `{enum_name}`"
+                        )
+                    })
+                    .map(|arm| (ident, arm))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        *execute_block = parse_quote! {{
-            match self {
-                #( #all_instructions )*
-            }
-        }};
+        *execute_block = {
+            let all_instructions = all_instructions.iter().map(|(_ident, arm)| arm);
+
+            parse_quote! {{
+                match self {
+                    #( #all_instructions )*
+                }
+            }}
+        };
 
         // Composition for `prepare_csr_read` method
         let maybe_prepare_csr_read_fn = extract_prepare_csr_read_fn_mut(&mut item_impl);
@@ -383,6 +391,19 @@ pub(super) fn process_execution_impl(
                 caused by it"
             )] },
         ]);
+
+        item_impl.items.push({
+            let all_instructions = all_instructions.iter().map(|(ident, _arm)| ident);
+
+            parse_quote! {
+                #[inline(always)]
+                fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg> {
+                    match self {
+                        #( Self::#all_instructions { rs1, rs2, .. } => Rs1Rs2Operands { rs1, rs2 }, )*
+                    }
+                }
+            }
+        });
 
         output_processed_enum_execution_impl(&enum_name, item_impl, out_dir, state)?
     };

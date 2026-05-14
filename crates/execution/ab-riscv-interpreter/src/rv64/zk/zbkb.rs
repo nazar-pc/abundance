@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2Operands};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;

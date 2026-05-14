@@ -132,8 +132,9 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// It must be applied to enum, whose definition is already annotated with `#[instruction]` macro.
 ///
 /// Similarly to that macro, this macro will process the contents of the `ExecutableInstruction`
-/// trait implementation. `execute()` implementation will end up containing both inherited and own
-/// execution logic according to the ordering set in `#[instruction]`.
+/// trait implementation. `execute()`, `prepare_csr_read()` and `prepare_csr_write()` methods will
+/// end up containing both inherited and own execution logic according to the ordering set in
+/// `#[instruction]`. `get_rs1_rs2_operands()` method will be generated from scratch.
 ///
 /// There are constraints on the `execute()` method body, it must have one or both (but nothing
 /// else) of the following:

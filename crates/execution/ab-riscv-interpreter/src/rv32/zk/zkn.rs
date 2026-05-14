@@ -10,7 +10,7 @@ use crate::rv32::zk::zbkx::rv32_zbkx_helpers;
 use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers;
 use crate::rv32::zk::zkn::zkne::rv32_zkne_helpers;
 use crate::rv32::zk::zkn::zknh::rv32_zknh_helpers;
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2Operands};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;

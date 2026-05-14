@@ -26,7 +26,7 @@ use crate::v::zve64x::widen_narrow::zve64x_widen_narrow_helpers;
 use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile,
-    VirtualMemory,
+    Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;

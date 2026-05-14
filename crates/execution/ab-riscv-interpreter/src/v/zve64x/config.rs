@@ -5,7 +5,9 @@ mod tests;
 pub mod zve64x_config_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::{CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile};
+use crate::{
+    CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2Operands,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;

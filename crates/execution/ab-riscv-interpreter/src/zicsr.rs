@@ -4,7 +4,7 @@
 mod tests;
 pub mod zicsr_helpers;
 
-use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{CsrError, Csrs, ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2Operands};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
