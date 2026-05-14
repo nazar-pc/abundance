@@ -10,7 +10,10 @@ use std::rc::Rc;
 use std::{env, fs};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{Error, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file, parse_str, parse2};
+use syn::{
+    Error, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file, parse_quote, parse_str,
+    parse2,
+};
 
 const ENUM_DEFINITION_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEFINITION_PATH";
 const ENUM_DEPENDENCIES_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEPENDENCIES";
@@ -210,6 +213,23 @@ pub(super) fn process_enum_definition(
             // Restore documentation attributes
             item_enum.attrs.push(removed_attribute);
         }
+    }
+
+    let has_repr_align = item_enum.attrs.iter().any(|attr| {
+        if !attr.path().is_ident("repr") {
+            return false;
+        }
+        // Parse the repr(...) token stream and look for align(...)
+        attr.parse_args_with(|input: ParseStream<'_>| {
+            let nested = input.parse_terminated(Meta::parse, Token![,])?;
+            Ok(nested.iter().any(|meta| meta.path().is_ident("align")))
+        })
+        .unwrap_or_default()
+    });
+
+    if !has_repr_align {
+        // Alignment improves performance significantly during execution
+        item_enum.attrs.push(parse_quote! { #[repr(align(4))] });
     }
 
     let dependencies = match attribute.meta {

@@ -4,6 +4,7 @@ pub mod rv32;
 pub mod rv64;
 #[cfg(test)]
 mod test_utils;
+pub mod utils;
 pub mod v;
 pub mod zicond;
 pub mod zicsr;

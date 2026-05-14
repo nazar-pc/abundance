@@ -18,22 +18,22 @@ pub enum Rv64ZcmpInstruction<Reg> {
     /// `stack_adj = urlist.stack_adj_base() + spimm * 16` from the encoding.
     CmPush {
         urlist: ZcmpUrlist<Reg>,
-        stack_adj: u32,
+        stack_adj: u8,
     },
     /// CM.POP - pop reg_list, increment sp by `stack_adj` (no return)
     CmPop {
         urlist: ZcmpUrlist<Reg>,
-        stack_adj: u32,
+        stack_adj: u8,
     },
     /// CM.POPRETZ - pop reg_list, set a0=0, increment sp, return
     CmPopretz {
         urlist: ZcmpUrlist<Reg>,
-        stack_adj: u32,
+        stack_adj: u8,
     },
     /// CM.POPRET - pop reg_list, increment sp, return
     CmPopret {
         urlist: ZcmpUrlist<Reg>,
-        stack_adj: u32,
+        stack_adj: u8,
     },
     /// CM.MVA01S - a0 = r1s', a1 = r2s'
     CmMva01s { r1s: Reg, r2s: Reg },
@@ -77,7 +77,7 @@ where
             0b11 => {
                 let op_sel = ((inst >> 9) & 0b11) as u8;
                 let urlist = ZcmpUrlist::try_from_raw(((inst >> 4) & 0xf) as u8)?;
-                let spimm = ((inst >> 2) & 0b11) as u32;
+                let spimm = ((inst >> 2) & 0b11) as u8;
                 let stack_adj = urlist.stack_adj_base() + spimm * 16;
                 match op_sel {
                     0b00 => Some(Self::CmPush { urlist, stack_adj }),

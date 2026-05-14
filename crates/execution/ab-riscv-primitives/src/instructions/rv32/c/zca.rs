@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::instructions::Instruction;
+use crate::instructions::utils::I24;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -33,7 +34,7 @@ pub enum Rv32ZcaInstruction<Reg> {
     /// C.ADDI16SP  sp += nzimm  (nzimm != 0)
     CAddi16sp { nzimm: i16 },
     /// C.LUI  rd = sext(nzimm << 12)  (rd != x0, rd != x2, nzimm != 0)
-    CLui { rd: Reg, nzimm: i32 },
+    CLui { rd: Reg, nzimm: I24 },
     /// C.SRLI  rd' >>= shamt  (logical, 5-bit shamt; shamt=0 is a HINT)
     CSrli { rd: Reg, shamt: u8 },
     /// C.SRAI  rd' >>= shamt  (arithmetic, 5-bit shamt; shamt=0 is a HINT)
@@ -283,7 +284,7 @@ where
                             None?;
                         }
                         // Sign-extend from bit 17 (18-bit nzimm -> i32)
-                        let nzimm = (raw << 14) >> 14;
+                        let nzimm = I24::from_i32((raw << 14) >> 14);
                         Some(Self::CLui { rd, nzimm })
                     }
                 }

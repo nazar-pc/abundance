@@ -10,7 +10,7 @@ pub fn do_push<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
-    stack_adj: u32,
+    stack_adj: u8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: ZcmpRegister<Type = u64>,
@@ -36,7 +36,7 @@ pub fn do_pop<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
-    stack_adj: u32,
+    stack_adj: u8,
 ) -> Result<u64, ExecutionError<Reg::Type, CustomError>>
 where
     Reg: ZcmpRegister<Type = u64>,

@@ -3,6 +3,7 @@
 
 use crate::instructions::Instruction;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
+use crate::instructions::utils::I24;
 use crate::registers::general_purpose::{EReg, Reg};
 
 /// Build a CIW (C.ADDI4SPN) encoding.
@@ -406,7 +407,7 @@ fn test_clui() {
         decoded,
         Rv32ZcaInstruction::CLui {
             rd: Reg::A0,
-            nzimm: 0x1000
+            nzimm: I24::from_i32(0x1000)
         }
     );
 }
@@ -420,7 +421,7 @@ fn test_clui_negative() {
         decoded,
         Rv32ZcaInstruction::CLui {
             rd: Reg::A0,
-            nzimm: -4096
+            nzimm: I24::from_i32(-4096)
         }
     );
 }
@@ -440,7 +441,7 @@ fn test_clui_hint_rd0_positive() {
         decoded,
         Rv32ZcaInstruction::CLui {
             rd: Reg::Zero,
-            nzimm: 0x1000
+            nzimm: I24::from_i32(0x1000)
         }
     );
 }
@@ -454,7 +455,7 @@ fn test_clui_hint_rd0_negative() {
         decoded,
         Rv32ZcaInstruction::CLui {
             rd: Reg::Zero,
-            nzimm: -4096
+            nzimm: I24::from_i32(-4096)
         }
     );
 }

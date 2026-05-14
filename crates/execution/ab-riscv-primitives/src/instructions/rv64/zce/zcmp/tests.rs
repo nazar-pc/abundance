@@ -35,7 +35,7 @@ const MV_FUNCT2_MVA01S: u16 = 0b11;
 const MV_FUNCT2_MVSA01: u16 = 0b01;
 
 /// Compute the expected stack_adj for a given urlist raw value and spimm.
-fn expected_stack_adj(urlist_raw: u8, spimm: u32) -> u32 {
+fn expected_stack_adj(urlist_raw: u8, spimm: u8) -> u8 {
     ZcmpUrlist::<Reg<u64>>::try_from_raw(urlist_raw)
         .unwrap()
         .stack_adj_base()

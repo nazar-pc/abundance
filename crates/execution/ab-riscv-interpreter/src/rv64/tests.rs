@@ -743,7 +743,7 @@ fn test_beq_taken() {
         rs1: Reg::A0,
         rs2: Reg::A1,
         // Branch offset from PC before increment
-        imm: 8,
+        imm: I24::from_i32(8),
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -767,7 +767,7 @@ fn test_beq_not_taken() {
         Rv64Instruction::Beq {
             rs1: Reg::A0,
             rs2: Reg::A1,
-            imm: 8,
+            imm: I24::from_i32(8),
         },
         Rv64Instruction::Addi {
             rd: Reg::A2,
@@ -791,7 +791,7 @@ fn test_bne_taken() {
     let mut state = initialize_state([Rv64Instruction::Bne {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: 8,
+        imm: I24::from_i32(8),
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -811,7 +811,7 @@ fn test_blt_taken() {
     let mut state = initialize_state([Rv64Instruction::Blt {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: 12,
+        imm: I24::from_i32(12),
     }]);
 
     state.regs.write(Reg::A0, (-10i64).cast_unsigned());
@@ -831,7 +831,7 @@ fn test_bge_taken() {
     let mut state = initialize_state([Rv64Instruction::Bge {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: 16,
+        imm: I24::from_i32(16),
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -851,7 +851,7 @@ fn test_bltu_taken() {
     let mut state = initialize_state([Rv64Instruction::Bltu {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: 20,
+        imm: I24::from_i32(20),
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -871,7 +871,7 @@ fn test_bgeu_taken() {
     let mut state = initialize_state([Rv64Instruction::Bgeu {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: 24,
+        imm: I24::from_i32(24),
     }]);
 
     state.regs.write(Reg::A0, 20);
@@ -894,7 +894,7 @@ fn test_jal() {
         Rv64Instruction::Jal {
             rd: Reg::Ra,
             // Skip next instruction
-            imm: 8,
+            imm: I24::from_i32(8),
         },
         Rv64Instruction::Addi {
             rd: Reg::A2,
@@ -993,7 +993,7 @@ fn test_lui() {
     let mut state = initialize_state([Rv64Instruction::Lui {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
-        imm: 0x12345000,
+        imm: I24WithZeroedBits::from_i32(0x12345000),
     }]);
 
     execute(&mut state).unwrap();
@@ -1006,7 +1006,7 @@ fn test_lui_negative() {
     let mut state = initialize_state([Rv64Instruction::Lui {
         rd: Reg::A0,
         // 0xFFFFF000 as upper 20 bits (already shifted)
-        imm: 0xfffff000u32.cast_signed(),
+        imm: I24WithZeroedBits::from_i32(0xfffff000u32.cast_signed()),
     }]);
 
     execute(&mut state).unwrap();
@@ -1020,7 +1020,7 @@ fn test_auipc() {
     let mut state = initialize_state([Rv64Instruction::Auipc {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
-        imm: 0x12345000,
+        imm: I24WithZeroedBits::from_i32(0x12345000),
     }]);
 
     let initial_pc = state.instruction_fetcher.get_pc();
@@ -1038,7 +1038,7 @@ fn test_auipc_negative() {
     let mut state = initialize_state([Rv64Instruction::Auipc {
         rd: Reg::A0,
         // Negative immediate (all upper bits set)
-        imm: 0xfffff000u32.cast_signed(),
+        imm: I24WithZeroedBits::from_i32(0xfffff000u32.cast_signed()),
     }]);
 
     let initial_pc = state.instruction_fetcher.get_pc();

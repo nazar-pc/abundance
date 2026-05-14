@@ -171,7 +171,7 @@ where
                 if regs.read(rs1) == regs.read(rs2) {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                     return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -179,7 +179,7 @@ where
                 if regs.read(rs1) != regs.read(rs2) {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                     return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -187,7 +187,7 @@ where
                 if regs.read(rs1).cast_signed() < regs.read(rs2).cast_signed() {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                     return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -195,7 +195,7 @@ where
                 if regs.read(rs1).cast_signed() >= regs.read(rs2).cast_signed() {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                     return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -203,7 +203,7 @@ where
                 if regs.read(rs1) < regs.read(rs2) {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                     return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                         .map_err(ExecutionError::from);
                 }
             }
@@ -211,18 +211,18 @@ where
                 if regs.read(rs1) >= regs.read(rs2) {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                     return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                         .map_err(ExecutionError::from);
                 }
             }
 
             Self::Lui { rd, imm } => {
-                regs.write(rd, imm.cast_unsigned());
+                regs.write(rd, imm.to_i32().cast_unsigned());
             }
 
             Self::Auipc { rd, imm } => {
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                regs.write(rd, old_pc.wrapping_add(imm.cast_unsigned()));
+                regs.write(rd, old_pc.wrapping_add(imm.to_i32().cast_unsigned()));
             }
 
             Self::Jal { rd, imm } => {
@@ -230,7 +230,7 @@ where
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                 regs.write(rd, pc);
                 return program_counter
-                    .set_pc(memory, old_pc.wrapping_add(imm.cast_unsigned()))
+                    .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
                     .map_err(ExecutionError::from);
             }
 

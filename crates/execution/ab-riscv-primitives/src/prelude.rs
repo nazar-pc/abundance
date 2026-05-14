@@ -37,6 +37,7 @@ pub use crate::instructions::rv64::zk::zkn::Rv64ZknInstruction;
 pub use crate::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
 pub use crate::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;
 pub use crate::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
+pub use crate::instructions::utils::{I24, I24WithZeroedBits};
 pub use crate::instructions::v::zve64x::Zve64xInstruction;
 pub use crate::instructions::v::zve64x::arith::Zve64xArithInstruction;
 pub use crate::instructions::v::zve64x::config::Zve64xConfigInstruction;
