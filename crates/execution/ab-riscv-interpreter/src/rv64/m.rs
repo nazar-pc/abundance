@@ -22,8 +22,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
@@ -33,33 +36,32 @@ where
         ExecutionError<Reg::Type, CustomError>,
     > {
         match self {
-            Self::Mul { rd, rs1, rs2 } => {
-                let value = regs.read(rs1).wrapping_mul(regs.read(rs2));
+            Self::Mul { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value.wrapping_mul(rs2_value);
                 Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Mulh { rd, rs1, rs2 } => {
+            Self::Mulh { rd, rs1: _, rs2: _ } => {
                 // Signed × signed: widen to i128, take upper 64 bits
-                let (_lo, prod) = regs
-                    .read(rs1)
+                let (_lo, prod) = rs1_value
                     .cast_signed()
-                    .widening_mul(regs.read(rs2).cast_signed());
+                    .widening_mul(rs2_value.cast_signed());
                 Ok(ControlFlow::Continue((rd, prod.cast_unsigned())))
             }
-            Self::Mulhsu { rd, rs1, rs2 } => {
+            Self::Mulhsu { rd, rs1: _, rs2: _ } => {
                 // Signed × unsigned: widen to i128, take upper 64 bits
-                let prod = i128::from(regs.read(rs1).cast_signed()) * i128::from(regs.read(rs2));
+                let prod = i128::from(rs1_value.cast_signed()) * i128::from(rs2_value);
                 let value = prod >> 64;
                 Ok(ControlFlow::Continue((rd, value.cast_unsigned() as u64)))
             }
-            Self::Mulhu { rd, rs1, rs2 } => {
+            Self::Mulhu { rd, rs1: _, rs2: _ } => {
                 // Unsigned × unsigned: widen to u128, take upper 64 bits
-                let prod = u128::from(regs.read(rs1)) * u128::from(regs.read(rs2));
+                let prod = u128::from(rs1_value) * u128::from(rs2_value);
                 let value = prod >> 64;
                 Ok(ControlFlow::Continue((rd, value as u64)))
             }
-            Self::Div { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1).cast_signed();
-                let divisor = regs.read(rs2).cast_signed();
+            Self::Div { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value.cast_signed();
+                let divisor = rs2_value.cast_signed();
                 let value = if divisor == 0 {
                     -1i64
                 } else if dividend == i64::MIN && divisor == -1 {
@@ -69,15 +71,15 @@ where
                 };
                 Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::Divu { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1);
-                let divisor = regs.read(rs2);
+            Self::Divu { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value;
+                let divisor = rs2_value;
                 let value = dividend.checked_div(divisor).unwrap_or(u64::MAX);
                 Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Rem { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1).cast_signed();
-                let divisor = regs.read(rs2).cast_signed();
+            Self::Rem { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value.cast_signed();
+                let divisor = rs2_value.cast_signed();
                 let value = if divisor == 0 {
                     dividend
                 } else if dividend == i64::MIN && divisor == -1 {
@@ -87,9 +89,9 @@ where
                 };
                 Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::Remu { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1);
-                let divisor = regs.read(rs2);
+            Self::Remu { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value;
+                let divisor = rs2_value;
                 let value = if divisor == 0 {
                     dividend
                 } else {
@@ -99,13 +101,13 @@ where
             }
 
             // RV64 R-type W
-            Self::Mulw { rd, rs1, rs2 } => {
-                let prod = (regs.read(rs1) as i32).wrapping_mul(regs.read(rs2) as i32);
+            Self::Mulw { rd, rs1: _, rs2: _ } => {
+                let prod = (rs1_value as i32).wrapping_mul(rs2_value as i32);
                 Ok(ControlFlow::Continue((rd, (prod as i64).cast_unsigned())))
             }
-            Self::Divw { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1) as i32;
-                let divisor = regs.read(rs2) as i32;
+            Self::Divw { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value as i32;
+                let divisor = rs2_value as i32;
                 let value = if divisor == 0 {
                     -1i64
                 } else if dividend == i32::MIN && divisor == -1 {
@@ -115,17 +117,17 @@ where
                 };
                 Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::Divuw { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1) as u32;
-                let divisor = regs.read(rs2) as u32;
+            Self::Divuw { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value as u32;
+                let divisor = rs2_value as u32;
                 let value = dividend.checked_div(divisor).map_or(u64::MAX, |value| {
                     i64::from(value.cast_signed()).cast_unsigned()
                 });
                 Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Remw { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1) as i32;
-                let divisor = regs.read(rs2) as i32;
+            Self::Remw { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value as i32;
+                let divisor = rs2_value as i32;
                 let value = if divisor == 0 {
                     (dividend as i64).cast_unsigned()
                 } else if dividend == i32::MIN && divisor == -1 {
@@ -135,9 +137,9 @@ where
                 };
                 Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Remuw { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1) as u32;
-                let divisor = regs.read(rs2) as u32;
+            Self::Remuw { rd, rs1: _, rs2: _ } => {
+                let dividend = rs1_value as u32;
+                let divisor = rs2_value as u32;
                 let value = if divisor == 0 {
                     dividend.cast_signed() as i64
                 } else {

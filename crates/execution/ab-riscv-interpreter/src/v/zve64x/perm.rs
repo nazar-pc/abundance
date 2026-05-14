@@ -33,7 +33,10 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
@@ -75,7 +78,7 @@ where
             // Copies scalar GPR rs1 (zero-extended / truncated to SEW) into element 0 of vd.
             // When vl == 0, the write is suppressed but vstart is still reset.
             // Resets vstart per spec §6.3.
-            Self::VmvSX { vd, rs1 } => {
+            Self::VmvSX { vd, rs1: _ } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -91,7 +94,7 @@ where
                 let vstart = u32::from(ext_state.vstart());
                 // Per spec §16.1: update only when vstart < vl.
                 if vstart < vl {
-                    let scalar = regs.read(rs1).as_u64();
+                    let scalar = rs1_value.as_u64();
                     // SAFETY: element 0 always fits.
                     unsafe {
                         zve64x_perm_helpers::write_element_0_u64(
@@ -105,12 +108,17 @@ where
                 ext_state.mark_vs_dirty();
                 ext_state.reset_vstart();
             }
-            // vslideup.vx vd, vs2, rs1, vm
+            // vslideup.vx vd, vs2, rs1: _, vm
             // Slides elements of vs2 up by the scalar offset in rs1.
             // Elements vd[0..offset] are unchanged (tail-undisturbed for those positions).
             // Elements vd[i] for offset <= i < vl get vs2[i - offset].
             // Per spec §16.3.1: vd must not overlap vs2.
-            Self::VslideupVx { vd, vs2, rs1, vm } => {
+            Self::VslideupVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -147,7 +155,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let offset = regs.read(rs1).as_u64();
+                let offset = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified above; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_slideup(
@@ -201,10 +209,15 @@ where
                     );
                 }
             }
-            // vslidedown.vx vd, vs2, rs1, vm
+            // vslidedown.vx vd, vs2, rs1: _, vm
             // Element vd[i] = vs2[i + offset] if i + offset < VLMAX, else 0.
             // vd may overlap vs2 for slidedown.
-            Self::VslidedownVx { vd, vs2, rs1, vm } => {
+            Self::VslidedownVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -235,7 +248,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
-                let offset = regs.read(rs1).as_u64();
+                let offset = rs1_value.as_u64();
                 // SAFETY: alignment verified above; vl <= VLMAX; offset clamped in helper.
                 unsafe {
                     zve64x_perm_helpers::execute_slidedown(
@@ -284,11 +297,16 @@ where
                     );
                 }
             }
-            // vslide1up.vx vd, vs2, rs1, vm
+            // vslide1up.vx vd, vs2, rs1: _, vm
             // Element 0 of vd gets the scalar value rs1 (written at SEW width).
             // Elements vd[i] for 1 <= i < vl get vs2[i - 1].
             // vd must not overlap vs2.
-            Self::Vslide1upVx { vd, vs2, rs1, vm } => {
+            Self::Vslide1upVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -324,7 +342,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_slide1up(
@@ -332,11 +350,16 @@ where
                     );
                 }
             }
-            // vslide1down.vx vd, vs2, rs1, vm
+            // vslide1down.vx vd, vs2, rs1: _, vm
             // Element vd[i] = vs2[i + 1] for 0 <= i < vl - 1.
             // Element vd[vl - 1] gets the scalar value rs1.
             // vd may overlap vs2 for slide1down.
-            Self::Vslide1downVx { vd, vs2, rs1, vm } => {
+            Self::Vslide1downVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -366,7 +389,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
                 unsafe {
                     zve64x_perm_helpers::execute_slide1down(
@@ -432,10 +455,15 @@ where
                     );
                 }
             }
-            // vrgather.vx vd, vs2, rs1, vm
+            // vrgather.vx vd, vs2, rs1: _, vm
             // All active elements of vd get vs2[rs1] if rs1 < VLMAX, else 0.
             // vd must not overlap vs2.
-            Self::VrgatherVx { vd, vs2, rs1, vm } => {
+            Self::VrgatherVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -472,7 +500,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
-                let index = regs.read(rs1).as_u64();
+                let index = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_rgather_scalar(
@@ -664,7 +692,12 @@ where
             // vmerge.vxm / vmv.v.x
             // When vm=true: vmv.v.x vd, rs1 - broadcast scalar to all active elements.
             // When vm=false: vmerge.vxm - vd[i] = v0[i] ? rs1 : vs2[i]
-            Self::VmergeVxm { vd, vs2, rs1, vm } => {
+            Self::VmergeVxm {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -697,7 +730,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_merge_scalar(

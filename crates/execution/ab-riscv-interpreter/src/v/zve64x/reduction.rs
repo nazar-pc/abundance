@@ -34,7 +34,10 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        Rs1Rs2OperandValues {
+            rs1_value: _,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,

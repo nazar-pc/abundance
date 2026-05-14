@@ -21,8 +21,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
@@ -35,9 +38,9 @@ where
             // Conditional zero, equal to zero.
             //
             // rd = (rs2 == 0) ? 0 : rs1
-            Self::CzeroEqz { rd, rs1, rs2 } => {
-                let condition = regs.read(rs2);
-                let src = regs.read(rs1);
+            Self::CzeroEqz { rd, rs1: _, rs2: _ } => {
+                let condition = rs2_value;
+                let src = rs1_value;
                 let result = if condition == Reg::Type::from(0u8) {
                     Reg::Type::from(0u8)
                 } else {
@@ -49,9 +52,9 @@ where
             // Conditional zero, nonzero.
             //
             // rd = (rs2 != 0) ? 0 : rs1
-            Self::CzeroNez { rd, rs1, rs2 } => {
-                let condition = regs.read(rs2);
-                let src = regs.read(rs1);
+            Self::CzeroNez { rd, rs1: _, rs2: _ } => {
+                let condition = rs2_value;
+                let src = rs1_value;
                 let result = if condition != Reg::Type::from(0u8) {
                     Reg::Type::from(0u8)
                 } else {

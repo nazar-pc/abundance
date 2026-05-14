@@ -33,8 +33,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
@@ -95,7 +98,12 @@ where
                     );
                 }
             }
-            Self::VmulVx { vd, vs2, rs1, vm } => {
+            Self::VmulVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -125,7 +133,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -198,7 +206,12 @@ where
                     );
                 }
             }
-            Self::VmulhVx { vd, vs2, rs1, vm } => {
+            Self::VmulhVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -233,7 +246,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -305,7 +318,12 @@ where
                     );
                 }
             }
-            Self::VmulhuVx { vd, vs2, rs1, vm } => {
+            Self::VmulhuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -340,7 +358,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -413,7 +431,12 @@ where
                     );
                 }
             }
-            Self::VmulhsuVx { vd, vs2, rs1, vm } => {
+            Self::VmulhsuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -449,7 +472,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -523,7 +546,12 @@ where
                     );
                 }
             }
-            Self::VdivuVx { vd, vs2, rs1, vm } => {
+            Self::VdivuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -553,7 +581,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -625,7 +653,12 @@ where
                     );
                 }
             }
-            Self::VdivVx { vd, vs2, rs1, vm } => {
+            Self::VdivVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -655,7 +688,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -732,7 +765,12 @@ where
                     );
                 }
             }
-            Self::VremuVx { vd, vs2, rs1, vm } => {
+            Self::VremuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -762,7 +800,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -838,7 +876,12 @@ where
                     );
                 }
             }
-            Self::VremVx { vd, vs2, rs1, vm } => {
+            Self::VremVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -868,7 +911,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -966,7 +1009,12 @@ where
                     );
                 }
             }
-            Self::VwmuluVx { vd, vs2, rs1, vm } => {
+            Self::VwmuluVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1014,7 +1062,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
@@ -1114,7 +1162,12 @@ where
                     );
                 }
             }
-            Self::VwmulsuVx { vd, vs2, rs1, vm } => {
+            Self::VwmulsuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1163,7 +1216,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
@@ -1264,7 +1317,12 @@ where
                     );
                 }
             }
-            Self::VwmulVx { vd, vs2, rs1, vm } => {
+            Self::VwmulVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1313,7 +1371,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 // scalar from rs1 is sign-extended to XLEN; treat as signed SEW-wide
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
@@ -1385,7 +1443,12 @@ where
                     );
                 }
             }
-            Self::VmaccVx { vd, rs1, vs2, vm } => {
+            Self::VmaccVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1415,7 +1478,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1483,7 +1546,12 @@ where
                     );
                 }
             }
-            Self::VnmsacVx { vd, rs1, vs2, vm } => {
+            Self::VnmsacVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1513,7 +1581,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1581,7 +1649,12 @@ where
                     );
                 }
             }
-            Self::VmaddVx { vd, rs1, vs2, vm } => {
+            Self::VmaddVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1611,7 +1684,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1680,7 +1753,12 @@ where
                     );
                 }
             }
-            Self::VnmsubVx { vd, rs1, vs2, vm } => {
+            Self::VnmsubVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1710,7 +1788,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1808,7 +1886,12 @@ where
                     );
                 }
             }
-            Self::VwmaccuVx { vd, rs1, vs2, vm } => {
+            Self::VwmaccuVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1856,7 +1939,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_scalar_op(
@@ -1956,7 +2039,12 @@ where
                     );
                 }
             }
-            Self::VwmaccVx { vd, rs1, vs2, vm } => {
+            Self::VwmaccVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -2004,7 +2092,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_scalar_op(
@@ -2105,7 +2193,12 @@ where
                     );
                 }
             }
-            Self::VwmaccsuVx { vd, rs1, vs2, vm } => {
+            Self::VwmaccsuVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -2154,7 +2247,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 // scalar (rs1) is the signed operand; vs2 elements are unsigned
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_scalar_op(
@@ -2178,7 +2271,12 @@ where
                 }
             }
             // vwmaccus.vx - unsigned×signed widening multiply-add (vx only); illegal for SEW=64
-            Self::VwmaccusVx { vd, rs1, vs2, vm } => {
+            Self::VwmaccusVx {
+                vd,
+                rs1: _,
+                vs2,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -2227,7 +2325,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 // scalar (rs1) is the unsigned operand; vs2 elements are signed
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_scalar_op(

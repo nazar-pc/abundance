@@ -109,7 +109,10 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
@@ -127,6 +130,7 @@ where
                     program_counter,
                     rd,
                     rs1,
+                    rs1_value,
                     Reg::Type::from(vtypei),
                 )?;
             }
@@ -140,14 +144,15 @@ where
                     vtypei,
                 )?;
             }
-            Self::Vsetvl { rd, rs1, rs2 } => {
-                let vtype_raw = regs.read(rs2);
+            Self::Vsetvl { rd, rs1, rs2: _ } => {
+                let vtype_raw = rs2_value;
                 zve64x_config_helpers::apply_vsetvl(
                     regs,
                     ext_state,
                     program_counter,
                     rd,
                     rs1,
+                    rs1_value,
                     vtype_raw,
                 )?;
             }

@@ -34,8 +34,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         memory: &mut Memory,
         program_counter: &mut PC,
@@ -49,7 +52,7 @@ where
             // to memory as a flat byte array of `EVL = nreg * VLENB` bytes. `vs3` must be aligned
             // to `nreg`. Ignores vtype, vl, masking. Honors `vstart` in byte units: the first
             // `vstart` bytes are skipped. If `vstart >= EVL`, the instruction is a no-op.
-            Self::Vsr { vs3, rs1, nreg } => {
+            Self::Vsr { vs3, rs1: _, nreg } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -64,7 +67,7 @@ where
                 let evl = u64::from(nreg) * vlenb;
                 let vstart = u64::from(ext_state.vstart());
                 if vstart < evl {
-                    let base = regs.read(rs1).as_u64();
+                    let base = rs1_value.as_u64();
                     let mut byte_off = vstart;
                     while byte_off < evl {
                         let reg_off = byte_off / vlenb;
@@ -91,7 +94,7 @@ where
             // Mask store: stores `ceil(vl / 8)` bytes from `vs3` to memory with no masking.
             // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are written.
             // Honors `vstart` at byte granularity: the first `vstart / 8` bytes are skipped.
-            Self::Vsm { vs3, rs1 } => {
+            Self::Vsm { vs3, rs1: _ } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -101,7 +104,7 @@ where
                 let evl_bytes = vl.div_ceil(u8::BITS);
                 let start_byte = u32::from(ext_state.vstart());
                 if start_byte < evl_bytes {
-                    let base = regs.read(rs1).as_u64();
+                    let base = rs1_value.as_u64();
                     // SAFETY: `vs3.bits() < 32` is guaranteed by `VReg`.
                     // `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLENB` because `vl <= VLMAX <=
                     // VLEN`, so the slice `start_byte..evl_bytes` is in bounds of the
@@ -123,7 +126,12 @@ where
             // Source EMUL = EEW/SEW * LMUL, computed via `data_register_count`. This gives
             // `group_regs` such that `VLMAX = group_regs * VLENB / eew.bytes()` matches the
             // architectural `vl`.
-            Self::Vse { vs3, rs1, vm, eew } => {
+            Self::Vse {
+                vs3,
+                rs1: _,
+                vm,
+                eew,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -160,7 +168,7 @@ where
                         vm,
                         ext_state.vl(),
                         ext_state.vstart(),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         eew,
                         group_regs,
                         1,
@@ -170,8 +178,8 @@ where
             // Strided store
             Self::Vsse {
                 vs3,
-                rs1,
-                rs2,
+                rs1: _,
+                rs2: _,
                 vm,
                 eew,
             } => {
@@ -195,7 +203,7 @@ where
                     vs3,
                     group_regs,
                 )?;
-                let stride = regs.read(rs2).as_u64().cast_signed();
+                let stride = rs2_value.as_u64().cast_signed();
                 // SAFETY: same preconditions as `Vse`.
                 unsafe {
                     zve64x_store_helpers::execute_strided_store(
@@ -205,7 +213,7 @@ where
                         vm,
                         ext_state.vl(),
                         ext_state.vstart(),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         stride,
                         eew,
                         group_regs,
@@ -216,7 +224,7 @@ where
             // Indexed-unordered store. Ordering between elements is not guaranteed.
             Self::Vsuxei {
                 vs3,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -266,7 +274,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         data_eew,
                         index_eew,
                         data_group_regs,
@@ -279,7 +287,7 @@ where
             // here is already sequential, so no additional logic is needed.
             Self::Vsoxei {
                 vs3,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -322,7 +330,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         data_eew,
                         index_eew,
                         data_group_regs,
@@ -333,7 +341,7 @@ where
             // Unit-stride segment store: `nf` fields per element, stored contiguously
             Self::Vsseg {
                 vs3,
-                rs1,
+                rs1: _,
                 vm,
                 eew,
                 nf,
@@ -372,7 +380,7 @@ where
                         vm,
                         ext_state.vl(),
                         ext_state.vstart(),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         eew,
                         group_regs,
                         nf,
@@ -382,8 +390,8 @@ where
             // Strided segment store
             Self::Vssseg {
                 vs3,
-                rs1,
-                rs2,
+                rs1: _,
+                rs2: _,
                 vm,
                 eew,
                 nf,
@@ -409,7 +417,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                let stride = regs.read(rs2).as_u64().cast_signed();
+                let stride = rs2_value.as_u64().cast_signed();
                 // SAFETY: same as `Vsseg`.
                 unsafe {
                     zve64x_store_helpers::execute_strided_store(
@@ -419,7 +427,7 @@ where
                         vm,
                         ext_state.vl(),
                         ext_state.vstart(),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         stride,
                         eew,
                         group_regs,
@@ -430,7 +438,7 @@ where
             // Indexed-unordered segment store
             Self::Vsuxseg {
                 vs3,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -479,7 +487,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         data_eew,
                         index_eew,
                         data_group_regs,
@@ -491,7 +499,7 @@ where
             // requirement.
             Self::Vsoxseg {
                 vs3,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -536,7 +544,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         data_eew,
                         index_eew,
                         data_group_regs,

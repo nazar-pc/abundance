@@ -27,7 +27,10 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         _ext_state: &mut ExtState,
         memory: &mut Memory,
@@ -38,29 +41,37 @@ where
         ExecutionError<Reg::Type, CustomError>,
     > {
         match self {
-            Self::CLbu { rd, rs1, uimm } => {
-                let addr = u64::from(regs.read(rs1).wrapping_add(u32::from(uimm)));
+            Self::CLbu { rd, rs1: _, uimm } => {
+                let addr = u64::from(rs1_value.wrapping_add(u32::from(uimm)));
                 let value = memory.read::<u8>(addr)?;
                 Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
-            Self::CLh { rd, rs1, uimm } => {
-                let addr = u64::from(regs.read(rs1).wrapping_add(u32::from(uimm)));
+            Self::CLh { rd, rs1: _, uimm } => {
+                let addr = u64::from(rs1_value.wrapping_add(u32::from(uimm)));
                 let value = i32::from(memory.read::<i16>(addr)?);
                 Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::CLhu { rd, rs1, uimm } => {
-                let addr = u64::from(regs.read(rs1).wrapping_add(u32::from(uimm)));
+            Self::CLhu { rd, rs1: _, uimm } => {
+                let addr = u64::from(rs1_value.wrapping_add(u32::from(uimm)));
                 let value = memory.read::<u16>(addr)?;
                 Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
-            Self::CSb { rs1, rs2, uimm } => {
-                let addr = u64::from(regs.read(rs1).wrapping_add(u32::from(uimm)));
-                memory.write(addr, regs.read(rs2) as u8)?;
+            Self::CSb {
+                rs1: _,
+                rs2: _,
+                uimm,
+            } => {
+                let addr = u64::from(rs1_value.wrapping_add(u32::from(uimm)));
+                memory.write(addr, rs2_value as u8)?;
                 Ok(ControlFlow::Continue(Default::default()))
             }
-            Self::CSh { rs1, rs2, uimm } => {
-                let addr = u64::from(regs.read(rs1).wrapping_add(u32::from(uimm)));
-                memory.write(addr, regs.read(rs2) as u16)?;
+            Self::CSh {
+                rs1: _,
+                rs2: _,
+                uimm,
+            } => {
+                let addr = u64::from(rs1_value.wrapping_add(u32::from(uimm)));
+                memory.write(addr, rs2_value as u16)?;
                 Ok(ControlFlow::Continue(Default::default()))
             }
             Self::CZextB { rd } => {
@@ -83,8 +94,8 @@ where
                 let value = !regs.read(rd);
                 Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::CMul { rd, rs2 } => {
-                let value = regs.read(rd).wrapping_mul(regs.read(rs2));
+            Self::CMul { rd, rs2: _ } => {
+                let value = regs.read(rd).wrapping_mul(rs2_value);
                 Ok(ControlFlow::Continue((rd, value)))
             }
         }

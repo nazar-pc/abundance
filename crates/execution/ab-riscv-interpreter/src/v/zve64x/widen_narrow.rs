@@ -33,8 +33,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
@@ -118,7 +121,12 @@ where
                 }
             }
             // vwaddu.vx - 2*SEW = zext(SEW) + zext(xlen->SEW)
-            Self::VwadduVx { vd, vs2, rs1, vm } => {
+            Self::VwadduVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -168,7 +176,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 // Scalar is zero-extended to 2*SEW; the low SEW bits are what matter
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -259,7 +267,12 @@ where
                 }
             }
             // vwadd.vx - 2*SEW = sext(SEW) + sext(rs1)
-            Self::VwaddVx { vd, vs2, rs1, vm } => {
+            Self::VwaddVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -310,7 +323,7 @@ where
                 let vstart = u32::from(ext_state.vstart());
                 // Scalar is sign-extended from XLEN to 64 bits
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    regs.read(rs1).as_u64(),
+                    rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
                 )
                 .cast_unsigned();
@@ -404,7 +417,12 @@ where
                 }
             }
             // vwsubu.vx - 2*SEW = zext(SEW) - zext(rs1)
-            Self::VwsubuVx { vd, vs2, rs1, vm } => {
+            Self::VwsubuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -453,7 +471,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -544,7 +562,12 @@ where
                 }
             }
             // vwsub.vx - 2*SEW = sext(SEW) - sext(rs1)
-            Self::VwsubVx { vd, vs2, rs1, vm } => {
+            Self::VwsubVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -594,7 +617,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    regs.read(rs1).as_u64(),
+                    rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
                 )
                 .cast_unsigned();
@@ -688,7 +711,12 @@ where
                 }
             }
             // vwaddu.wx - 2*SEW = 2*SEW + zext(rs1)
-            Self::VwadduWx { vd, vs2, rs1, vm } => {
+            Self::VwadduWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -734,7 +762,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -823,7 +851,12 @@ where
                 }
             }
             // vwadd.wx - 2*SEW = 2*SEW + sext(rs1)
-            Self::VwaddWx { vd, vs2, rs1, vm } => {
+            Self::VwaddWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -869,7 +902,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    regs.read(rs1).as_u64(),
+                    rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
                 )
                 .cast_unsigned();
@@ -961,7 +994,12 @@ where
                 }
             }
             // vwsubu.wx - 2*SEW = 2*SEW - zext(rs1)
-            Self::VwsubuWx { vd, vs2, rs1, vm } => {
+            Self::VwsubuWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1006,7 +1044,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -1095,7 +1133,12 @@ where
                 }
             }
             // vwsub.wx - 2*SEW = 2*SEW - sext(rs1)
-            Self::VwsubWx { vd, vs2, rs1, vm } => {
+            Self::VwsubWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1141,7 +1184,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    regs.read(rs1).as_u64(),
+                    rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
                 )
                 .cast_unsigned();
@@ -1230,7 +1273,12 @@ where
                 }
             }
             // vnsrl.wx - SEW = (2*SEW) >> rs1 (logical)
-            Self::VnsrlWx { vd, vs2, rs1, vm } => {
+            Self::VnsrlWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1276,7 +1324,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_narrow_shift(
@@ -1422,7 +1470,12 @@ where
                 }
             }
             // vnsra.wx - SEW = (2*SEW) >> rs1 (arithmetic)
-            Self::VnsraWx { vd, vs2, rs1, vm } => {
+            Self::VnsraWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1468,7 +1521,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_narrow_shift(

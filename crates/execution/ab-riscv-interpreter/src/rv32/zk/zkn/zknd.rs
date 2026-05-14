@@ -22,8 +22,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
@@ -33,17 +36,27 @@ where
         ExecutionError<Reg::Type, CustomError>,
     > {
         match self {
-            Self::Aes32Dsi { rd, rs1, rs2, bs } => {
-                let v1 = regs.read(rs1);
-                let v2 = regs.read(rs2);
+            Self::Aes32Dsi {
+                rd,
+                rs1: _,
+                rs2: _,
+                bs,
+            } => {
+                let v1 = rs1_value;
+                let v2 = rs2_value;
                 Ok(ControlFlow::Continue((
                     rd,
                     rv32_zknd_helpers::aes32dsi(v1, v2, bs),
                 )))
             }
-            Self::Aes32Dsmi { rd, rs1, rs2, bs } => {
-                let v1 = regs.read(rs1);
-                let v2 = regs.read(rs2);
+            Self::Aes32Dsmi {
+                rd,
+                rs1: _,
+                rs2: _,
+                bs,
+            } => {
+                let v1 = rs1_value;
+                let v2 = rs2_value;
                 Ok(ControlFlow::Continue((
                     rd,
                     rv32_zknd_helpers::aes32dsmi(v1, v2, bs),

@@ -25,8 +25,11 @@ where
     #[inline(always)]
     fn execute(
         self,
-        _rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
@@ -36,24 +39,14 @@ where
         ExecutionError<Reg::Type, CustomError>,
     > {
         match self {
-            Self::Xperm4 { rd, rs1, rs2 } => {
-                let rs1_value = regs.read(rs1);
-                let rs2_value = regs.read(rs2);
-
-                Ok(ControlFlow::Continue((
-                    rd,
-                    rv64_zbkx_helpers::xperm4(rs1_value, rs2_value),
-                )))
-            }
-            Self::Xperm8 { rd, rs1, rs2 } => {
-                let rs1_value = regs.read(rs1);
-                let rs2_value = regs.read(rs2);
-
-                Ok(ControlFlow::Continue((
-                    rd,
-                    rv64_zbkx_helpers::xperm8(rs1_value, rs2_value),
-                )))
-            }
+            Self::Xperm4 { rd, rs1: _, rs2: _ } => Ok(ControlFlow::Continue((
+                rd,
+                rv64_zbkx_helpers::xperm4(rs1_value, rs2_value),
+            ))),
+            Self::Xperm8 { rd, rs1: _, rs2: _ } => Ok(ControlFlow::Continue((
+                rd,
+                rv64_zbkx_helpers::xperm8(rs1_value, rs2_value),
+            ))),
         }
     }
 }
