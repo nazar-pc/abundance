@@ -222,8 +222,8 @@ fn test_cm_popret_clears_lsb_of_return_addr() {
 #[test]
 fn test_cm_mva01s_copies_to_a0_a1() {
     let mut state = initialize_state([Rv64ZcmpInstruction::CmMva01s {
-        r1s: Reg::S2,
-        r2s: Reg::S3,
+        rs1: Reg::S2,
+        rs2: Reg::S3,
     }]);
     state.regs.write(Reg::S2, 0x1111);
     state.regs.write(Reg::S3, 0x2222);
@@ -237,10 +237,10 @@ fn test_cm_mva01s_copies_to_a0_a1() {
 
 #[test]
 fn test_cm_mva01s_reads_before_write() {
-    // If r1s or r2s alias a0/a1, reads must occur before writes
+    // If rs1 or rs2 alias a0/a1, reads must occur before writes
     let mut state = initialize_state([Rv64ZcmpInstruction::CmMva01s {
-        r1s: Reg::S0,
-        r2s: Reg::S1,
+        rs1: Reg::S0,
+        rs2: Reg::S1,
     }]);
     state.regs.write(Reg::S0, 0xAAAA);
     state.regs.write(Reg::S1, 0xBBBB);
@@ -254,8 +254,8 @@ fn test_cm_mva01s_reads_before_write() {
 #[test]
 fn test_cm_mvsa01_copies_a0_a1_to_s_regs() {
     let mut state = initialize_state([Rv64ZcmpInstruction::CmMvsa01 {
-        r1s: Reg::S4,
-        r2s: Reg::S5,
+        rs1: Reg::S4,
+        rs2: Reg::S5,
     }]);
     state.regs.write(Reg::A0, 0x3333);
     state.regs.write(Reg::A1, 0x4444);

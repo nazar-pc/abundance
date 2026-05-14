@@ -35,10 +35,16 @@ pub enum Rv64ZcmpInstruction<Reg> {
         urlist: ZcmpUrlist<Reg>,
         stack_adj: u32,
     },
-    /// CM.MVA01S - a0 = r1s', a1 = r2s'
-    CmMva01s { r1s: Reg, r2s: Reg },
-    /// CM.MVSA01 - r1s' = a0, r2s' = a1  (r1s' != r2s')
-    CmMvsa01 { r1s: Reg, r2s: Reg },
+    /// CM.MVA01S - a0 = r1s', a1 = r2s'.
+    ///
+    /// The fields are called both r1s/r2s and rs1/rs2 in the spec, rs1/rs2 is used here for
+    /// consistency with other instructions.
+    CmMva01s { rs1: Reg, rs2: Reg },
+    /// CM.MVSA01 - r1s' = a0, r2s' = a1  (r1s' != r2s').
+    ///
+    /// The fields are called both r1s/r2s and rs1/rs2 in the spec, rs1/rs2 is used here for
+    /// consistency with other instructions.
+    CmMvsa01 { rs1: Reg, rs2: Reg },
 }
 
 #[instruction]
@@ -106,13 +112,13 @@ where
 
                 // funct2[6:5]: 0b11 -> CM.MVA01S, 0b01 -> CM.MVSA01, others reserved
                 match funct2 {
-                    0b11 => Some(Self::CmMva01s { r1s, r2s }),
+                    0b11 => Some(Self::CmMva01s { rs1: r1s, rs2: r2s }),
                     0b01 => {
                         // CM.MVSA01 requires r1s' != r2s'
                         if r1s_bits == r2s_bits {
                             None?;
                         }
-                        Some(Self::CmMvsa01 { r1s, r2s })
+                        Some(Self::CmMvsa01 { rs1: r1s, rs2: r2s })
                     }
                     _ => None,
                 }
@@ -151,8 +157,8 @@ where
             Self::CmPopret { urlist, stack_adj } => {
                 write!(f, "cm.popret {urlist}, {stack_adj}")
             }
-            Self::CmMva01s { r1s, r2s } => write!(f, "cm.mva01s {r1s}, {r2s}"),
-            Self::CmMvsa01 { r1s, r2s } => write!(f, "cm.mvsa01 {r1s}, {r2s}"),
+            Self::CmMva01s { rs1, rs2 } => write!(f, "cm.mva01s {rs1}, {rs2}"),
+            Self::CmMvsa01 { rs1, rs2 } => write!(f, "cm.mvsa01 {rs1}, {rs2}"),
         }
     }
 }

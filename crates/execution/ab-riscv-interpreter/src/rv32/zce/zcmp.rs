@@ -57,19 +57,19 @@ where
                     .set_pc(memory, target)
                     .map_err(ExecutionError::from);
             }
-            Self::CmMva01s { r1s, r2s } => {
+            Self::CmMva01s { rs1, rs2 } => {
                 // Read both sources before any write to avoid aliasing
-                let v1 = regs.read(r1s);
-                let v2 = regs.read(r2s);
+                let v1 = regs.read(rs1);
+                let v2 = regs.read(rs2);
                 regs.write(Reg::A0, v1);
                 regs.write(Reg::A1, v2);
             }
-            Self::CmMvsa01 { r1s, r2s } => {
+            Self::CmMvsa01 { rs1, rs2 } => {
                 // Read both sources before any write to avoid aliasing
                 let a0_val = regs.read(Reg::A0);
                 let a1_val = regs.read(Reg::A1);
-                regs.write(r1s, a0_val);
-                regs.write(r2s, a1_val);
+                regs.write(rs1, a0_val);
+                regs.write(rs2, a1_val);
             }
         }
 
