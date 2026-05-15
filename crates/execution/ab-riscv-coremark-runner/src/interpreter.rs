@@ -130,11 +130,12 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Default for GuestMemory<BASE_ADDR,
 
 /// Eager instruction handler eagerly decodes all instructions upfront
 #[derive(Debug, Default, Clone)]
+#[repr(C, align(16))]
 pub(crate) struct EagerInstructionFetcher {
-    instructions: Vec<CoremarkInstruction>,
+    instructions: Box<[CoremarkInstruction]>,
+    instruction_offset: usize,
     return_trap_address: u64,
     base_addr: u64,
-    instruction_offset: usize,
 }
 
 impl<Memory> ProgramCounter<u64, Memory> for EagerInstructionFetcher
@@ -283,10 +284,10 @@ impl EagerInstructionFetcher {
         }
 
         Self {
-            instructions: decoded_instructions,
+            instructions: decoded_instructions.into_boxed_slice(),
+            instruction_offset: (pc - base_addr) as usize / size_of::<u16>(),
             return_trap_address,
             base_addr,
-            instruction_offset: (pc - base_addr) as usize / size_of::<u16>(),
         }
     }
 }

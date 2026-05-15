@@ -8,6 +8,7 @@ use ab_io_type::bool::Bool;
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::hint::cold_path;
 use core::mem::offset_of;
@@ -350,12 +351,13 @@ impl LazyInstructionFetcher {
 }
 
 /// Eager instruction handler eagerly decodes all instructions upfront
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
+#[repr(C, align(16))]
 pub struct EagerTestInstructionFetcher {
-    instructions: Vec<ContractInstruction>,
+    instructions: Box<[ContractInstruction]>,
+    instruction_offset: usize,
     return_trap_address: u64,
     base_addr: u64,
-    instruction_offset: usize,
 }
 
 impl<Memory> ProgramCounter<u64, Memory> for EagerTestInstructionFetcher
@@ -507,10 +509,10 @@ impl EagerTestInstructionFetcher {
         }
 
         Self {
-            instructions: decoded_instructions,
+            instructions: decoded_instructions.into_boxed_slice(),
+            instruction_offset: (pc - base_addr) as usize / size_of::<u16>(),
             return_trap_address,
             base_addr,
-            instruction_offset: (pc - base_addr) as usize / size_of::<u16>(),
         }
     }
 }
