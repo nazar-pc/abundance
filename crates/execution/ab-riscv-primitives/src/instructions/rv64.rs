@@ -411,9 +411,9 @@ where
             Self::Bltu { rs1, rs2, imm } => write!(f, "bltu {}, {}, {}", rs1, rs2, imm),
             Self::Bgeu { rs1, rs2, imm } => write!(f, "bgeu {}, {}, {}", rs1, rs2, imm),
 
-            Self::Lui { rd, imm } => write!(f, "lui {}, 0x{:x}", rd, imm >> 12),
+            Self::Lui { rd, imm } => write!(f, "lui {}, 0x{:x}", rd, imm.to_i32() >> 12),
 
-            Self::Auipc { rd, imm } => write!(f, "auipc {}, 0x{:x}", rd, imm >> 12),
+            Self::Auipc { rd, imm } => write!(f, "auipc {}, 0x{:x}", rd, imm.to_i32() >> 12),
 
             Self::Jal { rd, imm } => write!(f, "jal {}, {}", rd, imm),
 

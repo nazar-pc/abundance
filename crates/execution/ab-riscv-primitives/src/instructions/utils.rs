@@ -248,42 +248,6 @@ impl<const LOW_ZEROED_BITS: u8> fmt::UpperHex for I24WithZeroedBits<LOW_ZEROED_B
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> const Shl<u8> for I24WithZeroedBits<LOW_ZEROED_BITS> {
-    type Output = Self;
-
-    #[inline(always)]
-    fn shl(self, rhs: u8) -> Self::Output {
-        Self::from_i32(self.to_i32().shl(rhs))
-    }
-}
-
-impl<const LOW_ZEROED_BITS: u8> const Shr<u8> for I24WithZeroedBits<LOW_ZEROED_BITS> {
-    type Output = Self;
-
-    #[inline(always)]
-    fn shr(self, rhs: u8) -> Self::Output {
-        Self::from_i32(self.to_i32().shr(rhs))
-    }
-}
-
-impl<const LOW_ZEROED_BITS: u8> const Shl<u8> for &I24WithZeroedBits<LOW_ZEROED_BITS> {
-    type Output = I24WithZeroedBits<LOW_ZEROED_BITS>;
-
-    #[inline(always)]
-    fn shl(self, rhs: u8) -> Self::Output {
-        I24WithZeroedBits::from_i32(self.to_i32().shl(rhs))
-    }
-}
-
-impl<const LOW_ZEROED_BITS: u8> const Shr<u8> for &I24WithZeroedBits<LOW_ZEROED_BITS> {
-    type Output = I24WithZeroedBits<LOW_ZEROED_BITS>;
-
-    #[inline(always)]
-    fn shr(self, rhs: u8) -> Self::Output {
-        I24WithZeroedBits::from_i32(self.to_i32().shr(rhs))
-    }
-}
-
 impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32 {
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
