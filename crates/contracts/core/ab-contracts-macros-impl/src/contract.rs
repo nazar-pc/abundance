@@ -209,7 +209,10 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         #[cfg(feature = "guest")]
         #[used]
         #[unsafe(no_mangle)]
-        #[unsafe(link_section = "ab-contract-metadata")]
+        #[cfg_attr(
+            target_env = "abundance",
+            unsafe(link_section = "ab-contract-metadata")
+        )]
         static #static_name: [::core::primitive::u8; <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len()] = unsafe {
             *<dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.as_ptr().cast()
         };
@@ -451,7 +454,10 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         #[cfg(feature = "guest")]
         #[used]
         #[unsafe(no_mangle)]
-        #[unsafe(link_section = "ab-contract-metadata")]
+        #[cfg_attr(
+            target_env = "abundance",
+            unsafe(link_section = "ab-contract-metadata")
+        )]
         static #static_name: [
             ::core::primitive::u8;
             <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA
