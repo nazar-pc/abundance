@@ -123,6 +123,7 @@ pub struct TestMemory<const BASE_ADDR: u64, const SIZE: usize> {
 }
 
 impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_ADDR, SIZE> {
+    #[inline(always)]
     fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
     where
         T: BasicInt,
@@ -145,6 +146,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         }
     }
 
+    #[inline(always)]
     unsafe fn read_unchecked<T>(&self, address: u64) -> T
     where
         T: BasicInt,
@@ -186,6 +188,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for TestMemory<BASE_
         remaining.get(..len as usize).unwrap_or(remaining)
     }
 
+    #[inline(always)]
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt,
