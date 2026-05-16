@@ -100,11 +100,6 @@ where
 
     #[inline(always)]
     fn write(&mut self, reg: Reg, value: Reg::Type) {
-        if reg == Reg::ZERO {
-            // Writes are ignored
-            return;
-        }
-
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
     }
