@@ -338,27 +338,37 @@ fn process_enum_definition_inherited(
         }
     }
 
-    let mut included_instructions = HashSet::new();
-    let mut instructions = Vec::new();
-
     let mut own_instructions = item_enum
         .variants
         .iter()
         .map(|variant| (variant.ident.clone(), Rc::new(variant.clone())))
         .collect::<HashMap<_, _>>();
 
+    let mut all_reordered_instructions = HashSet::new();
+
+    // Quick scan over reordered instructions to make sure they are later placed at the correct
+    // location and not ignored
+    for item in &instruction_definition.items {
+        if let InstructionDefinitionItem::Reorder(reorder_variants) = item {
+            all_reordered_instructions.extend(reorder_variants);
+        }
+    }
+
+    let mut processed_instructions = HashSet::new();
+    let mut instructions = Vec::new();
+
     for item in &instruction_definition.items {
         match item {
             InstructionDefinitionItem::Reorder(reorder_variants) => {
                 for reorder_variant in reorder_variants {
-                    if included_instructions.contains(reorder_variant) {
+                    if processed_instructions.contains(reorder_variant) {
                         return Err(anyhow::anyhow!(
                             "Instruction `{}` in `#[instruction(...)]`'s `reorder` attribute is \
                             already included earlier",
                             reorder_variant
                         ));
                     }
-                    included_instructions.insert(reorder_variant.clone());
+                    processed_instructions.insert(reorder_variant.clone());
 
                     let instruction = if let Some(instruction) =
                         own_instructions.remove(reorder_variant)
@@ -381,10 +391,14 @@ fn process_enum_definition_inherited(
                     if own_instructions.contains_key(ignore_item)
                         || all_known_instructions.contains_key(ignore_item)
                     {
-                        included_instructions.insert(ignore_item.clone());
+                        if !all_reordered_instructions.contains(ignore_item) {
+                            processed_instructions.insert(ignore_item.clone());
+                        }
                     } else if let Some(known_enum) = state.get_known_enum_definition(ignore_item) {
                         for known_instruction in &known_enum.instructions {
-                            included_instructions.insert(known_instruction.ident.clone());
+                            if !all_reordered_instructions.contains(&known_instruction.ident) {
+                                processed_instructions.insert(known_instruction.ident.clone());
+                            }
                         }
                     } else {
                         state.add_pending_enum_definition(PendingEnumDefinition {
@@ -406,8 +420,10 @@ fn process_enum_definition_inherited(
                     };
 
                     for known_instruction in &known_enum.instructions {
-                        if !included_instructions.contains(&known_instruction.ident) {
-                            included_instructions.insert(known_instruction.ident.clone());
+                        if !(all_reordered_instructions.contains(&known_instruction.ident)
+                            || processed_instructions.contains(&known_instruction.ident))
+                        {
+                            processed_instructions.insert(known_instruction.ident.clone());
                             instructions.push(Rc::clone(known_instruction));
                         }
                     }
@@ -417,7 +433,7 @@ fn process_enum_definition_inherited(
     }
 
     for own_instruction in &item_enum.variants {
-        if !included_instructions.contains(&own_instruction.ident) {
+        if !processed_instructions.contains(&own_instruction.ident) {
             instructions.push(Rc::new(own_instruction.clone()));
         }
     }

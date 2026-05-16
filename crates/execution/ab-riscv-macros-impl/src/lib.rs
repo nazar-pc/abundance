@@ -53,13 +53,14 @@ use proc_macro::TokenStream;
 ///
 /// Here is how the attributes are processed:
 /// * first, all own and inherited enum variants are collected into a set
+/// * all reordered instructions are isolated from the rest to make sure they are not ignored
 /// * then each attribute is processed in order of declaration
 ///   * `reorder` indicated where the corresponding variant needs to be included
 ///   * `ignore` removed individual variants or the whole enum from a set mentioned earlier (but
-///     instructions that were already "reordered" before will remain). Ignored list may contain
-///     enums that are not in the list of inherited enums.
+///     instructions that are "reordered" anywhere in the definition will remain). Ignored list may
+///     contain any known enum, including those that are not in the list of inherited enums.
 ///   * `inherit` includes all remaining variants of the corresponding enum that were not explicitly
-///     reordered or ignored earlier
+///     reordered or ignored anywhere in the definition
 ///   * own variants that were not explicitly reordered or ignored are placed at the end of the enum
 ///
 /// # Enum decoding implementation
