@@ -13,7 +13,8 @@ fn test_sha256sig0() {
         decoded,
         Some(Rv32ZknhInstruction::Sha256Sig0 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -26,7 +27,8 @@ fn test_sha256sig1() {
         decoded,
         Some(Rv32ZknhInstruction::Sha256Sig1 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -39,7 +41,8 @@ fn test_sha256sum0() {
         decoded,
         Some(Rv32ZknhInstruction::Sha256Sum0 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -52,7 +55,8 @@ fn test_sha256sum1() {
         decoded,
         Some(Rv32ZknhInstruction::Sha256Sum1 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

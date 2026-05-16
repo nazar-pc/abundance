@@ -6,7 +6,10 @@ pub mod zve64x_mask_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
-use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, VirtualMemory,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -30,12 +33,19 @@ where
     #[inline(always)]
     fn execute(
         self,
+        Rs1Rs2OperandValues {
+            rs1_value: _,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             // Mask-register logical instructions (§16.1).
             // These operate on the full VLENB bytes regardless of vtype/vl, but still require
@@ -462,6 +472,6 @@ where
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

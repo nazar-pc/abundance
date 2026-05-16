@@ -6,7 +6,10 @@ pub mod zve64x_fixed_point_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
-use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, VirtualMemory,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -30,12 +33,19 @@ where
     #[inline(always)]
     fn execute(
         self,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
             Self::VsadduVv { vd, vs2, vs1, vm } => {
@@ -90,7 +100,12 @@ where
                     );
                 }
             }
-            Self::VsadduVx { vd, vs2, rs1, vm } => {
+            Self::VsadduVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -120,7 +135,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -241,7 +256,12 @@ where
                     );
                 }
             }
-            Self::VsaddVx { vd, vs2, rs1, vm } => {
+            Self::VsaddVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -271,7 +291,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -391,7 +411,12 @@ where
                     );
                 }
             }
-            Self::VssubuVx { vd, vs2, rs1, vm } => {
+            Self::VssubuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -421,7 +446,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -492,7 +517,12 @@ where
                     );
                 }
             }
-            Self::VssubVx { vd, vs2, rs1, vm } => {
+            Self::VssubVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -522,7 +552,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -593,7 +623,12 @@ where
                     );
                 }
             }
-            Self::VaadduVx { vd, vs2, rs1, vm } => {
+            Self::VaadduVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -623,7 +658,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -694,7 +729,12 @@ where
                     );
                 }
             }
-            Self::VaaddVx { vd, vs2, rs1, vm } => {
+            Self::VaaddVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -724,7 +764,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -795,7 +835,12 @@ where
                     );
                 }
             }
-            Self::VasubuVx { vd, vs2, rs1, vm } => {
+            Self::VasubuVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -825,7 +870,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -896,7 +941,12 @@ where
                     );
                 }
             }
-            Self::VasubVx { vd, vs2, rs1, vm } => {
+            Self::VasubVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -926,7 +976,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -997,7 +1047,12 @@ where
                     );
                 }
             }
-            Self::VsmulVx { vd, vs2, rs1, vm } => {
+            Self::VsmulVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1027,7 +1082,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1102,7 +1157,12 @@ where
                     );
                 }
             }
-            Self::VssrlVx { vd, vs2, rs1, vm } => {
+            Self::VssrlVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1132,7 +1192,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1260,7 +1320,12 @@ where
                     );
                 }
             }
-            Self::VssraVx { vd, vs2, rs1, vm } => {
+            Self::VssraVx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1290,7 +1355,7 @@ where
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1420,7 +1485,12 @@ where
                     );
                 }
             }
-            Self::VnclipuWx { vd, vs2, rs1, vm } => {
+            Self::VnclipuWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1454,7 +1524,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
@@ -1581,7 +1651,12 @@ where
                     );
                 }
             }
-            Self::VnclipWx { vd, vs2, rs1, vm } => {
+            Self::VnclipWx {
+                vd,
+                vs2,
+                rs1: _,
+                vm,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -1615,7 +1690,7 @@ where
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
-                let scalar = regs.read(rs1).as_u64();
+                let scalar = rs1_value.as_u64();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
@@ -1686,6 +1761,6 @@ where
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

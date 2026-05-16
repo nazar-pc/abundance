@@ -21,6 +21,7 @@ fn test_vsetvli_basic() {
             rd: Reg::Ra,
             rs1: Reg::Sp,
             vtypei: 0x0b,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -36,6 +37,7 @@ fn test_vsetvli_e8_m1() {
             rd: Reg::A0,
             rs1: Reg::A1,
             vtypei: 0x000,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -54,6 +56,7 @@ fn test_vsetvli_e64_mf8_ta_ma() {
             rd: Reg::T0,
             rs1: Reg::T1,
             vtypei: 0xdd,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -69,6 +72,7 @@ fn test_vsetvli_max_vtypei() {
             rd: Reg::Ra,
             rs1: Reg::Sp,
             vtypei: 0x7ff,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -84,6 +88,7 @@ fn test_vsetvli_rd_zero() {
             rd: Reg::Zero,
             rs1: Reg::T0,
             vtypei: 0x03,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -99,6 +104,7 @@ fn test_vsetvli_rs1_zero_rd_nonzero() {
             rd: Reg::Ra,
             rs1: Reg::Zero,
             vtypei: 0x03,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -114,6 +120,7 @@ fn test_vsetvli_rs1_zero_rd_zero() {
             rd: Reg::Zero,
             rs1: Reg::Zero,
             vtypei: 0x03,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -134,6 +141,8 @@ fn test_vsetivli_basic() {
             rd: Reg::Ra,
             uimm: 4,
             vtypei: 0x0b,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -149,6 +158,8 @@ fn test_vsetivli_uimm_zero() {
             rd: Reg::A0,
             uimm: 0,
             vtypei: 0x000,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -165,6 +176,8 @@ fn test_vsetivli_uimm_max() {
             rd: Reg::Ra,
             uimm: 31,
             vtypei: 0x3ff,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -181,6 +194,8 @@ fn test_vsetivli_e64_m1_ta_ma() {
             rd: Reg::T0,
             uimm: 16,
             vtypei: 0x0d8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }

@@ -96,6 +96,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for ZicsrInstruction<Reg>
 where
     Reg: fmt::Display,

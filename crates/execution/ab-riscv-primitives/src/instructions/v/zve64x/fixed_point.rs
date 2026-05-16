@@ -352,6 +352,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xFixedPointInstruction<Reg>
 where
     Reg: fmt::Display,

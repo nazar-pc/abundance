@@ -169,6 +169,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Rv32ZcbInstruction<Reg>
 where
     Reg: fmt::Display,

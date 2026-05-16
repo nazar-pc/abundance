@@ -38,6 +38,7 @@ fn test_vse8() {
             rs1: Reg::Sp,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -53,6 +54,7 @@ fn test_vse16_masked() {
             rs1: Reg::A0,
             vm: false,
             eew: Eew::E16,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -68,6 +70,7 @@ fn test_vse32() {
             rs1: Reg::T0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -83,6 +86,7 @@ fn test_vse64() {
             rs1: Reg::Gp,
             vm: true,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -99,6 +103,7 @@ fn test_vsm() {
         Some(Zve64xStoreInstruction::Vsm {
             vs3: VReg::V0,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -165,6 +170,7 @@ fn test_vsuxei8() {
             vs2: VReg::V2,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -181,6 +187,7 @@ fn test_vsuxei32_masked() {
             vs2: VReg::V16,
             vm: false,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -199,6 +206,7 @@ fn test_vsoxei16() {
             vs2: VReg::V8,
             vm: true,
             eew: Eew::E16,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -215,6 +223,7 @@ fn test_vsoxei64_masked() {
             vs2: VReg::V24,
             vm: false,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -232,6 +241,7 @@ fn test_vs1r() {
             vs3: VReg::V8,
             rs1: Reg::A0,
             nreg: 1,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -247,6 +257,7 @@ fn test_vs2r() {
             vs3: VReg::V8,
             rs1: Reg::A0,
             nreg: 2,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -261,6 +272,7 @@ fn test_vs4r() {
             vs3: VReg::V8,
             rs1: Reg::A0,
             nreg: 4,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -275,6 +287,7 @@ fn test_vs8r() {
             vs3: VReg::V0,
             rs1: Reg::A0,
             nreg: 8,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -315,6 +328,7 @@ fn test_vsseg2e8() {
             vm: true,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -331,6 +345,7 @@ fn test_vsseg8e32_masked() {
             vm: false,
             eew: Eew::E32,
             nf: 8,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -365,6 +380,7 @@ fn test_vsuxseg2ei32() {
             vm: true,
             eew: Eew::E32,
             nf: 2,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -382,6 +398,7 @@ fn test_vsoxseg3ei8_masked() {
             vm: false,
             eew: Eew::E8,
             nf: 3,
+            rs2: Reg::Zero,
         })
     );
 }

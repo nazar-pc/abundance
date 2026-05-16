@@ -1,8 +1,13 @@
-use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::basic::BasicRegisters;
+use crate::rv64::test_utils::{
+    ExtState, TestInstructionFetcher, TestInstructionHandler, TestInterpreterState, TestMemory,
+    initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_primitives::prelude::*;
-
 // With TEST_VLEN=128, VLENB=16:
 //   E8/M1 -> VLMAX=16, 1 reg
 //   E16/M1 -> VLMAX=8, 1 reg
@@ -33,8 +38,21 @@ fn exec(
     state: &mut TestInterpreterState<Zve64xMaskInstruction<Reg<u64>>>,
     instr: Zve64xMaskInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+        BasicRegisters<_>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
+        TestInstructionHandler,
+    >>::get_rs1_rs2_operands(instr);
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+
     instr
         .execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
@@ -97,6 +115,8 @@ fn vmand_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -117,6 +137,8 @@ fn vmor_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -135,6 +157,8 @@ fn vmxor_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -154,6 +178,8 @@ fn vmandn_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -173,6 +199,8 @@ fn vmorn_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -192,6 +220,8 @@ fn vmnand_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -211,6 +241,8 @@ fn vmnor_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -230,6 +262,8 @@ fn vmxnor_basic() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -250,6 +284,8 @@ fn vmand_operates_on_full_register_regardless_of_vl() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -270,6 +306,8 @@ fn vmand_vd_overlaps_vs2() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -289,6 +327,8 @@ fn vmand_vd_overlaps_vs1() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -307,6 +347,8 @@ fn vmand_vd_is_v0() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -324,6 +366,8 @@ fn vmand_vector_not_allowed() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -345,6 +389,8 @@ fn vcpop_all_set_unmasked() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -364,6 +410,8 @@ fn vcpop_all_clear() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -382,6 +430,8 @@ fn vcpop_respects_vl() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -406,6 +456,8 @@ fn vcpop_masked() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -425,6 +477,8 @@ fn vcpop_vstart_skips_early_elements() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -443,6 +497,8 @@ fn vcpop_invalid_vtype() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -462,6 +518,8 @@ fn vcpop_vector_not_allowed() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -489,6 +547,8 @@ fn vcpop_sparse_bits() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -511,6 +571,8 @@ fn vfirst_basic() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -530,6 +592,8 @@ fn vfirst_no_set_bit_returns_minus_one() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -548,6 +612,8 @@ fn vfirst_bit_zero() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -568,6 +634,8 @@ fn vfirst_respects_vl() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -592,6 +660,8 @@ fn vfirst_masked_skips_inactive() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -614,6 +684,8 @@ fn vfirst_vstart_skips_early() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -637,6 +709,8 @@ fn vmsbf_first_at_position_3() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -662,6 +736,8 @@ fn vmsbf_no_set_bit() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -683,6 +759,8 @@ fn vmsbf_first_at_position_zero() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -711,6 +789,8 @@ fn vmsbf_masked_inactive_undisturbed() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -756,6 +836,8 @@ fn vmsbf_vd_eq_vs2_illegal() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -774,6 +856,8 @@ fn vmsbf_vd_eq_v0_masked_illegal() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -793,6 +877,8 @@ fn vmsbf_nonzero_vstart_illegal() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -817,6 +903,8 @@ fn vmsof_first_at_position_3() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -840,6 +928,8 @@ fn vmsof_no_set_bit() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -858,6 +948,8 @@ fn vmsof_vd_eq_vs2_illegal() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -876,6 +968,8 @@ fn vmsof_vd_eq_v0_masked_illegal() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -904,6 +998,8 @@ fn vmsof_masked_inactive_undisturbed() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -929,6 +1025,8 @@ fn vmsof_nonzero_vstart_illegal() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -953,6 +1051,8 @@ fn vmsif_first_at_position_3() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -978,6 +1078,8 @@ fn vmsif_no_set_bit() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -999,6 +1101,8 @@ fn vmsif_first_at_position_zero() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1018,6 +1122,8 @@ fn vmsif_vd_eq_vs2_illegal() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1036,6 +1142,8 @@ fn vmsif_vd_eq_v0_masked_illegal() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1055,6 +1163,8 @@ fn vmsif_nonzero_vstart_illegal() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1086,6 +1196,8 @@ fn vmsbf_vmsof_vmsif_relationship() {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -1098,6 +1210,8 @@ fn vmsbf_vmsof_vmsif_relationship() {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -1110,6 +1224,8 @@ fn vmsbf_vmsof_vmsif_relationship() {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -1151,6 +1267,8 @@ fn viota_basic_e8_m1() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1185,6 +1303,8 @@ fn viota_e32_m1() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1215,6 +1335,8 @@ fn viota_inactive_vs2_bits_treated_as_zero() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1251,6 +1373,8 @@ fn viota_nonzero_vstart_illegal() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1269,6 +1393,8 @@ fn viota_vd_eq_vs2_illegal() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1287,6 +1413,8 @@ fn viota_vd_eq_v0_masked_illegal() {
             vd: VReg::V0,
             vs2: VReg::V2,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1306,6 +1434,8 @@ fn viota_misaligned_vd_illegal() {
             vd: VReg::V3,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1326,6 +1456,8 @@ fn viota_sew64_does_not_overflow_width_check() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1344,6 +1476,8 @@ fn vid_basic_e8_m1() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1367,6 +1501,8 @@ fn vid_e16_m1() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1388,6 +1524,8 @@ fn vid_e32_m1() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1409,6 +1547,8 @@ fn vid_e64_m1() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1427,6 +1567,8 @@ fn vid_respects_vl() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1459,6 +1601,8 @@ fn vid_masked_inactive_undisturbed() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1488,6 +1632,8 @@ fn vid_vd_eq_v0_masked_illegal() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V0,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1506,6 +1652,8 @@ fn vid_misaligned_vd_illegal() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V3,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1525,6 +1673,8 @@ fn vid_vstart_undisturbed_below() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1552,6 +1702,8 @@ fn vid_invalid_vtype() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1570,6 +1722,8 @@ fn vid_vector_not_allowed() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1591,6 +1745,8 @@ fn vcpop_vl_zero() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1608,6 +1764,8 @@ fn vfirst_vl_zero() {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1626,6 +1784,8 @@ fn vmsbf_vl_zero() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1642,6 +1802,8 @@ fn vid_vl_zero() {
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1660,55 +1822,77 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmxor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmandn {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmorn {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmnand {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmnor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmxnor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vcpop {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vfirst {
             rd: Reg::A0,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vid {
             vd: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     ];
     for (idx, &instr) in vstart_ok.iter().enumerate() {
@@ -1732,21 +1916,29 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmsof {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmsif {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Viota {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     ];
     for (idx, &instr) in vstart_must_be_zero.iter().enumerate() {
@@ -1770,41 +1962,57 @@ fn mask_logical_invalid_vtype() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmxor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmandn {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmorn {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmnand {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmnor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
         Zve64xMaskInstruction::Vmxnor {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     ];
     for (idx, &op) in ops.iter().enumerate() {

@@ -4,7 +4,9 @@ pub mod rv32_zbc_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
@@ -20,33 +22,38 @@ where
     #[inline(always)]
     fn execute(
         self,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
-            Self::Clmul { rd, rs1, rs2 } => {
-                let a = regs.read(rs1);
-                let b = regs.read(rs2);
+            Self::Clmul { rd, rs1: _, rs2: _ } => {
+                let a = rs1_value;
+                let b = rs2_value;
 
-                regs.write(rd, rv32_zbc_helpers::clmul(a, b));
+                Ok(ControlFlow::Continue((rd, rv32_zbc_helpers::clmul(a, b))))
             }
-            Self::Clmulh { rd, rs1, rs2 } => {
-                let a = regs.read(rs1);
-                let b = regs.read(rs2);
+            Self::Clmulh { rd, rs1: _, rs2: _ } => {
+                let a = rs1_value;
+                let b = rs2_value;
 
-                regs.write(rd, rv32_zbc_helpers::clmulh(a, b));
+                Ok(ControlFlow::Continue((rd, rv32_zbc_helpers::clmulh(a, b))))
             }
-            Self::Clmulr { rd, rs1, rs2 } => {
-                let a = regs.read(rs1);
-                let b = regs.read(rs2);
+            Self::Clmulr { rd, rs1: _, rs2: _ } => {
+                let a = rs1_value;
+                let b = rs2_value;
 
-                regs.write(rd, rv32_zbc_helpers::clmulr(a, b));
+                Ok(ControlFlow::Continue((rd, rv32_zbc_helpers::clmulr(a, b))))
             }
         }
-
-        Ok(ControlFlow::Continue(()))
     }
 }

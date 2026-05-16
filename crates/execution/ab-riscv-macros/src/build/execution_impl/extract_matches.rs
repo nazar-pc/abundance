@@ -1,10 +1,13 @@
 use quote::{ToTokens, quote};
 use std::iter;
 use syn::token::Semi;
-use syn::{Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Pat, PathArguments, Stmt, parse_quote};
+use syn::{
+    Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Member, Pat, PatRest, PathArguments, Stmt,
+    parse_quote,
+};
 
 fn is_exact_ok(expr: &Expr) -> bool {
-    let expected = quote! { Ok(ControlFlow::Continue(())) };
+    let expected = quote! { Ok(ControlFlow::Continue(Default::default())) };
     let actual = expr.to_token_stream();
     actual.to_string() == expected.to_string()
 }
@@ -28,7 +31,6 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
 
     let path = match &arm.pat {
         Pat::Struct(pat_struct) => &pat_struct.path,
-        Pat::TupleStruct(pat_tuple_struct) => &pat_tuple_struct.path,
         Pat::Path(expr_path) => &expr_path.path,
         _ => Err(anyhow::anyhow!(
             "`match` pattern must be `Self::Variant`, `Self::Variant {{ .. }}` or \
@@ -47,9 +49,39 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
         && segments.next().is_none()
     {
         let mut arm = arm.clone();
+
+        // Fix up match pattern after `rs1`/`rs2` fields were added automatically
+        if let Pat::Struct(pat_struct) = &mut arm.pat {
+            if pat_struct.rest.is_none() {
+                let mut rs1_found = false;
+                let mut rs2_found = false;
+                for field in &pat_struct.fields {
+                    let Member::Named(ident) = &field.member else {
+                        break;
+                    };
+
+                    if ident == "rs1" {
+                        rs1_found = true;
+                    } else if ident == "rs2" {
+                        rs2_found = true;
+                    }
+                }
+
+                if !rs1_found || !rs2_found {
+                    pat_struct.rest.replace(PatRest {
+                        attrs: vec![],
+                        dot2_token: Default::default(),
+                    });
+                }
+            }
+        } else {
+            // Must be path otherwise, replace it with a trivial struct
+            arm.pat = parse_quote! { #path { .. } };
+        }
+
         // If not a block then must be an expression, which we'll keep as is
         if let Expr::Block(ExprBlock { block, .. }) = arm.body.as_mut() {
-            let continue_expr = parse_quote! { Ok(ControlFlow::Continue(())) };
+            let continue_expr = parse_quote! { Ok(ControlFlow::Continue(Default::default())) };
             if let Some(last_statement) = block.stmts.last_mut() {
                 // Has at least one statement
                 if let Stmt::Expr(expr, maybe_semicolon) = last_statement {
@@ -65,7 +97,8 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 // Replace `return T` with `T`
                                 inner_expr.as_ref().clone()
                             } else {
-                                // Replace `return` with `Ok(ControlFlow::Continue(()))`
+                                // Replace `return` with
+                                // `Ok(ControlFlow::Continue(Default::default()))`
                                 continue_expr
                             }
                         }
@@ -74,14 +107,16 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 // Ensure that the last statement ends with `;` even if it returns a
                                 // unit value already
                                 maybe_semicolon.replace(Semi::default());
-                                // Insert `Ok(ControlFlow::Continue(()))` at the end of the block
+                                // Insert `Ok(ControlFlow::Continue(Default::default()))` at the end
+                                // of the block
                                 block.stmts.push(Stmt::Expr(continue_expr, None));
                             }
                         }
                     }
                 }
             } else {
-                // No statements, insert `Ok(ControlFlow::Continue(()))` at the end of the block
+                // No statements, insert `Ok(ControlFlow::Continue(Default::default()))` at the end
+                // of the block
                 block.stmts.push(Stmt::Expr(continue_expr, None));
             }
         }
@@ -133,14 +168,16 @@ pub(super) fn extract_variant_arms(
 
         let Stmt::Expr(ok_expr, None) = second_stmt else {
             return Err(anyhow::anyhow!(
-                "Second statement must be exactly `Ok(ControlFlow::Continue(()))`: {}",
+                "Second statement must be exactly `Ok(ControlFlow::Continue(Default::default()))`: \
+                {}",
                 second_stmt.to_token_stream()
             ));
         };
 
         if !is_exact_ok(ok_expr) {
             return Err(anyhow::anyhow!(
-                "Second statement must be exactly `Ok(ControlFlow::Continue(()))`: {}",
+                "Second statement must be exactly `Ok(ControlFlow::Continue(Default::default()))`: \
+                {}",
                 second_stmt.to_token_stream()
             ));
         }
@@ -160,7 +197,8 @@ pub(super) fn extract_variant_arms(
         } else {
             Err(anyhow::anyhow!(
                 "Single tail expression must be either `match` on `self` or \
-                `Ok(ControlFlow::Continue(()))`"
+                `Ok(ControlFlow::Continue(Default::default()))`: {}",
+                expr.to_token_stream()
             ))
         }
     }

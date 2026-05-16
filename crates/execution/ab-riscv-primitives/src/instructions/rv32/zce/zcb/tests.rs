@@ -40,7 +40,8 @@ fn test_clbu_all_uimm_values() {
             Rv32ZcbInstruction::CLbu {
                 rd: Reg::S0,
                 rs1: Reg::S0,
-                uimm: expected_uimm
+                uimm: expected_uimm,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -55,7 +56,8 @@ fn test_clbu_all_prime_regs() {
         Rv32ZcbInstruction::CLbu {
             rd: Reg::A4,
             rs1: Reg::A5,
-            uimm: 0
+            uimm: 0,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -71,7 +73,8 @@ fn test_clhu_uimm0() {
         Rv32ZcbInstruction::CLhu {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 0
+            uimm: 0,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -85,7 +88,8 @@ fn test_clhu_uimm2() {
         Rv32ZcbInstruction::CLhu {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 2
+            uimm: 2,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -99,7 +103,8 @@ fn test_clh_uimm0() {
         Rv32ZcbInstruction::CLh {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 0
+            uimm: 0,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -113,7 +118,8 @@ fn test_clh_uimm2() {
         Rv32ZcbInstruction::CLh {
             rd: Reg::S0,
             rs1: Reg::S0,
-            uimm: 2
+            uimm: 2,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -190,28 +196,56 @@ fn test_csh_funct1_1_reserved() {
 fn test_czext_b() {
     let inst = make_zcb_q01(0, 0b11, 0b000);
     let decoded = Rv32ZcbInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv32ZcbInstruction::CZextB { rd: Reg::S0 });
+    assert_eq!(
+        decoded,
+        Rv32ZcbInstruction::CZextB {
+            rd: Reg::S0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_csext_b() {
     let inst = make_zcb_q01(0, 0b11, 0b001);
     let decoded = Rv32ZcbInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv32ZcbInstruction::CSextB { rd: Reg::S0 });
+    assert_eq!(
+        decoded,
+        Rv32ZcbInstruction::CSextB {
+            rd: Reg::S0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_czext_h() {
     let inst = make_zcb_q01(0, 0b11, 0b010);
     let decoded = Rv32ZcbInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv32ZcbInstruction::CZextH { rd: Reg::S0 });
+    assert_eq!(
+        decoded,
+        Rv32ZcbInstruction::CZextH {
+            rd: Reg::S0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_csext_h() {
     let inst = make_zcb_q01(0, 0b11, 0b011);
     let decoded = Rv32ZcbInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv32ZcbInstruction::CSextH { rd: Reg::S0 });
+    assert_eq!(
+        decoded,
+        Rv32ZcbInstruction::CSextH {
+            rd: Reg::S0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 // C.ZEXT.W (sub=0b100) must be absent in RV32
@@ -228,7 +262,14 @@ fn test_czext_w_absent_in_rv32() {
 fn test_cnot() {
     let inst = make_zcb_q01(0, 0b11, 0b101);
     let decoded = Rv32ZcbInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert_eq!(decoded, Rv32ZcbInstruction::CNot { rd: Reg::S0 });
+    assert_eq!(
+        decoded,
+        Rv32ZcbInstruction::CNot {
+            rd: Reg::S0,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -264,7 +305,8 @@ fn test_cmul() {
         decoded,
         Rv32ZcbInstruction::CMul {
             rd: Reg::S0,
-            rs2: Reg::S1
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
         }
     );
 }
@@ -277,7 +319,8 @@ fn test_cmul_same_reg() {
         decoded,
         Rv32ZcbInstruction::CMul {
             rd: Reg::S0,
-            rs2: Reg::S0
+            rs2: Reg::S0,
+            rs1: Reg::Zero,
         }
     );
 }

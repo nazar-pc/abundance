@@ -106,6 +106,13 @@ pub enum ContractRegister {
     T6 = 31,
 }
 
+impl const Default for ContractRegister {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::Zero
+    }
+}
+
 impl fmt::Display for ContractRegister {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -250,30 +257,6 @@ unsafe impl const ZcmpRegister for ContractRegister {
         Rv64ZcaInstruction,
         Rv64ZcbInstruction,
         Rv64ZcmpInstruction,
-    ],
-    reorder = [
-        Ld,
-        Sd,
-        Add,
-        Addi,
-        Xor,
-        Rori,
-        Srli,
-        Or,
-        And,
-        Slli,
-        Lbu,
-        Auipc,
-        Jalr,
-        Sb,
-        Roriw,
-        Sub,
-        Sltu,
-        Mulhu,
-        Mul,
-        Sh1add,
-    ],
-    inherit = [
         Rv64Instruction,
         Rv64MInstruction,
         Rv64BInstruction,
@@ -329,13 +312,20 @@ where
     #[inline(always)]
     fn execute(
         self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         _ext_state: &mut ExtState,
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        Ok(ControlFlow::Continue(()))
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }
 

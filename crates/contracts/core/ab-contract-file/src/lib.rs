@@ -31,6 +31,7 @@
     const_block_items,
     const_cmp,
     const_convert,
+    const_default,
     const_index,
     const_trait_impl,
     maybe_uninit_fill,
@@ -521,11 +522,14 @@ impl<'a> ContractFile<'a> {
                 ContractInstruction::Auipc {
                     rd: auipc_rd,
                     imm: _,
+                    rs1: _,
+                    rs2: _,
                 },
                 ContractInstruction::Jalr {
                     rd: jalr_rd,
                     rs1: jalr_rs1,
                     imm: _,
+                    rs2: _,
                 },
             ) = (first, second)
             {
@@ -553,7 +557,10 @@ impl<'a> ContractFile<'a> {
         {
             let mut offset = code_section_offset as usize;
 
-            let mut instruction = ContractInstruction::Unimp;
+            let mut instruction = ContractInstruction::Unimp {
+                rs1: Register::ZERO,
+                rs2: Register::ZERO,
+            };
             while offset < file_bytes.len() {
                 let remaining = &file_bytes[offset..];
 

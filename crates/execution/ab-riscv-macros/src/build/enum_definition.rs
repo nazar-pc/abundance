@@ -7,12 +7,12 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
-use std::{env, fs};
+use std::{env, fs, mem};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
-    Error, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file, parse_quote, parse_str,
-    parse2,
+    Error, Fields, FieldsNamed, Ident, ItemEnum, Meta, Token, Variant, bracketed, parse_file,
+    parse_quote, parse_str, parse2,
 };
 
 const ENUM_DEFINITION_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEFINITION_PATH";
@@ -140,11 +140,56 @@ pub(super) fn collect_enum_definitions_from_dependencies()
 }
 
 fn output_processed_enum_definition(
-    item_enum: ItemEnum,
+    mut item_enum: ItemEnum,
     dependencies: Vec<Ident>,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
+    for variant in &mut item_enum.variants {
+        let mut sorted_fields: FieldsNamed = parse_quote! {{
+            #[
+                doc = "First register operand (placeholder, instruction doesn't have it, should be \
+                set to Reg::ZERO)"
+            ]
+            #[doc(hidden)]
+            rs1: Reg,
+            #[
+                doc = "Second register operand (placeholder, instruction doesn't have it, should \
+                be set to Reg::ZERO)"
+            ]
+            #[doc(hidden)]
+            rs2: Reg,
+        }};
+        match &mut variant.fields {
+            Fields::Named(fields) => {
+                for field in mem::take(&mut fields.named) {
+                    if let Some(ident) = &field.ident {
+                        if ident == "rs1" {
+                            sorted_fields.named[0] = field;
+                            continue;
+                        } else if ident == "rs2" {
+                            sorted_fields.named[1] = field;
+                            continue;
+                        }
+                    }
+                    sorted_fields.named.push(field);
+                }
+            }
+            Fields::Unnamed(_) => {
+                return Err(anyhow::anyhow!(
+                    "Enum variants must use named fields: {}::{}(..)",
+                    item_enum.ident,
+                    variant.ident
+                ));
+            }
+            Fields::Unit => {
+                // Nothing to do here
+            }
+        }
+
+        variant.fields = Fields::Named(sorted_fields);
+    }
+
     let enum_name = item_enum.ident.clone();
     let enum_file_path = out_dir.join(format!("{}_definition.rs", enum_name));
     let code = item_enum.to_token_stream().to_string();
@@ -230,6 +275,28 @@ pub(super) fn process_enum_definition(
     if !has_repr_align {
         // Alignment improves performance significantly during execution
         item_enum.attrs.push(parse_quote! { #[repr(align(4))] });
+    }
+
+    let has_repr_c_ux = item_enum.attrs.iter().any(|attr| {
+        if !attr.path().is_ident("repr") {
+            return false;
+        }
+        // Parse the repr(...) token stream and look for align(...)
+        attr.parse_args_with(|input: ParseStream<'_>| {
+            let nested = input.parse_terminated(Meta::parse, Token![,])?;
+            Ok(nested.iter().any(|meta| {
+                meta.path().is_ident("C")
+                    || meta.path().is_ident("u8")
+                    || meta.path().is_ident("u16")
+            }))
+        })
+        .unwrap_or_default()
+    });
+
+    if !has_repr_c_ux {
+        // `u16` is a bit larger than necessary in the simplest case, but it is also consistently a
+        // bit faster for some reason
+        item_enum.attrs.push(parse_quote! { #[repr(u16)] });
     }
 
     let dependencies = match attribute.meta {
@@ -338,27 +405,37 @@ fn process_enum_definition_inherited(
         }
     }
 
-    let mut included_instructions = HashSet::new();
-    let mut instructions = Vec::new();
-
     let mut own_instructions = item_enum
         .variants
         .iter()
         .map(|variant| (variant.ident.clone(), Rc::new(variant.clone())))
         .collect::<HashMap<_, _>>();
 
+    let mut all_reordered_instructions = HashSet::new();
+
+    // Quick scan over reordered instructions to make sure they are later placed at the correct
+    // location and not ignored
+    for item in &instruction_definition.items {
+        if let InstructionDefinitionItem::Reorder(reorder_variants) = item {
+            all_reordered_instructions.extend(reorder_variants);
+        }
+    }
+
+    let mut processed_instructions = HashSet::new();
+    let mut instructions = Vec::new();
+
     for item in &instruction_definition.items {
         match item {
             InstructionDefinitionItem::Reorder(reorder_variants) => {
                 for reorder_variant in reorder_variants {
-                    if included_instructions.contains(reorder_variant) {
+                    if processed_instructions.contains(reorder_variant) {
                         return Err(anyhow::anyhow!(
                             "Instruction `{}` in `#[instruction(...)]`'s `reorder` attribute is \
                             already included earlier",
                             reorder_variant
                         ));
                     }
-                    included_instructions.insert(reorder_variant.clone());
+                    processed_instructions.insert(reorder_variant.clone());
 
                     let instruction = if let Some(instruction) =
                         own_instructions.remove(reorder_variant)
@@ -381,10 +458,14 @@ fn process_enum_definition_inherited(
                     if own_instructions.contains_key(ignore_item)
                         || all_known_instructions.contains_key(ignore_item)
                     {
-                        included_instructions.insert(ignore_item.clone());
+                        if !all_reordered_instructions.contains(ignore_item) {
+                            processed_instructions.insert(ignore_item.clone());
+                        }
                     } else if let Some(known_enum) = state.get_known_enum_definition(ignore_item) {
                         for known_instruction in &known_enum.instructions {
-                            included_instructions.insert(known_instruction.ident.clone());
+                            if !all_reordered_instructions.contains(&known_instruction.ident) {
+                                processed_instructions.insert(known_instruction.ident.clone());
+                            }
                         }
                     } else {
                         state.add_pending_enum_definition(PendingEnumDefinition {
@@ -406,8 +487,10 @@ fn process_enum_definition_inherited(
                     };
 
                     for known_instruction in &known_enum.instructions {
-                        if !included_instructions.contains(&known_instruction.ident) {
-                            included_instructions.insert(known_instruction.ident.clone());
+                        if !(all_reordered_instructions.contains(&known_instruction.ident)
+                            || processed_instructions.contains(&known_instruction.ident))
+                        {
+                            processed_instructions.insert(known_instruction.ident.clone());
                             instructions.push(Rc::clone(known_instruction));
                         }
                     }
@@ -417,7 +500,7 @@ fn process_enum_definition_inherited(
     }
 
     for own_instruction in &item_enum.variants {
-        if !included_instructions.contains(&own_instruction.ident) {
+        if !processed_instructions.contains(&own_instruction.ident) {
             instructions.push(Rc::new(own_instruction.clone()));
         }
     }

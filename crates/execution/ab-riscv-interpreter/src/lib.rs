@@ -445,6 +445,32 @@ where
     }
 }
 
+/// `rs1`/`rs2` instruction operands
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Rs1Rs2Operands<Reg> {
+    /// `rs1` operand.
+    ///
+    /// Zero register if `rs1` was missing in the original instruction definition.
+    pub rs1: Reg,
+    /// `rs2` operand.
+    ///
+    /// Zero register if `rs2` was missing in the original instruction definition.
+    pub rs2: Reg,
+}
+
+/// `rs1`/`rs2` instruction operands
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Rs1Rs2OperandValues<RegType> {
+    /// `rs1` operand value.
+    ///
+    /// Zero if `rs1` was missing in the original instruction definition.
+    pub rs1_value: RegType,
+    /// `rs2` operand value.
+    ///
+    /// Zero if `rs2` was missing in the original instruction definition.
+    pub rs2_value: RegType,
+}
+
 /// Trait for executable instructions
 pub trait ExecutableInstruction<
     Regs,
@@ -514,17 +540,33 @@ pub trait ExecutableInstruction<
         Ok(false)
     }
 
+    /// `rs1`/`rs2` instruction operands.
+    ///
+    /// Returns zero register for `rs1`/rs2` that were missing in the original instruction
+    /// definition.
+    fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
+
     /// Execute instruction.
     ///
     /// Instructions might place additional constraints on `ExtState` to require additional
     /// registers or other resources. If no such constraint is used, `()` can be used as a
     /// placeholder.
+    ///
+    /// On success `Ok(ControlFlow::Continue((rd, rd_value)))` is returned, which will be written
+    /// into the register file. In most cases this is the only register that needs to be written. If
+    /// no value needs to be written, `Ok(ControlFlow::Continue(Default::default()))` should be
+    /// returned, which corresponds to `Ok(ControlFlow::Continue(Reg::ZERO, 0))` and is no-op.
+    #[expect(clippy::type_complexity, reason = "Generic return type")]
     fn execute(
         self,
+        rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<Self>, CustomError>>;
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Address<Self>, CustomError>,
+    >;
 }

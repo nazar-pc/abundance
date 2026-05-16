@@ -87,7 +87,16 @@ impl const RegType for u64 {
 
 /// GPR (General Purpose Register)
 pub const trait Register:
-    fmt::Display + fmt::Debug + [const] Eq + [const] Destruct + Copy + Send + Sync + Sized + 'static
+    fmt::Display
+    + fmt::Debug
+    + [const] Default
+    + [const] Eq
+    + [const] Destruct
+    + Copy
+    + Send
+    + Sync
+    + Sized
+    + 'static
 {
     /// Whether this is RVE variant with the number of general purpose registers reduced to 16
     /// XLEN
@@ -152,6 +161,13 @@ pub enum EReg<Type> {
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
     Phantom(PhantomRegister<Type>),
+}
+
+impl<Type> const Default for EReg<Type> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::Zero
+    }
 }
 
 impl<Type> fmt::Display for EReg<Type> {
@@ -353,6 +369,13 @@ pub enum Reg<Type> {
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
     Phantom(PhantomRegister<Type>),
+}
+
+impl<Type> const Default for Reg<Type> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::Zero
+    }
 }
 
 impl<Type> const From<EReg<u64>> for Reg<Type> {

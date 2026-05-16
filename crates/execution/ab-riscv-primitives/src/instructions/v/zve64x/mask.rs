@@ -186,6 +186,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xMaskInstruction<Reg>
 where
     Reg: fmt::Display,

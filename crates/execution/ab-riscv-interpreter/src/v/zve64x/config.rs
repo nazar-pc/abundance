@@ -5,7 +5,10 @@ mod tests;
 pub mod zve64x_config_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::{CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile};
+use crate::{
+    CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -106,12 +109,19 @@ where
     #[inline(always)]
     fn execute(
         self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
                 zve64x_config_helpers::apply_vsetvl(
@@ -120,6 +130,7 @@ where
                     program_counter,
                     rd,
                     rs1,
+                    rs1_value,
                     Reg::Type::from(vtypei),
                 )?;
             }
@@ -133,19 +144,20 @@ where
                     vtypei,
                 )?;
             }
-            Self::Vsetvl { rd, rs1, rs2 } => {
-                let vtype_raw = regs.read(rs2);
+            Self::Vsetvl { rd, rs1, rs2: _ } => {
+                let vtype_raw = rs2_value;
                 zve64x_config_helpers::apply_vsetvl(
                     regs,
                     ext_state,
                     program_counter,
                     rd,
                     rs1,
+                    rs1_value,
                     vtype_raw,
                 )?;
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

@@ -1,7 +1,13 @@
-use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::basic::BasicRegisters;
+use crate::rv64::test_utils::{
+    ExtState, TestInstructionFetcher, TestInstructionHandler, TestInterpreterState, TestMemory,
+    initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zve64x::arith::zve64x_arith_helpers::sign_extend;
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_primitives::prelude::*;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
@@ -37,8 +43,21 @@ fn exec(
     state: &mut TestInterpreterState<Zve64xFixedPointInstruction<Reg<u64>>>,
     instr: Zve64xFixedPointInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+        BasicRegisters<_>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
+        TestInstructionHandler,
+    >>::get_rs1_rs2_operands(instr);
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+
     instr
         .execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
@@ -131,6 +150,8 @@ fn vsaddu_vv_e8_no_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -156,6 +177,8 @@ fn vsaddu_vv_e8_saturates_at_max() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -180,6 +203,8 @@ fn vsaddu_vv_e32_saturates() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -199,6 +224,8 @@ fn vsaddu_vv_e64_saturates() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -220,6 +247,7 @@ fn vsaddu_vx_e16() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -245,6 +273,8 @@ fn vsaddu_vi_e8() {
             vs2: VReg::V2,
             imm: 5,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -275,6 +305,8 @@ fn vsaddu_vi_e8_high_bit_immediate_sign_extends() {
             vs2: VReg::V2,
             imm: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -303,6 +335,8 @@ fn vsaddu_vi_e16_sign_extends_to_sew() {
             vs2: VReg::V2,
             imm: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -324,6 +358,8 @@ fn vsaddu_vxsat_is_sticky() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -338,6 +374,8 @@ fn vsaddu_vxsat_is_sticky() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -359,6 +397,8 @@ fn vsadd_vv_e8_positive_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -385,6 +425,8 @@ fn vsadd_vv_e8_negative_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -411,6 +453,8 @@ fn vsadd_vv_e8_no_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -431,6 +475,8 @@ fn vsadd_vv_e32_max_plus_one() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -451,6 +497,8 @@ fn vsadd_vi_sign_extends_immediate() {
             vs2: VReg::V2,
             imm: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -475,6 +523,8 @@ fn vssubu_vv_e8_no_underflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -498,6 +548,8 @@ fn vssubu_vv_e8_clamps_at_zero() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -518,6 +570,7 @@ fn vssubu_vx_e64_clamps() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -542,6 +595,8 @@ fn vssub_vv_e8_positive_underflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -567,6 +622,8 @@ fn vssub_vv_e8_positive_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -592,6 +649,7 @@ fn vssub_vx_e32_no_overflow() {
             vs2: VReg::V2,
             rs1: Reg::A1,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -619,6 +677,8 @@ fn vaaddu_vv_e8_rnu_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -639,6 +699,8 @@ fn vaaddu_vv_e8_rdn_truncates() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -660,6 +722,8 @@ fn vaaddu_vv_e8_even_sum_all_modes_same() {
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -680,6 +744,8 @@ fn vaaddu_vv_e8_overflow_wraps_correctly() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -699,6 +765,7 @@ fn vaaddu_vx_e32() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -725,6 +792,8 @@ fn vaadd_vv_e8_rnu_signed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -746,6 +815,8 @@ fn vaadd_vv_e8_rdn_signed() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -768,6 +839,8 @@ fn vaadd_vv_e8_no_overflow() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -793,6 +866,7 @@ fn vaadd_vx_e64_rne() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -814,6 +888,8 @@ fn vasubu_vv_e8_rdn() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -834,6 +910,8 @@ fn vasubu_vv_e8_rnu_odd_diff() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -858,6 +936,8 @@ fn vasubu_vx_e8_underflow_wraps_to_large() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -881,6 +961,8 @@ fn vasub_vv_e8_rnu() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -906,6 +988,7 @@ fn vasub_vx_e16_rdn() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -935,6 +1018,8 @@ fn vsmul_vv_e8_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -955,6 +1040,8 @@ fn vsmul_vv_e8_larger_values() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -980,6 +1067,8 @@ fn vsmul_vv_e8_int_min_saturates() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1004,6 +1093,8 @@ fn vsmul_vv_e64_int_min_saturates() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1031,6 +1122,8 @@ fn vsmul_vv_e16_rnu_rounding() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1050,6 +1143,8 @@ fn vsmul_vv_e16_rnu_rounding() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1074,6 +1169,7 @@ fn vsmul_vx_e16_negative() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1099,6 +1195,8 @@ fn vssrl_vv_e8_rdn_basic() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1119,6 +1217,8 @@ fn vssrl_vv_e8_rnu_rounds_up() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1138,6 +1238,8 @@ fn vssrl_vv_e8_shift_zero() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1158,6 +1260,8 @@ fn vssrl_vv_e8_shift_masked_to_log2_sew() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1180,6 +1284,7 @@ fn vssrl_vx_e32_rne() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1200,6 +1305,8 @@ fn vssrl_vi_e16_rod() {
             vs2: VReg::V2,
             imm: 2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1222,6 +1329,8 @@ fn vssrl_vi_e16_rod_sets_lsb() {
             vs2: VReg::V2,
             imm: 2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1244,6 +1353,8 @@ fn vssra_vv_e8_rdn_negative() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1268,6 +1379,8 @@ fn vssra_vv_e8_rnu_negative() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1290,6 +1403,8 @@ fn vssra_vv_e8_positive_rnu() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1312,6 +1427,7 @@ fn vssra_vx_e32() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1340,6 +1456,8 @@ fn vssra_vi_e64_rne_tie_to_even() {
             vs2: VReg::V2,
             imm: 2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1370,6 +1488,8 @@ fn vnclipu_wv_e8_no_clip() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1391,6 +1511,8 @@ fn vnclipu_wv_e8_saturates() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1412,6 +1534,7 @@ fn vnclipu_wx_e16_rnu() {
             vs2: VReg::V4,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1432,6 +1555,8 @@ fn vnclipu_wi_e8_shift_zero() {
             vs2: VReg::V4,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1450,6 +1575,8 @@ fn vnclipu_e64_illegal() {
             vs2: VReg::V4,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1471,6 +1598,8 @@ fn vnclipu_shamt_masked_to_log2_2sew() {
             vs2: VReg::V4,
             imm: 0x1F,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1489,6 +1618,8 @@ fn vnclipu_lmul8_illegal() {
             vs2: VReg::V0,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1507,6 +1638,8 @@ fn vnclip_lmul8_illegal() {
             vs2: VReg::V0,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1531,6 +1664,8 @@ fn vnclip_wv_e8_no_clip() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1555,6 +1690,8 @@ fn vnclip_wv_e8_positive_saturates_at_max() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1579,6 +1716,8 @@ fn vnclip_wv_e8_negative_saturates_at_min() {
             vs2: VReg::V4,
             vs1: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1603,6 +1742,7 @@ fn vnclip_wx_e16_rnu() {
             vs2: VReg::V4,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1626,6 +1766,8 @@ fn vnclip_wi_e8() {
             vs2: VReg::V4,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1646,6 +1788,8 @@ fn vnclip_e64_illegal() {
             vs2: VReg::V4,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1677,6 +1821,8 @@ fn vsaddu_masked_skips_inactive_elements() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1699,6 +1845,8 @@ fn vsaddu_masked_vd_overlap_v0_illegal() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1726,6 +1874,7 @@ fn vssrl_masked_only_active_written() {
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1754,6 +1903,8 @@ fn vsaddu_vstart_skips_early_elements() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1780,6 +1931,8 @@ fn vsaddu_vector_not_allowed_faults() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1799,6 +1952,8 @@ fn vsmul_vector_not_allowed_faults() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1818,6 +1973,8 @@ fn vnclip_vector_not_allowed_faults() {
             vs2: VReg::V4,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1839,6 +1996,8 @@ fn vsaddu_vtype_none_faults() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1858,6 +2017,8 @@ fn vssrl_vtype_none_faults() {
             vs2: VReg::V2,
             imm: 1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1880,6 +2041,8 @@ fn vsaddu_vd_misaligned_m2_faults() {
             vs2: VReg::V2,
             vs1: VReg::V0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1898,6 +2061,8 @@ fn vsaddu_vs2_misaligned_m2_faults() {
             vs2: VReg::V3,
             vs1: VReg::V0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1917,6 +2082,8 @@ fn vnclipu_vs2_misaligned_m1_faults() {
             vs2: VReg::V3,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(matches!(
@@ -1940,6 +2107,8 @@ fn vsaddu_aligned_m4_ok() {
             vs2: VReg::V8,
             vs1: VReg::V12,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     );
     assert!(result.is_ok());
@@ -1959,6 +2128,8 @@ fn vs_dirty_increments_per_instruction() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1970,6 +2141,8 @@ fn vs_dirty_increments_per_instruction() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1989,6 +2162,8 @@ fn vstart_resets_to_zero_after_execution() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2010,6 +2185,8 @@ fn vsaddu_vl_zero_no_writes() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2048,6 +2225,8 @@ fn vsadd_all_sew_sizes_max_overflow() {
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -2066,6 +2245,8 @@ fn vsadd_all_sew_sizes_max_overflow() {
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -2091,6 +2272,8 @@ fn vssubu_all_sew_sizes_clamps_zero() {
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
         )
         .unwrap();
@@ -2114,6 +2297,7 @@ fn vnclipu_e32_no_clip() {
             vs2: VReg::V4,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2133,6 +2317,8 @@ fn vnclipu_e32_saturates() {
             vs2: VReg::V4,
             imm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2156,6 +2342,7 @@ fn vnclip_e32_no_clip() {
             vs2: VReg::V4,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2180,6 +2367,8 @@ fn vnclip_e32_saturates_positive() {
             vs2: VReg::V4,
             imm: 31,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2204,6 +2393,8 @@ fn vssrl_rod_result_even_sets_lsb() {
             vs2: VReg::V2,
             imm: 2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2232,6 +2423,8 @@ fn vssra_rod_result_even_sets_lsb() {
             vs2: VReg::V2,
             imm: 2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2273,6 +2466,8 @@ fn vsaddu_mixed_sat_e16_m1() {
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();

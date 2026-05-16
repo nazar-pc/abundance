@@ -4,7 +4,9 @@ pub mod rv64_zknd_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
@@ -20,38 +22,55 @@ where
     #[inline(always)]
     fn execute(
         self,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
-            Self::Aes64Ds { rd, rs1, rs2 } => {
-                let v1 = regs.read(rs1);
-                let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zknd_helpers::aes64ds(v1, v2));
+            Self::Aes64Ds { rd, rs1: _, rs2: _ } => {
+                let v1 = rs1_value;
+                let v2 = rs2_value;
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64ds(v1, v2),
+                )))
             }
-            Self::Aes64Dsm { rd, rs1, rs2 } => {
-                let v1 = regs.read(rs1);
-                let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zknd_helpers::aes64dsm(v1, v2));
+            Self::Aes64Dsm { rd, rs1: _, rs2: _ } => {
+                let v1 = rs1_value;
+                let v2 = rs2_value;
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64dsm(v1, v2),
+                )))
             }
-            Self::Aes64Im { rd, rs1 } => {
-                let v1 = regs.read(rs1);
-                regs.write(rd, rv64_zknd_helpers::aes64im(v1));
+            Self::Aes64Im { rd, rs1: _ } => {
+                let v1 = rs1_value;
+                Ok(ControlFlow::Continue((rd, rv64_zknd_helpers::aes64im(v1))))
             }
-            Self::Aes64Ks1i { rd, rs1, rnum } => {
-                let v1 = regs.read(rs1);
-                regs.write(rd, rv64_zknd_helpers::aes64ks1i(v1, rnum));
+            Self::Aes64Ks1i { rd, rs1: _, rnum } => {
+                let v1 = rs1_value;
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64ks1i(v1, rnum),
+                )))
             }
-            Self::Aes64Ks2 { rd, rs1, rs2 } => {
-                let v1 = regs.read(rs1);
-                let v2 = regs.read(rs2);
-                regs.write(rd, rv64_zknd_helpers::aes64ks2(v1, v2));
+            Self::Aes64Ks2 { rd, rs1: _, rs2: _ } => {
+                let v1 = rs1_value;
+                let v2 = rs2_value;
+                Ok(ControlFlow::Continue((
+                    rd,
+                    rv64_zknd_helpers::aes64ks2(v1, v2),
+                )))
             }
         }
-
-        Ok(ControlFlow::Continue(()))
     }
 }

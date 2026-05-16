@@ -1,9 +1,15 @@
-use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
+use crate::basic::BasicRegisters;
+use crate::rv64::test_utils::{
+    ExtState, TEST_BASE_ADDR, TestInstructionFetcher, TestInstructionHandler, TestInterpreterState,
+    TestMemory, initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    VirtualMemory,
+};
 use ab_riscv_primitives::prelude::*;
 use core::array;
-
 // With TEST_VLEN=128 and TEST_VLENB=16:
 //   E8/M1  VLMAX=16, E16/M1 VLMAX=8, E32/M1 VLMAX=4, E64/M1 VLMAX=2
 //   E8/M2  VLMAX=32, E16/M2 VLMAX=16
@@ -53,8 +59,21 @@ fn exec_one(
     state: &mut TestInterpreterState<Zve64xStoreInstruction<Reg<u64>>>,
     instr: Zve64xStoreInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+        BasicRegisters<_>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
+        TestInstructionHandler,
+    >>::get_rs1_rs2_operands(instr);
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+
     instr
         .execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
@@ -80,6 +99,7 @@ fn vsr_single_register_stores_vlenb_bytes() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             nreg: 1,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -105,6 +125,7 @@ fn vsr_two_registers_stores_two_vlenb_blocks() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             nreg: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -129,6 +150,7 @@ fn vsr_four_registers_stores_four_vlenb_blocks() {
             vs3: VReg::V4,
             rs1: Reg::A0,
             nreg: 4,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -158,6 +180,7 @@ fn vsr_eight_registers_stores_eight_vlenb_blocks() {
             vs3: VReg::V8,
             rs1: Reg::A0,
             nreg: 8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -184,6 +207,7 @@ fn vsr_misaligned_register_returns_illegal_instruction() {
             vs3: VReg::V3,
             rs1: Reg::A0,
             nreg: 2,
+            rs2: Reg::Zero,
         },
     );
 
@@ -211,6 +235,7 @@ fn vsr_ignores_vtype_and_vl() {
             vs3: VReg::V0,
             rs1: Reg::A0,
             nreg: 1,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -232,6 +257,7 @@ fn vsr_vector_not_allowed_returns_illegal_instruction() {
             vs3: VReg::V0,
             rs1: Reg::A0,
             nreg: 1,
+            rs2: Reg::Zero,
         },
     );
 
@@ -259,6 +285,7 @@ fn vsr_honors_nonzero_vstart() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             nreg: 1,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -291,6 +318,7 @@ fn vsr_vstart_at_or_past_evl_writes_nothing() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             nreg: 1,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -320,6 +348,7 @@ fn vsr_nreg2_vstart_spans_register_boundary() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             nreg: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -357,6 +386,7 @@ fn vsm_stores_ceil_vl_over_8_bytes() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -382,6 +412,7 @@ fn vsm_vl_zero_writes_nothing() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V0,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -403,6 +434,7 @@ fn vsm_vl_exactly_8_writes_one_byte() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V3,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -422,6 +454,7 @@ fn vsm_vector_not_allowed_returns_illegal_instruction() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V0,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     );
 
@@ -457,6 +490,7 @@ fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -485,6 +519,7 @@ fn vsm_vstart_past_evl_writes_nothing() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -510,6 +545,7 @@ fn vse_e8_m1_stores_all_elements() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -543,6 +579,7 @@ fn vse_e32_m1_stores_partial_vl() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -574,6 +611,7 @@ fn vse_e64_m1_stores_two_elements() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -611,6 +649,7 @@ fn vse_masked_skips_inactive_elements() {
             rs1: Reg::A0,
             vm: false,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -652,6 +691,7 @@ fn vse_vstart_nonzero_skips_earlier_elements() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -685,6 +725,7 @@ fn vse_masked_vs3_equals_v0_is_legal() {
             rs1: Reg::A0,
             vm: false,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -706,6 +747,7 @@ fn vse_vtype_illegal_returns_illegal_instruction() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     );
 
@@ -728,6 +770,7 @@ fn vse_vector_not_allowed_returns_illegal_instruction() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     );
 
@@ -907,6 +950,7 @@ fn vsuxei_e32_data_e32_index_stores_at_indexed_addresses() {
             vs2: VReg::V4,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -946,6 +990,7 @@ fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
             vs2: VReg::V4,
             vm: true,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -988,6 +1033,7 @@ fn vsuxei_e8_index_scatter_e8_data() {
             vs2: VReg::V10,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1035,6 +1081,7 @@ fn vsuxei_masked_skips_inactive_elements() {
             vs2: VReg::V4,
             vm: false,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1071,6 +1118,7 @@ fn vsuxei_misaligned_data_register_returns_illegal() {
             vs2: VReg::V4,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     );
 
@@ -1102,6 +1150,7 @@ fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
             vm: true,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1142,6 +1191,7 @@ fn vsseg_nf3_e32_m1_stores_three_fields_per_element() {
             vm: true,
             eew: Eew::E32,
             nf: 3,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1170,6 +1220,7 @@ fn vsseg_register_group_out_of_bounds_returns_illegal() {
             vm: true,
             eew: Eew::E32,
             nf: 4,
+            rs2: Reg::Zero,
         },
     );
 
@@ -1201,6 +1252,7 @@ fn vsseg_masked_vs3_equals_v0_is_legal() {
             vm: false,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1292,6 +1344,7 @@ fn vsuxseg_nf2_e32_index_e32_data_stores_segments_at_indexed_addresses() {
             vm: true,
             eew: Eew::E32,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1332,6 +1385,7 @@ fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
             vm: true,
             eew: Eew::E64,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1373,6 +1427,7 @@ fn vse_resets_vstart_to_zero() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1416,6 +1471,7 @@ fn vsm_resets_vstart_to_zero() {
         Zve64xStoreInstruction::Vsm {
             vs3: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1440,6 +1496,7 @@ fn stores_never_mark_vs_dirty() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1475,6 +1532,7 @@ fn vse_out_of_bounds_write_returns_memory_access_error() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     );
 

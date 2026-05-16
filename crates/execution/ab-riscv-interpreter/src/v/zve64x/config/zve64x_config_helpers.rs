@@ -17,6 +17,7 @@ pub fn apply_vsetvl<Reg, Regs, ExtState, Memory, PC, CustomError>(
     program_counter: &PC,
     rd: Reg,
     rs1: Reg,
+    rs1_value: Reg::Type,
     vtype_raw: Reg::Type,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -54,7 +55,7 @@ where
 
     let new_vl = if !rs1_is_zero {
         // Truncate to `u32`: `VLMAX` fits in `u32` (max 65536)
-        let avl = regs.read(rs1).as_u64() as u32;
+        let avl = rs1_value.as_u64() as u32;
         ext_state.compute_vl(avl, vlmax)
     } else if !rd_is_zero {
         //` rs1=x0, rd!=x0`: `AVL = max`, `result` is `VLMAX`

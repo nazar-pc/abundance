@@ -2,16 +2,18 @@
 
 use crate::{ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::ops::ControlFlow;
 
 /// Execute CM.PUSH: store registers below sp, then decrement sp
 #[inline]
 #[doc(hidden)]
+#[expect(clippy::type_complexity, reason = "Internal helper")]
 pub fn do_push<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
     stack_adj: u8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<ControlFlow<(), (Reg, u64)>, ExecutionError<Reg::Type, CustomError>>
 where
     Reg: ZcmpRegister<Type = u64>,
     Regs: RegisterFile<Reg>,
@@ -24,8 +26,10 @@ where
         memory.write(store_addr, regs.read(reg))?;
         store_addr = store_addr.wrapping_sub(size_of::<Reg::Type>() as u64);
     }
-    regs.write(Reg::SP, sp.wrapping_sub(u64::from(stack_adj)));
-    Ok(())
+    Ok(ControlFlow::Continue((
+        Reg::SP,
+        sp.wrapping_sub(u64::from(stack_adj)),
+    )))
 }
 
 /// Execute CM.POP and variants: restore registers and increment sp.

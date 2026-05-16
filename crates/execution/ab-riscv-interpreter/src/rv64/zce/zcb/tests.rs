@@ -10,6 +10,7 @@ fn test_clbu_zero_extends() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<u8>(addr, 0xFF).unwrap();
@@ -25,6 +26,7 @@ fn test_clbu_with_uimm_offset() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 3,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<u8>(addr + 3, 42).unwrap();
@@ -39,6 +41,7 @@ fn test_clbu_oob() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
@@ -55,6 +58,7 @@ fn test_clhu_zero_extends() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<u16>(addr, 0xFFFF).unwrap();
@@ -69,6 +73,7 @@ fn test_clhu_with_uimm2() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 2,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<u16>(addr + 2, 0x1234).unwrap();
@@ -83,6 +88,7 @@ fn test_clhu_oob() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
@@ -99,6 +105,7 @@ fn test_clh_sign_extends_negative() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<i16>(addr, -1).unwrap();
@@ -113,6 +120,7 @@ fn test_clh_sign_extends_positive() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     let addr = TEST_BASE_ADDR + 0x100;
     state.memory.write::<i16>(addr, 100).unwrap();
@@ -127,6 +135,7 @@ fn test_clh_oob() {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
@@ -199,7 +208,11 @@ fn test_csh_oob() {
 
 #[test]
 fn test_czext_b() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CZextB { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CZextB {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0xDEAD_BEEF_CAFE_0042);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x42);
@@ -207,7 +220,11 @@ fn test_czext_b() {
 
 #[test]
 fn test_czext_b_zero() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CZextB { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CZextB {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FF00);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0);
@@ -217,7 +234,11 @@ fn test_czext_b_zero() {
 
 #[test]
 fn test_csext_b_negative() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CSextB { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CSextB {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0xFF);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0xFFFF_FFFF_FFFF_FFFF);
@@ -225,7 +246,11 @@ fn test_csext_b_negative() {
 
 #[test]
 fn test_csext_b_positive() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CSextB { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CSextB {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0x7F);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x7F);
@@ -235,7 +260,11 @@ fn test_csext_b_positive() {
 
 #[test]
 fn test_czext_h() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CZextH { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CZextH {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0xDEAD_BEEF_CAFE_1234);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x1234);
@@ -245,7 +274,11 @@ fn test_czext_h() {
 
 #[test]
 fn test_csext_h_negative() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CSextH { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CSextH {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0x8000);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0xFFFF_FFFF_FFFF_8000);
@@ -253,7 +286,11 @@ fn test_csext_h_negative() {
 
 #[test]
 fn test_csext_h_positive() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CSextH { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CSextH {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0x7FFF);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x7FFF);
@@ -263,7 +300,11 @@ fn test_csext_h_positive() {
 
 #[test]
 fn test_czext_w() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CZextW { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CZextW {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0xDEAD_BEEF_FFFF_FFFF);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0xFFFF_FFFF);
@@ -271,7 +312,11 @@ fn test_czext_w() {
 
 #[test]
 fn test_czext_w_zeros_upper() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CZextW { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CZextW {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0xFFFF_FFFF_0000_0000);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0);
@@ -281,7 +326,11 @@ fn test_czext_w_zeros_upper() {
 
 #[test]
 fn test_cnot() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CNot { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CNot {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0x5555_5555_5555_5555);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0xAAAA_AAAA_AAAA_AAAA);
@@ -289,7 +338,11 @@ fn test_cnot() {
 
 #[test]
 fn test_cnot_all_zeros() {
-    let mut state = initialize_state([Rv64ZcbInstruction::CNot { rd: Reg::A0 }]);
+    let mut state = initialize_state([Rv64ZcbInstruction::CNot {
+        rd: Reg::A0,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }]);
     state.regs.write(Reg::A0, 0);
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), u64::MAX);
@@ -302,6 +355,7 @@ fn test_cmul_basic() {
     let mut state = initialize_state([Rv64ZcbInstruction::CMul {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, 7);
     state.regs.write(Reg::S1, 6);
@@ -314,6 +368,7 @@ fn test_cmul_wraps() {
     let mut state = initialize_state([Rv64ZcbInstruction::CMul {
         rd: Reg::S0,
         rs2: Reg::S1,
+        rs1: Reg::Zero,
     }]);
     state.regs.write(Reg::S0, u64::MAX);
     state.regs.write(Reg::S1, 2);

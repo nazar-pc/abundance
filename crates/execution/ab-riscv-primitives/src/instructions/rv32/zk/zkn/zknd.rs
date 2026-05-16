@@ -149,6 +149,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Rv32ZkndInstruction<Reg>
 where
     Reg: fmt::Display,

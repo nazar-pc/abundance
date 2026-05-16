@@ -1,8 +1,12 @@
-use crate::rv64::test_utils::initialize_state;
+use crate::basic::BasicRegisters;
+use crate::rv64::test_utils::{
+    ExtState, TestInstructionFetcher, TestInstructionHandler, TestMemory, initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_primitives::prelude::*;
-
 // With TEST_VLEN=128, VLENB=16:
 //   E8/M1   -> VLMAX=16, 1 reg,  16 elems/reg
 //   E16/M1  -> VLMAX=8,  1 reg,  8 elems/reg
@@ -22,7 +26,7 @@ fn setup(
     vl: u32,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> crate::rv64::test_utils::TestInterpreterState<ZVPerm> {
+) -> crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -32,14 +36,25 @@ fn setup(
     state
 }
 
-type ZVPerm = Zve64xPermInstruction<Reg<u64>>;
-
 fn exec(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZVPerm>,
-    instr: ZVPerm,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
+    instr: Zve64xPermInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+        BasicRegisters<_>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
+        TestInstructionHandler,
+    >>::get_rs1_rs2_operands(instr);
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+
     instr
         .execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
@@ -50,7 +65,7 @@ fn exec(
 }
 
 fn read_elem(
-    state: &crate::rv64::test_utils::TestInterpreterState<ZVPerm>,
+    state: &crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -66,7 +81,7 @@ fn read_elem(
 }
 
 fn write_elem(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZVPerm>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -82,7 +97,7 @@ fn write_elem(
 }
 
 fn set_vreg_bytes(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZVPerm>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     reg: VReg,
     value: u8,
 ) {
@@ -90,14 +105,14 @@ fn set_vreg_bytes(
 }
 
 fn get_vreg_bytes(
-    state: &crate::rv64::test_utils::TestInterpreterState<ZVPerm>,
+    state: &crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     reg: VReg,
 ) -> [u8; 16] {
     state.ext_state.read_vreg()[usize::from(reg.bits())]
 }
 
 fn set_mask_bit(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZVPerm>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     reg: VReg,
     i: u32,
     val: bool,
@@ -119,9 +134,11 @@ fn vmv_x_s_e8_reads_element_0() {
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0xFF);
     exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -137,9 +154,11 @@ fn vmv_x_s_e8_sign_extends_negative() {
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80);
     exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -153,9 +172,11 @@ fn vmv_x_s_e16_sign_extends_negative() {
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x8000);
     exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -169,9 +190,11 @@ fn vmv_x_s_e32_sign_extends_negative() {
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x8000_0000);
     exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -184,9 +207,11 @@ fn vmv_x_s_e64_full_width() {
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xDEAD_BEEF_CAFE_F00D);
     exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -200,9 +225,11 @@ fn vmv_x_s_vl_zero_still_reads() {
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x1234_5678);
     exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -215,9 +242,11 @@ fn vmv_x_s_illegal_when_vector_disabled() {
     state.ext_state.set_vector_allowed(false);
     let err = exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -230,9 +259,11 @@ fn vmv_x_s_illegal_when_vtype_invalid() {
     state.ext_state.set_vtype(None);
     let err = exec(
         &mut state,
-        ZVPerm::VmvXS {
+        Zve64xPermInstruction::VmvXS {
             rd: Reg::A0,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -248,9 +279,10 @@ fn vmv_s_x_e8_writes_element_0() {
     set_vreg_bytes(&mut state, VReg::V4, 0xFF);
     exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -269,9 +301,10 @@ fn vmv_s_x_e64_writes_element_0() {
     state.regs.write(Reg::A1, 0x0102_0304_0506_0708u64);
     exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A1,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -289,9 +322,10 @@ fn vmv_s_x_vl_zero_suppresses_write() {
     state.regs.write(Reg::A0, 0x1234_5678);
     exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -306,9 +340,10 @@ fn vmv_s_x_truncates_to_sew() {
     state.regs.write(Reg::A0, 0xABCD);
     exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -321,9 +356,10 @@ fn vmv_s_x_illegal_when_vector_disabled() {
     state.ext_state.set_vector_allowed(false);
     let err = exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -338,9 +374,10 @@ fn vmv_s_x_vstart_ge_vl_suppresses_write() {
     state.ext_state.set_vstart(4);
     exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -356,9 +393,10 @@ fn vmv_s_x_vstart_nonzero_below_vl_still_writes() {
     state.ext_state.set_vstart(1);
     exec(
         &mut state,
-        ZVPerm::VmvSX {
+        Zve64xPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -378,11 +416,12 @@ fn vslideup_vx_e8_basic() {
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -407,11 +446,13 @@ fn vslideup_vi_e32_basic() {
     }
     exec(
         &mut state,
-        ZVPerm::VslideupVi {
+        Zve64xPermInstruction::VslideupVi {
             vd: VReg::V4,
             vs2: VReg::V2,
             uimm: 1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -430,11 +471,12 @@ fn vslideup_vx_offset_zero_copies_all() {
     state.regs.write(Reg::A0, 0u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -456,11 +498,12 @@ fn vslideup_vx_offset_ge_vl_no_write() {
     state.regs.write(Reg::A0, 4u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -488,11 +531,12 @@ fn vslideup_vx_masked() {
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -508,11 +552,12 @@ fn vslideup_overlap_vd_vs2_illegal() {
     state.regs.write(Reg::A0, 1u64);
     let err = exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V2,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -525,11 +570,12 @@ fn vslideup_masked_vd_v0_illegal() {
     state.regs.write(Reg::A0, 1u64);
     let err = exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -547,11 +593,12 @@ fn vslideup_vstart_skips_lower_elements() {
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -581,11 +628,12 @@ fn vslidedown_vx_e8_basic() {
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -608,11 +656,13 @@ fn vslidedown_vi_e32_fills_zeros_past_end() {
     // Offset 4 == VLMAX: all source indices out of range.
     exec(
         &mut state,
-        ZVPerm::VslidedownVi {
+        Zve64xPermInstruction::VslidedownVi {
             vd: VReg::V4,
             vs2: VReg::V2,
             uimm: 4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -631,11 +681,12 @@ fn vslidedown_vx_partial_fill() {
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -654,11 +705,12 @@ fn vslidedown_vx_offset_zero_is_copy() {
     state.regs.write(Reg::A0, 0u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -680,11 +732,12 @@ fn vslidedown_overlap_allowed() {
     state.regs.write(Reg::A0, 1u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V2,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -707,11 +760,12 @@ fn vslidedown_masked() {
     state.regs.write(Reg::A0, 1u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -732,11 +786,12 @@ fn vslide1up_vx_e32_basic() {
     state.regs.write(Reg::A0, 99u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1upVx {
+        Zve64xPermInstruction::Vslide1upVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -755,11 +810,12 @@ fn vslide1up_vx_e64_scalar_inserted() {
     state.regs.write(Reg::A0, 0x1234_5678_9ABC_DEF0u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1upVx {
+        Zve64xPermInstruction::Vslide1upVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -778,11 +834,12 @@ fn vslide1up_overlap_vd_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::Vslide1upVx {
+        Zve64xPermInstruction::Vslide1upVx {
             vd: VReg::V2,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -802,11 +859,12 @@ fn vslide1up_masked() {
     state.regs.write(Reg::A0, 99u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1upVx {
+        Zve64xPermInstruction::Vslide1upVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -827,11 +885,12 @@ fn vslide1down_vx_e32_basic() {
     state.regs.write(Reg::A0, 999u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1downVx {
+        Zve64xPermInstruction::Vslide1downVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -850,11 +909,12 @@ fn vslide1down_vx_e64_basic() {
     state.regs.write(Reg::A0, 0xCCCC_CCCCu64);
     exec(
         &mut state,
-        ZVPerm::Vslide1downVx {
+        Zve64xPermInstruction::Vslide1downVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -869,11 +929,12 @@ fn vslide1down_vl_one_only_scalar() {
     state.regs.write(Reg::A0, 42u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1downVx {
+        Zve64xPermInstruction::Vslide1downVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -889,11 +950,12 @@ fn vslide1down_overlap_allowed() {
     state.regs.write(Reg::A0, 50u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1downVx {
+        Zve64xPermInstruction::Vslide1downVx {
             vd: VReg::V2,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -916,11 +978,12 @@ fn vslide1down_masked() {
     state.regs.write(Reg::A0, 77u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1downVx {
+        Zve64xPermInstruction::Vslide1downVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -944,11 +1007,13 @@ fn vrgather_vv_e8_basic() {
     write_elem(&mut state, VReg::V1, 3, Vsew::E8, 1);
     exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -968,11 +1033,13 @@ fn vrgather_vv_index_out_of_range_gives_zero() {
     }
     exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -986,11 +1053,13 @@ fn vrgather_vv_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V2,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1002,11 +1071,13 @@ fn vrgather_vv_vd_overlap_vs1_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1026,11 +1097,13 @@ fn vrgather_vv_masked() {
     set_mask_bit(&mut state, VReg::V0, 3, true);
     exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1051,11 +1124,12 @@ fn vrgather_vx_e32_all_same_element() {
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
-        ZVPerm::VrgatherVx {
+        Zve64xPermInstruction::VrgatherVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1073,11 +1147,12 @@ fn vrgather_vx_index_out_of_range_gives_zero() {
     state.regs.write(Reg::A0, 99u64);
     exec(
         &mut state,
-        ZVPerm::VrgatherVx {
+        Zve64xPermInstruction::VrgatherVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1094,11 +1169,13 @@ fn vrgather_vi_e8_immediate_index() {
     }
     exec(
         &mut state,
-        ZVPerm::VrgatherVi {
+        Zve64xPermInstruction::VrgatherVi {
             vd: VReg::V4,
             vs2: VReg::V2,
             uimm: 5,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1115,11 +1192,13 @@ fn vrgather_vi_index_zero() {
     }
     exec(
         &mut state,
-        ZVPerm::VrgatherVi {
+        Zve64xPermInstruction::VrgatherVi {
             vd: VReg::V4,
             vs2: VReg::V2,
             uimm: 0,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1134,11 +1213,12 @@ fn vrgather_vx_vd_overlap_vs2_illegal() {
     state.regs.write(Reg::A0, 0u64);
     let err = exec(
         &mut state,
-        ZVPerm::VrgatherVx {
+        Zve64xPermInstruction::VrgatherVx {
             vd: VReg::V2,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1166,11 +1246,13 @@ fn vrgatherei16_vv_e8_m1_basic() {
     }
     exec(
         &mut state,
-        ZVPerm::Vrgatherei16Vv {
+        Zve64xPermInstruction::Vrgatherei16Vv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V6,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1195,11 +1277,13 @@ fn vrgatherei16_vv_index_out_of_range_gives_zero() {
     }
     exec(
         &mut state,
-        ZVPerm::Vrgatherei16Vv {
+        Zve64xPermInstruction::Vrgatherei16Vv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V6,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1213,11 +1297,13 @@ fn vrgatherei16_vv_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::Vrgatherei16Vv {
+        Zve64xPermInstruction::Vrgatherei16Vv {
             vd: VReg::V2,
             vs2: VReg::V2,
             vs1: VReg::V6,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1234,11 +1320,13 @@ fn vmv_v_v_broadcasts_all_elements() {
     }
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1262,11 +1350,13 @@ fn vmv_v_v_vl_zero_leaves_vd_undisturbed() {
     }
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1292,11 +1382,13 @@ fn vmerge_vvm_blends_vs2_and_vs1() {
     set_mask_bit(&mut state, VReg::V0, 3, true);
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1321,11 +1413,13 @@ fn vmerge_vvm_all_mask_bits_set_equals_vmv_v_v() {
     state.ext_state.write_vreg()[0].fill(0xFF);
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1348,11 +1442,13 @@ fn vmerge_vvm_all_mask_bits_clear_equals_copy_vs2() {
     state.ext_state.write_vreg()[0].fill(0x00);
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1370,11 +1466,13 @@ fn vmerge_vvm_vd_overlap_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1390,11 +1488,13 @@ fn vmv_v_v_vd_may_equal_v0() {
     }
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V0,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1419,11 +1519,13 @@ fn vmerge_vvm_vstart_skips_early_elements() {
     state.ext_state.set_vstart(2);
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1449,11 +1551,13 @@ fn vmerge_vvm_e8_full_register() {
     state.ext_state.write_vreg()[0][1] = 0b1010_1010;
     exec(
         &mut state,
-        ZVPerm::VmergeVvm {
+        Zve64xPermInstruction::VmergeVvm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1475,11 +1579,12 @@ fn vmv_v_x_broadcasts_scalar() {
     state.regs.write(Reg::A0, 0x1234_5678u64);
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1500,11 +1605,12 @@ fn vmv_v_x_e64_full_width() {
     state.regs.write(Reg::A0, 0xDEAD_BEEF_CAFE_F00Du64);
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1524,11 +1630,12 @@ fn vmv_v_x_truncates_to_sew() {
     state.regs.write(Reg::A0, 0xABCD_EF01u64);
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1549,11 +1656,12 @@ fn vmerge_vxm_blends_vs2_and_scalar() {
     set_mask_bit(&mut state, VReg::V0, 2, true);
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1572,11 +1680,12 @@ fn vmerge_vxm_vd_overlap_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V0,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1592,11 +1701,12 @@ fn vmv_v_x_vl_zero_leaves_vd_undisturbed() {
     state.regs.write(Reg::A0, 0x1234u64);
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1616,11 +1726,13 @@ fn vmv_v_i_broadcasts_positive_immediate() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V4,
             vs2: VReg::V2,
             simm5: 15,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1637,11 +1749,13 @@ fn vmv_v_i_sign_extends_negative_immediate() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V4,
             vs2: VReg::V2,
             simm5: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1660,11 +1774,13 @@ fn vmv_v_i_sign_extends_negative_e64() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V4,
             vs2: VReg::V2,
             simm5: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1684,11 +1800,13 @@ fn vmv_v_i_negative_imm_truncated_to_sew_e8() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V4,
             vs2: VReg::V2,
             simm5: -1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1708,11 +1826,13 @@ fn vmerge_vim_blends_vs2_and_immediate() {
     set_mask_bit(&mut state, VReg::V0, 3, true);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V4,
             vs2: VReg::V2,
             simm5: 7,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1731,11 +1851,13 @@ fn vmerge_vim_vd_overlap_v0_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V0,
             vs2: VReg::V2,
             simm5: 1,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1748,11 +1870,13 @@ fn vmv_v_i_vd_may_equal_v0_when_unmasked() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V0,
             vs2: VReg::V2,
             simm5: 5,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1772,11 +1896,13 @@ fn vmerge_vim_vstart_skips_early_elements() {
     state.ext_state.set_vstart(2);
     exec(
         &mut state,
-        ZVPerm::VmergeVim {
+        Zve64xPermInstruction::VmergeVim {
             vd: VReg::V4,
             vs2: VReg::V2,
             simm5: 42,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1791,31 +1917,36 @@ fn vmerge_vim_vstart_skips_early_elements() {
 
 #[test]
 fn vmerge_variants_illegal_when_vector_disabled() {
-    let instrs: &[(ZVPerm, &str)] = &[
+    let instrs: &[(Zve64xPermInstruction<Reg<u64>>, &str)] = &[
         (
-            ZVPerm::VmergeVvm {
+            Zve64xPermInstruction::VmergeVvm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmergeVvm",
         ),
         (
-            ZVPerm::VmergeVxm {
+            Zve64xPermInstruction::VmergeVxm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VmergeVxm",
         ),
         (
-            ZVPerm::VmergeVim {
+            Zve64xPermInstruction::VmergeVim {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 simm5: 1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmergeVim",
         ),
@@ -1833,31 +1964,36 @@ fn vmerge_variants_illegal_when_vector_disabled() {
 
 #[test]
 fn vmerge_variants_illegal_when_vtype_invalid() {
-    let instrs: &[(ZVPerm, &str)] = &[
+    let instrs: &[(Zve64xPermInstruction<Reg<u64>>, &str)] = &[
         (
-            ZVPerm::VmergeVvm {
+            Zve64xPermInstruction::VmergeVvm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmergeVvm",
         ),
         (
-            ZVPerm::VmergeVxm {
+            Zve64xPermInstruction::VmergeVxm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VmergeVxm",
         ),
         (
-            ZVPerm::VmergeVim {
+            Zve64xPermInstruction::VmergeVim {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 simm5: 1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmergeVim",
         ),
@@ -1875,31 +2011,36 @@ fn vmerge_variants_illegal_when_vtype_invalid() {
 
 #[test]
 fn vmerge_variants_reset_vstart_and_mark_dirty() {
-    let instrs: &[(ZVPerm, &str)] = &[
+    let instrs: &[(Zve64xPermInstruction<Reg<u64>>, &str)] = &[
         (
-            ZVPerm::VmergeVvm {
+            Zve64xPermInstruction::VmergeVvm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmergeVvm",
         ),
         (
-            ZVPerm::VmergeVxm {
+            Zve64xPermInstruction::VmergeVxm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VmergeVxm",
         ),
         (
-            ZVPerm::VmergeVim {
+            Zve64xPermInstruction::VmergeVim {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 simm5: 1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmergeVim",
         ),
@@ -1930,11 +2071,12 @@ fn vmv_v_x_m2_e32_broadcasts_across_group() {
     state.regs.write(Reg::A0, 0xCAFEu64);
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1959,11 +2101,12 @@ fn vmerge_vxm_m2_e32_blends_across_group() {
     state.ext_state.write_vreg()[0][0] = 0b0101_0101;
     exec(
         &mut state,
-        ZVPerm::VmergeVxm {
+        Zve64xPermInstruction::VmergeVxm {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: false,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1991,10 +2134,12 @@ fn vcompress_vm_e32_basic() {
     set_mask_bit(&mut state, VReg::V1, 3, true);
     exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2015,10 +2160,12 @@ fn vcompress_vm_all_active() {
     state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
     exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2041,10 +2188,12 @@ fn vcompress_vm_none_active() {
     state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0x00);
     exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2066,10 +2215,12 @@ fn vcompress_vm_e8_all_elements() {
     state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
     exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2087,10 +2238,12 @@ fn vcompress_vm_vd_overlap_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V2,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2102,10 +2255,12 @@ fn vcompress_vm_vd_overlap_vs1_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2122,10 +2277,12 @@ fn vcompress_vm_rejects_nonzero_vstart() {
     state.ext_state.set_vstart(1);
     let err = exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2144,10 +2301,12 @@ fn vcompress_vm_vstart_zero_normal_operation() {
     set_mask_bit(&mut state, VReg::V1, 2, true);
     exec(
         &mut state,
-        ZVPerm::VcompressVm {
+        Zve64xPermInstruction::VcompressVm {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2167,9 +2326,11 @@ fn vmv1r_v_copies_single_register() {
     set_vreg_bytes(&mut state, VReg::V4, 0xCC);
     exec(
         &mut state,
-        ZVPerm::Vmv1rV {
+        Zve64xPermInstruction::Vmv1rV {
             vd: VReg::V4,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2184,9 +2345,11 @@ fn vmv1r_v_src_eq_dst_nop() {
     set_vreg_bytes(&mut state, VReg::V2, 0xAB);
     exec(
         &mut state,
-        ZVPerm::Vmv1rV {
+        Zve64xPermInstruction::Vmv1rV {
             vd: VReg::V2,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2203,9 +2366,11 @@ fn vmv2r_v_copies_two_registers() {
     set_vreg_bytes(&mut state, VReg::V5, 0xCC);
     exec(
         &mut state,
-        ZVPerm::Vmv2rV {
+        Zve64xPermInstruction::Vmv2rV {
             vd: VReg::V4,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2218,9 +2383,11 @@ fn vmv2r_v_misaligned_vd_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::Vmv2rV {
+        Zve64xPermInstruction::Vmv2rV {
             vd: VReg::V3,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2232,9 +2399,11 @@ fn vmv2r_v_misaligned_vs2_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let err = exec(
         &mut state,
-        ZVPerm::Vmv2rV {
+        Zve64xPermInstruction::Vmv2rV {
             vd: VReg::V4,
             vs2: VReg::V3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2259,9 +2428,11 @@ fn vmv4r_v_copies_four_registers() {
     }
     exec(
         &mut state,
-        ZVPerm::Vmv4rV {
+        Zve64xPermInstruction::Vmv4rV {
             vd: VReg::V12,
             vs2: VReg::V8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2282,9 +2453,11 @@ fn vmv4r_v_misaligned_vd_illegal() {
     // V6 is not aligned to 4.
     let err = exec(
         &mut state,
-        ZVPerm::Vmv4rV {
+        Zve64xPermInstruction::Vmv4rV {
             vd: VReg::V6,
             vs2: VReg::V8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2297,9 +2470,11 @@ fn vmv4r_v_misaligned_vs2_illegal() {
     // V6 is not aligned to 4.
     let err = exec(
         &mut state,
-        ZVPerm::Vmv4rV {
+        Zve64xPermInstruction::Vmv4rV {
             vd: VReg::V12,
             vs2: VReg::V6,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2324,9 +2499,11 @@ fn vmv8r_v_copies_eight_registers() {
     }
     exec(
         &mut state,
-        ZVPerm::Vmv8rV {
+        Zve64xPermInstruction::Vmv8rV {
             vd: VReg::V16,
             vs2: VReg::V8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2345,9 +2522,11 @@ fn vmv8r_v_misaligned_vd_illegal() {
     // V16 is aligned to 8 but V4 is not.
     let err = exec(
         &mut state,
-        ZVPerm::Vmv8rV {
+        Zve64xPermInstruction::Vmv8rV {
             vd: VReg::V4,
             vs2: VReg::V8,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2360,9 +2539,11 @@ fn vmv8r_v_misaligned_vs2_illegal() {
     // V8 is aligned to 8, V4 is not.
     let err = exec(
         &mut state,
-        ZVPerm::Vmv8rV {
+        Zve64xPermInstruction::Vmv8rV {
             vd: VReg::V0,
             vs2: VReg::V4,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2378,9 +2559,11 @@ fn vmvr_does_not_require_valid_vtype() {
     set_vreg_bytes(&mut state, VReg::V4, 0x00);
     exec(
         &mut state,
-        ZVPerm::Vmv1rV {
+        Zve64xPermInstruction::Vmv1rV {
             vd: VReg::V4,
             vs2: VReg::V2,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2399,11 +2582,12 @@ fn vslideup_vx_m2_e32() {
     state.regs.write(Reg::A0, 3u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2432,11 +2616,12 @@ fn vslidedown_vx_m2_e32_partial() {
     state.regs.write(Reg::A0, 5u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2457,11 +2642,13 @@ fn vrgather_vv_m2_e32() {
     }
     exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V6,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2481,11 +2668,12 @@ fn vslideup_unaligned_group_vd_illegal() {
     state.regs.write(Reg::A0, 1u64);
     let err = exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V3,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -2505,11 +2693,12 @@ fn vslide1down_vstart_skips_early_elements() {
     state.regs.write(Reg::A0, 999u64);
     exec(
         &mut state,
-        ZVPerm::Vslide1downVx {
+        Zve64xPermInstruction::Vslide1downVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2531,11 +2720,13 @@ fn vrgather_vstart_skips_early_elements() {
     state.ext_state.set_vstart(2);
     exec(
         &mut state,
-        ZVPerm::VrgatherVv {
+        Zve64xPermInstruction::VrgatherVv {
             vd: VReg::V4,
             vs2: VReg::V2,
             vs1: VReg::V1,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -2554,127 +2745,151 @@ fn all_instructions_reset_vstart() {
     // We use a valid aligned register combination for every instruction.
     let cases = &[
         (
-            ZVPerm::VmvXS {
+            Zve64xPermInstruction::VmvXS {
                 rd: Reg::A1,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmvXS",
         ),
         (
-            ZVPerm::VmvSX {
+            Zve64xPermInstruction::VmvSX {
                 vd: VReg::V4,
                 rs1: Reg::A0,
+                rs2: Reg::Zero,
             },
             "VmvSX",
         ),
         (
-            ZVPerm::VslideupVx {
+            Zve64xPermInstruction::VslideupVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VslideupVx",
         ),
         (
-            ZVPerm::VslideupVi {
+            Zve64xPermInstruction::VslideupVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VslideupVi",
         ),
         (
-            ZVPerm::VslidedownVx {
+            Zve64xPermInstruction::VslidedownVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VslidedownVx",
         ),
         (
-            ZVPerm::VslidedownVi {
+            Zve64xPermInstruction::VslidedownVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VslidedownVi",
         ),
         (
-            ZVPerm::Vslide1upVx {
+            Zve64xPermInstruction::Vslide1upVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "Vslide1upVx",
         ),
         (
-            ZVPerm::Vslide1downVx {
+            Zve64xPermInstruction::Vslide1downVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "Vslide1downVx",
         ),
         (
-            ZVPerm::VrgatherVv {
+            Zve64xPermInstruction::VrgatherVv {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VrgatherVv",
         ),
         (
-            ZVPerm::VrgatherVx {
+            Zve64xPermInstruction::VrgatherVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VrgatherVx",
         ),
         (
-            ZVPerm::VrgatherVi {
+            Zve64xPermInstruction::VrgatherVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VrgatherVi",
         ),
         (
-            ZVPerm::Vmv1rV {
+            Zve64xPermInstruction::Vmv1rV {
                 vd: VReg::V4,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv1rV",
         ),
         (
-            ZVPerm::Vmv2rV {
+            Zve64xPermInstruction::Vmv2rV {
                 vd: VReg::V4,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv2rV",
         ),
         // V8/V12 are both aligned to 4
         (
-            ZVPerm::Vmv4rV {
+            Zve64xPermInstruction::Vmv4rV {
                 vd: VReg::V12,
                 vs2: VReg::V8,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv4rV",
         ),
         // V8/V16 are both aligned to 8
         (
-            ZVPerm::Vmv8rV {
+            Zve64xPermInstruction::Vmv8rV {
                 vd: VReg::V16,
                 vs2: VReg::V8,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv8rV",
         ),
@@ -2697,133 +2912,159 @@ fn all_instructions_reset_vstart() {
 fn all_vector_instructions_mark_vs_dirty() {
     let cases = &[
         (
-            ZVPerm::VmvXS {
+            Zve64xPermInstruction::VmvXS {
                 rd: Reg::A1,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmvXS",
         ),
         (
-            ZVPerm::VmvSX {
+            Zve64xPermInstruction::VmvSX {
                 vd: VReg::V4,
                 rs1: Reg::A0,
+                rs2: Reg::Zero,
             },
             "VmvSX",
         ),
         (
-            ZVPerm::VslideupVx {
+            Zve64xPermInstruction::VslideupVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VslideupVx",
         ),
         (
-            ZVPerm::VslideupVi {
+            Zve64xPermInstruction::VslideupVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VslideupVi",
         ),
         (
-            ZVPerm::VslidedownVx {
+            Zve64xPermInstruction::VslidedownVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VslidedownVx",
         ),
         (
-            ZVPerm::VslidedownVi {
+            Zve64xPermInstruction::VslidedownVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VslidedownVi",
         ),
         (
-            ZVPerm::Vslide1upVx {
+            Zve64xPermInstruction::Vslide1upVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "Vslide1upVx",
         ),
         (
-            ZVPerm::Vslide1downVx {
+            Zve64xPermInstruction::Vslide1downVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "Vslide1downVx",
         ),
         (
-            ZVPerm::VrgatherVv {
+            Zve64xPermInstruction::VrgatherVv {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VrgatherVv",
         ),
         (
-            ZVPerm::VrgatherVx {
+            Zve64xPermInstruction::VrgatherVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VrgatherVx",
         ),
         (
-            ZVPerm::VrgatherVi {
+            Zve64xPermInstruction::VrgatherVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VrgatherVi",
         ),
         (
-            ZVPerm::VcompressVm {
+            Zve64xPermInstruction::VcompressVm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VcompressVm",
         ),
         (
-            ZVPerm::Vmv1rV {
+            Zve64xPermInstruction::Vmv1rV {
                 vd: VReg::V4,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv1rV",
         ),
         (
-            ZVPerm::Vmv2rV {
+            Zve64xPermInstruction::Vmv2rV {
                 vd: VReg::V4,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv2rV",
         ),
         (
-            ZVPerm::Vmv4rV {
+            Zve64xPermInstruction::Vmv4rV {
                 vd: VReg::V12,
                 vs2: VReg::V8,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv4rV",
         ),
         (
-            ZVPerm::Vmv8rV {
+            Zve64xPermInstruction::Vmv8rV {
                 vd: VReg::V16,
                 vs2: VReg::V8,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv8rV",
         ),
@@ -2850,133 +3091,159 @@ fn all_vector_instructions_mark_vs_dirty() {
 fn all_instructions_illegal_when_vector_disabled() {
     let cases = &[
         (
-            ZVPerm::VmvXS {
+            Zve64xPermInstruction::VmvXS {
                 rd: Reg::A1,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VmvXS",
         ),
         (
-            ZVPerm::VmvSX {
+            Zve64xPermInstruction::VmvSX {
                 vd: VReg::V4,
                 rs1: Reg::A0,
+                rs2: Reg::Zero,
             },
             "VmvSX",
         ),
         (
-            ZVPerm::VslideupVx {
+            Zve64xPermInstruction::VslideupVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VslideupVx",
         ),
         (
-            ZVPerm::VslideupVi {
+            Zve64xPermInstruction::VslideupVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VslideupVi",
         ),
         (
-            ZVPerm::VslidedownVx {
+            Zve64xPermInstruction::VslidedownVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VslidedownVx",
         ),
         (
-            ZVPerm::VslidedownVi {
+            Zve64xPermInstruction::VslidedownVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VslidedownVi",
         ),
         (
-            ZVPerm::Vslide1upVx {
+            Zve64xPermInstruction::Vslide1upVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "Vslide1upVx",
         ),
         (
-            ZVPerm::Vslide1downVx {
+            Zve64xPermInstruction::Vslide1downVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "Vslide1downVx",
         ),
         (
-            ZVPerm::VrgatherVv {
+            Zve64xPermInstruction::VrgatherVv {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VrgatherVv",
         ),
         (
-            ZVPerm::VrgatherVx {
+            Zve64xPermInstruction::VrgatherVx {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 rs1: Reg::A0,
                 vm: true,
+                rs2: Reg::Zero,
             },
             "VrgatherVx",
         ),
         (
-            ZVPerm::VrgatherVi {
+            Zve64xPermInstruction::VrgatherVi {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 uimm: 0,
                 vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VrgatherVi",
         ),
         (
-            ZVPerm::VcompressVm {
+            Zve64xPermInstruction::VcompressVm {
                 vd: VReg::V4,
                 vs2: VReg::V2,
                 vs1: VReg::V1,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "VcompressVm",
         ),
         (
-            ZVPerm::Vmv1rV {
+            Zve64xPermInstruction::Vmv1rV {
                 vd: VReg::V4,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv1rV",
         ),
         (
-            ZVPerm::Vmv2rV {
+            Zve64xPermInstruction::Vmv2rV {
                 vd: VReg::V4,
                 vs2: VReg::V2,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv2rV",
         ),
         (
-            ZVPerm::Vmv4rV {
+            Zve64xPermInstruction::Vmv4rV {
                 vd: VReg::V12,
                 vs2: VReg::V8,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv4rV",
         ),
         (
-            ZVPerm::Vmv8rV {
+            Zve64xPermInstruction::Vmv8rV {
                 vd: VReg::V16,
                 vs2: VReg::V8,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "Vmv8rV",
         ),
@@ -3008,11 +3275,12 @@ fn vl_zero_leaves_vd_undisturbed_slide() {
     state.regs.write(Reg::A0, 1u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -3035,11 +3303,12 @@ fn vl_zero_leaves_vd_undisturbed_rgather() {
     state.regs.write(Reg::A0, 0u64);
     exec(
         &mut state,
-        ZVPerm::VrgatherVx {
+        Zve64xPermInstruction::VrgatherVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -3064,11 +3333,12 @@ fn vslideup_mf2_e64_offset_ge_vlmax_no_write() {
     state.regs.write(Reg::A0, 1u64);
     exec(
         &mut state,
-        ZVPerm::VslideupVx {
+        Zve64xPermInstruction::VslideupVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -3082,11 +3352,12 @@ fn vslidedown_mf2_e64_offset_zero_copies() {
     state.regs.write(Reg::A0, 0u64);
     exec(
         &mut state,
-        ZVPerm::VslidedownVx {
+        Zve64xPermInstruction::VslidedownVx {
             vd: VReg::V4,
             vs2: VReg::V2,
             rs1: Reg::A0,
             vm: true,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();

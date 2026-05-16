@@ -206,6 +206,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Rv64ZbbInstruction<Reg>
 where
     Reg: fmt::Display,

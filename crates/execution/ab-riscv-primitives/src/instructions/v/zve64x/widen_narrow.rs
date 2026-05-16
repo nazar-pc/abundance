@@ -325,6 +325,7 @@ where
     }
 }
 
+#[instruction]
 impl<Reg> fmt::Display for Zve64xWidenNarrowInstruction<Reg>
 where
     Reg: fmt::Display,

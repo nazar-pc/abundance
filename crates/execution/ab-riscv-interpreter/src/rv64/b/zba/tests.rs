@@ -127,6 +127,7 @@ fn test_slli_uw() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 4,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF_FFFF_0000_0001u64);
@@ -143,6 +144,7 @@ fn test_slli_uw_max_shamt() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 63,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF_FFFF_0000_0001u64);

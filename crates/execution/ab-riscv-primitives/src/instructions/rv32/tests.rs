@@ -163,7 +163,8 @@ fn test_addi() {
             Rv32Instruction::Addi {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                imm: 100
+                imm: 100,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -177,7 +178,8 @@ fn test_addi() {
             Rv32Instruction::Addi {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                imm: -1
+                imm: -1,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -191,7 +193,8 @@ fn test_addi() {
             Rv32Instruction::Addi {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                imm: 2047
+                imm: 2047,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -205,7 +208,8 @@ fn test_addi() {
             Rv32Instruction::Addi {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                imm: -2048
+                imm: -2048,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -220,7 +224,8 @@ fn test_slti() {
         Rv32Instruction::Slti {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 50
+            imm: 50,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -234,7 +239,8 @@ fn test_sltiu() {
         Rv32Instruction::Sltiu {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 50
+            imm: 50,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -248,7 +254,8 @@ fn test_xori() {
         Rv32Instruction::Xori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 0xff
+            imm: 0xff,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -262,7 +269,8 @@ fn test_ori() {
         Rv32Instruction::Ori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 0xff
+            imm: 0xff,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -276,7 +284,8 @@ fn test_andi() {
         Rv32Instruction::Andi {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 0xff
+            imm: 0xff,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -292,7 +301,8 @@ fn test_slli() {
             Rv32Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10
+                shamt: 10,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -306,7 +316,8 @@ fn test_slli() {
             Rv32Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 31
+                shamt: 31,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -346,7 +357,8 @@ fn test_srli() {
             Rv32Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10
+                shamt: 10,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -360,7 +372,8 @@ fn test_srli() {
             Rv32Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 31
+                shamt: 31,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -390,7 +403,8 @@ fn test_srai() {
             Rv32Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10
+                shamt: 10,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -406,7 +420,8 @@ fn test_srai() {
             Rv32Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 31
+                shamt: 31,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -421,7 +436,8 @@ fn test_srai() {
             Rv32Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10
+                shamt: 10,
+                rs2: Reg::Zero,
             },
             "Without SRAI funct7, this is SRLI"
         );
@@ -451,7 +467,8 @@ fn test_lb() {
         Rv32Instruction::Lb {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 100
+            imm: 100,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -465,7 +482,8 @@ fn test_lh() {
         Rv32Instruction::Lh {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 100
+            imm: 100,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -481,7 +499,8 @@ fn test_lw() {
             Rv32Instruction::Lw {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                imm: 100
+                imm: 100,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -495,7 +514,8 @@ fn test_lw() {
             Rv32Instruction::Lw {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                imm: -4
+                imm: -4,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -510,7 +530,8 @@ fn test_lbu() {
         Rv32Instruction::Lbu {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 100
+            imm: 100,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -524,7 +545,8 @@ fn test_lhu() {
         Rv32Instruction::Lhu {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 100
+            imm: 100,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -564,7 +586,8 @@ fn test_jalr() {
         Rv32Instruction::Jalr {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            imm: 100
+            imm: 100,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -756,7 +779,9 @@ fn test_lui() {
         decoded,
         Rv32Instruction::Lui {
             rd: Reg::Ra,
-            imm: I24WithZeroedBits::from_i32(0x12345000)
+            imm: I24WithZeroedBits::from_i32(0x12345000),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -771,7 +796,9 @@ fn test_auipc() {
         decoded,
         Rv32Instruction::Auipc {
             rd: Reg::Ra,
-            imm: I24WithZeroedBits::from_i32(0x12345000)
+            imm: I24WithZeroedBits::from_i32(0x12345000),
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -788,7 +815,9 @@ fn test_jal() {
             decoded,
             Rv32Instruction::Jal {
                 rd: Reg::Ra,
-                imm: I24::from_i32(0x1000)
+                imm: I24::from_i32(0x1000),
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -801,7 +830,9 @@ fn test_jal() {
             decoded,
             Rv32Instruction::Jal {
                 rd: Reg::Ra,
-                imm: I24::from_i32(-0x1000)
+                imm: I24::from_i32(-0x1000),
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             }
         );
     }
@@ -814,11 +845,27 @@ fn test_fence_valid() {
     // Common full memory fence (fence iorw,iorw): pred=0xf, succ=0xf, fm=0
     let inst = 0x0ff0_000f_u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv32Instruction::Fence { pred: 15, succ: 15 });
+    assert_eq!(
+        decoded,
+        Rv32Instruction::Fence {
+            pred: 15,
+            succ: 15,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 
     let inst = 0b0001111_u32 | (3_u32 << 24) | (3_u32 << 20);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv32Instruction::Fence { pred: 3, succ: 3 });
+    assert_eq!(
+        decoded,
+        Rv32Instruction::Fence {
+            pred: 3,
+            succ: 3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -849,7 +896,13 @@ fn test_fence_tso() {
     // Canonical encoding: 0x8330000f
     let inst = 0x8330_000f_u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv32Instruction::FenceTso);
+    assert_eq!(
+        decoded,
+        Rv32Instruction::FenceTso {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -877,14 +930,26 @@ fn test_fence_tso_invalid_variants() {
 fn test_ecall() {
     let inst = 0b000000000000_00000_000_00000_1110011u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv32Instruction::Ecall);
+    assert_eq!(
+        decoded,
+        Rv32Instruction::Ecall {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
 fn test_ebreak() {
     let inst = 0b000000000001_00000_000_00000_1110011u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv32Instruction::Ebreak);
+    assert_eq!(
+        decoded,
+        Rv32Instruction::Ebreak {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 // Unimplemented/illegal
@@ -893,7 +958,13 @@ fn test_ebreak() {
 fn test_unimp() {
     let inst = 0xc0001073u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-    assert_eq!(decoded, Rv32Instruction::Unimp);
+    assert_eq!(
+        decoded,
+        Rv32Instruction::Unimp {
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 // Invalid instructions

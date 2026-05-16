@@ -2,7 +2,7 @@
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
-#![no_std]
+#![cfg_attr(target_env = "abundance", no_std)]
 
 #[cfg(not(target_env = "abundance"))]
 pub mod host_utils;

@@ -58,6 +58,7 @@ fn test_clz() {
     let mut state = initialize_state([Rv32ZbbInstruction::Clz {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0100_0000u32);
@@ -73,6 +74,7 @@ fn test_ctz() {
     let mut state = initialize_state([Rv32ZbbInstruction::Ctz {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0000_1000u32);
@@ -87,6 +89,7 @@ fn test_cpop() {
     let mut state = initialize_state([Rv32ZbbInstruction::Cpop {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0b11010101u32);
@@ -133,6 +136,7 @@ fn test_sext_b() {
     let mut state = initialize_state([Rv32ZbbInstruction::Sextb {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFu32);
@@ -147,6 +151,7 @@ fn test_sext_h() {
     let mut state = initialize_state([Rv32ZbbInstruction::Sexth {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFFu32);
@@ -161,6 +166,7 @@ fn test_zext_h() {
     let mut state = initialize_state([Rv32ZbbInstruction::Zexth {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF_FFFFu32);
@@ -208,6 +214,7 @@ fn test_rori() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 1,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x8000_0001u32);
@@ -222,6 +229,7 @@ fn test_orc_b() {
     let mut state = initialize_state([Rv32ZbbInstruction::Orcb {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0001_0002u32);
@@ -236,6 +244,7 @@ fn test_rev8() {
     let mut state = initialize_state([Rv32ZbbInstruction::Rev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0123_4567u32);

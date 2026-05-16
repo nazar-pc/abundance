@@ -1,9 +1,15 @@
-use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
+use crate::basic::BasicRegisters;
+use crate::rv64::test_utils::{
+    ExtState, TEST_BASE_ADDR, TestInstructionFetcher, TestInstructionHandler, TestInterpreterState,
+    TestMemory, initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    VirtualMemory,
+};
 use ab_riscv_primitives::prelude::*;
 use core::array;
-
 // With TEST_VLEN=128 and TEST_VLENB=16, the VLMAX values are:
 //   E8/M1=16, E16/M1=8, E32/M1=4, E64/M1=2
 //   E8/M2=32, E16/M2=16, E32/M2=8, E64/M2=4
@@ -73,8 +79,21 @@ fn exec_one(
     state: &mut TestInterpreterState<Zve64xLoadInstruction<Reg<u64>>>,
     instr: Zve64xLoadInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+        BasicRegisters<_>,
+        ExtState,
+        TestMemory,
+        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
+        TestInstructionHandler,
+    >>::get_rs1_rs2_operands(instr);
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+
     instr
         .execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
@@ -101,6 +120,7 @@ fn vlr_single_register_loads_vlenb_bytes() {
             rs1: Reg::A0,
             nreg: 1,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -124,6 +144,7 @@ fn vlr_two_registers_loads_two_vlenb_blocks() {
             rs1: Reg::A0,
             nreg: 2,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -147,6 +168,7 @@ fn vlr_four_registers() {
             rs1: Reg::A0,
             nreg: 4,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -177,6 +199,7 @@ fn vlr_ignores_vtype_and_vl() {
             rs1: Reg::A0,
             nreg: 1,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -200,6 +223,7 @@ fn vlr_resets_vstart_on_success() {
             rs1: Reg::A0,
             nreg: 1,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -223,6 +247,7 @@ fn vlr_misaligned_vd_is_illegal() {
             rs1: Reg::A0,
             nreg: 2,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -243,6 +268,7 @@ fn vlr_out_of_bounds_memory_returns_error() {
             rs1: Reg::A0,
             nreg: 1,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -264,6 +290,7 @@ fn vlm_loads_ceil_vl_over_8_bytes() {
         Zve64xLoadInstruction::Vlm {
             vd: VReg::V3,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -285,6 +312,7 @@ fn vlm_vl_8_loads_exactly_1_byte() {
         Zve64xLoadInstruction::Vlm {
             vd: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -303,6 +331,7 @@ fn vlm_vl_0_loads_no_bytes_and_leaves_dst_unchanged() {
         Zve64xLoadInstruction::Vlm {
             vd: VReg::V5,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -326,6 +355,7 @@ fn vlm_does_not_require_valid_vtype() {
         Zve64xLoadInstruction::Vlm {
             vd: VReg::V0,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -343,6 +373,7 @@ fn vlm_vector_not_allowed_is_illegal() {
         Zve64xLoadInstruction::Vlm {
             vd: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -366,6 +397,7 @@ fn vle_e8_loads_vl_bytes_sequentially() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -393,6 +425,7 @@ fn vle_e32_loads_vl_words_sequentially() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -422,6 +455,7 @@ fn vle_e64_loads_vl_doublewords() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -443,6 +477,7 @@ fn vle_vl_0_does_not_write_any_elements() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -475,6 +510,7 @@ fn vle_masked_skips_inactive_elements_undisturbed() {
             rs1: Reg::A0,
             vm: false,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -507,6 +543,7 @@ fn vle_respects_vstart_skips_earlier_elements() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -533,6 +570,7 @@ fn vle_vtype_vill_is_illegal() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -551,6 +589,7 @@ fn vle_vector_not_allowed_is_illegal() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -569,6 +608,7 @@ fn vle_masked_vd_overlapping_v0_is_illegal() {
             rs1: Reg::A0,
             vm: false,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -592,6 +632,7 @@ fn vle_eew_wider_than_sew_uses_multiple_registers() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -614,6 +655,7 @@ fn vle_misaligned_vd_for_emul2_is_illegal() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E64,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -633,6 +675,7 @@ fn vle_memory_fault_propagates() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -654,6 +697,7 @@ fn vleff_no_fault_behaves_like_vle() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -681,6 +725,7 @@ fn vleff_fault_at_i0_traps() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -707,6 +752,7 @@ fn vleff_fault_at_i1_truncates_vl_to_1() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -736,6 +782,7 @@ fn vleff_fault_at_i2_truncates_vl_to_2() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -925,6 +972,7 @@ fn vluxei_e32_data_e32_index_basic() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -939,6 +987,7 @@ fn vluxei_e32_data_e32_index_basic() {
             vs2: VReg::V4,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -991,6 +1040,7 @@ fn vluxei_index_eew_smaller_than_data_eew() {
             vs2: VReg::V6,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1021,6 +1071,7 @@ fn vluxei_vd_vs2_overlap_is_illegal() {
             vs2: VReg::V3,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1039,6 +1090,7 @@ fn vluxei_masked_vd_overlapping_v0_is_illegal() {
             vs2: VReg::V4,
             vm: false,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1076,6 +1128,7 @@ fn vloxei_functionally_identical_to_vluxei() {
             vs2: VReg::V5,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1114,6 +1167,7 @@ fn vlseg_nf2_e8_interleaved_fields() {
             vm: true,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1152,6 +1206,7 @@ fn vlseg_nf3_e32() {
             vm: true,
             eew: Eew::E32,
             nf: 3,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1185,6 +1240,7 @@ fn vlseg_register_group_overflow_is_illegal() {
             vm: true,
             eew: Eew::E8,
             nf: 8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1203,6 +1259,7 @@ fn vlseg_masked_vd_at_v0_is_illegal() {
             vm: false,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1226,6 +1283,7 @@ fn vlsegff_no_fault_loads_all_segments() {
             vm: true,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1258,6 +1316,7 @@ fn vlsegff_fault_at_segment_1_truncates_vl() {
             vm: true,
             eew: Eew::E8,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1435,6 +1494,7 @@ fn vluxseg_nf2_e32_indexed() {
             vm: true,
             eew: Eew::E32,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1464,6 +1524,7 @@ fn vluxseg_field_vs2_overlap_is_illegal() {
             vm: true,
             eew: Eew::E32,
             nf: 2,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1502,6 +1563,7 @@ fn vloxseg_same_result_as_vluxseg() {
             vm: true,
             eew: Eew::E32,
             nf: 1,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1536,12 +1598,14 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
         Zve64xLoadInstruction::Vleff {
             vd: VReg::V1,
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
         Zve64xLoadInstruction::Vlse {
             vd: VReg::V1,
@@ -1553,6 +1617,7 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
         Zve64xLoadInstruction::Vlm {
             vd: VReg::V1,
             rs1: Reg::A0,
+            rs2: Reg::Zero,
         },
         Zve64xLoadInstruction::Vluxei {
             vd: VReg::V1,
@@ -1560,6 +1625,7 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
             vs2: VReg::V8,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
         Zve64xLoadInstruction::Vloxei {
             vd: VReg::V1,
@@ -1567,6 +1633,7 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
             vs2: VReg::V8,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     ] {
         state.ext_state.set_vstart(5);
@@ -1595,6 +1662,7 @@ fn mark_vs_dirty_called_exactly_once_on_success() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1614,6 +1682,7 @@ fn mark_vs_dirty_not_called_on_illegal_instruction_error() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E32,
+            rs2: Reg::Zero,
         },
     );
     assert_eq!(state.ext_state.vs_dirty_count(), 0);
@@ -1636,6 +1705,7 @@ fn vle_e8_all_elements_across_register_boundary_m2() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1665,6 +1735,7 @@ fn vle_e16_loads_half_words() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E16,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1692,6 +1763,7 @@ fn vle_vl_equals_vlmax_loads_all_elements() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1715,6 +1787,7 @@ fn vle_fractional_lmul_mf2_e8() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1750,6 +1823,7 @@ fn vle_mask_spanning_two_bytes() {
             rs1: Reg::A0,
             vm: false,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();
@@ -1786,6 +1860,7 @@ fn vle_fault_after_first_element_marks_vs_dirty() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1818,6 +1893,7 @@ fn vle_fault_after_first_element_sets_vstart_to_faulting_index() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1844,6 +1920,7 @@ fn vle_fault_at_first_element_does_not_mark_vs_dirty() {
             rs1: Reg::A0,
             vm: true,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap_err();
@@ -1878,6 +1955,7 @@ fn vlr_eight_registers() {
             rs1: Reg::A0,
             nreg: 8,
             eew: Eew::E8,
+            rs2: Reg::Zero,
         },
     )
     .unwrap();

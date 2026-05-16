@@ -54,6 +54,8 @@ fn test_cm_push_ra_only() {
         Rv32ZcmpInstruction::CmPush {
             urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
             stack_adj: 16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -68,6 +70,8 @@ fn test_cm_push_ra_s0_s11() {
         Rv32ZcmpInstruction::CmPush {
             urlist: ZcmpUrlist::try_from_raw(15).unwrap(),
             stack_adj: 112,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -82,6 +86,8 @@ fn test_cm_push_all_valid_urlists() {
             Rv32ZcmpInstruction::CmPush {
                 urlist: ZcmpUrlist::try_from_raw(urlist as u8).unwrap(),
                 stack_adj: expected_stack_adj(urlist as u8, 0),
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "urlist={urlist}"
         );
@@ -120,6 +126,8 @@ fn test_cm_push_binutils_reference_encodings() {
             Rv32ZcmpInstruction::CmPush {
                 urlist: ZcmpUrlist::try_from_raw(urlist_raw).unwrap(),
                 stack_adj,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "raw={raw:#06x}"
         );
@@ -138,6 +146,8 @@ fn test_cm_pop_basic() {
         Rv32ZcmpInstruction::CmPop {
             urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
             stack_adj: 32,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -152,6 +162,8 @@ fn test_cm_pop_ra_s0_s9() {
         Rv32ZcmpInstruction::CmPop {
             urlist: ZcmpUrlist::try_from_raw(14).unwrap(),
             stack_adj: 80,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -167,6 +179,8 @@ fn test_cm_pop_binutils_reference_encodings() {
             Rv32ZcmpInstruction::CmPop {
                 urlist: ZcmpUrlist::try_from_raw(urlist_raw).unwrap(),
                 stack_adj,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "raw={raw:#06x}"
         );
@@ -185,6 +199,8 @@ fn test_cm_popretz_basic() {
         Rv32ZcmpInstruction::CmPopretz {
             urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
             stack_adj: 16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -198,6 +214,8 @@ fn test_cm_popretz_binutils_reference_encodings() {
         Rv32ZcmpInstruction::CmPopretz {
             urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
             stack_adj: 16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -214,6 +232,8 @@ fn test_cm_popret_basic() {
         Rv32ZcmpInstruction::CmPopret {
             urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
             stack_adj: 16,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         }
     );
 }
@@ -231,6 +251,8 @@ fn test_cm_popret_all_spimm_values() {
             Rv32ZcmpInstruction::CmPopret {
                 urlist: ZcmpUrlist::try_from_raw(8).unwrap(),
                 stack_adj: expected,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "spimm={spimm}"
         );
@@ -256,6 +278,8 @@ fn test_cm_popret_binutils_reference_encodings() {
             Rv32ZcmpInstruction::CmPopret {
                 urlist: ZcmpUrlist::try_from_raw(urlist_raw).unwrap(),
                 stack_adj,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
             },
             "raw={raw:#06x}"
         );

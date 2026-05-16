@@ -56,7 +56,8 @@ fn test_clz() {
         decoded,
         Some(Rv64ZbbInstruction::Clz {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -70,7 +71,8 @@ fn test_clz_real_instruction() {
         decoded,
         Some(Rv64ZbbInstruction::Clz {
             rd: Reg::A0,
-            rs1: Reg::A0
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -107,7 +109,8 @@ fn test_clzw() {
         decoded,
         Some(Rv64ZbbInstruction::Clzw {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -121,7 +124,8 @@ fn test_ctz() {
         decoded,
         Some(Rv64ZbbInstruction::Ctz {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -135,7 +139,8 @@ fn test_ctz_legacy_encoding() {
         decoded,
         Some(Rv64ZbbInstruction::Ctz {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -149,7 +154,8 @@ fn test_ctzw() {
         decoded,
         Some(Rv64ZbbInstruction::Ctzw {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -163,7 +169,8 @@ fn test_cpop() {
         decoded,
         Some(Rv64ZbbInstruction::Cpop {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -177,7 +184,8 @@ fn test_cpop_legacy_encoding() {
         decoded,
         Some(Rv64ZbbInstruction::Cpop {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -191,7 +199,8 @@ fn test_cpopw() {
         decoded,
         Some(Rv64ZbbInstruction::Cpopw {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -321,7 +330,8 @@ fn test_rori() {
         Some(Rv64ZbbInstruction::Rori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5
+            shamt: 5,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -336,7 +346,8 @@ fn test_rori_large_shamt() {
         Some(Rv64ZbbInstruction::Rori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 40
+            shamt: 40,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -351,7 +362,8 @@ fn test_rori_real_instruction() {
         Some(Rv64ZbbInstruction::Rori {
             rd: Reg::A1,
             rs1: Reg::T1,
-            shamt: 0xe
+            shamt: 0xe,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -365,7 +377,8 @@ fn test_roriw() {
         Some(Rv64ZbbInstruction::Roriw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 12
+            shamt: 12,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -378,7 +391,8 @@ fn test_sext_b() {
         decoded,
         Some(Rv64ZbbInstruction::Sextb {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -391,7 +405,8 @@ fn test_sext_h() {
         decoded,
         Some(Rv64ZbbInstruction::Sexth {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -406,7 +421,8 @@ fn test_zext_h() {
         decoded,
         Some(Rv64ZbbInstruction::Zexth {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -420,7 +436,8 @@ fn test_zext_h_real_instruction() {
         decoded,
         Some(Rv64ZbbInstruction::Zexth {
             rd: Reg::A2,
-            rs1: Reg::A1
+            rs1: Reg::A1,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -456,7 +473,8 @@ fn test_rev8() {
         decoded,
         Some(Rv64ZbbInstruction::Rev8 {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -470,7 +488,8 @@ fn test_rev8_real_instruction() {
         decoded,
         Some(Rv64ZbbInstruction::Rev8 {
             rd: Reg::A3,
-            rs1: Reg::A3
+            rs1: Reg::A3,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -487,7 +506,8 @@ fn test_orc_b() {
         decoded,
         Some(Rv64ZbbInstruction::Orcb {
             rd: Reg::Ra,
-            rs1: Reg::Sp
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

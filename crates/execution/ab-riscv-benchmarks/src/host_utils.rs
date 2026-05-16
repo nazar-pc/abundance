@@ -460,8 +460,12 @@ impl EagerTestInstructionFetcher {
             ]);
             // Use `Unimp` as a fallback, though contract is expected to only contain legal
             // instructions
-            let decoded_instruction =
-                Instruction::try_decode(decoded_instruction).unwrap_or(ContractInstruction::Unimp);
+            let decoded_instruction = Instruction::try_decode(decoded_instruction).unwrap_or(
+                ContractInstruction::Unimp {
+                    rs1: Register::ZERO,
+                    rs2: Register::ZERO,
+                },
+            );
             decoded_instructions.push(decoded_instruction);
             match decoded_instruction.size() {
                 2 => {
@@ -489,10 +493,12 @@ impl EagerTestInstructionFetcher {
                         u32::from_le_bytes([instruction_bytes[2], instruction_bytes[3], 0, 0])
                     };
 
-                    decoded_instructions.push(
-                        Instruction::try_decode(instruction_word)
-                            .unwrap_or(ContractInstruction::Unimp),
-                    );
+                    decoded_instructions.push(Instruction::try_decode(instruction_word).unwrap_or(
+                        ContractInstruction::Unimp {
+                            rs1: Register::ZERO,
+                            rs2: Register::ZERO,
+                        },
+                    ));
                     offset += 2;
                 }
                 instruction_size => {
@@ -506,9 +512,12 @@ impl EagerTestInstructionFetcher {
         if remainder_bytes.len() == size_of::<u16>() {
             let instruction_word =
                 u32::from_le_bytes([remainder_bytes[0], remainder_bytes[1], 0, 0]);
-            decoded_instructions.push(
-                Instruction::try_decode(instruction_word).unwrap_or(ContractInstruction::Unimp),
-            );
+            decoded_instructions.push(Instruction::try_decode(instruction_word).unwrap_or(
+                ContractInstruction::Unimp {
+                    rs1: Register::ZERO,
+                    rs2: Register::ZERO,
+                },
+            ));
         }
 
         Self {
@@ -546,14 +555,28 @@ where
             }
         };
 
+        let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
+            Regs,
+            (),
+            Memory,
+            IF,
+            IgnoreEcallSystemInstructionHandler,
+        >>::get_rs1_rs2_operands(instruction);
+        let rs1rs2_values = Rs1Rs2OperandValues {
+            rs1_value: state.regs.read(rs1),
+            rs2_value: state.regs.read(rs2),
+        };
+
         match instruction.execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         ) {
-            Ok(ControlFlow::Continue(())) => {
+            Ok(ControlFlow::Continue((rd, rd_value))) => {
+                state.regs.write(rd, rd_value);
                 continue;
             }
             Ok(ControlFlow::Break(())) => {

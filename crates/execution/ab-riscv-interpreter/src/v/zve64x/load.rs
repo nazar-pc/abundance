@@ -6,7 +6,10 @@ pub mod zve64x_load_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers;
-use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, VirtualMemory,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
@@ -30,18 +33,25 @@ where
     #[inline(always)]
     fn execute(
         self,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
             // Whole-register load: loads `nreg` consecutive registers starting at `vd` directly
             // from memory. `vd` must be aligned to `nreg`. Ignores vtype, vl, vstart, masking.
             Self::Vlr {
                 vd,
-                rs1,
+                rs1: _,
                 nreg,
                 eew: _,
             } => {
@@ -55,7 +65,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 }
-                let base = regs.read(rs1).as_u64();
+                let base = rs1_value.as_u64();
                 let vlenb = u64::from(ExtState::VLENB);
                 for reg_off in 0..u64::from(nreg) {
                     let reg_idx = u64::from(vd.bits()) + reg_off;
@@ -82,7 +92,7 @@ where
 
             // Mask load: loads ceil(vl / 8) bytes from base into vd with no masking applied.
             // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are read.
-            Self::Vlm { vd, rs1 } => {
+            Self::Vlm { vd, rs1: _ } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -91,7 +101,7 @@ where
                 let vl = ext_state.vl();
                 let byte_count = vl.div_ceil(u8::BITS);
                 if byte_count > 0 {
-                    let base = regs.read(rs1).as_u64();
+                    let base = rs1_value.as_u64();
                     let bytes = memory.read_slice(base, byte_count)?;
                     // SAFETY: `vd.bits() < 32` is guaranteed by the `VReg` type.
                     // `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB` because
@@ -114,7 +124,12 @@ where
             // Destination EMUL = EEW/SEW * LMUL, computed via `index_register_count`. This
             // gives `group_regs` such that `VLMAX = group_regs * VLENB / eew.bytes()` matches
             // the architectural `vl`.
-            Self::Vle { vd, rs1, vm, eew } => {
+            Self::Vle {
+                vd,
+                rs1: _,
+                vm,
+                eew,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -158,7 +173,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         eew,
                         group_regs,
                         1,
@@ -168,7 +183,12 @@ where
             }
 
             // Fault-only-first unit-stride load. Preconditions identical to `Vle`.
-            Self::Vleff { vd, rs1, vm, eew } => {
+            Self::Vleff {
+                vd,
+                rs1: _,
+                vm,
+                eew,
+            } => {
                 if !ext_state.vector_instructions_allowed() {
                     Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -204,7 +224,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         eew,
                         group_regs,
                         1,
@@ -216,8 +236,8 @@ where
             // Strided load. Destination EMUL = EEW/SEW * LMUL as for unit-stride.
             Self::Vlse {
                 vd,
-                rs1,
-                rs2,
+                rs1: _,
+                rs2: _,
                 vm,
                 eew,
             } => {
@@ -248,7 +268,7 @@ where
                     })?;
                 }
                 // rs2 holds a signed stride; reinterpret the register value as signed.
-                let stride = regs.read(rs2).as_u64().cast_signed();
+                let stride = rs2_value.as_u64().cast_signed();
                 // SAFETY:
                 // - alignment and nf=1 bounds: `check_register_group_alignment` verified `vd %
                 //   group_regs == 0` and `vd + group_regs <= 32`
@@ -263,7 +283,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         stride,
                         eew,
                         group_regs,
@@ -276,7 +296,7 @@ where
             // The data destination uses the base LMUL (data EEW = SEW for indexed loads).
             Self::Vluxei {
                 vd,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -336,7 +356,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         vtype.vsew().as_eew(),
                         index_eew,
                         data_group_regs,
@@ -349,7 +369,7 @@ where
             // interpreter; memory access ordering has no observable effect here.
             Self::Vloxei {
                 vd,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -402,7 +422,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         vtype.vsew().as_eew(),
                         index_eew,
                         data_group_regs,
@@ -414,7 +434,7 @@ where
             // Unit-stride segment load. EMUL = EEW/SEW * LMUL per field group.
             Self::Vlseg {
                 vd,
-                rs1,
+                rs1: _,
                 vm,
                 eew,
                 nf,
@@ -463,7 +483,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         eew,
                         group_regs,
                         nf,
@@ -475,7 +495,7 @@ where
             // Fault-only-first segment load. Preconditions identical to `Vlseg`.
             Self::Vlsegff {
                 vd,
-                rs1,
+                rs1: _,
                 vm,
                 eew,
                 nf,
@@ -517,7 +537,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         eew,
                         group_regs,
                         nf,
@@ -529,8 +549,8 @@ where
             // Strided segment load. EMUL = EEW/SEW * LMUL as for `Vlse`.
             Self::Vlsseg {
                 vd,
-                rs1,
-                rs2,
+                rs1: _,
+                rs2: _,
                 vm,
                 eew,
                 nf,
@@ -558,7 +578,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                let stride = regs.read(rs2).as_u64().cast_signed();
+                let stride = rs2_value.as_u64().cast_signed();
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
@@ -574,7 +594,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         stride,
                         eew,
                         group_regs,
@@ -586,7 +606,7 @@ where
             // Indexed-unordered segment load
             Self::Vluxseg {
                 vd,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -665,7 +685,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         vtype.vsew().as_eew(),
                         index_eew,
                         data_group_regs,
@@ -678,7 +698,7 @@ where
             // interpreter
             Self::Vloxseg {
                 vd,
-                rs1,
+                rs1: _,
                 vs2,
                 vm,
                 eew: index_eew,
@@ -743,7 +763,7 @@ where
                         vm,
                         ext_state.vl(),
                         u32::from(ext_state.vstart()),
-                        regs.read(rs1).as_u64(),
+                        rs1_value.as_u64(),
                         vtype.vsew().as_eew(),
                         index_eew,
                         data_group_regs,
@@ -753,6 +773,6 @@ where
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

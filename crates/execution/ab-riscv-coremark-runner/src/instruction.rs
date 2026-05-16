@@ -63,12 +63,19 @@ where
     #[inline(always)]
     fn execute(
         self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         ext_state: &mut ExtState,
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        Ok(ControlFlow::Continue(()))
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
+        Ok(ControlFlow::Continue(Default::default()))
     }
 }

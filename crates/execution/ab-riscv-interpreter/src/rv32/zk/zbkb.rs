@@ -4,7 +4,9 @@ pub mod rv32_zbkb_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
@@ -20,56 +22,61 @@ where
     #[inline(always)]
     fn execute(
         self,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
-            Self::Pack { rd, rs1, rs2 } => {
+            Self::Pack { rd, rs1: _, rs2: _ } => {
                 // Pack low 16 bits of rs1 into rd[15:0],
                 // low 16 bits of rs2 into rd[31:16].
-                let lo = regs.read(rs1) & 0x0000_FFFFu32;
-                let hi = (regs.read(rs2) & 0x0000_FFFFu32) << 16;
-                regs.write(rd, lo | hi);
+                let lo = rs1_value & 0x0000_FFFFu32;
+                let hi = (rs2_value & 0x0000_FFFFu32) << 16;
+                Ok(ControlFlow::Continue((rd, lo | hi)))
             }
-            Self::Packh { rd, rs1, rs2 } => {
+            Self::Packh { rd, rs1: _, rs2: _ } => {
                 // Pack low byte of rs1 into bits [7:0], low byte of rs2 into bits [15:8].
                 // Upper bits of rd are zeroed.
-                let lo = regs.read(rs1) & 0xFF;
-                let hi = (regs.read(rs2) & 0xFF) << 8;
-                regs.write(rd, lo | hi);
+                let lo = rs1_value & 0xFF;
+                let hi = (rs2_value & 0xFF) << 8;
+                Ok(ControlFlow::Continue((rd, lo | hi)))
             }
-            Self::Brev8 { rd, rs1 } => {
+            Self::Brev8 { rd, rs1: _ } => {
                 // Reverse bits within each byte of rs1
-                let src = regs.read(rs1);
+                let src = rs1_value;
                 let mut bytes = src.to_le_bytes();
                 for byte in &mut bytes {
                     *byte = byte.reverse_bits();
                 }
-                regs.write(rd, u32::from_le_bytes(bytes));
+                Ok(ControlFlow::Continue((rd, u32::from_le_bytes(bytes))))
             }
-            Self::Zip { rd, rs1 } => {
+            Self::Zip { rd, rs1: _ } => {
                 // Bit-interleave: scatter bits of rs1 so that
                 // rs1[i]    -> rd[2*i]   (even positions, lower half source)
                 // rs1[i+16] -> rd[2*i+1] (odd positions, upper half source)
                 // for i in 0..16.
-                let src = regs.read(rs1);
+                let src = rs1_value;
 
-                regs.write(rd, rv32_zbkb_helpers::zip(src));
+                Ok(ControlFlow::Continue((rd, rv32_zbkb_helpers::zip(src))))
             }
-            Self::Unzip { rd, rs1 } => {
+            Self::Unzip { rd, rs1: _ } => {
                 // Inverse of zip: gather bits of rs1 so that
                 // rs1[2*i]   -> rd[i]    (even-position bits -> lower half)
                 // rs1[2*i+1] -> rd[i+16] (odd-position bits -> upper half)
                 // for i in 0..16.
-                let src = regs.read(rs1);
+                let src = rs1_value;
 
-                regs.write(rd, rv32_zbkb_helpers::unzip(src));
+                Ok(ControlFlow::Continue((rd, rv32_zbkb_helpers::unzip(src))))
             }
         }
-
-        Ok(ControlFlow::Continue(()))
     }
 }

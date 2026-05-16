@@ -31,6 +31,8 @@ fn test_vmandn() {
             vd: VReg::V1,
             vs2: VReg::V2,
             vs1: VReg::V3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -45,6 +47,8 @@ fn test_vmand() {
             vd: VReg::V6,
             vs2: VReg::V4,
             vs1: VReg::V5,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -59,6 +63,8 @@ fn test_vmor() {
             vd: VReg::V10,
             vs2: VReg::V8,
             vs1: VReg::V9,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -73,6 +79,8 @@ fn test_vmxor() {
             vd: VReg::V14,
             vs2: VReg::V12,
             vs1: VReg::V13,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -87,6 +95,8 @@ fn test_vmorn() {
             vd: VReg::V18,
             vs2: VReg::V16,
             vs1: VReg::V17,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -101,6 +111,8 @@ fn test_vmnand() {
             vd: VReg::V22,
             vs2: VReg::V20,
             vs1: VReg::V21,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -115,6 +127,8 @@ fn test_vmnor() {
             vd: VReg::V26,
             vs2: VReg::V24,
             vs1: VReg::V25,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -129,6 +143,8 @@ fn test_vmxnor() {
             vd: VReg::V30,
             vs2: VReg::V28,
             vs1: VReg::V29,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -144,6 +160,8 @@ fn test_vmand_v0() {
             vd: VReg::V2,
             vs2: VReg::V0,
             vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -170,6 +188,8 @@ fn test_vcpop_unmasked() {
             rd: Reg::Ra,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -185,6 +205,8 @@ fn test_vcpop_masked() {
             rd: Reg::A0,
             vs2: VReg::V8,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -201,6 +223,8 @@ fn test_vfirst_unmasked() {
             rd: Reg::Sp,
             vs2: VReg::V5,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -215,6 +239,8 @@ fn test_vfirst_masked() {
             rd: Reg::T0,
             vs2: VReg::V12,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -231,6 +257,8 @@ fn test_vmsbf_unmasked() {
             vd: VReg::V1,
             vs2: VReg::V3,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -245,6 +273,8 @@ fn test_vmsbf_masked() {
             vd: VReg::V2,
             vs2: VReg::V7,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -261,6 +291,8 @@ fn test_vmsof_unmasked() {
             vd: VReg::V4,
             vs2: VReg::V6,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -275,6 +307,8 @@ fn test_vmsof_masked() {
             vd: VReg::V8,
             vs2: VReg::V10,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -291,6 +325,8 @@ fn test_vmsif_unmasked() {
             vd: VReg::V5,
             vs2: VReg::V9,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -305,6 +341,8 @@ fn test_vmsif_masked() {
             vd: VReg::V11,
             vs2: VReg::V15,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -321,6 +359,8 @@ fn test_viota_unmasked() {
             vd: VReg::V4,
             vs2: VReg::V2,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -335,6 +375,8 @@ fn test_viota_masked() {
             vd: VReg::V8,
             vs2: VReg::V6,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -350,6 +392,8 @@ fn test_vid_unmasked() {
         Some(Zve64xMaskInstruction::Vid {
             vd: VReg::V3,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -363,6 +407,8 @@ fn test_vid_masked() {
         Some(Zve64xMaskInstruction::Vid {
             vd: VReg::V16,
             vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -524,6 +570,8 @@ fn test_vmand_v31() {
             vd: VReg::V31,
             vs2: VReg::V31,
             vs1: VReg::V31,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -539,6 +587,8 @@ fn test_vcpop_rd_zero() {
             rd: Reg::Zero,
             vs2: VReg::V4,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }
@@ -554,6 +604,8 @@ fn test_vcpop_high_rd() {
             rd: Reg::T6,
             vs2: VReg::V31,
             vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
         })
     );
 }

@@ -3,7 +3,9 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecutableInstruction, ExecutionError, RegisterFile};
+use crate::{
+    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
@@ -19,56 +21,61 @@ where
     #[inline(always)]
     fn execute(
         self,
-        regs: &mut Regs,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
         _ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
-            Self::Bset { rd, rs1, rs2 } => {
+            Self::Bset { rd, rs1: _, rs2: _ } => {
                 // Only the bottom 5 bits for RV32
-                let index = regs.read(rs2) & 0x1f;
-                let result = regs.read(rs1) | (1u32 << index);
-                regs.write(rd, result);
+                let index = rs2_value & 0x1f;
+                let result = rs1_value | (1u32 << index);
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Bseti { rd, rs1, shamt } => {
+            Self::Bseti { rd, rs1: _, shamt } => {
                 let index = shamt;
-                let result = regs.read(rs1) | (1u32 << index);
-                regs.write(rd, result);
+                let result = rs1_value | (1u32 << index);
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Bclr { rd, rs1, rs2 } => {
-                let index = regs.read(rs2) & 0x1f;
-                let result = regs.read(rs1) & !(1u32 << index);
-                regs.write(rd, result);
+            Self::Bclr { rd, rs1: _, rs2: _ } => {
+                let index = rs2_value & 0x1f;
+                let result = rs1_value & !(1u32 << index);
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Bclri { rd, rs1, shamt } => {
+            Self::Bclri { rd, rs1: _, shamt } => {
                 let index = shamt;
-                let result = regs.read(rs1) & !(1u32 << index);
-                regs.write(rd, result);
+                let result = rs1_value & !(1u32 << index);
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Binv { rd, rs1, rs2 } => {
-                let index = regs.read(rs2) & 0x1f;
-                let result = regs.read(rs1) ^ (1u32 << index);
-                regs.write(rd, result);
+            Self::Binv { rd, rs1: _, rs2: _ } => {
+                let index = rs2_value & 0x1f;
+                let result = rs1_value ^ (1u32 << index);
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Binvi { rd, rs1, shamt } => {
+            Self::Binvi { rd, rs1: _, shamt } => {
                 let index = shamt;
-                let result = regs.read(rs1) ^ (1u32 << index);
-                regs.write(rd, result);
+                let result = rs1_value ^ (1u32 << index);
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Bext { rd, rs1, rs2 } => {
-                let index = regs.read(rs2) & 0x1f;
-                let result = (regs.read(rs1) >> index) & 1;
-                regs.write(rd, result);
+            Self::Bext { rd, rs1: _, rs2: _ } => {
+                let index = rs2_value & 0x1f;
+                let result = (rs1_value >> index) & 1;
+                Ok(ControlFlow::Continue((rd, result)))
             }
-            Self::Bexti { rd, rs1, shamt } => {
+            Self::Bexti { rd, rs1: _, shamt } => {
                 let index = shamt;
-                let result = (regs.read(rs1) >> index) & 1;
-                regs.write(rd, result);
+                let result = (rs1_value >> index) & 1;
+                Ok(ControlFlow::Continue((rd, result)))
             }
         }
-
-        Ok(ControlFlow::Continue(()))
     }
 }

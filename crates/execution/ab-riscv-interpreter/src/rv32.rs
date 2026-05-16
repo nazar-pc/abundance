@@ -11,8 +11,8 @@ pub mod zce;
 pub mod zk;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, SystemInstructionHandler,
-    VirtualMemory,
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -32,197 +32,263 @@ where
     #[inline(always)]
     fn execute(
         self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
         _ext_state: &mut ExtState,
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
         match self {
-            Self::Add { rd, rs1, rs2 } => {
-                let value = regs.read(rs1).wrapping_add(regs.read(rs2));
-                regs.write(rd, value);
+            Self::Add { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value.wrapping_add(rs2_value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Sub { rd, rs1, rs2 } => {
-                let value = regs.read(rs1).wrapping_sub(regs.read(rs2));
-                regs.write(rd, value);
+            Self::Sub { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value.wrapping_sub(rs2_value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Sll { rd, rs1, rs2 } => {
-                let shamt = regs.read(rs2) & 0x1f;
-                let value = regs.read(rs1) << shamt;
-                regs.write(rd, value);
+            Self::Sll { rd, rs1: _, rs2: _ } => {
+                let shamt = rs2_value & 0x1f;
+                let value = rs1_value << shamt;
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Slt { rd, rs1, rs2 } => {
-                let value = regs.read(rs1).cast_signed() < regs.read(rs2).cast_signed();
-                regs.write(rd, value as u32);
+            Self::Slt { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value.cast_signed() < rs2_value.cast_signed();
+                Ok(ControlFlow::Continue((rd, value as u32)))
             }
-            Self::Sltu { rd, rs1, rs2 } => {
-                let value = regs.read(rs1) < regs.read(rs2);
-                regs.write(rd, value as u32);
+            Self::Sltu { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value < rs2_value;
+                Ok(ControlFlow::Continue((rd, value as u32)))
             }
-            Self::Xor { rd, rs1, rs2 } => {
-                let value = regs.read(rs1) ^ regs.read(rs2);
-                regs.write(rd, value);
+            Self::Xor { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value ^ rs2_value;
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Srl { rd, rs1, rs2 } => {
-                let shamt = regs.read(rs2) & 0x1f;
-                let value = regs.read(rs1) >> shamt;
-                regs.write(rd, value);
+            Self::Srl { rd, rs1: _, rs2: _ } => {
+                let shamt = rs2_value & 0x1f;
+                let value = rs1_value >> shamt;
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Sra { rd, rs1, rs2 } => {
-                let shamt = regs.read(rs2) & 0x1f;
-                let value = regs.read(rs1).cast_signed() >> shamt;
-                regs.write(rd, value.cast_unsigned());
+            Self::Sra { rd, rs1: _, rs2: _ } => {
+                let shamt = rs2_value & 0x1f;
+                let value = rs1_value.cast_signed() >> shamt;
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::Or { rd, rs1, rs2 } => {
-                let value = regs.read(rs1) | regs.read(rs2);
-                regs.write(rd, value);
+            Self::Or { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value | rs2_value;
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::And { rd, rs1, rs2 } => {
-                let value = regs.read(rs1) & regs.read(rs2);
-                regs.write(rd, value);
-            }
-
-            Self::Addi { rd, rs1, imm } => {
-                let value = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
-                regs.write(rd, value);
-            }
-            Self::Slti { rd, rs1, imm } => {
-                let value = regs.read(rs1).cast_signed() < i32::from(imm);
-                regs.write(rd, value as u32);
-            }
-            Self::Sltiu { rd, rs1, imm } => {
-                let value = regs.read(rs1) < i32::from(imm).cast_unsigned();
-                regs.write(rd, value as u32);
-            }
-            Self::Xori { rd, rs1, imm } => {
-                let value = regs.read(rs1) ^ i32::from(imm).cast_unsigned();
-                regs.write(rd, value);
-            }
-            Self::Ori { rd, rs1, imm } => {
-                let value = regs.read(rs1) | i32::from(imm).cast_unsigned();
-                regs.write(rd, value);
-            }
-            Self::Andi { rd, rs1, imm } => {
-                let value = regs.read(rs1) & i32::from(imm).cast_unsigned();
-                regs.write(rd, value);
-            }
-            Self::Slli { rd, rs1, shamt } => {
-                let value = regs.read(rs1) << shamt;
-                regs.write(rd, value);
-            }
-            Self::Srli { rd, rs1, shamt } => {
-                let value = regs.read(rs1) >> shamt;
-                regs.write(rd, value);
-            }
-            Self::Srai { rd, rs1, shamt } => {
-                let value = regs.read(rs1).cast_signed() >> shamt;
-                regs.write(rd, value.cast_unsigned());
+            Self::And { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value & rs2_value;
+                Ok(ControlFlow::Continue((rd, value)))
             }
 
-            Self::Lb { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
+            Self::Addi { rd, rs1: _, imm } => {
+                let value = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::Slti { rd, rs1: _, imm } => {
+                let value = rs1_value.cast_signed() < i32::from(imm);
+                Ok(ControlFlow::Continue((rd, value as u32)))
+            }
+            Self::Sltiu { rd, rs1: _, imm } => {
+                let value = rs1_value < i32::from(imm).cast_unsigned();
+                Ok(ControlFlow::Continue((rd, value as u32)))
+            }
+            Self::Xori { rd, rs1: _, imm } => {
+                let value = rs1_value ^ i32::from(imm).cast_unsigned();
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::Ori { rd, rs1: _, imm } => {
+                let value = rs1_value | i32::from(imm).cast_unsigned();
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::Andi { rd, rs1: _, imm } => {
+                let value = rs1_value & i32::from(imm).cast_unsigned();
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::Slli { rd, rs1: _, shamt } => {
+                let value = rs1_value << shamt;
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::Srli { rd, rs1: _, shamt } => {
+                let value = rs1_value >> shamt;
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::Srai { rd, rs1: _, shamt } => {
+                let value = rs1_value.cast_signed() >> shamt;
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+            }
+
+            Self::Lb { rd, rs1: _, imm } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = i32::from(memory.read::<i8>(u64::from(addr))?);
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::Lh { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
+            Self::Lh { rd, rs1: _, imm } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = i32::from(memory.read::<i16>(u64::from(addr))?);
-                regs.write(rd, value.cast_unsigned());
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
             }
-            Self::Lw { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
+            Self::Lw { rd, rs1: _, imm } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = memory.read::<u32>(u64::from(addr))?;
-                regs.write(rd, value);
+                Ok(ControlFlow::Continue((rd, value)))
             }
-            Self::Lbu { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
+            Self::Lbu { rd, rs1: _, imm } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = memory.read::<u8>(u64::from(addr))?;
-                regs.write(rd, value as u32);
+                Ok(ControlFlow::Continue((rd, value as u32)))
             }
-            Self::Lhu { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
+            Self::Lhu { rd, rs1: _, imm } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = memory.read::<u16>(u64::from(addr))?;
-                regs.write(rd, value as u32);
+                Ok(ControlFlow::Continue((rd, value as u32)))
             }
 
-            Self::Jalr { rd, rs1, imm } => {
-                let target = (regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned())) & !1u32;
+            Self::Jalr { rd, rs1: _, imm } => {
+                let target = (rs1_value.wrapping_add(i32::from(imm).cast_unsigned())) & !1u32;
                 regs.write(rd, program_counter.get_pc());
                 return program_counter
                     .set_pc(memory, target)
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
 
-            Self::Sb { rs2, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
-                memory.write(u64::from(addr), regs.read(rs2) as u8)?;
+            Self::Sb {
+                rs2: _,
+                rs1: _,
+                imm,
+            } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
+                memory.write(u64::from(addr), rs2_value as u8)?;
+                Ok(ControlFlow::Continue(Default::default()))
             }
-            Self::Sh { rs2, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
-                memory.write(u64::from(addr), regs.read(rs2) as u16)?;
+            Self::Sh {
+                rs2: _,
+                rs1: _,
+                imm,
+            } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
+                memory.write(u64::from(addr), rs2_value as u16)?;
+                Ok(ControlFlow::Continue(Default::default()))
             }
-            Self::Sw { rs2, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(i32::from(imm).cast_unsigned());
-                memory.write(u64::from(addr), regs.read(rs2))?;
-            }
-
-            Self::Beq { rs1, rs2, imm } => {
-                if regs.read(rs1) == regs.read(rs2) {
-                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
-                        .map_err(ExecutionError::from);
-                }
-            }
-            Self::Bne { rs1, rs2, imm } => {
-                if regs.read(rs1) != regs.read(rs2) {
-                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
-                        .map_err(ExecutionError::from);
-                }
-            }
-            Self::Blt { rs1, rs2, imm } => {
-                if regs.read(rs1).cast_signed() < regs.read(rs2).cast_signed() {
-                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
-                        .map_err(ExecutionError::from);
-                }
-            }
-            Self::Bge { rs1, rs2, imm } => {
-                if regs.read(rs1).cast_signed() >= regs.read(rs2).cast_signed() {
-                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
-                        .map_err(ExecutionError::from);
-                }
-            }
-            Self::Bltu { rs1, rs2, imm } => {
-                if regs.read(rs1) < regs.read(rs2) {
-                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
-                        .map_err(ExecutionError::from);
-                }
-            }
-            Self::Bgeu { rs1, rs2, imm } => {
-                if regs.read(rs1) >= regs.read(rs2) {
-                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
-                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
-                        .map_err(ExecutionError::from);
-                }
+            Self::Sw {
+                rs2: _,
+                rs1: _,
+                imm,
+            } => {
+                let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
+                memory.write(u64::from(addr), rs2_value)?;
+                Ok(ControlFlow::Continue(Default::default()))
             }
 
-            Self::Lui { rd, imm } => {
-                regs.write(rd, imm.to_i32().cast_unsigned());
+            Self::Beq {
+                rs1: _,
+                rs2: _,
+                imm,
+            } => {
+                if rs1_value == rs2_value {
+                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
+                    return program_counter
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
+                        .map_err(ExecutionError::from);
+                }
+
+                Ok(ControlFlow::Continue(Default::default()))
             }
+            Self::Bne {
+                rs1: _,
+                rs2: _,
+                imm,
+            } => {
+                if rs1_value != rs2_value {
+                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
+                    return program_counter
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
+                        .map_err(ExecutionError::from);
+                }
+
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::Blt {
+                rs1: _,
+                rs2: _,
+                imm,
+            } => {
+                if rs1_value.cast_signed() < rs2_value.cast_signed() {
+                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
+                    return program_counter
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
+                        .map_err(ExecutionError::from);
+                }
+
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::Bge {
+                rs1: _,
+                rs2: _,
+                imm,
+            } => {
+                if rs1_value.cast_signed() >= rs2_value.cast_signed() {
+                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
+                    return program_counter
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
+                        .map_err(ExecutionError::from);
+                }
+
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::Bltu {
+                rs1: _,
+                rs2: _,
+                imm,
+            } => {
+                if rs1_value < rs2_value {
+                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
+                    return program_counter
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
+                        .map_err(ExecutionError::from);
+                }
+
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::Bgeu {
+                rs1: _,
+                rs2: _,
+                imm,
+            } => {
+                if rs1_value >= rs2_value {
+                    let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
+                    return program_counter
+                        .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
+                        .map_err(ExecutionError::from);
+                }
+
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+
+            Self::Lui { rd, imm } => Ok(ControlFlow::Continue((rd, imm.to_i32().cast_unsigned()))),
 
             Self::Auipc { rd, imm } => {
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                regs.write(rd, old_pc.wrapping_add(imm.to_i32().cast_unsigned()));
+                Ok(ControlFlow::Continue((
+                    rd,
+                    old_pc.wrapping_add(imm.to_i32().cast_unsigned()),
+                )))
             }
 
             Self::Jal { rd, imm } => {
@@ -231,21 +297,27 @@ where
                 regs.write(rd, pc);
                 return program_counter
                     .set_pc(memory, old_pc.wrapping_add(imm.to_i32().cast_unsigned()))
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
                     .map_err(ExecutionError::from);
             }
 
             Self::Fence { pred, succ } => {
                 system_instruction_handler.handle_fence(pred, succ);
+                Ok(ControlFlow::Continue(Default::default()))
             }
             Self::FenceTso => {
                 system_instruction_handler.handle_fence_tso();
+                Ok(ControlFlow::Continue(Default::default()))
             }
 
             Self::Ecall => {
-                return system_instruction_handler.handle_ecall(regs, memory, program_counter);
+                return system_instruction_handler
+                    .handle_ecall(regs, memory, program_counter)
+                    .map(|control_flow| control_flow.map_continue(|()| Default::default()));
             }
             Self::Ebreak => {
                 system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
+                Ok(ControlFlow::Continue(Default::default()))
             }
 
             Self::Unimp => {
@@ -253,7 +325,5 @@ where
                 return Err(ExecutionError::IllegalInstruction { address: old_pc });
             }
         }
-
-        Ok(ControlFlow::Continue(()))
     }
 }

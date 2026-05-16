@@ -11,6 +11,7 @@ fn test_aes64im_zero() {
     let mut state = initialize_state([Rv64ZkndInstruction::Aes64Im {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0u64);
     execute(&mut state).unwrap();
@@ -26,6 +27,7 @@ fn test_aes64im_unit_basis() {
     let mut state = initialize_state([Rv64ZkndInstruction::Aes64Im {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
     // InvMixColumns([0x01, 0x00, 0x00, 0x00]):
     //   r0 = 0x0e*1 = 0x0e
@@ -140,6 +142,7 @@ fn test_aes64ks1i_rnum_1() {
         rd: Reg::A2,
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::R1,
+        rs2: Reg::Zero,
     }]);
     // rs1[63:32] = 0x00000000
     // RotWord([0x00,0x00,0x00,0x00]) = [0x00,0x00,0x00,0x00] (rotation of zeros is zeros)
@@ -160,6 +163,7 @@ fn test_aes64ks1i_rnum_1_nonzero_input() {
         rd: Reg::A2,
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::R1,
+        rs2: Reg::Zero,
     }]);
     // rs1[63:32] = 0xAABBCCDD (bytes LE: [0xDD, 0xCC, 0xBB, 0xAA])
     // RotWord via rotate_right(8): 0xAABBCCDD.rotate_right(8) = 0xDDAABBCC
@@ -188,6 +192,7 @@ fn test_aes64ks1i_rnum_10_no_rot_no_rcon() {
         rd: Reg::A2,
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::Final,
+        rs2: Reg::Zero,
     }]);
     // rnum=10: no RotWord, no RCON - just SubWord(rs1[63:32])
     state.regs.write(Reg::A0, 0u64);
@@ -202,6 +207,7 @@ fn test_aes64ks1i_rnum_10_nonzero_input() {
         rd: Reg::A2,
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::Final,
+        rs2: Reg::Zero,
     }]);
     // rnum=10: no RotWord, no RCON - SubWord(rs1[63:32]) only
     // rs1[63:32] = 0x00010203 (bytes LE: [0x03,0x02,0x01,0x00])
@@ -220,6 +226,7 @@ fn test_aes64ks1i_rnum_0() {
         rd: Reg::A2,
         rs1: Reg::A0,
         rnum: Rv64ZkndKsRnum::R0,
+        rs2: Reg::Zero,
     }]);
     // rs1[63:32] = 0x00000000
     // RotWord(0x00000000) = 0x00000000 (all zeros)

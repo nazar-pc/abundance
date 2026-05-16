@@ -9,8 +9,14 @@ use proc_macro::TokenStream;
 ///
 /// # Enum definition
 ///
-/// When applied to the enum definition, it can be used as simply `#[instruction]` to make an enum
-/// with instructions available for inheritance.
+/// When applied to the enum definition, it will reorder variant fields and expose an enum with
+/// instructions as a dependency.
+///
+/// The fields are reordered as follows: `rs1` > `rs2` > others. This is helpful for
+/// high-performance execution implementation. If `rs1` or `rs2` are not present, they will be added
+/// automatically, and all implementations annotated with `#[instruction]` or
+/// `#[instruction_execution]` will be automatically updated accordingly, but tests and other usages
+/// will have to specify those fields explicitly.
 ///
 /// More complex syntax is used when inheriting instructions:
 /// ```rust,ignore
@@ -53,13 +59,14 @@ use proc_macro::TokenStream;
 ///
 /// Here is how the attributes are processed:
 /// * first, all own and inherited enum variants are collected into a set
+/// * all reordered instructions are isolated from the rest to make sure they are not ignored
 /// * then each attribute is processed in order of declaration
 ///   * `reorder` indicated where the corresponding variant needs to be included
 ///   * `ignore` removed individual variants or the whole enum from a set mentioned earlier (but
-///     instructions that were already "reordered" before will remain). Ignored list may contain
-///     enums that are not in the list of inherited enums.
+///     instructions that are "reordered" anywhere in the definition will remain). Ignored list may
+///     contain any known enum, including those that are not in the list of inherited enums.
 ///   * `inherit` includes all remaining variants of the corresponding enum that were not explicitly
-///     reordered or ignored earlier
+///     reordered or ignored anywhere in the definition
 ///   * own variants that were not explicitly reordered or ignored are placed at the end of the enum
 ///
 /// # Enum decoding implementation
@@ -125,15 +132,19 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// It must be applied to enum, whose definition is already annotated with `#[instruction]` macro.
 ///
 /// Similarly to that macro, this macro will process the contents of the `ExecutableInstruction`
-/// trait implementation. `execute()` implementation will end up containing both inherited and own
-/// execution logic according to the ordering set in `#[instruction]`.
+/// trait implementation. `execute()`, `prepare_csr_read()` and `prepare_csr_write()` methods will
+/// end up containing both inherited and own execution logic according to the ordering set in
+/// `#[instruction]`. `get_rs1_rs2_operands()` method will be generated from scratch.
 ///
 /// There are constraints on the `execute()` method body, it must have one or both (but nothing
 /// else) of the following:
 /// * matching in the following style: `match self { Self::Variant { .. } }`
 ///   * note that `Self` must be used instead of the explicit type name, such that it works when
 ///     inherited
-/// * `Ok(ControlFlow::Continue(()))` expression
+/// * `Ok(ControlFlow::Continue(Default::default()))` expression.
+///
+/// Also requires `process_instruction_macros()` in `build.rs` to function, see `#[instruction]`
+/// macro documentation.
 #[proc_macro_attribute]
 pub fn instruction_execution(attr: TokenStream, item: TokenStream) -> TokenStream {
     instruction_execution::instruction_execution(attr.into(), item.into())

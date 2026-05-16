@@ -7,7 +7,8 @@ use crate::v::vector_registers::{
 use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
     FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -261,7 +262,13 @@ where
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         Err(ExecutionError::EcallUnsupported {
-            address: program_counter.old_pc(Rv64Instruction::<Reg<u64>>::Ecall.size()),
+            address: program_counter.old_pc(
+                Rv64Instruction::<Reg<u64>>::Ecall {
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                }
+                .size(),
+            ),
         })
     }
 }
@@ -512,14 +519,22 @@ where
             }
         };
 
+        let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
+        let rs1rs2_values = Rs1Rs2OperandValues {
+            rs1_value: state.regs.read(rs1),
+            rs2_value: state.regs.read(rs2),
+        };
+
         match instruction.execute(
+            rs1rs2_values,
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         )? {
-            ControlFlow::Continue(()) => {
+            ControlFlow::Continue((rd, rd_value)) => {
+                state.regs.write(rd, rd_value);
                 continue;
             }
             ControlFlow::Break(()) => {

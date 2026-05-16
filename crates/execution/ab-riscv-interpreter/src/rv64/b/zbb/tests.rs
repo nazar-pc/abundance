@@ -58,6 +58,7 @@ fn test_clz() {
     let mut state = initialize_state([Rv64ZbbInstruction::Clz {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0000_0000_0100_0000);
@@ -74,6 +75,7 @@ fn test_ctz() {
     let mut state = initialize_state([Rv64ZbbInstruction::Ctz {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0000_1000);
@@ -88,6 +90,7 @@ fn test_cpop() {
     let mut state = initialize_state([Rv64ZbbInstruction::Cpop {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0b11010101);
@@ -134,6 +137,7 @@ fn test_sext_b() {
     let mut state = initialize_state([Rv64ZbbInstruction::Sextb {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFF);
@@ -148,6 +152,7 @@ fn test_sext_h() {
     let mut state = initialize_state([Rv64ZbbInstruction::Sexth {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF);
@@ -162,6 +167,7 @@ fn test_zext_h() {
     let mut state = initialize_state([Rv64ZbbInstruction::Zexth {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_FFFFu64);
@@ -209,6 +215,7 @@ fn test_rori() {
         rd: Reg::A2,
         rs1: Reg::A0,
         shamt: 1,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x8000_0000_0000_0001u64);
@@ -223,6 +230,7 @@ fn test_orc_b() {
     let mut state = initialize_state([Rv64ZbbInstruction::Orcb {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0001_0002_0000_0304u64);
@@ -237,6 +245,7 @@ fn test_rev8() {
     let mut state = initialize_state([Rv64ZbbInstruction::Rev8 {
         rd: Reg::A2,
         rs1: Reg::A0,
+        rs2: Reg::Zero,
     }]);
 
     state.regs.write(Reg::A0, 0x0123_4567_89AB_CDEFu64);
