@@ -572,9 +572,14 @@ pub(super) fn process_enum_display_impl(
             return true;
         }
 
+        let mut has_ignore = false;
         let mut rs1_found = false;
         let mut rs2_found = false;
         for field in &pat_struct.fields {
+            if let Pat::Wild(_) = &*field.pat {
+                has_ignore = true;
+            }
+
             let Member::Named(ident) = &field.member else {
                 return false;
             };
@@ -587,6 +592,19 @@ pub(super) fn process_enum_display_impl(
         }
 
         if !rs1_found || !rs2_found {
+            if has_ignore {
+                // This prevents clippy warnings
+                pat_struct.fields = mem::take(&mut pat_struct.fields)
+                    .into_iter()
+                    .filter_map(|field| {
+                        if let Pat::Wild(_) = &*field.pat {
+                            return None;
+                        }
+
+                        Some(field)
+                    })
+                    .collect();
+            }
             pat_struct.rest.replace(PatRest {
                 attrs: vec![],
                 dot2_token: Default::default(),

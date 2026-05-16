@@ -1,5 +1,5 @@
 use quote::{ToTokens, quote};
-use std::iter;
+use std::{iter, mem};
 use syn::token::Semi;
 use syn::{
     Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Member, Pat, PatRest, PathArguments, Stmt,
@@ -53,9 +53,14 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
         // Fix up match pattern after `rs1`/`rs2` fields were added automatically
         if let Pat::Struct(pat_struct) = &mut arm.pat {
             if pat_struct.rest.is_none() {
+                let mut has_ignore = false;
                 let mut rs1_found = false;
                 let mut rs2_found = false;
                 for field in &pat_struct.fields {
+                    if let Pat::Wild(_) = &*field.pat {
+                        has_ignore = true;
+                    }
+
                     let Member::Named(ident) = &field.member else {
                         break;
                     };
@@ -68,6 +73,19 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                 }
 
                 if !rs1_found || !rs2_found {
+                    if has_ignore {
+                        // This prevents clippy warnings
+                        pat_struct.fields = mem::take(&mut pat_struct.fields)
+                            .into_iter()
+                            .filter_map(|field| {
+                                if let Pat::Wild(_) = &*field.pat {
+                                    return None;
+                                }
+
+                                Some(field)
+                            })
+                            .collect();
+                    }
                     pat_struct.rest.replace(PatRest {
                         attrs: vec![],
                         dot2_token: Default::default(),
