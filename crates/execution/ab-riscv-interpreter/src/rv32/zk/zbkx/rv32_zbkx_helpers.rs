@@ -1,6 +1,6 @@
 //! Opaque helpers for Zbkx extension
 
-#[inline(always)]
+#[inline]
 #[doc(hidden)]
 pub fn xperm4(rs1: u32, rs2: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
@@ -29,7 +29,7 @@ pub fn xperm4(rs1: u32, rs2: u32) -> u32 {
     }
 }
 
-#[inline(always)]
+#[inline]
 #[doc(hidden)]
 pub fn xperm8(rs1: u32, rs2: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there

@@ -4,7 +4,7 @@ use crate::{ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 
 /// Execute CM.PUSH: store registers below sp, then decrement sp
-#[inline(always)]
+#[inline]
 #[doc(hidden)]
 pub fn do_push<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
@@ -30,7 +30,7 @@ where
 
 /// Execute CM.POP and variants: restore registers and increment sp.
 /// Returns the value of ra (x1) for use with popret/popretz.
-#[inline(always)]
+#[inline]
 #[doc(hidden)]
 pub fn do_pop<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,

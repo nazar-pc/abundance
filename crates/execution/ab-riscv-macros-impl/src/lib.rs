@@ -68,7 +68,7 @@ use proc_macro::TokenStream;
 /// trait and affects its `try_decode()` method:
 /// ```rust,ignore
 /// #[instruction]
-/// impl<Reg> const Instruction for Rv64MInstruction<Reg>
+/// impl<Reg> const Instruction for Rv64Instruction<Reg>
 /// where
 ///     Reg: [const] Register<Type = u64>,
 /// {
@@ -89,7 +89,7 @@ use proc_macro::TokenStream;
 /// `core::fmt::Display` trait and affects its `fmt()` method:
 /// ```rust,ignore
 /// #[instruction]
-/// impl<Reg> fmt::Display for Rv64MInstruction<Reg>
+/// impl<Reg> fmt::Display for Rv64Instruction<Reg>
 /// where
 ///     Reg: fmt::Display + Copy,
 /// {
@@ -120,7 +120,7 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Processes `#[instruction_execution]` attribute on both enum execution implementations.
+/// Processes `#[instruction_execution]` attribute on enum execution implementation.
 ///
 /// It must be applied to enum, whose definition is already annotated with `#[instruction]` macro.
 ///
