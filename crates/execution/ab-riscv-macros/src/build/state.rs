@@ -37,12 +37,6 @@ pub(super) struct PendingEnumDisplayImpl {
 }
 
 #[derive(Debug)]
-pub(super) struct KnownEnumOperandsImpl {
-    pub(super) item_impl: ItemImpl,
-    pub(super) source: Rc<Path>,
-}
-
-#[derive(Debug)]
 pub(super) struct PendingEnumOperandsImpl {
     pub(super) item_impl: ItemImpl,
 }
@@ -75,7 +69,6 @@ pub(super) struct State {
     known_original_enum_decoding_impls: HashMap<Ident, KnownOriginalEnumDecodingImpl>,
     pending_enum_impls: Vec<PendingEnumImpl>,
     pending_enum_display_impls: Vec<PendingEnumDisplayImpl>,
-    known_enum_operands_impls: HashMap<Ident, KnownEnumOperandsImpl>,
     pending_enum_operands_impls: Vec<PendingEnumOperandsImpl>,
     known_enum_csr_impls: HashMap<Ident, KnownEnumCsrImpl>,
     pending_enum_csr_impls: Vec<PendingEnumCsrImpl>,
@@ -91,7 +84,6 @@ impl State {
             known_original_enum_decoding_impls: HashMap::new(),
             pending_enum_impls: Vec::new(),
             pending_enum_display_impls: Vec::new(),
-            known_enum_operands_impls: HashMap::new(),
             pending_enum_operands_impls: Vec::new(),
             known_enum_csr_impls: HashMap::new(),
             pending_enum_csr_impls: Vec::new(),
@@ -112,13 +104,6 @@ impl State {
         enum_name: &Ident,
     ) -> Option<&KnownOriginalEnumDecodingImpl> {
         self.known_original_enum_decoding_impls.get(enum_name)
-    }
-
-    pub(super) fn get_known_enum_operands_impl(
-        &self,
-        enum_name: &Ident,
-    ) -> Option<&KnownEnumOperandsImpl> {
-        self.known_enum_operands_impls.get(enum_name)
     }
 
     pub(super) fn get_known_enum_csr_impl(&self, enum_name: &Ident) -> Option<&KnownEnumCsrImpl> {
@@ -185,33 +170,6 @@ impl State {
                 source.display(),
                 entry.get().item_impl,
                 item_impl,
-            ));
-        }
-
-        Ok(())
-    }
-
-    pub(super) fn insert_known_enum_operands_impl(
-        &mut self,
-        item_impl: ItemImpl,
-        source: Rc<Path>,
-    ) -> anyhow::Result<()> {
-        let enum_name = enum_name_from_impl(&item_impl);
-
-        if let Err(OccupiedError { entry, value }) = self.known_enum_operands_impls.try_insert(
-            enum_name.clone(),
-            KnownEnumOperandsImpl {
-                item_impl,
-                source: source.clone(),
-            },
-        ) && entry.get().item_impl != value.item_impl
-        {
-            return Err(anyhow::anyhow!(
-                "Execution operands implementation for enum `{}` is already defined in `{}`, a \
-                different duplicate found in `{}`",
-                enum_name,
-                entry.get().source.display(),
-                source.display(),
             ));
         }
 
