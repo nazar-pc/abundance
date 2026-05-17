@@ -61,11 +61,20 @@ where
 }
 
 #[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for AbundanceRv64IMaxInstructionPrototype<Reg> {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for AbundanceRv64IMaxInstructionPrototype<Reg>
+{
+}
+
+#[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for AbundanceRv64IMaxInstructionPrototype<Reg>
 where
-    Reg: Register<Type = u64>,
+    Reg: Register,
 {
     fn execute(
         self,

@@ -6,8 +6,8 @@ pub mod zve64x_config_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::{
-    CsrError, ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands,
+    CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
+    ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -15,17 +15,14 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg> ExecutableInstructionOperands for Zve64xConfigInstruction<Reg> where Reg: Register {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Zve64xConfigInstruction<Reg>
 where
     Reg: Register,
-    Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Debug,
+    ExtState: Csrs<Reg, CustomError>,
 {
     /// Validate reads to vector CSRs from Zicsr instructions.
     ///
@@ -105,7 +102,21 @@ where
             Ok(false)
         }
     }
+}
 
+#[instruction_execution]
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Zve64xConfigInstruction<Reg>
+where
+    Reg: Register,
+    Regs: RegisterFile<Reg>,
+    ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); ExtState::ELEN as usize]:,
+    [(); ExtState::VLEN as usize]:,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Debug,
+{
     #[inline(always)]
     fn execute(
         self,

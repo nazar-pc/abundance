@@ -129,15 +129,20 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Processes `#[instruction_execution]` attribute on enum execution implementation.
 ///
-/// It must be applied to enum, whose definition is already annotated with `#[instruction]` macro.
+/// It must be applied to implementation of traits `ExecutableInstructionOperands`,
+/// `ExecutableInstructionCsr` and `ExecutableInstruction`, whose definition is already annotated
+/// with `#[instruction]` macro.
 ///
-/// Similarly to that macro, this macro will process the contents of the `ExecutableInstruction`
-/// trait implementation. `execute()`, `prepare_csr_read()` and `prepare_csr_write()` methods will
-/// end up containing both inherited and own execution logic according to the ordering set in
-/// `#[instruction]`. `get_rs1_rs2_operands()` method will be generated from scratch.
+/// Similarly to that macro, this macro will process the contents of trait implementations.
 ///
-/// There are constraints on the `execute()` method body, it must have one or both (but nothing
-/// else) of the following:
+/// `ExecutableInstructionOperands::get_rs1_rs2_operands()` method will be generated from scratch.
+///
+/// `ExecutableInstruction::execute()`, `ExecutableInstructionCsr::prepare_csr_read()` and
+/// `ExecutableInstructionCsr::prepare_csr_write()` methods will end up containing both inherited
+/// and own execution logic according to the ordering set in `#[instruction]`.
+///
+/// There are constraints on the `ExecutableInstruction::execute()` method body, it must have one or
+/// both (but nothing else) of the following:
 /// * matching in the following style: `match self { Self::Variant { .. } }`
 ///   * note that `Self` must be used instead of the explicit type name, such that it works when
 ///     inherited
@@ -145,6 +150,10 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Also requires `process_instruction_macros()` in `build.rs` to function, see `#[instruction]`
 /// macro documentation.
+///
+/// `ExecutableInstructionCsr::prepare_csr_read()` and
+/// `ExecutableInstructionCsr::prepare_csr_write()` methods can't contain `return` in them,
+/// similarly to instruction decoding implementation processed by `#[instruction]` macro.
 #[proc_macro_attribute]
 pub fn instruction_execution(attr: TokenStream, item: TokenStream) -> TokenStream {
     instruction_execution::instruction_execution(attr.into(), item.into())

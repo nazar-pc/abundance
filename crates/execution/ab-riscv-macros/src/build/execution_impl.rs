@@ -4,7 +4,9 @@ mod forbidden_checker;
 use crate::build::enum_impl::enum_name_from_impl;
 use crate::build::execution_impl::extract_matches::extract_variant_arms;
 use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_syntax;
-use crate::build::state::{PendingEnumExecutionImpl, State};
+use crate::build::state::{
+    PendingEnumCsrImpl, PendingEnumExecutionImpl, PendingEnumOperandsImpl, State,
+};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use prettyplease::unparse;
@@ -16,6 +18,68 @@ use std::{env, fs, iter, mem};
 use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
+const ENUM_OPERANDS_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_OPERANDS_IMPL_PATH";
+const ENUM_CSR_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_CSR_IMPL_PATH";
+
+pub(super) fn collect_enum_operands_impls_from_dependencies()
+-> impl Iterator<Item = anyhow::Result<(ItemImpl, Rc<Path>)>> {
+    // Collect exported instruction enums from dependencies
+    env::vars().filter_map(|(key, value)| {
+        if !key.ends_with(ENUM_OPERANDS_IMPL_ENV_VAR_SUFFIX) {
+            return None;
+        }
+
+        let result = try {
+            let mut item_enum_contents = fs::read_to_string(&value).with_context(|| {
+                format!(
+                    "Failed to read Rust file `{value}` that is expected to contain instruction \
+                    enum operands implementation"
+                )
+            })?;
+            pre_process_rust_code(&mut item_enum_contents);
+            let item_impl = parse_str::<ItemImpl>(&item_enum_contents).with_context(|| {
+                format!(
+                    "Failed to parse Rust file `{value}` that is expected to contain instruction \
+                    enum operands implementation"
+                )
+            })?;
+
+            (item_impl, Rc::from(Path::new(&value)))
+        };
+
+        Some(result)
+    })
+}
+
+pub(super) fn collect_enum_csr_impls_from_dependencies()
+-> impl Iterator<Item = anyhow::Result<(ItemImpl, Rc<Path>)>> {
+    // Collect exported instruction enums from dependencies
+    env::vars().filter_map(|(key, value)| {
+        if !key.ends_with(ENUM_CSR_IMPL_ENV_VAR_SUFFIX) {
+            return None;
+        }
+
+        let result = try {
+            let mut item_enum_contents = fs::read_to_string(&value).with_context(|| {
+                format!(
+                    "Failed to read Rust file `{value}` that is expected to contain instruction \
+                    enum csr implementation"
+                )
+            })?;
+            pre_process_rust_code(&mut item_enum_contents);
+            let item_impl = parse_str::<ItemImpl>(&item_enum_contents).with_context(|| {
+                format!(
+                    "Failed to parse Rust file `{value}` that is expected to contain instruction \
+                    enum csr implementation"
+                )
+            })?;
+
+            (item_impl, Rc::from(Path::new(&value)))
+        };
+
+        Some(result)
+    })
+}
 
 pub(super) fn collect_enum_execution_impls_from_dependencies()
 -> impl Iterator<Item = anyhow::Result<(ItemImpl, Rc<Path>)>> {
@@ -119,6 +183,70 @@ fn extract_execute_fn_from_impl_mut(impl_item: &mut [ImplItem]) -> Option<&mut I
     None
 }
 
+fn output_processed_enum_operands_impl(
+    enum_name: &Ident,
+    item_impl: ItemImpl,
+    out_dir: &Path,
+    state: &mut State,
+) -> anyhow::Result<()> {
+    let enum_file_path = out_dir.join(format!("{}_operands_impl.rs", enum_name));
+    let code = item_impl.to_token_stream().to_string();
+    // Format
+    let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+    // Normalize source
+    let item_impl = parse_str(&code).expect("Generated code is valid; qed");
+    post_process_rust_code(&mut code);
+
+    // Avoid extra file truncation/override if it didn't change
+    if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
+        fs::write(&enum_file_path, code).with_context(|| {
+            format!(
+                "Failed to write generated Rust file with instruction operands implementation for \
+                `{enum_name}`",
+            )
+        })?;
+    }
+    println!(
+        "cargo::metadata={}{ENUM_OPERANDS_IMPL_ENV_VAR_SUFFIX}={}",
+        enum_name,
+        enum_file_path.display()
+    );
+
+    state.insert_known_enum_operands_impl(item_impl, Rc::from(enum_file_path))
+}
+
+fn output_processed_enum_csr_impl(
+    enum_name: &Ident,
+    item_impl: ItemImpl,
+    out_dir: &Path,
+    state: &mut State,
+) -> anyhow::Result<()> {
+    let enum_file_path = out_dir.join(format!("{}_csr_impl.rs", enum_name));
+    let code = item_impl.to_token_stream().to_string();
+    // Format
+    let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+    // Normalize source
+    let item_impl = parse_str(&code).expect("Generated code is valid; qed");
+    post_process_rust_code(&mut code);
+
+    // Avoid extra file truncation/override if it didn't change
+    if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
+        fs::write(&enum_file_path, code).with_context(|| {
+            format!(
+                "Failed to write generated Rust file with instruction csr implementation for \
+                `{enum_name}`",
+            )
+        })?;
+    }
+    println!(
+        "cargo::metadata={}{ENUM_CSR_IMPL_ENV_VAR_SUFFIX}={}",
+        enum_name,
+        enum_file_path.display()
+    );
+
+    state.insert_known_enum_csr_impl(item_impl, Rc::from(enum_file_path))
+}
+
 fn output_processed_enum_execution_impl(
     enum_name: &Ident,
     item_impl: ItemImpl,
@@ -170,8 +298,9 @@ pub(super) fn process_execution_impl(
 
     let Some((_, trait_path, _)) = &item_impl.trait_ else {
         return Some(Err(anyhow::anyhow!(
-            "Expected `#[instruction_execution] impl Instruction for {0}` or \
-            `#[instruction_execution] impl Display for {0}`, but no trait was not found",
+            "Expected  `#[instruction_execution] impl ExecutableInstructionOperands for {0}` or \
+            `#[instruction_execution] impl ExecutableInstructionCsr for {0}` or \
+            `#[instruction_execution] impl ExecutableInstruction for {0}`, but no trait was found",
             item_impl.self_ty.to_token_stream()
         )));
     };
@@ -182,7 +311,11 @@ pub(super) fn process_execution_impl(
         .expect("Path is never empty; qed");
 
     Some(
-        if last_trait_segment_path.ident == "ExecutableInstruction" {
+        if last_trait_segment_path.ident == "ExecutableInstructionOperands" {
+            process_enum_operands_impl(item_impl, out_dir, state)
+        } else if last_trait_segment_path.ident == "ExecutableInstructionCsr" {
+            process_enum_csr_impl(item_impl, out_dir, state)
+        } else if last_trait_segment_path.ident == "ExecutableInstruction" {
             process_enum_execution_impl(item_impl, out_dir, state)
         } else {
             Err(anyhow::anyhow!(
@@ -195,37 +328,120 @@ pub(super) fn process_execution_impl(
     )
 }
 
-pub(super) fn process_enum_execution_impl(
+pub(super) fn process_enum_operands_impl(
     mut item_impl: ItemImpl,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
     let enum_name = enum_name_from_impl(&item_impl);
 
-    let Some(execute_fn) = extract_execute_fn_from_impl_mut(&mut item_impl.items) else {
-        Err(anyhow::anyhow!(
-            "Unexpected `impl` for `{}`, `#[instruction_execution]` attribute must be added to a \
-            trait implementation, but no `execute` method was found",
-            item_impl.self_ty.to_token_stream()
-        ))?
+    let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
+        eprintln!("{enum_name} operands is waiting on its definition");
+        state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
+        return Ok(());
     };
-    // execute_fn.attrs.push(
-    //     parse_quote! { #[expect(clippy::type_complexity, reason = "Generic return type")] },
-    // );
-    let execute_block = &mut execute_fn.block;
+
+    let mut all_where_predicates = Vec::new();
+    {
+        let mut all_dependencies = HashSet::new();
+        all_dependencies.insert(enum_name.clone());
+        let mut new_dependencies = enum_definition.dependencies.clone();
+
+        while !new_dependencies.is_empty() {
+            for dependency_enum_name in mem::take(&mut new_dependencies) {
+                let Some(dependency_enum_definition) =
+                    state.get_known_enum_definition(&dependency_enum_name)
+                else {
+                    eprintln!(
+                        "{enum_name} operands is waiting on {dependency_enum_name} definition"
+                    );
+                    state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
+                    return Ok(());
+                };
+
+                if !all_dependencies.insert(dependency_enum_name.clone()) {
+                    continue;
+                }
+
+                let Some(dependency_enum_operands_impl) =
+                    state.get_known_enum_operands_impl(&dependency_enum_name)
+                else {
+                    eprintln!(
+                        "{enum_name} operands is waiting on {dependency_enum_name} operands implementation"
+                    );
+                    state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
+                    return Ok(());
+                };
+
+                if let Some(where_clause) = &dependency_enum_operands_impl
+                    .item_impl
+                    .generics
+                    .where_clause
+                {
+                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
+                }
+                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
+            }
+        }
+    }
+
+    {
+        let where_clause = item_impl
+            .generics
+            .where_clause
+            .get_or_insert(parse_quote! { where });
+        let mut already_inserted = where_clause
+            .predicates
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        for predicate in all_where_predicates {
+            if already_inserted.contains(&predicate) {
+                continue;
+            }
+            already_inserted.insert(predicate.clone());
+            where_clause.predicates.push(predicate);
+        }
+    }
+
+    item_impl.items.push({
+        let all_instructions = enum_definition
+            .instructions
+            .iter()
+            .map(|variant| &variant.ident);
+
+        parse_quote! {
+            #[inline(always)]
+            fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg> {
+                match self {
+                    #( Self::#all_instructions { rs1, rs2, .. } => Rs1Rs2Operands { rs1, rs2 }, )*
+                }
+            }
+        }
+    });
+
+    output_processed_enum_operands_impl(&enum_name, item_impl, out_dir, state)
+}
+
+pub(super) fn process_enum_csr_impl(
+    mut item_impl: ItemImpl,
+    out_dir: &Path,
+    state: &mut State,
+) -> anyhow::Result<()> {
+    let enum_name = enum_name_from_impl(&item_impl);
 
     let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
-        state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+        eprintln!("{enum_name} CSR is waiting on its definition");
+        state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
         return Ok(());
     };
 
     // TODO: This should be changed to recursively combine all fundamental extensions instead of
     //  combined ones instead, such that extension D that depends two extensions B and C that both
     //  depend on the same extension A will get A included in D once rather than twice. This is
-    //  caused by `get_known_enum_execution_impl` returning final extension implementation and not
+    //  caused by `get_known_enum_csr_impl` returning final extension implementation and not
     //  its original state as defined in the source code. Essentially, in addition to the final
     //  version, the original body of the implementation needs to be retained and used.
-    let mut all_execute_blocks = Vec::new();
     let mut all_prepare_csr_read_fns = Vec::new();
     let mut all_prepare_csr_write_fns = Vec::new();
     let mut all_where_predicates = Vec::new();
@@ -239,7 +455,8 @@ pub(super) fn process_enum_execution_impl(
                 let Some(dependency_enum_definition) =
                     state.get_known_enum_definition(&dependency_enum_name)
                 else {
-                    state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+                    eprintln!("{enum_name} CSR is waiting on {dependency_enum_name} definition");
+                    state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
                     return Ok(());
                 };
 
@@ -247,29 +464,25 @@ pub(super) fn process_enum_execution_impl(
                     continue;
                 }
 
-                let Some(dependency_enum_execution_impl) =
-                    state.get_known_enum_execution_impl(&dependency_enum_name)
+                let Some(dependency_enum_csr_impl) =
+                    state.get_known_enum_csr_impl(&dependency_enum_name)
                 else {
-                    state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+                    eprintln!(
+                        "{enum_name} CSR is waiting on {dependency_enum_name} CSR implementation"
+                    );
+                    state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
                     return Ok(());
                 };
 
                 all_prepare_csr_read_fns.extend(extract_prepare_csr_read_fn(
-                    &dependency_enum_execution_impl.item_impl,
+                    &dependency_enum_csr_impl.item_impl,
                 ));
                 all_prepare_csr_write_fns.extend(extract_prepare_csr_write_fn(
-                    &dependency_enum_execution_impl.item_impl,
+                    &dependency_enum_csr_impl.item_impl,
                 ));
 
-                all_execute_blocks.push(
-                    &extract_execute_fn(&dependency_enum_execution_impl.item_impl)
-                        .expect("Dependencies are all valid; qed")
-                        .block,
-                );
-                if let Some(where_clause) = &dependency_enum_execution_impl
-                    .item_impl
-                    .generics
-                    .where_clause
+                if let Some(where_clause) =
+                    &dependency_enum_csr_impl.item_impl.generics.where_clause
                 {
                     all_where_predicates.extend(where_clause.predicates.iter().cloned());
                 }
@@ -278,7 +491,11 @@ pub(super) fn process_enum_execution_impl(
         }
     }
 
-    if let Some(where_clause) = &mut item_impl.generics.where_clause {
+    {
+        let where_clause = item_impl
+            .generics
+            .where_clause
+            .get_or_insert(parse_quote! { where });
         let mut already_inserted = where_clause
             .predicates
             .iter()
@@ -291,57 +508,15 @@ pub(super) fn process_enum_execution_impl(
             already_inserted.insert(predicate.clone());
             where_clause.predicates.push(predicate);
         }
-    } else {
-        Err(anyhow::anyhow!(
-            "Missing where clause on `#[instruction_execution] impl Instruction for {enum_name}`"
-        ))?;
     }
-
-    let all_execute_blocks = all_execute_blocks
-        .into_iter()
-        .chain(iter::once(&*execute_block));
-
-    let mut all_instructions = HashMap::new();
-    for block in all_execute_blocks {
-        for maybe_instruction in extract_variant_arms(block)? {
-            let (variant_name, instruction_arm) = maybe_instruction?;
-            all_instructions.insert(variant_name, instruction_arm);
-        }
-    }
-
-    let all_instructions = enum_definition
-        .instructions
-        .iter()
-        .map(|variant| {
-            let ident = &variant.ident;
-            all_instructions
-                .remove(ident)
-                .with_context(|| {
-                    format!(
-                        "Instruction `{ident}` not found in all_instructions for enum `{enum_name}`"
-                    )
-                })
-                .map(|arm| (ident, arm))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    *execute_block = {
-        let all_instructions = all_instructions.iter().map(|(_ident, arm)| arm);
-
-        parse_quote! {{
-            match self {
-                #( #all_instructions )*
-            }
-        }}
-    };
 
     // Composition for `prepare_csr_read` method
     let maybe_prepare_csr_read_fn = extract_prepare_csr_read_fn_mut(&mut item_impl);
     if let Some(prepare_csr_read_fn) = maybe_prepare_csr_read_fn {
         (!block_contains_forbidden_syntax(&prepare_csr_read_fn.block)).ok_or_else(|| {
             anyhow::anyhow!(
-                "Expected `#[instruction_execution] impl Instruction for {enum_name}` must not \
-                have `return` in `prepare_csr_read` method"
+                "Expected `#[instruction_execution] impl ExecutableInstructionCsr for {enum_name}` \
+                must not have `return` in `prepare_csr_read` method"
             )
         })?;
 
@@ -374,8 +549,8 @@ pub(super) fn process_enum_execution_impl(
     if let Some(prepare_csr_write_fn) = maybe_prepare_csr_write_fn {
         (!block_contains_forbidden_syntax(&prepare_csr_write_fn.block)).ok_or_else(|| {
             anyhow::anyhow!(
-                "Expected `#[instruction_execution] impl Instruction for {enum_name}` must not \
-                have `return` in `prepare_csr_write` method",
+                "Expected `#[instruction_execution] impl ExecutableInstructionCsr for {enum_name}` \
+                must not have `return` in `prepare_csr_write` method",
             )
         })?;
 
@@ -413,18 +588,142 @@ pub(super) fn process_enum_execution_impl(
         )] },
     ]);
 
-    item_impl.items.push({
-        let all_instructions = all_instructions.iter().map(|(ident, _arm)| ident);
+    output_processed_enum_csr_impl(&enum_name, item_impl, out_dir, state)
+}
 
-        parse_quote! {
-            #[inline(always)]
-            fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg> {
-                match self {
-                    #( Self::#all_instructions { rs1, rs2, .. } => Rs1Rs2Operands { rs1, rs2 }, )*
+pub(super) fn process_enum_execution_impl(
+    mut item_impl: ItemImpl,
+    out_dir: &Path,
+    state: &mut State,
+) -> anyhow::Result<()> {
+    let enum_name = enum_name_from_impl(&item_impl);
+
+    let Some(execute_fn) = extract_execute_fn_from_impl_mut(&mut item_impl.items) else {
+        Err(anyhow::anyhow!(
+            "Unexpected `impl` for `{}`, `#[instruction_execution]` attribute must be added to a \
+            trait implementation, but no `execute` method was found",
+            item_impl.self_ty.to_token_stream()
+        ))?
+    };
+    let execute_block = &mut execute_fn.block;
+
+    let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
+        eprintln!("{enum_name} execution is waiting on its definition");
+        state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+        return Ok(());
+    };
+
+    let mut all_execute_blocks = Vec::new();
+    let mut all_where_predicates = Vec::new();
+    {
+        let mut all_dependencies = HashSet::new();
+        all_dependencies.insert(enum_name.clone());
+        let mut new_dependencies = enum_definition.dependencies.clone();
+
+        while !new_dependencies.is_empty() {
+            for dependency_enum_name in mem::take(&mut new_dependencies) {
+                let Some(dependency_enum_definition) =
+                    state.get_known_enum_definition(&dependency_enum_name)
+                else {
+                    eprintln!(
+                        "{enum_name} execution is waiting on {dependency_enum_name} definition"
+                    );
+                    state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+                    return Ok(());
+                };
+
+                if !all_dependencies.insert(dependency_enum_name.clone()) {
+                    continue;
                 }
+
+                let Some(dependency_enum_execution_impl) =
+                    state.get_known_enum_execution_impl(&dependency_enum_name)
+                else {
+                    eprintln!(
+                        "{enum_name} execution is waiting on {dependency_enum_name} execution \
+                        implementation"
+                    );
+                    state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+                    return Ok(());
+                };
+
+                all_execute_blocks.push(
+                    &extract_execute_fn(&dependency_enum_execution_impl.item_impl)
+                        .expect("Dependencies are all valid; qed")
+                        .block,
+                );
+                if let Some(where_clause) = &dependency_enum_execution_impl
+                    .item_impl
+                    .generics
+                    .where_clause
+                {
+                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
+                }
+                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
             }
         }
-    });
+    }
+
+    if let Some(where_clause) = &mut item_impl.generics.where_clause {
+        let mut already_inserted = where_clause
+            .predicates
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        for predicate in all_where_predicates {
+            if already_inserted.contains(&predicate) {
+                continue;
+            }
+            already_inserted.insert(predicate.clone());
+            where_clause.predicates.push(predicate);
+        }
+    } else {
+        Err(anyhow::anyhow!(
+            "Missing where clause on `#[instruction_execution] impl ExecutableInstruction for \
+            {enum_name}`"
+        ))?;
+    }
+
+    let all_execute_blocks = all_execute_blocks
+        .into_iter()
+        .chain(iter::once(&*execute_block));
+
+    let mut all_instructions = HashMap::new();
+    for block in all_execute_blocks {
+        for maybe_instruction in extract_variant_arms(block)? {
+            let (variant_name, instruction_arm) = maybe_instruction?;
+            all_instructions.insert(variant_name, instruction_arm);
+        }
+    }
+
+    let all_instructions = enum_definition
+        .instructions
+        .iter()
+        .map(|variant| {
+            let ident = &variant.ident;
+            all_instructions.remove(ident).with_context(|| {
+                format!(
+                    "Instruction `{ident}` not found in all_instructions for enum `{enum_name}`"
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    *execute_block = parse_quote! {{
+        match self {
+            #( #all_instructions )*
+        }
+    }};
+
+    // Comments will be stripped, this will suppress some of the lints that are caused by it
+    item_impl.attrs.extend([
+        parse_quote! { #[expect(clippy::allow_attributes, reason = "Attribute below")] },
+        parse_quote! { #[allow(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Comments will be stripped, this will suppress some of the lints that are \
+            caused by it"
+        )] },
+    ]);
 
     output_processed_enum_execution_impl(&enum_name, item_impl, out_dir, state)
 }
@@ -434,28 +733,83 @@ pub(super) fn process_pending_enum_execution_impls(
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
-    let mut last_pending_enums_count = 0;
-    loop {
-        let pending_enums = state.take_pending_enum_execution_impls();
+    {
+        let mut last_pending_enums_count = 0;
+        loop {
+            let pending_enums = state.take_pending_enum_operands_impls();
 
-        if pending_enums.is_empty() {
-            break;
+            if pending_enums.is_empty() {
+                break;
+            }
+
+            if pending_enums.len() == last_pending_enums_count {
+                return Err(anyhow::anyhow!(
+                    "Failed to process instruction `#[instruction_execution]` macro on \
+                    `ExecutableInstructionOperands`, circular dependency detected, pending_enums: \
+                    {:?}",
+                    pending_enums
+                        .iter()
+                        .map(|pending_enum| enum_name_from_impl(&pending_enum.item_impl))
+                        .collect::<Vec<_>>()
+                ));
+            }
+            last_pending_enums_count = pending_enums.len();
+
+            for PendingEnumOperandsImpl { item_impl } in pending_enums {
+                process_enum_operands_impl(item_impl, out_dir, state)?;
+            }
         }
+    }
+    {
+        let mut last_pending_enums_count = 0;
+        loop {
+            let pending_enums = state.take_pending_enum_csr_impls();
 
-        if pending_enums.len() == last_pending_enums_count {
-            return Err(anyhow::anyhow!(
-                "Failed to process instruction execution macros, circular dependency detected, \
-                pending_enums: {:?}",
-                pending_enums
-                    .iter()
-                    .map(|pending_enum| enum_name_from_impl(&pending_enum.item_impl))
-                    .collect::<Vec<_>>()
-            ));
+            if pending_enums.is_empty() {
+                break;
+            }
+
+            if pending_enums.len() == last_pending_enums_count {
+                return Err(anyhow::anyhow!(
+                    "Failed to process instruction `#[instruction_execution]` macro on \
+                    `ExecutableInstructionCsr`, circular dependency detected, pending_enums: {:?}",
+                    pending_enums
+                        .iter()
+                        .map(|pending_enum| enum_name_from_impl(&pending_enum.item_impl))
+                        .collect::<Vec<_>>()
+                ));
+            }
+            last_pending_enums_count = pending_enums.len();
+
+            for PendingEnumCsrImpl { item_impl } in pending_enums {
+                process_enum_csr_impl(item_impl, out_dir, state)?;
+            }
         }
-        last_pending_enums_count = pending_enums.len();
+    }
+    {
+        let mut last_pending_enums_count = 0;
+        loop {
+            let pending_enums = state.take_pending_enum_execution_impls();
 
-        for PendingEnumExecutionImpl { item_impl } in pending_enums {
-            process_enum_execution_impl(item_impl, out_dir, state)?;
+            if pending_enums.is_empty() {
+                break;
+            }
+
+            if pending_enums.len() == last_pending_enums_count {
+                return Err(anyhow::anyhow!(
+                    "Failed to process instruction `#[instruction_execution]` macro on \
+                    `ExecutableInstruction`, circular dependency detected, pending_enums: {:?}",
+                    pending_enums
+                        .iter()
+                        .map(|pending_enum| enum_name_from_impl(&pending_enum.item_impl))
+                        .collect::<Vec<_>>()
+                ));
+            }
+            last_pending_enums_count = pending_enums.len();
+
+            for PendingEnumExecutionImpl { item_impl } in pending_enums {
+                process_enum_execution_impl(item_impl, out_dir, state)?;
+            }
         }
     }
 

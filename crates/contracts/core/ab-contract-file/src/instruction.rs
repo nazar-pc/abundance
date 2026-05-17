@@ -303,11 +303,20 @@ where
 }
 
 #[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for ContractInstruction<Reg> {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for ContractInstruction<Reg>
+{
+}
+
+#[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for ContractInstruction<Reg>
 where
-    Reg: Register<Type = u64>,
+    Reg: Register,
 {
     #[inline(always)]
     fn execute(

@@ -1,6 +1,4 @@
 use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
-use crate::interpreter::{Act4Memory, Act4SystemHandler};
-use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
@@ -95,14 +93,7 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
 
     fn process_csr_read(&self, csr_index: u16, raw_value: u32) -> Result<u32, CsrError> {
         let mut out = 0;
-        if !<AbundanceRv32IMaxInstruction as ExecutableInstruction<
-            BasicRegisters<<AbundanceRv32IMaxInstruction as Instruction>::Reg>,
-            Self,
-            Act4Memory<0, 0>,
-            BasicInstructionFetcher<AbundanceRv32IMaxInstruction>,
-            Act4SystemHandler,
-        >>::prepare_csr_read(self, csr_index, raw_value, &mut out)?
-        {
+        if !AbundanceRv32IMaxInstruction::prepare_csr_read(self, csr_index, raw_value, &mut out)? {
             return Err(CsrError::IllegalRead { csr_index });
         }
 
@@ -111,13 +102,7 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
 
     fn process_csr_write(&mut self, csr_index: u16, write_value: u32) -> Result<u32, CsrError> {
         let mut out = 0;
-        if !<AbundanceRv32IMaxInstruction as ExecutableInstruction<
-            BasicRegisters<<AbundanceRv32IMaxInstruction as Instruction>::Reg>,
-            Self,
-            Act4Memory<0, 0>,
-            BasicInstructionFetcher<AbundanceRv32IMaxInstruction>,
-            Act4SystemHandler,
-        >>::prepare_csr_write(self, csr_index, write_value, &mut out)?
+        if !AbundanceRv32IMaxInstruction::prepare_csr_write(self, csr_index, write_value, &mut out)?
         {
             return Err(CsrError::IllegalWrite { csr_index });
         }

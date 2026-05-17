@@ -29,7 +29,8 @@ pub use crate::v::zve64x::widen_narrow::zve64x_widen_narrow_helpers;
 pub use crate::v::zve64x::zve64x_helpers;
 pub use crate::zicsr::zicsr_helpers;
 pub use crate::{
-    BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
+    ExecutableInstructionOperands, ExecutionError, FetchInstructionResult, InstructionFetcher,
+    ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
