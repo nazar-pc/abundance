@@ -1,15 +1,12 @@
-use crate::basic::BasicRegisters;
-use crate::rv64::test_utils::{
-    ExtState, TEST_BASE_ADDR, TestInstructionFetcher, TestInstructionHandler, TestInterpreterState,
-    TestMemory, initialize_state,
-};
+use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
-    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    VirtualMemory,
+    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 use core::array;
+
 // With TEST_VLEN=128 and TEST_VLENB=16, the VLMAX values are:
 //   E8/M1=16, E16/M1=8, E32/M1=4, E64/M1=2
 //   E8/M2=32, E16/M2=16, E32/M2=8, E64/M2=4
@@ -79,13 +76,7 @@ fn exec_one(
     state: &mut TestInterpreterState<Zve64xLoadInstruction<Reg<u64>>>,
     instr: Zve64xLoadInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
-    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
-        BasicRegisters<_>,
-        ExtState,
-        TestMemory,
-        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
-        TestInstructionHandler,
-    >>::get_rs1_rs2_operands(instr);
+    let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
         rs1_value: state.regs.read(rs1),
         rs2_value: state.regs.read(rs2),

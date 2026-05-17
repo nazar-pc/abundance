@@ -380,7 +380,7 @@ where
 
     /// Process CSR read.
     ///
-    /// Must proxy calls to [`ExecutableInstruction::prepare_csr_read()`] of the root instruction
+    /// Must proxy calls to [`ExecutableInstructionCsr::prepare_csr_read()`] of the root instruction
     /// and return the output value on success. The method is present on `Csrs` to break cycles in
     /// the type system.
     fn process_csr_read(
@@ -391,8 +391,8 @@ where
 
     /// Process CSR write.
     ///
-    /// Must proxy calls to [`ExecutableInstruction::prepare_csr_write()`] of the root instruction
-    /// and return the output value on success.
+    /// Must proxy calls to [`ExecutableInstructionCsr::prepare_csr_write()`] of the root
+    /// instruction and return the output value on success.
     /// The method is present on `Csrs` to break cycles in the type system.
     fn process_csr_write(
         &mut self,
@@ -471,15 +471,20 @@ pub struct Rs1Rs2OperandValues<RegType> {
     pub rs2_value: RegType,
 }
 
-/// Trait for executable instructions
-pub trait ExecutableInstruction<
-    Regs,
-    ExtState,
-    Memory,
-    PC,
-    InstructionHandler,
-    CustomError = CustomErrorPlaceholder,
-> where
+/// `rs1`/`rs2` instruction operands
+pub trait ExecutableInstructionOperands
+where
+    Self: Instruction,
+{
+    /// `rs1`/`rs2` instruction operands.
+    ///
+    /// Returns zero register for `rs1`/`rs2` that were missing in the original instruction
+    /// definition.
+    fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
+}
+
+pub trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
+where
     Self: Instruction,
 {
     /// Prepare CSR read.
@@ -539,13 +544,19 @@ pub trait ExecutableInstruction<
         // The default implementation is to not allow anything
         Ok(false)
     }
+}
 
-    /// `rs1`/`rs2` instruction operands.
-    ///
-    /// Returns zero register for `rs1`/rs2` that were missing in the original instruction
-    /// definition.
-    fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
-
+/// Trait for executable instructions
+pub trait ExecutableInstruction<
+    Regs,
+    ExtState,
+    Memory,
+    PC,
+    InstructionHandler,
+    CustomError = CustomErrorPlaceholder,
+> where
+    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<ExtState, CustomError>,
+{
     /// Execute instruction.
     ///
     /// Instructions might place additional constraints on `ExtState` to require additional

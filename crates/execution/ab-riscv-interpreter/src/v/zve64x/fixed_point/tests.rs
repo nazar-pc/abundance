@@ -1,12 +1,9 @@
-use crate::basic::BasicRegisters;
-use crate::rv64::test_utils::{
-    ExtState, TestInstructionFetcher, TestInstructionHandler, TestInterpreterState, TestMemory,
-    initialize_state,
-};
+use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zve64x::arith::zve64x_arith_helpers::sign_extend;
 use crate::{
-    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
 
@@ -43,13 +40,7 @@ fn exec(
     state: &mut TestInterpreterState<Zve64xFixedPointInstruction<Reg<u64>>>,
     instr: Zve64xFixedPointInstruction<Reg<u64>>,
 ) -> Result<(), ExecutionError<u64>> {
-    let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
-        BasicRegisters<_>,
-        ExtState,
-        TestMemory,
-        TestInstructionFetcher<Zve64xWidenNarrowInstruction<_>>,
-        TestInstructionHandler,
-    >>::get_rs1_rs2_operands(instr);
+    let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
         rs1_value: state.regs.read(rs1),
         rs2_value: state.regs.read(rs2),

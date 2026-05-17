@@ -8,13 +8,24 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::load::zve64x_load_helpers;
 use crate::v::zve64x::zve64x_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, VirtualMemory,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for Zve64xStoreInstruction<Reg> where Reg: Register {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for Zve64xStoreInstruction<Reg>
+where
+    Reg: Register,
+{
+}
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>

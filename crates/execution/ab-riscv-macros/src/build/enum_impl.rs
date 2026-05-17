@@ -240,7 +240,7 @@ pub(super) fn process_enum_impl(
     let Some((_, trait_path, _)) = &item_impl.trait_ else {
         return Some(Err(anyhow::anyhow!(
             "Expected `#[instruction] impl Instruction for {0}` or \
-            `#[instruction] impl Display for {0}`, but no trait was not found",
+            `#[instruction] impl Display for {0}`, but no trait was found",
             item_impl.self_ty.to_token_stream()
         )));
     };
@@ -688,7 +688,7 @@ pub(super) fn process_pending_enum_impls(out_dir: &Path, state: &mut State) -> a
 
             if pending_enums.len() == last_pending_enums_count {
                 return Err(anyhow::anyhow!(
-                    "Failed to process instruction macros, circular dependency detected, \
+                    "Failed to process `#[instruction]` macro, circular dependency detected, \
                     pending_enums: {:?}",
                     pending_enums
                         .iter()
@@ -714,7 +714,7 @@ pub(super) fn process_pending_enum_impls(out_dir: &Path, state: &mut State) -> a
 
             if pending_enums.len() == last_pending_enums_count {
                 return Err(anyhow::anyhow!(
-                    "Failed to process instruction macros, circular dependency detected, \
+                    "Failed to process `#[instruction]` macro, circular dependency detected, \
                     pending_enums: {:?}",
                     pending_enums
                         .iter()

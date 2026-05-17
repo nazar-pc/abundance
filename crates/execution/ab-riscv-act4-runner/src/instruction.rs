@@ -47,8 +47,10 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg> ExecutableInstructionOperands for MachineModePlaceholder<Reg> where Reg: Register {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for MachineModePlaceholder<Reg>
 where
     Reg: Register,
@@ -86,7 +88,15 @@ where
             Ok(false)
         }
     }
+}
 
+#[instruction_execution]
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for MachineModePlaceholder<Reg>
+where
+    Reg: Register,
+{
     fn execute(
         self,
         Rs1Rs2OperandValues {

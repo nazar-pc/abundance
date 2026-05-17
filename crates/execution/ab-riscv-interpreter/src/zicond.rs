@@ -4,11 +4,23 @@
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for ZicondInstruction<Reg> where Reg: Register {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for ZicondInstruction<Reg>
+where
+    Reg: Register,
+{
+}
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>

@@ -2,11 +2,23 @@
 
 use crate::rv64::b::zbc::rv64_zbc_helpers;
 use crate::{
-    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for Rv64ZbkcInstruction<Reg> where Reg: Register<Type = u64> {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for Rv64ZbkcInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+{
+}
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>

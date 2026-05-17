@@ -1,7 +1,5 @@
 #![expect(unreachable_pub, reason = "Macro requirements and generated code")]
 
-use crate::interpreter::{EagerInstructionFetcher, GuestMemory};
-use ab_riscv_interpreter::basic::{BasicRegisters, IgnoreEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
@@ -52,13 +50,7 @@ impl Csrs<Reg<u64>> for TimeCsrState {
 
     fn process_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
         let mut out = 0;
-        if !<TimeCsrInstruction<Reg<u64>> as ExecutableInstruction<
-            BasicRegisters<<TimeCsrInstruction<Reg<u64>> as Instruction>::Reg>,
-            Self,
-            GuestMemory<0, 0>,
-            EagerInstructionFetcher,
-            IgnoreEcallSystemInstructionHandler,
-        >>::prepare_csr_read(self, csr_index, raw_value, &mut out)?
+        if !<TimeCsrInstruction<Reg<u64>>>::prepare_csr_read(self, csr_index, raw_value, &mut out)?
         {
             return Err(CsrError::IllegalRead { csr_index });
         }
@@ -68,14 +60,12 @@ impl Csrs<Reg<u64>> for TimeCsrState {
 
     fn process_csr_write(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
         let mut out = 0;
-        if !<TimeCsrInstruction<Reg<u64>> as ExecutableInstruction<
-            BasicRegisters<<TimeCsrInstruction<Reg<u64>> as Instruction>::Reg>,
-            Self,
-            GuestMemory<0, 0>,
-            EagerInstructionFetcher,
-            IgnoreEcallSystemInstructionHandler,
-        >>::prepare_csr_write(self, csr_index, write_value, &mut out)?
-        {
+        if !<TimeCsrInstruction<Reg<u64>>>::prepare_csr_write(
+            self,
+            csr_index,
+            write_value,
+            &mut out,
+        )? {
             return Err(CsrError::IllegalWrite { csr_index });
         }
 
@@ -132,13 +122,14 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg> ExecutableInstructionOperands for TimeCsrInstruction<Reg> where Reg: Register {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for TimeCsrInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
-    CustomError: fmt::Debug,
 {
     fn prepare_csr_read(
         ext_state: &ExtState,
@@ -171,7 +162,17 @@ where
             Ok(false)
         }
     }
+}
 
+#[instruction_execution]
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for TimeCsrInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+    ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
+    CustomError: fmt::Debug,
+{
     fn execute(
         self,
         Rs1Rs2OperandValues {

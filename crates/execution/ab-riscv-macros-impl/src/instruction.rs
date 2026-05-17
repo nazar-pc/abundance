@@ -37,8 +37,8 @@ fn process_enum_impl(item_impl: ItemImpl) -> Result<TokenStream, Error> {
         return Err(Error::new(
             item_impl.span(),
             format!(
-                "Expected `impl` for `{}`, `#[instruction]` attribute must be added to a simple \
-                instruction enum implementation",
+                "Expected `impl` for `{}`, `#[instruction]` attribute must be added to enum trait \
+                implementation",
                 item_impl.self_ty.to_token_stream(),
             ),
         ));
@@ -56,7 +56,7 @@ fn process_enum_impl(item_impl: ItemImpl) -> Result<TokenStream, Error> {
             item_impl.span(),
             format!(
                 "Expected `#[instruction] impl Instruction for {0}` or \
-                `#[instruction] impl Display for {0}`, but no trait was not found",
+                `#[instruction] impl Display for {0}`, but no trait was found",
                 item_impl.self_ty.to_token_stream()
             ),
         ));

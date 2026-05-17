@@ -403,13 +403,7 @@ fn run_rv32i_max_test(
             }
         };
 
-        let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
-            BasicRegisters<_>,
-            AbundanceRv32IMaxExtState,
-            Act4Memory<RAM_BASE, RAM_SIZE>,
-            BasicInstructionFetcher<AbundanceRv32IMaxInstruction>,
-            Act4SystemHandler,
-        >>::get_rs1_rs2_operands(instruction);
+        let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
         let rs1rs2_values = Rs1Rs2OperandValues {
             rs1_value: state.regs.read(rs1),
             rs2_value: state.regs.read(rs2),
@@ -542,13 +536,7 @@ fn run_rv64i_max_test(
             }
         };
 
-        let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
-            BasicRegisters<_>,
-            AbundanceRv64IMaxExtState,
-            Act4Memory<RAM_BASE, RAM_SIZE>,
-            BasicInstructionFetcher<AbundanceRv64IMaxInstruction>,
-            Act4SystemHandler,
-        >>::get_rs1_rs2_operands(instruction);
+        let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
         let rs1rs2_values = Rs1Rs2OperandValues {
             rs1_value: state.regs.read(rs1),
             rs2_value: state.regs.read(rs2),

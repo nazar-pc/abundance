@@ -5,12 +5,27 @@ pub mod rv32_zcmp_helpers;
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for Rv32ZcmpInstruction<Reg> where
+    Reg: ZcmpRegister<Type = u32>
+{
+}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for Rv32ZcmpInstruction<Reg>
+where
+    Reg: ZcmpRegister<Type = u32>,
+{
+}
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>

@@ -15,8 +15,8 @@ pub(super) fn instruction_execution(
         Error::new(
             error.span(),
             format!(
-                "`#[instruction_execution]` must be applied to enum implementation: {error}: {}",
-                item
+                "`#[instruction_execution]` must be applied to enum trait implementation: \
+                {error}: {item}"
             ),
         )
     })?;
@@ -25,8 +25,8 @@ pub(super) fn instruction_execution(
         return Err(Error::new(
             item_impl.span(),
             format!(
-                "Expected `impl` for `{}`, `#[instruction_execution]` attribute must be added to a \
-                simple instruction enum implementation",
+                "Expected `impl` for `{}`, `#[instruction_execution]` attribute must be added to \
+                enum trait implementation",
                 item_impl.self_ty.to_token_stream(),
             ),
         ));
@@ -38,10 +38,55 @@ pub(super) fn instruction_execution(
         .expect("Path is never empty; qed")
         .ident
         .clone();
-    let enum_file_path = format!("/{}_execution_impl.rs", enum_name);
 
-    // Replace enum implementation with a processed impl stored in a Rust file
-    Ok(quote! {
-        include!(concat!(env!("OUT_DIR"), #enum_file_path));
-    })
+    let Some((_, trait_path, _)) = &item_impl.trait_ else {
+        return Err(Error::new(
+            item_impl.span(),
+            format!(
+                "Expected `#[instruction_execution] impl ExecutableInstructionOperands for {0}` or \
+                `#[instruction_execution] impl ExecutableInstructionCsr for {0}` or \
+                `#[instruction_execution] impl ExecutableInstruction for {0}`, but no trait was \
+                found",
+                item_impl.self_ty.to_token_stream()
+            ),
+        ));
+    };
+
+    let last_trait_segment_path = trait_path
+        .segments
+        .last()
+        .expect("Path is never empty; qed");
+
+    if last_trait_segment_path.ident == "ExecutableInstructionOperands" {
+        let enum_file_path = format!("/{}_operands_impl.rs", enum_name);
+
+        // Replace enum implementation with a processed impl stored in a Rust file
+        Ok(quote! {
+            include!(concat!(env!("OUT_DIR"), #enum_file_path));
+        })
+    } else if last_trait_segment_path.ident == "ExecutableInstructionCsr" {
+        let enum_file_path = format!("/{}_csr_impl.rs", enum_name);
+
+        // Replace enum implementation with a processed impl stored in a Rust file
+        Ok(quote! {
+            include!(concat!(env!("OUT_DIR"), #enum_file_path));
+        })
+    } else if last_trait_segment_path.ident == "ExecutableInstruction" {
+        let enum_file_path = format!("/{}_execution_impl.rs", enum_name);
+
+        // Replace enum implementation with a processed impl stored in a Rust file
+        Ok(quote! {
+            include!(concat!(env!("OUT_DIR"), #enum_file_path));
+        })
+    } else {
+        Err(Error::new(
+            item_impl.span(),
+            format!(
+                "Expected `impl` for `{}`, `#[instruction_execution]` attribute must be added to a \
+                trait implementation, but trait `{}` is not supported",
+                item_impl.self_ty.to_token_stream(),
+                last_trait_segment_path.ident
+            ),
+        ))
+    }
 }

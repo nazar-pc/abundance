@@ -5,11 +5,23 @@ pub mod rv32_zknh_helpers;
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for Rv32ZknhInstruction<Reg> where Reg: Register<Type = u32> {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for Rv32ZknhInstruction<Reg>
+where
+    Reg: Register<Type = u32>,
+{
+}
 
 #[instruction_execution]
 impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>

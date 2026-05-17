@@ -78,13 +78,7 @@ where
             }
         };
 
-        let Rs1Rs2Operands { rs1, rs2 } = <_ as ExecutableInstruction<
-            Regs,
-            TimeCsrState,
-            Memory,
-            IF,
-            IgnoreEcallSystemInstructionHandler,
-        >>::get_rs1_rs2_operands(instruction);
+        let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
         let rs1rs2_values = Rs1Rs2OperandValues {
             rs1_value: state.regs.read(rs1),
             rs2_value: state.regs.read(rs2),
