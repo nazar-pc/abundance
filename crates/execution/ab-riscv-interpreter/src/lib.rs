@@ -56,6 +56,7 @@
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
+    bool_to_result,
     const_cmp,
     const_convert,
     const_default,
@@ -378,27 +379,50 @@ where
     /// Writes register value
     fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>>;
 
+    // TODO: Remove this method once tests do not need to customize it
     /// Process CSR read.
     ///
     /// Must proxy calls to [`ExecutableInstructionCsr::prepare_csr_read()`] of the root instruction
-    /// and return the output value on success. The method is present on `Csrs` to break cycles in
-    /// the type system.
-    fn process_csr_read(
+    /// and return the output value on success. The default implementation of the method should be
+    /// fine most of the time but can be overridden in special cases or for testing purposes.
+    #[doc(hidden)]
+    fn process_csr_read<I>(
         &self,
         csr_index: u16,
         raw_value: Reg::Type,
-    ) -> Result<Reg::Type, CsrError<CustomError>>;
+    ) -> Result<Reg::Type, CsrError<CustomError>>
+    where
+        I: ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
+    {
+        let mut out = Reg::Type::default();
+        I::prepare_csr_read(self, csr_index, raw_value, &mut out)?
+            .ok_or(CsrError::IllegalRead { csr_index })?;
 
+        Ok(out)
+    }
+
+    // TODO: Remove this method once tests do not need to customize it
     /// Process CSR write.
     ///
     /// Must proxy calls to [`ExecutableInstructionCsr::prepare_csr_write()`] of the root
-    /// instruction and return the output value on success.
-    /// The method is present on `Csrs` to break cycles in the type system.
-    fn process_csr_write(
+    /// instruction and return the output value on success. The default implementation of the method
+    /// should be fine most of the time but can be overridden in special cases or for testing
+    /// purposes.
+    #[doc(hidden)]
+    fn process_csr_write<I>(
         &mut self,
         csr_index: u16,
         write_value: Reg::Type,
-    ) -> Result<Reg::Type, CsrError<CustomError>>;
+    ) -> Result<Reg::Type, CsrError<CustomError>>
+    where
+        I: ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
+    {
+        let mut out = Reg::Type::default();
+        I::prepare_csr_write(self, csr_index, write_value, &mut out)?
+            .ok_or(CsrError::IllegalWrite { csr_index })?;
+
+        Ok(out)
+    }
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
@@ -486,6 +510,7 @@ where
 pub trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
 where
     Self: Instruction,
+    ExtState: ?Sized,
 {
     /// Prepare CSR read.
     ///

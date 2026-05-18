@@ -69,11 +69,11 @@ where
                 // Per spec: if `rd == x0`, the CSR read (and its side effects) must not occur
                 if rd != Reg::ZERO {
                     let raw_value = ext_state.read_csr(csr_index)?;
-                    let output_value = ext_state.process_csr_read(csr_index, raw_value)?;
+                    let output_value = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
                     regs.write(rd, output_value);
                 }
 
-                let output_value = ext_state.process_csr_write(csr_index, write_value)?;
+                let output_value = ext_state.process_csr_write::<Self>(csr_index, write_value)?;
                 ext_state.write_csr(csr_index, output_value)?;
             }
 
@@ -89,12 +89,13 @@ where
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
                 let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if rs1 != Reg::ZERO {
                     let write_value = raw_value | rs1_value;
-                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    let write_output =
+                        ext_state.process_csr_write::<Self>(csr_index, write_value)?;
                     ext_state.write_csr(csr_index, write_output)?;
                 }
             }
@@ -111,12 +112,13 @@ where
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
                 let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if rs1 != Reg::ZERO {
                     let write_value = raw_value & !rs1_value;
-                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    let write_output =
+                        ext_state.process_csr_write::<Self>(csr_index, write_value)?;
                     ext_state.write_csr(csr_index, write_output)?;
                 }
             }
@@ -137,11 +139,11 @@ where
 
                 if rd != Reg::ZERO {
                     let raw_value = ext_state.read_csr(csr_index)?;
-                    let output_value = ext_state.process_csr_read(csr_index, raw_value)?;
+                    let output_value = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
                     regs.write(rd, output_value);
                 }
 
-                let output_value = ext_state.process_csr_write(csr_index, zimm.into())?;
+                let output_value = ext_state.process_csr_write::<Self>(csr_index, zimm.into())?;
                 ext_state.write_csr(csr_index, output_value)?;
             }
 
@@ -161,12 +163,13 @@ where
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
                 let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if zimm != 0 {
                     let write_value = raw_value | Reg::Type::from(zimm);
-                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    let write_output =
+                        ext_state.process_csr_write::<Self>(csr_index, write_value)?;
                     ext_state.write_csr(csr_index, write_output)?;
                 }
             }
@@ -187,12 +190,13 @@ where
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
                 let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if zimm != 0 {
                     let write_value = raw_value & !Reg::Type::from(zimm);
-                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    let write_output =
+                        ext_state.process_csr_write::<Self>(csr_index, write_value)?;
                     ext_state.write_csr(csr_index, write_output)?;
                 }
             }
