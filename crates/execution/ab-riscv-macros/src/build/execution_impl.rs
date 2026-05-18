@@ -4,6 +4,7 @@ mod forbidden_checker;
 use crate::build::enum_impl::enum_name_from_impl;
 use crate::build::execution_impl::extract_matches::extract_variant_arms;
 use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_syntax;
+use crate::build::shared_impl::collect_all_dependencies;
 use crate::build::state::{
     PendingEnumCsrImpl, PendingEnumExecutionImpl, PendingEnumOperandsImpl, State,
 };
@@ -14,7 +15,7 @@ use quote::ToTokens;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
-use std::{env, fs, iter, mem};
+use std::{env, fs, iter};
 use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
@@ -304,48 +305,35 @@ pub(super) fn process_enum_operands_impl(
         return Ok(());
     };
 
-    let mut all_where_predicates = Vec::new();
-    {
-        let mut all_dependencies = HashSet::new();
-        all_dependencies.insert(enum_name.clone());
-        let mut new_dependencies = enum_definition.dependencies.clone();
-
-        while !new_dependencies.is_empty() {
-            for dependency_enum_name in mem::take(&mut new_dependencies) {
-                let Some(dependency_enum_definition) =
-                    state.get_known_enum_definition(&dependency_enum_name)
-                else {
-                    eprintln!(
-                        "{enum_name} operands is waiting on {dependency_enum_name} definition"
-                    );
-                    state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
-                    return Ok(());
-                };
-
-                if !all_dependencies.insert(dependency_enum_name.clone()) {
-                    continue;
-                }
-
-                let Some(dependency_enum_operands_impl) =
-                    state.get_known_original_enum_decoding_impl(&dependency_enum_name)
-                else {
-                    eprintln!(
-                        "{enum_name} operands is waiting on {dependency_enum_name} decoding \
-                        implementation"
-                    );
-                    state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
-                    return Ok(());
-                };
-
-                if let Some(where_clause) = &dependency_enum_operands_impl
-                    .item_impl
-                    .generics
-                    .where_clause
-                {
-                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
-                }
-                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
+    let all_dependencies =
+        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
+            Ok(all_dependencies) => all_dependencies,
+            Err(dependency_enum_name) => {
+                eprintln!("{enum_name} operands is waiting on {dependency_enum_name} definition");
+                state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
+                return Ok(());
             }
+        };
+
+    let mut all_where_predicates = Vec::new();
+
+    for (dependency_enum_name, _dependency_enum_definition) in all_dependencies {
+        let Some(dependency_enum_operands_impl) =
+            state.get_known_original_enum_decoding_impl(&dependency_enum_name)
+        else {
+            eprintln!(
+                "{enum_name} operands is waiting on {dependency_enum_name} decoding implementation"
+            );
+            state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
+            return Ok(());
+        };
+
+        if let Some(where_clause) = &dependency_enum_operands_impl
+            .item_impl
+            .generics
+            .where_clause
+        {
+            all_where_predicates.extend(where_clause.predicates.iter().cloned());
         }
     }
 
@@ -400,58 +388,43 @@ pub(super) fn process_enum_csr_impl(
         return Ok(());
     };
 
+    let all_dependencies =
+        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
+            Ok(all_dependencies) => all_dependencies,
+            Err(dependency_enum_name) => {
+                eprintln!("{enum_name} CSR is waiting on {dependency_enum_name} definition");
+                state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
+                return Ok(());
+            }
+        };
+
+    let mut all_prepare_csr_read_fns = Vec::new();
+    let mut all_prepare_csr_write_fns = Vec::new();
+    let mut all_where_predicates = Vec::new();
+
     // TODO: This should be changed to recursively combine all fundamental extensions instead of
     //  combined ones instead, such that extension D that depends two extensions B and C that both
     //  depend on the same extension A will get A included in D once rather than twice. This is
     //  caused by `get_known_enum_csr_impl` returning final extension implementation and not
     //  its original state as defined in the source code. Essentially, in addition to the final
     //  version, the original body of the implementation needs to be retained and used.
-    let mut all_prepare_csr_read_fns = Vec::new();
-    let mut all_prepare_csr_write_fns = Vec::new();
-    let mut all_where_predicates = Vec::new();
-    {
-        let mut all_dependencies = HashSet::new();
-        all_dependencies.insert(enum_name.clone());
-        let mut new_dependencies = enum_definition.dependencies.clone();
+    for (dependency_enum_name, _dependency_enum_definition) in all_dependencies {
+        let Some(dependency_enum_csr_impl) = state.get_known_enum_csr_impl(&dependency_enum_name)
+        else {
+            eprintln!("{enum_name} CSR is waiting on {dependency_enum_name} CSR implementation");
+            state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
+            return Ok(());
+        };
 
-        while !new_dependencies.is_empty() {
-            for dependency_enum_name in mem::take(&mut new_dependencies) {
-                let Some(dependency_enum_definition) =
-                    state.get_known_enum_definition(&dependency_enum_name)
-                else {
-                    eprintln!("{enum_name} CSR is waiting on {dependency_enum_name} definition");
-                    state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
-                    return Ok(());
-                };
+        all_prepare_csr_read_fns.extend(extract_prepare_csr_read_fn(
+            &dependency_enum_csr_impl.item_impl,
+        ));
+        all_prepare_csr_write_fns.extend(extract_prepare_csr_write_fn(
+            &dependency_enum_csr_impl.item_impl,
+        ));
 
-                if !all_dependencies.insert(dependency_enum_name.clone()) {
-                    continue;
-                }
-
-                let Some(dependency_enum_csr_impl) =
-                    state.get_known_enum_csr_impl(&dependency_enum_name)
-                else {
-                    eprintln!(
-                        "{enum_name} CSR is waiting on {dependency_enum_name} CSR implementation"
-                    );
-                    state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
-                    return Ok(());
-                };
-
-                all_prepare_csr_read_fns.extend(extract_prepare_csr_read_fn(
-                    &dependency_enum_csr_impl.item_impl,
-                ));
-                all_prepare_csr_write_fns.extend(extract_prepare_csr_write_fn(
-                    &dependency_enum_csr_impl.item_impl,
-                ));
-
-                if let Some(where_clause) =
-                    &dependency_enum_csr_impl.item_impl.generics.where_clause
-                {
-                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
-                }
-                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
-            }
+        if let Some(where_clause) = &dependency_enum_csr_impl.item_impl.generics.where_clause {
+            all_where_predicates.extend(where_clause.predicates.iter().cloned());
         }
     }
 
@@ -577,54 +550,42 @@ pub(super) fn process_enum_execution_impl(
         return Ok(());
     };
 
+    let all_dependencies =
+        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
+            Ok(all_dependencies) => all_dependencies,
+            Err(dependency_enum_name) => {
+                eprintln!("{enum_name} execution is waiting on {dependency_enum_name} definition");
+                state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+                return Ok(());
+            }
+        };
+
     let mut all_execute_blocks = Vec::new();
     let mut all_where_predicates = Vec::new();
-    {
-        let mut all_dependencies = HashSet::new();
-        all_dependencies.insert(enum_name.clone());
-        let mut new_dependencies = enum_definition.dependencies.clone();
 
-        while !new_dependencies.is_empty() {
-            for dependency_enum_name in mem::take(&mut new_dependencies) {
-                let Some(dependency_enum_definition) =
-                    state.get_known_enum_definition(&dependency_enum_name)
-                else {
-                    eprintln!(
-                        "{enum_name} execution is waiting on {dependency_enum_name} definition"
-                    );
-                    state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
-                    return Ok(());
-                };
+    for (dependency_enum_name, _dependency_enum_definition) in all_dependencies {
+        let Some(dependency_enum_execution_impl) =
+            state.get_known_enum_execution_impl(&dependency_enum_name)
+        else {
+            eprintln!(
+                "{enum_name} execution is waiting on {dependency_enum_name} execution \
+                implementation"
+            );
+            state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+            return Ok(());
+        };
 
-                if !all_dependencies.insert(dependency_enum_name.clone()) {
-                    continue;
-                }
-
-                let Some(dependency_enum_execution_impl) =
-                    state.get_known_enum_execution_impl(&dependency_enum_name)
-                else {
-                    eprintln!(
-                        "{enum_name} execution is waiting on {dependency_enum_name} execution \
-                        implementation"
-                    );
-                    state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
-                    return Ok(());
-                };
-
-                all_execute_blocks.push(
-                    &extract_execute_fn(&dependency_enum_execution_impl.item_impl)
-                        .expect("Dependencies are all valid; qed")
-                        .block,
-                );
-                if let Some(where_clause) = &dependency_enum_execution_impl
-                    .item_impl
-                    .generics
-                    .where_clause
-                {
-                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
-                }
-                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
-            }
+        all_execute_blocks.push(
+            &extract_execute_fn(&dependency_enum_execution_impl.item_impl)
+                .expect("Dependencies are all valid; qed")
+                .block,
+        );
+        if let Some(where_clause) = &dependency_enum_execution_impl
+            .item_impl
+            .generics
+            .where_clause
+        {
+            all_where_predicates.extend(where_clause.predicates.iter().cloned());
         }
     }
 
