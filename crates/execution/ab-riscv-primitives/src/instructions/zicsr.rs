@@ -12,12 +12,12 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZicsrInstruction<Reg> {
-    Csrrw { rd: Reg, rs1: Reg, csr: u16 },
-    Csrrs { rd: Reg, rs1: Reg, csr: u16 },
-    Csrrc { rd: Reg, rs1: Reg, csr: u16 },
-    Csrrwi { rd: Reg, zimm: u8, csr: u16 },
-    Csrrsi { rd: Reg, zimm: u8, csr: u16 },
-    Csrrci { rd: Reg, zimm: u8, csr: u16 },
+    Csrrw { rd: Reg, rs1: Reg, csr_index: u16 },
+    Csrrs { rd: Reg, rs1: Reg, csr_index: u16 },
+    Csrrc { rd: Reg, rs1: Reg, csr_index: u16 },
+    Csrrwi { rd: Reg, zimm: u8, csr_index: u16 },
+    Csrrsi { rd: Reg, zimm: u8, csr_index: u16 },
+    Csrrci { rd: Reg, zimm: u8, csr_index: u16 },
 }
 
 #[instruction]
@@ -44,7 +44,7 @@ where
                         Some(Self::Csrrw {
                             rd,
                             rs1,
-                            csr: csr_bits,
+                            csr_index: csr_bits,
                         })
                     }
                     0b010 => {
@@ -52,7 +52,7 @@ where
                         Some(Self::Csrrs {
                             rd,
                             rs1,
-                            csr: csr_bits,
+                            csr_index: csr_bits,
                         })
                     }
                     0b011 => {
@@ -60,23 +60,23 @@ where
                         Some(Self::Csrrc {
                             rd,
                             rs1,
-                            csr: csr_bits,
+                            csr_index: csr_bits,
                         })
                     }
                     0b101 => Some(Self::Csrrwi {
                         rd,
                         zimm: rs1_bits,
-                        csr: csr_bits,
+                        csr_index: csr_bits,
                     }),
                     0b110 => Some(Self::Csrrsi {
                         rd,
                         zimm: rs1_bits,
-                        csr: csr_bits,
+                        csr_index: csr_bits,
                     }),
                     0b111 => Some(Self::Csrrci {
                         rd,
                         zimm: rs1_bits,
-                        csr: csr_bits,
+                        csr_index: csr_bits,
                     }),
                     _ => None,
                 }
@@ -103,12 +103,24 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Csrrw { rd, rs1, csr } => write!(f, "csrrw {rd}, {csr}, {rs1}"),
-            Self::Csrrs { rd, rs1, csr } => write!(f, "csrrs {rd}, {csr}, {rs1}"),
-            Self::Csrrc { rd, rs1, csr } => write!(f, "csrrc {rd}, {csr}, {rs1}"),
-            Self::Csrrwi { rd, zimm, csr } => write!(f, "csrrwi {rd}, {csr}, {zimm}"),
-            Self::Csrrsi { rd, zimm, csr } => write!(f, "csrrsi {rd}, {csr}, {zimm}"),
-            Self::Csrrci { rd, zimm, csr } => write!(f, "csrrci {rd}, {csr}, {zimm}"),
+            Self::Csrrw { rd, rs1, csr_index } => write!(f, "csrrw {rd}, {csr_index}, {rs1}"),
+            Self::Csrrs { rd, rs1, csr_index } => write!(f, "csrrs {rd}, {csr_index}, {rs1}"),
+            Self::Csrrc { rd, rs1, csr_index } => write!(f, "csrrc {rd}, {csr_index}, {rs1}"),
+            Self::Csrrwi {
+                rd,
+                zimm,
+                csr_index,
+            } => write!(f, "csrrwi {rd}, {csr_index}, {zimm}"),
+            Self::Csrrsi {
+                rd,
+                zimm,
+                csr_index,
+            } => write!(f, "csrrsi {rd}, {csr_index}, {zimm}"),
+            Self::Csrrci {
+                rd,
+                zimm,
+                csr_index,
+            } => write!(f, "csrrci {rd}, {csr_index}, {zimm}"),
         }
     }
 }

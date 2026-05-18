@@ -90,25 +90,6 @@ impl Csrs<<AbundanceRv64IMaxInstruction as Instruction>::Reg> for AbundanceRv64I
         *slot = value;
         Ok(())
     }
-
-    fn process_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
-        let mut out = 0;
-        if !AbundanceRv64IMaxInstruction::prepare_csr_read(self, csr_index, raw_value, &mut out)? {
-            return Err(CsrError::IllegalRead { csr_index });
-        }
-
-        Ok(out)
-    }
-
-    fn process_csr_write(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
-        let mut out = 0;
-        if !AbundanceRv64IMaxInstruction::prepare_csr_write(self, csr_index, write_value, &mut out)?
-        {
-            return Err(CsrError::IllegalWrite { csr_index });
-        }
-
-        Ok(out)
-    }
 }
 
 impl VectorRegistersBase for AbundanceRv64IMaxExtState {

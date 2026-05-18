@@ -24,11 +24,6 @@ impl const RegisterFile<ContractRegister> for ContractRegisters {
 
     #[inline(always)]
     fn write(&mut self, reg: ContractRegister, value: u64) {
-        if reg == ContractRegister::Zero {
-            // Writes are ignored
-            return;
-        }
-
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(usize::from(reg as u8)) } = value;
     }

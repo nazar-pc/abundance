@@ -5,10 +5,10 @@ use crate::v::vector_registers::{
     VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
 };
 use crate::{
-    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
+    ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
+    ProgramCounterError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -352,11 +352,17 @@ impl Csrs<Reg<u64>> for ExtState {
         Ok(())
     }
 
-    fn process_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
+    fn process_csr_read<I>(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError>
+    where
+        I: ExecutableInstructionCsr<Self, Reg = Reg<u64>>,
+    {
         (self.csr.prepare_csr_read)(csr_index, raw_value)
     }
 
-    fn process_csr_write(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
+    fn process_csr_write<I>(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError>
+    where
+        I: ExecutableInstructionCsr<Self, Reg = Reg<u64>>,
+    {
         (self.csr.prepare_csr_write)(csr_index, write_value)
     }
 }

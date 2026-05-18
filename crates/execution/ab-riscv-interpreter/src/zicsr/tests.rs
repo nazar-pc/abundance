@@ -57,7 +57,7 @@ fn test_csrrw_reads_old_value_into_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -78,7 +78,7 @@ fn test_csrrw_writes_rs1_to_csr() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -99,7 +99,7 @@ fn test_csrrw_rd_zero_skips_read_no_side_effects() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::Zero,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -121,7 +121,7 @@ fn test_csrrw_all_ones() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -143,7 +143,7 @@ fn test_csrrw_overwrites_completely() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -169,7 +169,7 @@ fn test_csrrs_reads_old_value_into_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -190,7 +190,7 @@ fn test_csrrs_sets_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -211,7 +211,7 @@ fn test_csrrs_rs1_zero_no_write() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -232,7 +232,7 @@ fn test_csrrs_idempotent_when_bits_already_set() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -261,7 +261,7 @@ fn test_csrrc_reads_old_value_into_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -282,7 +282,7 @@ fn test_csrrc_clears_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -304,7 +304,7 @@ fn test_csrrc_rs1_zero_no_write() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -325,7 +325,7 @@ fn test_csrrc_clears_all_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -349,7 +349,7 @@ fn test_csrrc_idempotent_when_bits_already_clear() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -372,7 +372,7 @@ fn test_csrrwi_reads_old_value_into_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A2,
         zimm: 0b11111,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -393,7 +393,7 @@ fn test_csrrwi_writes_zimm_zero_extended() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A2,
         zimm: 0b11111,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -418,7 +418,7 @@ fn test_csrrwi_rd_zero_skips_read() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::Zero,
         zimm: 0b00101,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -440,7 +440,7 @@ fn test_csrrwi_zimm_zero_writes_zero() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A1,
         zimm: 0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -462,7 +462,7 @@ fn test_csrrwi_max_zimm() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A1,
         zimm: 31,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -485,7 +485,7 @@ fn test_csrrsi_reads_old_value_into_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 0b00001,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -506,7 +506,7 @@ fn test_csrrsi_sets_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 0b00111,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -527,7 +527,7 @@ fn test_csrrsi_zimm_zero_no_write() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -549,7 +549,7 @@ fn test_csrrsi_does_not_clear_existing_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 0b10101,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -578,7 +578,7 @@ fn test_csrrci_reads_old_value_into_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 0b00001,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -599,7 +599,7 @@ fn test_csrrci_clears_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 0b11111,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -627,7 +627,7 @@ fn test_csrrci_zimm_zero_no_write() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -649,7 +649,7 @@ fn test_csrrci_does_not_set_new_bits() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 0b10101,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -670,7 +670,7 @@ fn test_csrrci_partial_clear() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 0b01010,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -694,7 +694,7 @@ fn test_csrrs_rd_zero_still_reads_no_gp_write() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::Zero,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -716,7 +716,7 @@ fn test_csrrc_rd_zero_still_reads_no_gp_write() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::Zero,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -740,7 +740,7 @@ fn test_csrrw_rd_rs1_alias() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A0,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -762,7 +762,7 @@ fn test_csrrs_rd_rs1_alias() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A0,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -784,7 +784,7 @@ fn test_csrrc_rd_rs1_alias() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A0,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -808,7 +808,7 @@ fn test_csrrw_read_only_csr_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RO_CSR, 0x1234);
@@ -829,7 +829,7 @@ fn test_csrrwi_read_only_csr_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -849,7 +849,7 @@ fn test_csrrs_read_only_csr_with_nonzero_rs1_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RO_CSR, 0x1234);
@@ -870,7 +870,7 @@ fn test_csrrc_read_only_csr_with_nonzero_rs1_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RO_CSR, 0x1234);
@@ -891,7 +891,7 @@ fn test_csrrsi_read_only_csr_with_nonzero_zimm_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -911,7 +911,7 @@ fn test_csrrci_read_only_csr_with_nonzero_zimm_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 1,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -934,7 +934,7 @@ fn test_csrrs_read_only_csr_with_rs1_zero_is_legal() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RO_CSR, 0xABCD);
@@ -953,7 +953,7 @@ fn test_csrrc_read_only_csr_with_rs1_zero_is_legal() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RO_CSR, 0xABCD);
@@ -972,7 +972,7 @@ fn test_csrrsi_read_only_csr_with_zimm_zero_is_legal() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 0,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -992,7 +992,7 @@ fn test_csrrci_read_only_csr_with_zimm_zero_is_legal() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 0,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1014,7 +1014,7 @@ fn test_csrrw_last_writable_address_succeeds() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: LAST_WRITABLE_CSR,
+        csr_index: LAST_WRITABLE_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(LAST_WRITABLE_CSR, 0x10);
@@ -1035,7 +1035,7 @@ fn test_csrrw_first_read_only_address_is_rejected() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: RO_CSR,
+        csr_index: RO_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RO_CSR, 0x10);
@@ -1072,7 +1072,7 @@ fn test_priv_user_csr_accessible_from_user_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -1090,7 +1090,7 @@ fn test_priv_user_csr_accessible_from_supervisor_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -1110,7 +1110,7 @@ fn test_priv_user_csr_accessible_from_machine_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);
@@ -1130,7 +1130,7 @@ fn test_priv_supervisor_csr_rejected_from_user_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: S_CSR,
+        csr_index: S_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(S_CSR, 0xDEAD);
@@ -1149,7 +1149,7 @@ fn test_priv_supervisor_csr_accessible_from_supervisor_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: S_CSR,
+        csr_index: S_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(S_CSR, 0);
@@ -1169,7 +1169,7 @@ fn test_priv_supervisor_csr_accessible_from_machine_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: S_CSR,
+        csr_index: S_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(S_CSR, 0);
@@ -1189,7 +1189,7 @@ fn test_priv_machine_csr_rejected_from_user_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: M_CSR,
+        csr_index: M_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(M_CSR, 0xDEAD);
@@ -1208,7 +1208,7 @@ fn test_priv_machine_csr_rejected_from_supervisor_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: M_CSR,
+        csr_index: M_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(M_CSR, 0xDEAD);
@@ -1229,7 +1229,7 @@ fn test_priv_machine_csr_accessible_from_machine_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: M_CSR,
+        csr_index: M_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(M_CSR, 0);
@@ -1251,7 +1251,7 @@ fn test_priv_check_fires_before_csr_is_read_or_written() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: S_CSR,
+        csr_index: S_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(S_CSR, 0xBEEF);
@@ -1275,7 +1275,7 @@ fn test_csrrs_privilege_check() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: M_CSR,
+        csr_index: M_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(M_CSR, 0xDEAD);
@@ -1295,7 +1295,7 @@ fn test_csrrc_privilege_check() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: M_CSR,
+        csr_index: M_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(M_CSR, 0xDEAD);
@@ -1315,7 +1315,7 @@ fn test_csrrwi_privilege_check() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
-        csr: M_CSR,
+        csr_index: M_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1334,7 +1334,7 @@ fn test_csrrsi_privilege_check() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
-        csr: S_CSR,
+        csr_index: S_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1353,7 +1353,7 @@ fn test_csrrci_privilege_check() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 1,
-        csr: S_CSR,
+        csr_index: S_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1375,7 +1375,7 @@ fn test_reserved_privilege_csr_rejected_from_supervisor_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: RESERVED_PRIV_CSR,
+        csr_index: RESERVED_PRIV_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RESERVED_PRIV_CSR, 0xDEAD);
@@ -1396,7 +1396,7 @@ fn test_reserved_privilege_csr_rejected_from_user_mode() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: RESERVED_PRIV_CSR,
+        csr_index: RESERVED_PRIV_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(RESERVED_PRIV_CSR, 0xDEAD);
@@ -1415,7 +1415,7 @@ fn test_reserved_privilege_csr() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
-        csr: RESERVED_PRIV_CSR,
+        csr_index: RESERVED_PRIV_CSR,
         rs2: Reg::Zero,
     }]);
     // Do not initialize unknown CSR
@@ -1440,7 +1440,7 @@ fn test_csrrw_prepare_read_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD);
@@ -1459,7 +1459,7 @@ fn test_csrrw_rd_zero_prepare_write_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::Zero,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD);
@@ -1479,7 +1479,7 @@ fn test_csrrs_prepare_read_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD);
@@ -1498,7 +1498,7 @@ fn test_csrrs_prepare_write_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD);
@@ -1518,7 +1518,7 @@ fn test_csrrc_prepare_read_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD);
@@ -1537,7 +1537,7 @@ fn test_csrrc_prepare_write_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD);
@@ -1557,7 +1557,7 @@ fn test_csrrwi_prepare_read_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1576,7 +1576,7 @@ fn test_csrrwi_prepare_write_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::Zero,
         zimm: 1,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1596,7 +1596,7 @@ fn test_csrrsi_prepare_read_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1615,7 +1615,7 @@ fn test_csrrsi_prepare_write_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1635,7 +1635,7 @@ fn test_csrrci_prepare_read_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 1,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1654,7 +1654,7 @@ fn test_csrrci_prepare_write_error_is_propagated() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 1,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1676,7 +1676,7 @@ fn test_csrrw_unknown_csr_returns_error() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: UNKNOWN_CSR,
+        csr_index: UNKNOWN_CSR,
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0x1234u64);
@@ -1689,7 +1689,7 @@ fn test_csrrs_unknown_csr_returns_error() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: UNKNOWN_CSR,
+        csr_index: UNKNOWN_CSR,
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0x1u64);
@@ -1702,7 +1702,7 @@ fn test_csrrc_unknown_csr_returns_error() {
     let mut state = initialize_state([ZicsrInstruction::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: UNKNOWN_CSR,
+        csr_index: UNKNOWN_CSR,
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0x1u64);
@@ -1715,7 +1715,7 @@ fn test_csrrwi_unknown_csr_returns_error() {
     let mut state = initialize_state([ZicsrInstruction::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
-        csr: UNKNOWN_CSR,
+        csr_index: UNKNOWN_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1728,7 +1728,7 @@ fn test_csrrsi_unknown_csr_returns_error() {
     let mut state = initialize_state([ZicsrInstruction::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
-        csr: UNKNOWN_CSR,
+        csr_index: UNKNOWN_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1741,7 +1741,7 @@ fn test_csrrci_unknown_csr_returns_error() {
     let mut state = initialize_state([ZicsrInstruction::Csrrci {
         rd: Reg::A2,
         zimm: 1,
-        csr: UNKNOWN_CSR,
+        csr_index: UNKNOWN_CSR,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -1757,7 +1757,7 @@ fn test_prepare_csr_read_filtered_value_reaches_rd() {
     let mut state = initialize_state([ZicsrInstruction::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0xDEAD_BEEF_1234_5678u64);
@@ -1776,7 +1776,7 @@ fn test_prepare_csr_write_filtered_value_reaches_csr() {
     let mut state = initialize_state([ZicsrInstruction::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        csr: U_CSR,
+        csr_index: U_CSR,
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_csr(U_CSR, 0);

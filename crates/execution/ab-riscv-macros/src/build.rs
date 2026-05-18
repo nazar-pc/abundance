@@ -13,8 +13,7 @@ use crate::build::enum_impl::{
 };
 use crate::build::execution_impl::{
     collect_enum_csr_impls_from_dependencies, collect_enum_execution_impls_from_dependencies,
-    collect_enum_operands_impls_from_dependencies, process_execution_impl,
-    process_pending_enum_execution_impls,
+    process_execution_impl, process_pending_enum_execution_impls,
 };
 use crate::build::state::State;
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
@@ -47,10 +46,6 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
     for maybe_enum_impl in collect_original_enum_decoding_impls_from_dependencies() {
         let (item_impl, source) = maybe_enum_impl?;
         state.insert_known_original_enum_decoding_impl(item_impl, source)?;
-    }
-    for maybe_enum_operands_impl in collect_enum_operands_impls_from_dependencies() {
-        let (item_impl, source) = maybe_enum_operands_impl?;
-        state.insert_known_enum_operands_impl(item_impl, source)?;
     }
     for maybe_enum_csr_impl in collect_enum_csr_impls_from_dependencies() {
         let (item_impl, source) = maybe_enum_csr_impl?;

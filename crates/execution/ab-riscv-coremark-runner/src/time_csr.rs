@@ -47,30 +47,6 @@ impl Csrs<Reg<u64>> for TimeCsrState {
     fn write_csr(&mut self, _csr_index: u16, _value: u64) -> Result<(), CsrError> {
         Ok(())
     }
-
-    fn process_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
-        let mut out = 0;
-        if !<TimeCsrInstruction<Reg<u64>>>::prepare_csr_read(self, csr_index, raw_value, &mut out)?
-        {
-            return Err(CsrError::IllegalRead { csr_index });
-        }
-
-        Ok(out)
-    }
-
-    fn process_csr_write(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
-        let mut out = 0;
-        if !<TimeCsrInstruction<Reg<u64>>>::prepare_csr_write(
-            self,
-            csr_index,
-            write_value,
-            &mut out,
-        )? {
-            return Err(CsrError::IllegalWrite { csr_index });
-        }
-
-        Ok(out)
-    }
 }
 
 impl TimeCsrState {
@@ -86,7 +62,9 @@ impl TimeCsrState {
     inherit = [ZicsrInstruction],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TimeCsrInstruction<Reg> {}
+// TODO: Do something in the generated code that requires an import and suppresses this naturally
+#[expect(dead_code, reason = "Used as a dependency below, so not truly unused")]
+pub(crate) enum TimeCsrInstruction<Reg> {}
 
 #[instruction]
 impl<Reg> const Instruction for TimeCsrInstruction<Reg>

@@ -18,38 +18,7 @@ use std::{env, fs, iter, mem};
 use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
-const ENUM_OPERANDS_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_OPERANDS_IMPL_PATH";
 const ENUM_CSR_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_CSR_IMPL_PATH";
-
-pub(super) fn collect_enum_operands_impls_from_dependencies()
--> impl Iterator<Item = anyhow::Result<(ItemImpl, Rc<Path>)>> {
-    // Collect exported instruction enums from dependencies
-    env::vars().filter_map(|(key, value)| {
-        if !key.ends_with(ENUM_OPERANDS_IMPL_ENV_VAR_SUFFIX) {
-            return None;
-        }
-
-        let result = try {
-            let mut item_enum_contents = fs::read_to_string(&value).with_context(|| {
-                format!(
-                    "Failed to read Rust file `{value}` that is expected to contain instruction \
-                    enum operands implementation"
-                )
-            })?;
-            pre_process_rust_code(&mut item_enum_contents);
-            let item_impl = parse_str::<ItemImpl>(&item_enum_contents).with_context(|| {
-                format!(
-                    "Failed to parse Rust file `{value}` that is expected to contain instruction \
-                    enum operands implementation"
-                )
-            })?;
-
-            (item_impl, Rc::from(Path::new(&value)))
-        };
-
-        Some(result)
-    })
-}
 
 pub(super) fn collect_enum_csr_impls_from_dependencies()
 -> impl Iterator<Item = anyhow::Result<(ItemImpl, Rc<Path>)>> {
@@ -187,15 +156,14 @@ fn output_processed_enum_operands_impl(
     enum_name: &Ident,
     item_impl: ItemImpl,
     out_dir: &Path,
-    state: &mut State,
 ) -> anyhow::Result<()> {
     let enum_file_path = out_dir.join(format!("{}_operands_impl.rs", enum_name));
     let code = item_impl.to_token_stream().to_string();
     // Format
     let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
-    // Normalize source
-    let item_impl = parse_str(&code).expect("Generated code is valid; qed");
     post_process_rust_code(&mut code);
+    // This is a hack for pulling generics from decoding impl, which is `const`
+    let code = code.replace("[const] ", "");
 
     // Avoid extra file truncation/override if it didn't change
     if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
@@ -206,13 +174,8 @@ fn output_processed_enum_operands_impl(
             )
         })?;
     }
-    println!(
-        "cargo::metadata={}{ENUM_OPERANDS_IMPL_ENV_VAR_SUFFIX}={}",
-        enum_name,
-        enum_file_path.display()
-    );
 
-    state.insert_known_enum_operands_impl(item_impl, Rc::from(enum_file_path))
+    Ok(())
 }
 
 fn output_processed_enum_csr_impl(
@@ -364,10 +327,11 @@ pub(super) fn process_enum_operands_impl(
                 }
 
                 let Some(dependency_enum_operands_impl) =
-                    state.get_known_enum_operands_impl(&dependency_enum_name)
+                    state.get_known_original_enum_decoding_impl(&dependency_enum_name)
                 else {
                     eprintln!(
-                        "{enum_name} operands is waiting on {dependency_enum_name} operands implementation"
+                        "{enum_name} operands is waiting on {dependency_enum_name} decoding \
+                        implementation"
                     );
                     state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
                     return Ok(());
@@ -420,7 +384,7 @@ pub(super) fn process_enum_operands_impl(
         }
     });
 
-    output_processed_enum_operands_impl(&enum_name, item_impl, out_dir, state)
+    output_processed_enum_operands_impl(&enum_name, item_impl, out_dir)
 }
 
 pub(super) fn process_enum_csr_impl(
