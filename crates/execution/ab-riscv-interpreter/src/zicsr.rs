@@ -53,49 +53,49 @@ where
             //
             // Reads old CSR value into rd (unless `rd == x0`, in which case no read side effects
             // occur per spec), then writes `rs1` unconditionally.
-            Self::Csrrw { rd, rs1: _, csr } => {
-                let csr_is_read_only = (csr >> 10) == 0b11;
+            Self::Csrrw {
+                rd,
+                rs1: _,
+                csr_index,
+            } => {
+                let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if csr_is_read_only {
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly {
-                        csr_index: csr,
-                    }));
+                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
-                zicsr_helpers::check_csr_privilege_level(ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
                 let write_value = rs1_value;
 
                 // Per spec: if `rd == x0`, the CSR read (and its side effects) must not occur
                 if rd != Reg::ZERO {
-                    let raw_value = ext_state.read_csr(csr)?;
-                    let output_value = ext_state.process_csr_read(csr, raw_value)?;
+                    let raw_value = ext_state.read_csr(csr_index)?;
+                    let output_value = ext_state.process_csr_read(csr_index, raw_value)?;
                     regs.write(rd, output_value);
                 }
 
-                let output_value = ext_state.process_csr_write(csr, write_value)?;
-                ext_state.write_csr(csr, output_value)?;
+                let output_value = ext_state.process_csr_write(csr_index, write_value)?;
+                ext_state.write_csr(csr_index, output_value)?;
             }
 
             // Atomic read and set bits in CSR.
             //
             // Always reads old value into `rd`. Writes `(old | rs1)` only if `rs1 != x0`.
             // Accessing a read-only CSR with `rs1 == x0` is legal (pure read).
-            Self::Csrrs { rd, rs1, csr } => {
-                let csr_is_read_only = (csr >> 10) == 0b11;
+            Self::Csrrs { rd, rs1, csr_index } => {
+                let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if rs1 != Reg::ZERO && csr_is_read_only {
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly {
-                        csr_index: csr,
-                    }));
+                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
-                zicsr_helpers::check_csr_privilege_level(ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr)?;
-                let read_output = ext_state.process_csr_read(csr, raw_value)?;
+                let raw_value = ext_state.read_csr(csr_index)?;
+                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if rs1 != Reg::ZERO {
                     let write_value = raw_value | rs1_value;
-                    let write_output = ext_state.process_csr_write(csr, write_value)?;
-                    ext_state.write_csr(csr, write_output)?;
+                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    ext_state.write_csr(csr_index, write_output)?;
                 }
             }
 
@@ -103,69 +103,71 @@ where
             //
             // Always reads old value into `rd`. Writes `(old & !rs1)` only if `rs1 != x0`.
             // Accessing a read-only CSR with `rs1 == x0` is legal (pure read).
-            Self::Csrrc { rd, rs1, csr } => {
-                let csr_is_read_only = (csr >> 10) == 0b11;
+            Self::Csrrc { rd, rs1, csr_index } => {
+                let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if rs1 != Reg::ZERO && csr_is_read_only {
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly {
-                        csr_index: csr,
-                    }));
+                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
-                zicsr_helpers::check_csr_privilege_level(ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr)?;
-                let read_output = ext_state.process_csr_read(csr, raw_value)?;
+                let raw_value = ext_state.read_csr(csr_index)?;
+                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if rs1 != Reg::ZERO {
                     let write_value = raw_value & !rs1_value;
-                    let write_output = ext_state.process_csr_write(csr, write_value)?;
-                    ext_state.write_csr(csr, write_output)?;
+                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    ext_state.write_csr(csr_index, write_output)?;
                 }
             }
 
             // Atomic read/write CSR immediate.
             //
             // Same `rd == x0` optimization as Csrrw. Writes zero-extended `zimm` unconditionally.
-            Self::Csrrwi { rd, zimm, csr } => {
-                let csr_is_read_only = (csr >> 10) == 0b11;
+            Self::Csrrwi {
+                rd,
+                zimm,
+                csr_index,
+            } => {
+                let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if csr_is_read_only {
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly {
-                        csr_index: csr,
-                    }));
+                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
-                zicsr_helpers::check_csr_privilege_level(ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
                 if rd != Reg::ZERO {
-                    let raw_value = ext_state.read_csr(csr)?;
-                    let output_value = ext_state.process_csr_read(csr, raw_value)?;
+                    let raw_value = ext_state.read_csr(csr_index)?;
+                    let output_value = ext_state.process_csr_read(csr_index, raw_value)?;
                     regs.write(rd, output_value);
                 }
 
-                let output_value = ext_state.process_csr_write(csr, zimm.into())?;
-                ext_state.write_csr(csr, output_value)?;
+                let output_value = ext_state.process_csr_write(csr_index, zimm.into())?;
+                ext_state.write_csr(csr_index, output_value)?;
             }
 
             // Atomic read and set bits in CSR immediate.
             //
             // Always reads old value into `rd`. Writes `(old | zimm)` only if `zimm != 0`.
             // Accessing a read-only CSR with `zimm == 0` is legal (pure read).
-            Self::Csrrsi { rd, zimm, csr } => {
-                let csr_is_read_only = (csr >> 10) == 0b11;
+            Self::Csrrsi {
+                rd,
+                zimm,
+                csr_index,
+            } => {
+                let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if zimm != 0 && csr_is_read_only {
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly {
-                        csr_index: csr,
-                    }));
+                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
-                zicsr_helpers::check_csr_privilege_level(ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr)?;
-                let read_output = ext_state.process_csr_read(csr, raw_value)?;
+                let raw_value = ext_state.read_csr(csr_index)?;
+                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if zimm != 0 {
                     let write_value = raw_value | Reg::Type::from(zimm);
-                    let write_output = ext_state.process_csr_write(csr, write_value)?;
-                    ext_state.write_csr(csr, write_output)?;
+                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    ext_state.write_csr(csr_index, write_output)?;
                 }
             }
 
@@ -173,23 +175,25 @@ where
             //
             // Always reads old value into `rd`. Writes `(old & !zimm)` only if `zimm != 0`.
             // Accessing a read-only CSR with `zimm == 0` is legal (pure read).
-            Self::Csrrci { rd, zimm, csr } => {
-                let csr_is_read_only = (csr >> 10) == 0b11;
+            Self::Csrrci {
+                rd,
+                zimm,
+                csr_index,
+            } => {
+                let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if zimm != 0 && csr_is_read_only {
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly {
-                        csr_index: csr,
-                    }));
+                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
-                zicsr_helpers::check_csr_privilege_level(ext_state, csr)?;
+                zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr)?;
-                let read_output = ext_state.process_csr_read(csr, raw_value)?;
+                let raw_value = ext_state.read_csr(csr_index)?;
+                let read_output = ext_state.process_csr_read(csr_index, raw_value)?;
                 regs.write(rd, read_output);
 
                 if zimm != 0 {
                     let write_value = raw_value & !Reg::Type::from(zimm);
-                    let write_output = ext_state.process_csr_write(csr, write_value)?;
-                    ext_state.write_csr(csr, write_output)?;
+                    let write_output = ext_state.process_csr_write(csr_index, write_value)?;
+                    ext_state.write_csr(csr_index, write_output)?;
                 }
             }
         }
