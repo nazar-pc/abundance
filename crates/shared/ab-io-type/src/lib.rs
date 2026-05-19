@@ -52,7 +52,7 @@
 //!
 //! Does not require a standard library (`no_std`) or an allocator.
 
-#![expect(incomplete_features, reason = "generic_const_exprs")]
+#![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
     cast_maybe_uninit,
     const_block_items,
@@ -63,7 +63,9 @@
     const_split_off_first_last,
     const_trait_impl,
     const_try,
-    generic_const_exprs,
+    generic_const_args,
+    generic_const_items,
+    min_generic_const_args,
     ptr_as_uninit
 )]
 #![no_std]
