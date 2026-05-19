@@ -241,7 +241,6 @@ exit = "allow"
 field_scoped_visibility_modifiers = "allow"
 float_arithmetic = "allow"
 float_cmp = "allow"
-from_iter_instead_of_collect = "allow"
 get_unwrap = "allow"
 iter_over_hash_type = "allow"
 infinite_loop = "allow"
@@ -283,8 +282,6 @@ as_conversions = "allow"
 cast_possible_truncation = "allow"
 cast_ptr_alignment = "allow"
 indexing_slicing = "allow"
-# TODO: Currently used for very context-specific workarounds for `generic_const_exprs` that would be awkward to rewrite
-items_after_statements = "allow"
 missing_assert_message = "allow"
 missing_inline_in_public_items = "allow"
 return_self_not_must_use = "allow"
@@ -300,14 +297,10 @@ elidable_lifetime_names = "allow"
 non_zero_suggestions = "allow"
 # TODO: False-positives: https://github.com/rust-lang/rust-clippy/issues/17043
 redundant_type_annotations = "allow"
-# TODO: Waiting on https://github.com/paritytech/parity-scale-codec/pull/820 or https://github.com/rust-lang/rust-clippy/issues/17198
-ref_patterns = "allow"
 # TODO: Waiting on https://github.com/paritytech/parity-scale-codec/pull/820 or https://github.com/rust-lang/rust-clippy/issues/17199
 semicolon_if_nothing_returned = "allow"
 # TODO: False-positives: https://github.com/rust-lang/rust-clippy/issues/11024
 tests_outside_test_module = "allow"
-# TODO: False-positives: https://github.com/rust-lang/rust-clippy/issues/17202
-unnecessary_box_returns = "allow"
 # TODO: Re-enable once false-positive is resolved: https://github.com/rust-lang/rust-clippy/issues/17039
 unnecessary_safety_comment = "allow"
 # TODO: https://github.com/rust-lang/rust-clippy/issues/5368#issuecomment-4665479346

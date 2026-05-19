@@ -114,7 +114,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 return None;
             }
 
-            let mut num_elements = [0; size_of::<u16>()];
+            let mut num_elements = [0; const { size_of::<u16>() }];
             (metadata, _) = copy_n_bytes(metadata, &mut num_elements, size_of::<u16>())?;
             let num_elements = u16::from_le_bytes(num_elements) as u32;
 
@@ -136,7 +136,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 return None;
             }
 
-            let mut num_elements = [0; size_of::<u32>()];
+            let mut num_elements = [0; const { size_of::<u32>() }];
             (metadata, _) = copy_n_bytes(metadata, &mut num_elements, size_of::<u32>())?;
             let num_elements = u32::from_le_bytes(num_elements);
 
@@ -173,7 +173,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 return None;
             }
 
-            let mut num_bytes = [0; size_of::<u16>()];
+            let mut num_bytes = [0; const { size_of::<u16>() }];
             (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
             let num_bytes = u16::from_le_bytes(num_bytes) as u32;
 
@@ -184,7 +184,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 return None;
             }
 
-            let mut num_bytes = [0; size_of::<u32>()];
+            let mut num_bytes = [0; const { size_of::<u32>() }];
             (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>())?;
             let num_bytes = u32::from_le_bytes(num_bytes);
 
@@ -232,7 +232,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 return None;
             }
 
-            let mut num_bytes = [0; size_of::<u16>()];
+            let mut num_bytes = [0; const { size_of::<u16>() }];
             (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
             let num_bytes = u16::from_le_bytes(num_bytes) as u32;
 
