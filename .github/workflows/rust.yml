@@ -15,10 +15,14 @@ env:
   # Not needed in CI, should make things a bit faster
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-  # Build smaller artifacts to avoid running out of space in CI and make it a bit faster
-  RUSTFLAGS: -C strip=symbols
+  # Build smaller artifacts to avoid running out of space in CI and make it a bit faster.
+  # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
+  #  needed for some crates due to `-Znext-solver=globally`
+  RUSTFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -C strip=symbols
   # Needed for things like file system access
-  MIRIFLAGS: -Zmiri-disable-isolation
+  # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
+  #  needed for some crates due to `-Znext-solver=globally`
+  MIRIFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -Zmiri-disable-isolation
   RUST_BACKTRACE: full
 
 jobs:
@@ -97,7 +101,8 @@ jobs:
       - &riscv-support-step
         name: RISC-V support
         run: |
-          echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
+          # TODO: Everything after `-Zbuild-std` is a workaround to get `-Znext-solver=globally` working with cross-compilation
+          echo "command=${{ env.command }} -Zbuild-std -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=[\"-Znext-solver=globally\"]'" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
           echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
