@@ -18,7 +18,7 @@ pub struct Slot {
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
-pub struct NativeToken {}
+pub struct NativeToken;
 
 #[contract]
 impl Fungible for NativeToken {

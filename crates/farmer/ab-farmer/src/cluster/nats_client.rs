@@ -468,7 +468,6 @@ impl NatsClient {
                         );
 
                         tokio::time::sleep(delay).await;
-                        continue;
                     } else {
                         return Err(error);
                     }
@@ -793,32 +792,29 @@ impl NatsClient {
         let mut response_stream = response_stream.fuse();
 
         // Pull the first element to measure response size
-        let first_element = match response_stream.next().await {
-            Some(first_element) => first_element,
-            None => {
-                if let Err(error) = self
-                    .publish(
-                        response_subject.clone(),
-                        Response::<Request>::Last {
-                            index: 0,
-                            responses: VecDeque::new(),
-                        }
-                        .encode()
-                        .into(),
-                    )
-                    .await
-                {
-                    warn!(
-                        %response_subject,
-                        %error,
-                        request_type = %type_name::<Request>(),
-                        response_type = %type_name::<Request::Response>(),
-                        "Failed to send stream response"
-                    );
-                }
-
-                return;
+        let Some(first_element) = response_stream.next().await else {
+            if let Err(error) = self
+                .publish(
+                    response_subject.clone(),
+                    Response::<Request>::Last {
+                        index: 0,
+                        responses: VecDeque::new(),
+                    }
+                    .encode()
+                    .into(),
+                )
+                .await
+            {
+                warn!(
+                    %response_subject,
+                    %error,
+                    request_type = %type_name::<Request>(),
+                    response_type = %type_name::<Request::Response>(),
+                    "Failed to send stream response"
+                );
             }
+
+            return;
         };
         let max_message_size = self.inner.max_message_size;
         let approximate_max_message_size = self.approximate_max_message_size();
@@ -897,15 +893,15 @@ impl NatsClient {
                         }
                         overflow_buffer.push_front(element);
                         continue;
-                    } else {
-                        error!(
-                            %response_subject,
-                            request_type = %type_name::<Request>(),
-                            response_type = %type_name::<Request::Response>(),
-                            "Empty response overflown message size, this should never happen"
-                        );
-                        return;
                     }
+
+                    error!(
+                        %response_subject,
+                        request_type = %type_name::<Request>(),
+                        response_type = %type_name::<Request::Response>(),
+                        "Empty response overflown message size, this should never happen"
+                    );
+                    return;
                 }
 
                 debug!(
@@ -932,12 +928,12 @@ impl NatsClient {
 
                 if is_done {
                     return;
-                } else {
-                    buffer = response.into();
-                    buffer.clear();
-                    // Fill buffer with any overflown responses that may have been stored
-                    buffer.extend(overflow_buffer.drain(..));
                 }
+
+                buffer = response.into();
+                buffer.clear();
+                // Fill buffer with any overflown responses that may have been stored
+                buffer.extend(overflow_buffer.drain(..));
 
                 if index >= 1 {
                     // Acknowledgements are received with delay

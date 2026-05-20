@@ -187,7 +187,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        let src_idx = i as u64 - offset;
+        let src_idx = u64::from(i) - offset;
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
         let val = unsafe {
             read_element_u64(
@@ -622,7 +622,9 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
             unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe { write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val) };
+        unsafe {
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+        }
     }
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();
@@ -670,7 +672,9 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
             unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe { write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val) };
+        unsafe {
+            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+        }
     }
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();

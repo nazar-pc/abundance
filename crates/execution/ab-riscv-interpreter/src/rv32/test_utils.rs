@@ -331,7 +331,6 @@ where
         )? {
             ControlFlow::Continue((rd, rd_value)) => {
                 state.regs.write(rd, rd_value);
-                continue;
             }
             ControlFlow::Break(()) => {
                 break;

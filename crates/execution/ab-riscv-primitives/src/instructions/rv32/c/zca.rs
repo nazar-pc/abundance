@@ -106,14 +106,15 @@ where
         /// ```
         #[inline(always)]
         const fn decode_cb_branch_imm(inst: u16) -> i16 {
-            let imm8 = ((inst >> 12) & 1).cast_signed();
-            let imm4_3 = ((inst >> 10) & 0b11).cast_signed();
-            let imm7_6 = ((inst >> 5) & 0b11).cast_signed();
-            let imm2_1 = ((inst >> 3) & 0b11).cast_signed();
-            let imm5 = ((inst >> 2) & 1).cast_signed();
-            let raw = (imm8 << 8) | (imm7_6 << 6) | (imm5 << 5) | (imm4_3 << 3) | (imm2_1 << 1);
+            let imm8 = ((inst >> 12u8) & 1).cast_signed();
+            let imm4_3 = ((inst >> 10u8) & 0b11).cast_signed();
+            let imm7_6 = ((inst >> 5u8) & 0b11).cast_signed();
+            let imm2_1 = ((inst >> 3u8) & 0b11).cast_signed();
+            let imm5 = ((inst >> 2u8) & 1).cast_signed();
+            let raw =
+                (imm8 << 8u8) | (imm7_6 << 6u8) | (imm5 << 5u8) | (imm4_3 << 3u8) | (imm2_1 << 1u8);
             // Sign-extend from bit 8 (9-bit immediate -> i16)
-            (raw << 7) >> 7
+            (raw << 7u8) >> 7u8
         }
 
         /// Decode CJ-type jump offset (C.J / C.JAL).
@@ -132,29 +133,29 @@ where
         /// ```
         #[inline(always)]
         const fn decode_cj_imm(inst: u16) -> i16 {
-            let imm11 = ((inst >> 12) & 1).cast_signed();
-            let imm4 = ((inst >> 11) & 1).cast_signed();
-            let imm9_8 = ((inst >> 9) & 0b11).cast_signed();
-            let imm10 = ((inst >> 8) & 1).cast_signed();
-            let imm6 = ((inst >> 7) & 1).cast_signed();
-            let imm7 = ((inst >> 6) & 1).cast_signed();
-            let imm3_1 = ((inst >> 3) & 0b111).cast_signed();
-            let imm5 = ((inst >> 2) & 1).cast_signed();
-            let raw = (imm11 << 11)
-                | (imm10 << 10)
-                | (imm9_8 << 8)
-                | (imm7 << 7)
-                | (imm6 << 6)
-                | (imm5 << 5)
-                | (imm4 << 4)
-                | (imm3_1 << 1);
+            let imm11 = ((inst >> 12u8) & 1).cast_signed();
+            let imm4 = ((inst >> 11u8) & 1).cast_signed();
+            let imm9_8 = ((inst >> 9u8) & 0b11).cast_signed();
+            let imm10 = ((inst >> 8u8) & 1).cast_signed();
+            let imm6 = ((inst >> 7u8) & 1).cast_signed();
+            let imm7 = ((inst >> 6u8) & 1).cast_signed();
+            let imm3_1 = ((inst >> 3u8) & 0b111).cast_signed();
+            let imm5 = ((inst >> 2u8) & 1).cast_signed();
+            let raw = (imm11 << 11u8)
+                | (imm10 << 10u8)
+                | (imm9_8 << 8u8)
+                | (imm7 << 7u8)
+                | (imm6 << 6u8)
+                | (imm5 << 5u8)
+                | (imm4 << 4u8)
+                | (imm3_1 << 1u8);
             // Sign-extend from bit 11 (12-bit immediate -> i16)
-            (raw << 4) >> 4
+            (raw << 4u8) >> 4u8
         }
 
         let inst = instruction as u16;
         let quadrant = inst & 0b11;
-        let funct3 = ((inst >> 13) & 0b111) as u8;
+        let funct3 = ((inst >> 13u8) & 0b111) as u8;
 
         match quadrant {
             // Quadrant 00
@@ -165,11 +166,11 @@ where
                 // nzuimm[2]    = inst[6]
                 // nzuimm[3]    = inst[5]
                 0b000 => {
-                    let imm5_4 = (inst >> 11) & 0b11;
-                    let imm9_6 = (inst >> 7) & 0xf;
-                    let imm2 = (inst >> 6) & 1;
-                    let imm3 = (inst >> 5) & 1;
-                    let nzuimm = (imm9_6 << 6) | (imm5_4 << 4) | (imm3 << 3) | (imm2 << 2);
+                    let imm5_4 = (inst >> 11u8) & 0b11;
+                    let imm9_6 = (inst >> 7u8) & 0xf;
+                    let imm2 = (inst >> 6u8) & 1;
+                    let imm3 = (inst >> 5u8) & 1;
+                    let nzuimm = (imm9_6 << 6u8) | (imm5_4 << 4u8) | (imm3 << 3u8) | (imm2 << 2u8);
                     if nzuimm == 0 {
                         if inst == 0 {
                             Some(Self::CUnimp)
@@ -178,7 +179,7 @@ where
                             None
                         }
                     } else {
-                        let rd_bits = prime_reg_bits(((inst >> 2) & 0b111) as u8);
+                        let rd_bits = prime_reg_bits(((inst >> 2u8) & 0b111) as u8);
                         let rd = Reg::from_bits(rd_bits)?;
                         Some(Self::CAddi4spn { rd, nzuimm })
                     }
@@ -186,24 +187,24 @@ where
                 // C.LW
                 // uimm[5:3] = inst[12:10], uimm[2] = inst[6], uimm[6] = inst[5]
                 0b010 => {
-                    let uimm5_3 = ((inst >> 10) & 0b111) as u8;
-                    let uimm2 = ((inst >> 6) & 1) as u8;
-                    let uimm6 = ((inst >> 5) & 1) as u8;
-                    let uimm = (uimm6 << 6) | (uimm5_3 << 3) | (uimm2 << 2);
-                    let rs1_bits = prime_reg_bits(((inst >> 7) & 0b111) as u8);
-                    let rd_bits = prime_reg_bits(((inst >> 2) & 0b111) as u8);
+                    let uimm5_3 = ((inst >> 10u8) & 0b111) as u8;
+                    let uimm2 = ((inst >> 6u8) & 1) as u8;
+                    let uimm6 = ((inst >> 5u8) & 1) as u8;
+                    let uimm = (uimm6 << 6u8) | (uimm5_3 << 3u8) | (uimm2 << 2u8);
+                    let rs1_bits = prime_reg_bits(((inst >> 7u8) & 0b111) as u8);
+                    let rd_bits = prime_reg_bits(((inst >> 2u8) & 0b111) as u8);
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     let rd = Reg::from_bits(rd_bits)?;
                     Some(Self::CLw { rd, rs1, uimm })
                 }
                 // C.SW  (same uimm layout as C.LW)
                 0b110 => {
-                    let uimm5_3 = ((inst >> 10) & 0b111) as u8;
-                    let uimm2 = ((inst >> 6) & 1) as u8;
-                    let uimm6 = ((inst >> 5) & 1) as u8;
-                    let uimm = (uimm6 << 6) | (uimm5_3 << 3) | (uimm2 << 2);
-                    let rs1_bits = prime_reg_bits(((inst >> 7) & 0b111) as u8);
-                    let rs2_bits = prime_reg_bits(((inst >> 2) & 0b111) as u8);
+                    let uimm5_3 = ((inst >> 10u8) & 0b111) as u8;
+                    let uimm2 = ((inst >> 6u8) & 1) as u8;
+                    let uimm6 = ((inst >> 5u8) & 1) as u8;
+                    let uimm = (uimm6 << 6u8) | (uimm5_3 << 3u8) | (uimm2 << 2u8);
+                    let rs1_bits = prime_reg_bits(((inst >> 7u8) & 0b111) as u8);
+                    let rs2_bits = prime_reg_bits(((inst >> 2u8) & 0b111) as u8);
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     let rs2 = Reg::from_bits(rs2_bits)?;
                     Some(Self::CSw { rs1, rs2, uimm })
@@ -221,12 +222,12 @@ where
                 // C.NOP (rd=x0) / C.ADDI (rd!=x0)
                 // nzimm[5] = inst[12], nzimm[4:0] = inst[6:2]
                 0b000 => {
-                    let rd_bits = ((inst >> 7) & 0x1f) as u8;
-                    let imm5 = ((inst >> 12) & 1) as u8;
-                    let imm4_0 = ((inst >> 2) & 0x1f) as u8;
-                    let imm_raw = (imm5 << 5) | imm4_0;
+                    let rd_bits = ((inst >> 7u8) & 0x1f) as u8;
+                    let imm5 = ((inst >> 12u8) & 1) as u8;
+                    let imm4_0 = ((inst >> 2u8) & 0x1f) as u8;
+                    let imm_raw = (imm5 << 5u8) | imm4_0;
                     // Sign-extend 6-bit immediate to i8
-                    let nzimm = ((imm_raw.cast_signed()) << 2) >> 2;
+                    let nzimm = ((imm_raw.cast_signed()) << 2u8) >> 2u8;
                     if rd_bits == 0 && nzimm == 0 {
                         Some(Self::CNop)
                     } else {
@@ -241,17 +242,17 @@ where
                 // C.LI  rd = sext(imm)  (rd=x0 is a HINT, still decoded)
                 // imm[5] = inst[12], imm[4:0] = inst[6:2]
                 0b010 => {
-                    let rd_bits = ((inst >> 7) & 0x1f) as u8;
+                    let rd_bits = ((inst >> 7u8) & 0x1f) as u8;
                     let rd = Reg::from_bits(rd_bits)?;
-                    let imm5 = ((inst >> 12) & 1) as u8;
-                    let imm4_0 = ((inst >> 2) & 0x1f) as u8;
-                    let imm_raw = (imm5 << 5) | imm4_0;
-                    let imm = ((imm_raw.cast_signed()) << 2) >> 2;
+                    let imm5 = ((inst >> 12u8) & 1) as u8;
+                    let imm4_0 = ((inst >> 2u8) & 0x1f) as u8;
+                    let imm_raw = (imm5 << 5u8) | imm4_0;
+                    let imm = ((imm_raw.cast_signed()) << 2u8) >> 2u8;
                     Some(Self::CLi { rd, imm })
                 }
                 // C.ADDI16SP (rd=x2) / C.LUI (rd!=x0, rd!=x2)
                 0b011 => {
-                    let rd_bits = ((inst >> 7) & 0x1f) as u8;
+                    let rd_bits = ((inst >> 7u8) & 0x1f) as u8;
                     if rd_bits == 2 {
                         // C.ADDI16SP
                         // nzimm[9]   = inst[12]
@@ -259,48 +260,51 @@ where
                         // nzimm[6]   = inst[5]
                         // nzimm[8:7] = inst[4:3]
                         // nzimm[5]   = inst[2]
-                        let imm9 = ((inst >> 12) & 1).cast_signed();
-                        let imm4 = ((inst >> 6) & 1).cast_signed();
-                        let imm6 = ((inst >> 5) & 1).cast_signed();
-                        let imm8_7 = ((inst >> 3) & 0b11).cast_signed();
-                        let imm5 = ((inst >> 2) & 1).cast_signed();
-                        let raw =
-                            (imm9 << 9) | (imm8_7 << 7) | (imm6 << 6) | (imm5 << 5) | (imm4 << 4);
+                        let imm9 = ((inst >> 12u8) & 1).cast_signed();
+                        let imm4 = ((inst >> 6u8) & 1).cast_signed();
+                        let imm6 = ((inst >> 5u8) & 1).cast_signed();
+                        let imm8_7 = ((inst >> 3u8) & 0b11).cast_signed();
+                        let imm5 = ((inst >> 2u8) & 1).cast_signed();
+                        let raw = (imm9 << 9u8)
+                            | (imm8_7 << 7u8)
+                            | (imm6 << 6u8)
+                            | (imm5 << 5u8)
+                            | (imm4 << 4u8);
                         if raw == 0 {
                             None?;
                         }
                         // Sign-extend from bit 9 (10-bit nzimm -> i16)
-                        let nzimm = (raw << 6) >> 6;
+                        let nzimm = (raw << 6u8) >> 6u8;
                         Some(Self::CAddi16sp { nzimm })
                     } else {
                         // C.LUI (rd=x0 is a hint, still decoded)
                         let rd = Reg::from_bits(rd_bits)?;
                         // nzimm[17]    = inst[12]
                         // nzimm[16:12] = inst[6:2]
-                        let imm17 = ((inst >> 12) & 1) as i32;
-                        let imm16_12 = ((inst >> 2) & 0x1f) as i32;
-                        let raw = (imm17 << 17) | (imm16_12 << 12);
+                        let imm17 = ((inst >> 12u8) & 1) as i32;
+                        let imm16_12 = ((inst >> 2u8) & 0x1f) as i32;
+                        let raw = (imm17 << 17u8) | (imm16_12 << 12u8);
                         if raw == 0 {
                             None?;
                         }
                         // Sign-extend from bit 17 (18-bit nzimm -> i32)
-                        let nzimm = I24::from_i32((raw << 14) >> 14);
+                        let nzimm = I24::from_i32((raw << 14u8) >> 14u8);
                         Some(Self::CLui { rd, nzimm })
                     }
                 }
                 // C.SRLI / C.SRAI / C.ANDI / arithmetic
                 // RV32: shamt is 5-bit only (inst[12] must be 0 for shifts, else reserved)
                 0b100 => {
-                    let funct2 = ((inst >> 10) & 0b11) as u8;
-                    let rd_bits = prime_reg_bits(((inst >> 7) & 0b111) as u8);
+                    let funct2 = ((inst >> 10u8) & 0b11) as u8;
+                    let rd_bits = prime_reg_bits(((inst >> 7u8) & 0b111) as u8);
                     match funct2 {
                         // C.SRLI  shamt[4:0]=inst[6:2]
                         // RV32: shamt[5]=inst[12] must be 0, else reserved (NSE)
                         // shamt=0 is a HINT, still decoded
                         0b00 => {
                             let rd = Reg::from_bits(rd_bits)?;
-                            let shamt5 = ((inst >> 12) & 1) as u8;
-                            let shamt40 = ((inst >> 2) & 0x1f) as u8;
+                            let shamt5 = ((inst >> 12u8) & 1) as u8;
+                            let shamt40 = ((inst >> 2u8) & 0x1f) as u8;
                             if shamt5 != 0 {
                                 None?;
                             }
@@ -311,8 +315,8 @@ where
                         // shamt=0 is a HINT, still decoded
                         0b01 => {
                             let rd = Reg::from_bits(rd_bits)?;
-                            let shamt5 = ((inst >> 12) & 1) as u8;
-                            let shamt40 = ((inst >> 2) & 0x1f) as u8;
+                            let shamt5 = ((inst >> 12u8) & 1) as u8;
+                            let shamt40 = ((inst >> 2u8) & 0x1f) as u8;
                             if shamt5 != 0 {
                                 None?;
                             }
@@ -321,21 +325,21 @@ where
                         // C.ANDI  imm[5]=inst[12], imm[4:0]=inst[6:2]
                         0b10 => {
                             let rd = Reg::from_bits(rd_bits)?;
-                            let imm5 = ((inst >> 12) & 1) as u8;
-                            let imm4_0 = ((inst >> 2) & 0x1f) as u8;
-                            let imm_raw = (imm5 << 5) | imm4_0;
-                            let imm = ((imm_raw.cast_signed()) << 2) >> 2;
+                            let imm5 = ((inst >> 12u8) & 1) as u8;
+                            let imm4_0 = ((inst >> 2u8) & 0x1f) as u8;
+                            let imm_raw = (imm5 << 5u8) | imm4_0;
+                            let imm = ((imm_raw.cast_signed()) << 2u8) >> 2u8;
                             Some(Self::CAndi { rd, imm })
                         }
                         // Arithmetic: only bit12=0 variants valid in RV32
                         // bit12=1 (C.SUBW/C.ADDW) does not exist in RV32, reserved
                         0b11 => {
-                            let bit12 = (inst >> 12) & 1;
+                            let bit12 = (inst >> 12u8) & 1;
                             if bit12 != 0 {
                                 None?;
                             }
-                            let funct2b = ((inst >> 5) & 0b11) as u8;
-                            let rs2_bits = prime_reg_bits(((inst >> 2) & 0b111) as u8);
+                            let funct2b = ((inst >> 5u8) & 0b11) as u8;
+                            let rs2_bits = prime_reg_bits(((inst >> 2u8) & 0b111) as u8);
                             let rd = Reg::from_bits(rd_bits)?;
                             let rs2 = Reg::from_bits(rs2_bits)?;
                             match funct2b {
@@ -355,7 +359,7 @@ where
                 }),
                 // C.BEQZ
                 0b110 => {
-                    let rs1_bits = prime_reg_bits(((inst >> 7) & 0b111) as u8);
+                    let rs1_bits = prime_reg_bits(((inst >> 7u8) & 0b111) as u8);
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     Some(Self::CBeqz {
                         rs1,
@@ -364,7 +368,7 @@ where
                 }
                 // C.BNEZ
                 0b111 => {
-                    let rs1_bits = prime_reg_bits(((inst >> 7) & 0b111) as u8);
+                    let rs1_bits = prime_reg_bits(((inst >> 7u8) & 0b111) as u8);
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     Some(Self::CBnez {
                         rs1,
@@ -380,10 +384,10 @@ where
                 // RV32: shamt[5]=inst[12] must be 0, else reserved (NSE)
                 // rd=x0 or shamt=0 is a HINT, still decoded
                 0b000 => {
-                    let rd_bits = ((inst >> 7) & 0x1f) as u8;
+                    let rd_bits = ((inst >> 7u8) & 0x1f) as u8;
                     let rd = Reg::from_bits(rd_bits)?;
-                    let shamt5 = ((inst >> 12) & 1) as u8;
-                    let shamt40 = ((inst >> 2) & 0x1f) as u8;
+                    let shamt5 = ((inst >> 12u8) & 1) as u8;
+                    let shamt40 = ((inst >> 2u8) & 0x1f) as u8;
                     if shamt5 != 0 {
                         None?;
                     }
@@ -392,24 +396,24 @@ where
                 // C.LWSP  uimm[5]=inst[12], uimm[4:2]=inst[6:4], uimm[7:6]=inst[3:2]
                 // rd=x0 is reserved
                 0b010 => {
-                    let rd_bits = ((inst >> 7) & 0x1f) as u8;
+                    let rd_bits = ((inst >> 7u8) & 0x1f) as u8;
                     if rd_bits == 0 {
                         None?;
                     }
                     let rd = Reg::from_bits(rd_bits)?;
-                    let uimm5 = ((inst >> 12) & 1) as u8;
-                    let uimm42 = ((inst >> 4) & 0b111) as u8;
-                    let uimm76 = ((inst >> 2) & 0b11) as u8;
-                    let uimm = (uimm76 << 6) | (uimm5 << 5) | (uimm42 << 2);
+                    let uimm5 = ((inst >> 12u8) & 1) as u8;
+                    let uimm42 = ((inst >> 4u8) & 0b111) as u8;
+                    let uimm76 = ((inst >> 2u8) & 0b11) as u8;
+                    let uimm = (uimm76 << 6u8) | (uimm5 << 5u8) | (uimm42 << 2u8);
                     Some(Self::CLwsp { rd, uimm })
                 }
                 // funct3=001: C.FLWSP (Zcf, not Zca) - reserved
                 // funct3=011: C.FLDSP (Zcd, not Zca) - reserved
                 // C.JR / C.MV / C.EBREAK / C.JALR / C.ADD
                 0b100 => {
-                    let rs1_bits = ((inst >> 7) & 0x1f) as u8;
-                    let rs2_bits = ((inst >> 2) & 0x1f) as u8;
-                    let bit12 = (inst >> 12) & 1;
+                    let rs1_bits = ((inst >> 7u8) & 0x1f) as u8;
+                    let rs2_bits = ((inst >> 2u8) & 0x1f) as u8;
+                    let bit12 = (inst >> 12u8) & 1;
                     if bit12 == 0 {
                         if rs2_bits == 0 {
                             // C.JR  (rs1=x0 is reserved)
@@ -442,11 +446,11 @@ where
                 }
                 // C.SWSP  uimm[5:2]=inst[12:9], uimm[7:6]=inst[8:7]
                 0b110 => {
-                    let rs2_bits = ((inst >> 2) & 0x1f) as u8;
+                    let rs2_bits = ((inst >> 2u8) & 0x1f) as u8;
                     let rs2 = Reg::from_bits(rs2_bits)?;
-                    let uimm52 = ((inst >> 9) & 0xf) as u8;
-                    let uimm76 = ((inst >> 7) & 0b11) as u8;
-                    let uimm = (uimm76 << 6) | (uimm52 << 2);
+                    let uimm52 = ((inst >> 9u8) & 0xf) as u8;
+                    let uimm76 = ((inst >> 7u8) & 0b11) as u8;
+                    let uimm = (uimm76 << 6u8) | (uimm52 << 2u8);
                     Some(Self::CSwsp { rs2, uimm })
                 }
                 // funct3=111: C.FSWSP (Zcf, not Zca) - reserved
@@ -484,7 +488,7 @@ where
             Self::CJal { imm } => write!(f, "c.jal {imm}"),
             Self::CLi { rd, imm } => write!(f, "c.li {rd}, {imm}"),
             Self::CAddi16sp { nzimm } => write!(f, "c.addi16sp sp, {nzimm}"),
-            Self::CLui { rd, nzimm } => write!(f, "c.lui {rd}, 0x{:x}", nzimm >> 12),
+            Self::CLui { rd, nzimm } => write!(f, "c.lui {rd}, 0x{:x}", nzimm >> 12u8),
             Self::CSrli { rd, shamt } => write!(f, "c.srli {rd}, {shamt}"),
             Self::CSrai { rd, shamt } => write!(f, "c.srai {rd}, {shamt}"),
             Self::CAndi { rd, imm } => write!(f, "c.andi {rd}, {imm}"),

@@ -5,7 +5,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_sha256sig0() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00010, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0010, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -19,7 +19,7 @@ fn test_sha256sig0() {
 
 #[test]
 fn test_sha256sig1() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00011, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0011, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -33,7 +33,7 @@ fn test_sha256sig1() {
 
 #[test]
 fn test_sha256sum0() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00000, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0000, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -47,7 +47,7 @@ fn test_sha256sum0() {
 
 #[test]
 fn test_sha256sum1() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00001, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0001, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -61,7 +61,7 @@ fn test_sha256sum1() {
 
 #[test]
 fn test_sha512sig0() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00110, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0110, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -75,7 +75,7 @@ fn test_sha512sig0() {
 
 #[test]
 fn test_sha512sig1() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00111, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0111, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -89,7 +89,7 @@ fn test_sha512sig1() {
 
 #[test]
 fn test_sha512sum0() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00100, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0100, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -103,7 +103,7 @@ fn test_sha512sum0() {
 
 #[test]
 fn test_sha512sum1() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00101, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0101, 0b000_1000);
     let decoded = Rv64ZknhInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,

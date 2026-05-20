@@ -67,10 +67,10 @@ where
             Self::CzeroNez { rd, rs1: _, rs2: _ } => {
                 let condition = rs2_value;
                 let src = rs1_value;
-                let result = if condition != Reg::Type::from(0u8) {
-                    Reg::Type::from(0u8)
-                } else {
+                let result = if condition == Reg::Type::from(0u8) {
                     src
+                } else {
+                    Reg::Type::from(0u8)
                 };
                 Ok(ControlFlow::Continue((rd, result)))
             }

@@ -89,7 +89,7 @@ where
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; BITS as usize + 1];
         let mut processed_some = false;
-        let mut num_leaves = 0_u128;
+        let mut num_leaves = 0u128;
 
         for leaf in leaves {
             if u32::from(BITS) < u128::BITS {

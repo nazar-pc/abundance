@@ -139,7 +139,7 @@ fn test_aes32esmi_zero_rs1_bs0() {
     let r2 = b;
     let r3 = gmul(b, 0x03);
     let expected =
-        u32::from(r0) | (u32::from(r1) << 8) | (u32::from(r2) << 16) | (u32::from(r3) << 24);
+        u32::from(r0) | (u32::from(r1) << 8u8) | (u32::from(r2) << 16u8) | (u32::from(r3) << 24u8);
     state.regs.write(Reg::A2, 0u32);
     state.regs.write(Reg::A0, 0u32);
     execute(&mut state).unwrap();
@@ -163,7 +163,7 @@ fn test_aes32esmi_bs1_rotation() {
     let r2 = b;
     let r3 = gmul(b, 0x03);
     let mixed =
-        u32::from(r0) | (u32::from(r1) << 8) | (u32::from(r2) << 16) | (u32::from(r3) << 24);
+        u32::from(r0) | (u32::from(r1) << 8u8) | (u32::from(r2) << 16u8) | (u32::from(r3) << 24u8);
     let expected = mixed.rotate_left(8);
     state.regs.write(Reg::A2, 0u32);
     state.regs.write(Reg::A0, 0u32);
@@ -188,7 +188,7 @@ fn test_aes32esi_and_aes32esmi_differ() {
         bs: Rv32AesBs::B0,
     }]);
     let rs1 = 0x1234_5678;
-    let rs2 = 0xdeadbeef;
+    let rs2 = 0xdead_beef;
     state_esi.regs.write(Reg::A2, rs1);
     state_esi.regs.write(Reg::A0, rs2);
     state_esmi.regs.write(Reg::A2, rs1);

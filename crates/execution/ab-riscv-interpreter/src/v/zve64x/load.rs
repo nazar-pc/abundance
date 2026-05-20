@@ -67,29 +67,27 @@ where
                 eew: _,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if u32::from(vd.bits()) % u32::from(nreg) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let base = rs1_value.as_u64();
                 let vlenb = u64::from(ExtState::VLENB);
                 for reg_off in 0..u64::from(nreg) {
                     let reg_idx = u64::from(vd.bits()) + reg_off;
-                    let bytes = match memory.read_slice(base + reg_off * vlenb, ExtState::VLENB) {
-                        Ok(bytes) => bytes,
-                        Err(error) => {
+                    let bytes = memory
+                        .read_slice(base + reg_off * vlenb, ExtState::VLENB)
+                        .inspect_err(|_error| {
                             if reg_off > 0 {
                                 ext_state.mark_vs_dirty();
                                 ext_state.reset_vstart();
                             }
-                            Err(ExecutionError::MemoryAccess(error))?
-                        }
-                    };
+                        })?;
                     // SAFETY: `reg_idx < 32` because the decoder guarantees nreg in {1,2,4,8}
                     // and vd is nreg-aligned (checked above), so vd.bits() + nreg - 1 <= 31.
                     // `read_slice` returns a slice of exactly `ExtState::VLENB` bytes on success,
@@ -105,9 +103,9 @@ where
             // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are read.
             Self::Vlm { vd, rs1: _ } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let byte_count = vl.div_ceil(u8::BITS);
@@ -142,9 +140,9 @@ where
                 eew,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -163,9 +161,9 @@ where
                     group_regs,
                 )?;
                 if !vm && zve64x_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // SAFETY:
                 // - 1 <= MAX_NF
@@ -201,9 +199,9 @@ where
                 eew,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -222,9 +220,9 @@ where
                     group_regs,
                 )?;
                 if !vm && zve64x_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // SAFETY: preconditions identical to `Vle`; see that arm for the full argument.
                 unsafe {
@@ -253,9 +251,9 @@ where
                 eew,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -274,9 +272,9 @@ where
                     group_regs,
                 )?;
                 if !vm && zve64x_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // rs2 holds a signed stride; reinterpret the register value as signed.
                 let stride = rs2_value.as_u64().cast_signed();
@@ -313,9 +311,9 @@ where
                 eew: index_eew,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -340,14 +338,14 @@ where
                     index_group_regs,
                 )?;
                 if zve64x_load_helpers::groups_overlap(vd, data_group_regs, vs2, index_group_regs) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && zve64x_load_helpers::groups_overlap(vd, data_group_regs, VReg::V0, 1) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // SAFETY:
                 // - data alignment/nf=1 bounds: `check_register_group_alignment` on `vd`
@@ -386,9 +384,9 @@ where
                 eew: index_eew,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -413,14 +411,14 @@ where
                     index_group_regs,
                 )?;
                 if zve64x_load_helpers::groups_overlap(vd, data_group_regs, vs2, index_group_regs) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && zve64x_load_helpers::groups_overlap(vd, data_group_regs, VReg::V0, 1) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // SAFETY: preconditions identical to `Vluxei`; see that arm for the full
                 // argument.
@@ -451,9 +449,9 @@ where
                 nf,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -474,9 +472,9 @@ where
                     nf,
                 )?;
                 if nf > zve64x_load_helpers::MAX_NF {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // SAFETY:
                 // - `nf <= MAX_NF` checked above
@@ -512,9 +510,9 @@ where
                 nf,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -535,9 +533,9 @@ where
                     nf,
                 )?;
                 if nf > zve64x_load_helpers::MAX_NF {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // SAFETY: preconditions identical to `Vlseg`; see that arm for the full argument.
                 unsafe {
@@ -567,9 +565,9 @@ where
                 nf,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -624,9 +622,9 @@ where
                 nf,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -669,9 +667,9 @@ where
                         vs2,
                         index_group_regs,
                     ) {
-                        Err(ExecutionError::IllegalInstruction {
+                        return Err(ExecutionError::IllegalInstruction {
                             address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                        })?;
+                        });
                     }
                 }
                 // SAFETY:
@@ -716,9 +714,9 @@ where
                 nf,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -758,9 +756,9 @@ where
                         vs2,
                         index_group_regs,
                     ) {
-                        Err(ExecutionError::IllegalInstruction {
+                        return Err(ExecutionError::IllegalInstruction {
                             address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                        })?;
+                        });
                     }
                 }
                 // SAFETY: preconditions identical to `Vluxseg`; see that arm for the full

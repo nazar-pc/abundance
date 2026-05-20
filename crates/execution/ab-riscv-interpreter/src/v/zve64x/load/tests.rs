@@ -30,7 +30,7 @@ fn setup(
 
 /// Encode a raw vtype value from SEW and LMUL (vta=false, vma=false)
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    (vlmul.to_bits() as u64) | ((vsew.to_bits() as u64) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 /// Write a sequence of bytes into test memory starting at `addr`
@@ -272,7 +272,7 @@ fn vlr_out_of_bounds_memory_returns_error() {
 fn vlm_loads_ceil_vl_over_8_bytes() {
     // vl=10 -> ceil(10/8)=2 bytes loaded
     let mut state = setup(10, Vsew::E8, Vlmul::M1);
-    let data = [0b10110101u8, 0b00000011u8];
+    let data = [0b1011_0101, 0b0000_0011];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -286,8 +286,8 @@ fn vlm_loads_ceil_vl_over_8_bytes() {
     )
     .unwrap();
 
-    assert_eq!(vreg_byte(&state, VReg::V3, 0), 0b10110101);
-    assert_eq!(vreg_byte(&state, VReg::V3, 1), 0b00000011);
+    assert_eq!(vreg_byte(&state, VReg::V3, 0), 0b1011_0101);
+    assert_eq!(vreg_byte(&state, VReg::V3, 1), 0b0000_0011);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
     assert_eq!(state.ext_state.vstart(), 0, "vstart must be reset");
 }
@@ -433,8 +433,8 @@ fn vle_e32_loads_vl_words_sequentially() {
 fn vle_e64_loads_vl_doublewords() {
     // E64/M1: VLMAX=2, vl=2
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
-    let val0 = 0x0102030405060708_u64;
-    let val1 = 0xDEADBEEFCAFEBABE_u64;
+    let val0 = 0x0102_0304_0506_0708_u64;
+    let val1 = 0xDEAD_BEEF_CAFE_BABE_u64;
     write_mem(&mut state, TEST_BASE_ADDR, &val0.to_le_bytes());
     write_mem(&mut state, TEST_BASE_ADDR + 8, &val1.to_le_bytes());
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -480,14 +480,14 @@ fn vle_vl_0_does_not_write_any_elements() {
 
 #[test]
 fn vle_masked_skips_inactive_elements_undisturbed() {
-    // E8/M1: vl=8, mask=0b00110101 -> elements 0,2,4,5 active
+    // E8/M1: vl=8, mask=0b0011_0101 -> elements 0,2,4,5 active
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Pre-fill destination with sentinel
     set_vreg(&mut state, VReg::V2, &[0xEEu8; 16]);
-    // Set mask in v0: byte 0 = 0b00110101
+    // Set mask in v0: byte 0 = 0b0011_0101
     set_vreg(&mut state, VReg::V0, &{
         let mut m = [0u8; 16];
-        m[0] = 0b00110101;
+        m[0] = 0b0011_0101;
         m
     });
     // Write 8 distinct bytes to memory
@@ -792,15 +792,15 @@ fn vlse_positive_stride_loads_at_stride_intervals() {
     // Write 3 words at offsets 0, 8, 16 from base
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR, 0xAAAAAAAA)
+        .write::<u32>(TEST_BASE_ADDR, 0xAAAA_AAAA)
         .unwrap();
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR + 8, 0xBBBBBBBB)
+        .write::<u32>(TEST_BASE_ADDR + 8, 0xBBBB_BBBB)
         .unwrap();
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR + 16, 0xCCCCCCCC)
+        .write::<u32>(TEST_BASE_ADDR + 16, 0xCCCC_CCCC)
         .unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.regs.write(Reg::A1, 8);
@@ -820,15 +820,15 @@ fn vlse_positive_stride_loads_at_stride_intervals() {
     let reg = vreg_bytes(&state, VReg::V1);
     assert_eq!(
         u32::from_le_bytes(reg[0..4].try_into().unwrap()),
-        0xAAAAAAAA
+        0xAAAA_AAAA
     );
     assert_eq!(
         u32::from_le_bytes(reg[4..8].try_into().unwrap()),
-        0xBBBBBBBB
+        0xBBBB_BBBB
     );
     assert_eq!(
         u32::from_le_bytes(reg[8..12].try_into().unwrap()),
-        0xCCCCCCCC
+        0xCCCC_CCCC
     );
     assert_eq!(state.ext_state.vstart(), 0);
 }
@@ -870,7 +870,7 @@ fn vlse_zero_stride_loads_same_address_repeatedly() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR, 0xDEADBEEFu32)
+        .write::<u32>(TEST_BASE_ADDR, 0xDEAD_BEEF)
         .unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.regs.write(Reg::A1, 0u64);
@@ -891,7 +891,7 @@ fn vlse_zero_stride_loads_same_address_repeatedly() {
     for i in 0..4 {
         assert_eq!(
             u32::from_le_bytes(reg[i * 4..(i + 1) * 4].try_into().unwrap()),
-            0xDEADBEEF,
+            0xDEAD_BEEF,
             "element {i}"
         );
     }
@@ -944,14 +944,14 @@ fn vluxei_e32_data_e32_index_basic() {
     state.memory.write::<u32>(index_base + 4, 0u32).unwrap();
     state.memory.write::<u32>(index_base + 8, 8u32).unwrap();
     // Write data values at data_base + offsets
-    state.memory.write::<u32>(data_base, 0x11111111u32).unwrap();
+    state.memory.write::<u32>(data_base, 0x1111_1111).unwrap();
     state
         .memory
-        .write::<u32>(data_base + 8, 0x22222222u32)
+        .write::<u32>(data_base + 8, 0x2222_2222)
         .unwrap();
     state
         .memory
-        .write::<u32>(data_base + 12, 0x33333333u32)
+        .write::<u32>(data_base + 12, 0x3333_3333)
         .unwrap();
 
     // Load indices into vs2=V4
@@ -986,17 +986,17 @@ fn vluxei_e32_data_e32_index_basic() {
     let reg = vreg_bytes(&state, VReg::V1);
     assert_eq!(
         u32::from_le_bytes(reg[0..4].try_into().unwrap()),
-        0x33333333,
+        0x3333_3333,
         "elem0 at offset 12"
     );
     assert_eq!(
         u32::from_le_bytes(reg[4..8].try_into().unwrap()),
-        0x11111111,
+        0x1111_1111,
         "elem1 at offset 0"
     );
     assert_eq!(
         u32::from_le_bytes(reg[8..12].try_into().unwrap()),
-        0x22222222,
+        0x2222_2222,
         "elem2 at offset 8"
     );
     assert_eq!(state.ext_state.vstart(), 0);
@@ -1016,10 +1016,10 @@ fn vluxei_index_eew_smaller_than_data_eew() {
     set_vreg(&mut state, VReg::V6, &idx_reg);
 
     let data_base = TEST_BASE_ADDR;
-    state.memory.write::<u32>(data_base, 0xAABBCCDDu32).unwrap();
+    state.memory.write::<u32>(data_base, 0xAABB_CCDD).unwrap();
     state
         .memory
-        .write::<u32>(data_base + 4, 0x11223344u32)
+        .write::<u32>(data_base + 4, 0x1122_3344)
         .unwrap();
     state.regs.write(Reg::A0, data_base);
 
@@ -1039,12 +1039,12 @@ fn vluxei_index_eew_smaller_than_data_eew() {
     let reg = vreg_bytes(&state, VReg::V1);
     assert_eq!(
         u32::from_le_bytes(reg[0..4].try_into().unwrap()),
-        0x11223344,
+        0x1122_3344,
         "elem0 at offset 4"
     );
     assert_eq!(
         u32::from_le_bytes(reg[4..8].try_into().unwrap()),
-        0xAABBCCDDu32,
+        0xAABB_CCDD,
         "elem1 at offset 0"
     );
 }
@@ -1103,11 +1103,11 @@ fn vloxei_functionally_identical_to_vluxei() {
 
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR, 0x12345678u32)
+        .write::<u32>(TEST_BASE_ADDR, 0x1234_5678)
         .unwrap();
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR + 4, 0x87654321u32)
+        .write::<u32>(TEST_BASE_ADDR + 4, 0x8765_4321)
         .unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -1127,11 +1127,11 @@ fn vloxei_functionally_identical_to_vluxei() {
     let reg = vreg_bytes(&state, VReg::V1);
     assert_eq!(
         u32::from_le_bytes(reg[0..4].try_into().unwrap()),
-        0x87654321
+        0x8765_4321
     );
     assert_eq!(
         u32::from_le_bytes(reg[4..8].try_into().unwrap()),
-        0x12345678
+        0x1234_5678
     );
 }
 
@@ -1329,20 +1329,20 @@ fn vlsseg_nf2_e32_with_stride() {
     // Element 0 at base+0: fields [0xAAAA, 0xBBBB]
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR, 0xAAAAAAAAu32)
+        .write::<u32>(TEST_BASE_ADDR, 0xAAAA_AAAA)
         .unwrap();
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR + 4, 0xBBBBBBBBu32)
+        .write::<u32>(TEST_BASE_ADDR + 4, 0xBBBB_BBBB)
         .unwrap();
     // Element 1 at base+16: fields [0xCCCC, 0xDDDD]
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR + 16, 0xCCCCCCCCu32)
+        .write::<u32>(TEST_BASE_ADDR + 16, 0xCCCC_CCCC)
         .unwrap();
     state
         .memory
-        .write::<u32>(TEST_BASE_ADDR + 20, 0xDDDDDDDDu32)
+        .write::<u32>(TEST_BASE_ADDR + 20, 0xDDDD_DDDD)
         .unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.regs.write(Reg::A1, 16u64);
@@ -1362,10 +1362,22 @@ fn vlsseg_nf2_e32_with_stride() {
 
     let v2 = vreg_bytes(&state, VReg::V2);
     let v3 = vreg_bytes(&state, VReg::V3);
-    assert_eq!(u32::from_le_bytes(v2[0..4].try_into().unwrap()), 0xAAAAAAAA);
-    assert_eq!(u32::from_le_bytes(v2[4..8].try_into().unwrap()), 0xCCCCCCCC);
-    assert_eq!(u32::from_le_bytes(v3[0..4].try_into().unwrap()), 0xBBBBBBBB);
-    assert_eq!(u32::from_le_bytes(v3[4..8].try_into().unwrap()), 0xDDDDDDDD);
+    assert_eq!(
+        u32::from_le_bytes(v2[0..4].try_into().unwrap()),
+        0xAAAA_AAAA
+    );
+    assert_eq!(
+        u32::from_le_bytes(v2[4..8].try_into().unwrap()),
+        0xCCCC_CCCC
+    );
+    assert_eq!(
+        u32::from_le_bytes(v3[0..4].try_into().unwrap()),
+        0xBBBB_BBBB
+    );
+    assert_eq!(
+        u32::from_le_bytes(v3[4..8].try_into().unwrap()),
+        0xDDDD_DDDD
+    );
     assert_eq!(state.ext_state.vstart(), 0);
 }
 
@@ -1379,7 +1391,7 @@ fn vlsseg_fault_at_f1_of_i0_marks_vs_dirty_and_sets_vstart() {
     let mem_end = TEST_BASE_ADDR + 8192;
     let base = mem_end - 4; // exactly 4 bytes (one E32 element) before end of memory
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
-    state.memory.write::<u32>(base, 0xDEADBEEFu32).unwrap();
+    state.memory.write::<u32>(base, 0xDEAD_BEEF).unwrap();
     state.regs.write(Reg::A0, base);
     state.regs.write(Reg::A1, 8u64); // stride
 
@@ -1410,7 +1422,10 @@ fn vlsseg_fault_at_f1_of_i0_marks_vs_dirty_and_sets_vstart() {
     );
     // Field 0 of element 0 was written
     let v2 = vreg_bytes(&state, VReg::V2);
-    assert_eq!(u32::from_le_bytes(v2[0..4].try_into().unwrap()), 0xDEADBEEF);
+    assert_eq!(
+        u32::from_le_bytes(v2[0..4].try_into().unwrap()),
+        0xDEAD_BEEF
+    );
 }
 
 #[test]
@@ -1454,18 +1469,18 @@ fn vluxseg_nf2_e32_indexed() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
 
     let data_base = TEST_BASE_ADDR;
-    state.memory.write::<u32>(data_base, 0x11111111u32).unwrap();
+    state.memory.write::<u32>(data_base, 0x1111_1111).unwrap();
     state
         .memory
-        .write::<u32>(data_base + 4, 0x22222222u32)
+        .write::<u32>(data_base + 4, 0x2222_2222)
         .unwrap();
     state
         .memory
-        .write::<u32>(data_base + 8, 0x33333333u32)
+        .write::<u32>(data_base + 8, 0x3333_3333)
         .unwrap();
     state
         .memory
-        .write::<u32>(data_base + 12, 0x44444444u32)
+        .write::<u32>(data_base + 12, 0x4444_4444)
         .unwrap();
 
     // Set indices [8, 0] as u32 LE in V8
@@ -1492,12 +1507,24 @@ fn vluxseg_nf2_e32_indexed() {
 
     let v2 = vreg_bytes(&state, VReg::V2);
     let v3 = vreg_bytes(&state, VReg::V3);
-    // Element 0: offset=8 -> fields at base+8 (0x33333333) and base+12 (0x44444444)
-    assert_eq!(u32::from_le_bytes(v2[0..4].try_into().unwrap()), 0x33333333);
-    assert_eq!(u32::from_le_bytes(v3[0..4].try_into().unwrap()), 0x44444444);
-    // Element 1: offset=0 -> fields at base+0 (0x11111111) and base+4 (0x22222222)
-    assert_eq!(u32::from_le_bytes(v2[4..8].try_into().unwrap()), 0x11111111);
-    assert_eq!(u32::from_le_bytes(v3[4..8].try_into().unwrap()), 0x22222222);
+    // Element 0: offset=8 -> fields at base+8 (0x3333_3333) and base+12 (0x4444_4444)
+    assert_eq!(
+        u32::from_le_bytes(v2[0..4].try_into().unwrap()),
+        0x3333_3333
+    );
+    assert_eq!(
+        u32::from_le_bytes(v3[0..4].try_into().unwrap()),
+        0x4444_4444
+    );
+    // Element 1: offset=0 -> fields at base+0 (0x1111_1111) and base+4 (0x2222_2222)
+    assert_eq!(
+        u32::from_le_bytes(v2[4..8].try_into().unwrap()),
+        0x1111_1111
+    );
+    assert_eq!(
+        u32::from_le_bytes(v3[4..8].try_into().unwrap()),
+        0x2222_2222
+    );
     assert_eq!(state.ext_state.vstart(), 0);
 }
 
@@ -1530,10 +1557,10 @@ fn vloxseg_same_result_as_vluxseg() {
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
 
     let data_base = TEST_BASE_ADDR;
-    state.memory.write::<u32>(data_base, 0xABCDEF01u32).unwrap();
+    state.memory.write::<u32>(data_base, 0xABCD_EF01).unwrap();
     state
         .memory
-        .write::<u32>(data_base + 4, 0x10FEDCBA)
+        .write::<u32>(data_base + 4, 0x10FE_DCBA)
         .unwrap();
 
     let mut idx_bytes = [0u8; 16];
@@ -1560,8 +1587,14 @@ fn vloxseg_same_result_as_vluxseg() {
     .unwrap();
 
     let v2 = vreg_bytes(&state, VReg::V2);
-    assert_eq!(u32::from_le_bytes(v2[0..4].try_into().unwrap()), 0x10FEDCBA);
-    assert_eq!(u32::from_le_bytes(v2[4..8].try_into().unwrap()), 0xABCDEF01);
+    assert_eq!(
+        u32::from_le_bytes(v2[0..4].try_into().unwrap()),
+        0x10FE_DCBA
+    );
+    assert_eq!(
+        u32::from_le_bytes(v2[4..8].try_into().unwrap()),
+        0xABCD_EF01
+    );
 }
 
 // vstart invariants
@@ -1632,8 +1665,7 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
         assert_eq!(
             state.ext_state.vstart(),
             0,
-            "vstart not reset for {:?}",
-            instr
+            "vstart not reset for {instr:?}"
         );
     }
 }
@@ -1666,7 +1698,7 @@ fn mark_vs_dirty_not_called_on_illegal_instruction_error() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     // vtype is vill -> IllegalInstruction before any register writes
-    let _ = exec_one(
+    exec_one(
         &mut state,
         Zve64xLoadInstruction::Vle {
             vd: VReg::V1,
@@ -1675,7 +1707,8 @@ fn mark_vs_dirty_not_called_on_illegal_instruction_error() {
             eew: Eew::E32,
             rs2: Reg::Zero,
         },
-    );
+    )
+    .unwrap_err();
     assert_eq!(state.ext_state.vs_dirty_count(), 0);
 }
 
@@ -1715,7 +1748,7 @@ fn vle_e16_loads_half_words() {
     // E16/M1: VLMAX=8, vl=3
     let mut state = setup(3, Vsew::E16, Vlmul::M1);
     let vals = [0x0102_u16, 0x0304, 0x0506];
-    let data = vals.map(|v| v.to_le_bytes());
+    let data = vals.map(u16::to_le_bytes);
     write_mem(&mut state, TEST_BASE_ADDR, data.as_flattened());
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -1794,13 +1827,13 @@ fn vle_fractional_lmul_mf2_e8() {
 #[test]
 fn vle_mask_spanning_two_bytes() {
     // E8/M1: vl=12, mask uses bytes 0 and 1
-    // mask_byte0=0b11001010, mask_byte1=0b00001101 -> active: 1,3,6,7,8,10,11
+    // mask_byte0=0b1100_1010, mask_byte1=0b0000_1101 -> active: 1,3,6,7,8,10,11
     let mut state = setup(12, Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V2, &[0xEEu8; 16]);
     set_vreg(&mut state, VReg::V0, &{
         let mut m = [0u8; 16];
-        m[0] = 0b11001010;
-        m[1] = 0b00001101;
+        m[0] = 0b1100_1010;
+        m[1] = 0b0000_1101;
         m
     });
     let data = array::from_fn::<_, 12, _>(|i| i as u8 + 1);
@@ -1820,8 +1853,8 @@ fn vle_mask_spanning_two_bytes() {
     .unwrap();
 
     let reg = vreg_bytes(&state, VReg::V2);
-    // Active bits in mask_byte0 (0b11001010): bits 1,3,6,7
-    // Active bits in mask_byte1 (0b00001101): bits 0,2,3 -> elements 8,10,11
+    // Active bits in mask_byte0 (0b1100_1010): bits 1,3,6,7
+    // Active bits in mask_byte1 (0b0000_1101): bits 0,2,3 -> elements 8,10,11
     let active: &[usize] = &[1, 3, 6, 7, 8, 10, 11];
     for (i, &byte) in reg.iter().enumerate().take(12usize) {
         if active.contains(&i) {

@@ -8,7 +8,12 @@ use crate::registers::general_purpose::Reg;
 /// `rs1p` and `rd_rs2p` are 3-bit prime register fields (0=x8).
 /// `bit6` and `bit5` carry the uimm or funct1 bits.
 const fn make_zcb_q00(sub: u16, rs1p: u16, bit6: u16, bit5: u16, rd_rs2p: u16) -> u16 {
-    (0b100 << 13) | (sub << 10) | (rs1p << 7) | (bit6 << 6) | (bit5 << 5) | (rd_rs2p << 2)
+    (0b100 << 13u8)
+        | (sub << 10u8)
+        | (rs1p << 7u8)
+        | (bit6 << 6u8)
+        | (bit5 << 5u8)
+        | (rd_rs2p << 2u8)
 }
 
 /// Build the Q01 Zcb unary / C.MUL encoding.
@@ -19,12 +24,12 @@ const fn make_zcb_q00(sub: u16, rs1p: u16, bit6: u16, bit5: u16, rd_rs2p: u16) -
 ///   funct2b=0b10 => C.MUL (rs2_sub is rs2' field)
 ///   funct2b=0b00, 0b01 => reserved
 const fn make_zcb_q01(rd_rs1p: u16, funct2b: u16, rs2_sub: u16) -> u16 {
-    (0b100 << 13)
-        | (1 << 12)
-        | (0b11 << 10)
-        | (rd_rs1p << 7)
-        | (funct2b << 5)
-        | (rs2_sub << 2)
+    (0b100 << 13u8)
+        | (1 << 12u8)
+        | (0b11 << 10u8)
+        | (rd_rs1p << 7u8)
+        | (funct2b << 5u8)
+        | (rs2_sub << 2u8)
         | 0b01
 }
 
@@ -354,12 +359,12 @@ fn test_reserved_funct2b_01() {
 
 #[test]
 fn test_non_zcb_q10_returns_none() {
-    let inst = (0b000 << 13) | (1 << 12) | (10 << 7) | (3 << 2) | 0b10;
+    let inst = (0b000 << 13u8) | (1 << 12u8) | (10 << 7u8) | (3 << 2u8) | 0b10;
     assert!(Rv32ZcbInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_zca_q01_funct3_000_returns_none() {
-    let inst = (0b000 << 13) | (0 << 12) | (10 << 7) | (5 << 2) | 0b01;
+    let inst = (0b000 << 13u8) | (0 << 12u8) | (10 << 7u8) | (5 << 2u8) | 0b01;
     assert!(Rv32ZcbInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }

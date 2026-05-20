@@ -8,8 +8,8 @@ use tempfile::tempdir;
 #[test]
 fn read_write_small() {
     read_write_inner::<15000>(&[
-        (0_usize, 512_usize),
-        (0_usize, 4096_usize),
+        (0usize, 512_usize),
+        (0, 4096),
         (0, 500),
         (0, 4000),
         (5, 50),
@@ -17,7 +17,7 @@ fn read_write_small() {
         (96, 4000),
         (4000, 96),
         (10000, 5),
-    ])
+    ]);
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn read_write_large() {
         (MAX_READ_SIZE + 5, MAX_READ_SIZE * 2 - 5),
         (MAX_READ_SIZE + 5, MAX_READ_SIZE),
         (MAX_READ_SIZE + 5, MAX_READ_SIZE * 2),
-    ])
+    ]);
 }
 
 fn read_write_inner<const BUFFER_SIZE: usize>(offset_size_pairs: &[(usize, usize)]) {

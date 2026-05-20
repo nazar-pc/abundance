@@ -834,21 +834,21 @@ fn test_lui() {
     let mut state = initialize_state([Rv32Instruction::Lui {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
-        imm: I24WithZeroedBits::from_i32(0x12345000u32.cast_signed()),
+        imm: I24WithZeroedBits::from_i32(0x1234_5000_u32.cast_signed()),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 0x12345000u32);
+    assert_eq!(state.regs.read(Reg::A0), 0x1234_5000);
 }
 
 #[test]
 fn test_lui_negative() {
     let mut state = initialize_state([Rv32Instruction::Lui {
         rd: Reg::A0,
-        imm: I24WithZeroedBits::from_i32(0xfffff000u32.cast_signed()),
+        imm: I24WithZeroedBits::from_i32(0xffff_f000_u32.cast_signed()),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -856,7 +856,7 @@ fn test_lui_negative() {
     execute(&mut state).unwrap();
 
     // In RV32 the register is 32-bit, no further sign extension needed
-    assert_eq!(state.regs.read(Reg::A0), 0xfffff000u32);
+    assert_eq!(state.regs.read(Reg::A0), 0xffff_f000);
 }
 
 #[test]
@@ -864,7 +864,7 @@ fn test_auipc() {
     let mut state = initialize_state([Rv32Instruction::Auipc {
         rd: Reg::A0,
         // Already shifted - bits [31:12]
-        imm: I24WithZeroedBits::from_i32(0x12345000u32.cast_signed()),
+        imm: I24WithZeroedBits::from_i32(0x1234_5000_u32.cast_signed()),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -875,7 +875,7 @@ fn test_auipc() {
 
     assert_eq!(
         state.regs.read(Reg::A0),
-        initial_pc.wrapping_add(0x12345000u32)
+        initial_pc.wrapping_add(0x1234_5000)
     );
 }
 
@@ -883,7 +883,7 @@ fn test_auipc() {
 fn test_auipc_negative() {
     let mut state = initialize_state([Rv32Instruction::Auipc {
         rd: Reg::A0,
-        imm: I24WithZeroedBits::from_i32(0xfffff000u32.cast_signed()),
+        imm: I24WithZeroedBits::from_i32(0xffff_f000_u32.cast_signed()),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -895,7 +895,7 @@ fn test_auipc_negative() {
     // Should wrap around: PC + 0xfffff000
     assert_eq!(
         state.regs.read(Reg::A0),
-        initial_pc.wrapping_add(0xfffff000u32)
+        initial_pc.wrapping_add(0xffff_f000)
     );
 }
 
@@ -1029,7 +1029,7 @@ fn test_fibonacci() {
     // Fibonacci loop - iterate 9 times to go from fib(1) to fib(10)
     let mut instructions = vec![];
 
-    for _ in 0..9 {
+    for _ in 0..9u8 {
         // a3 = a1 + a2 (next fib number)
         instructions.push(Rv32Instruction::Add {
             rd: Reg::A3,

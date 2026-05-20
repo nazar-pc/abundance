@@ -11,8 +11,8 @@ fn test_aes64es_nonzero() {
         rs1: Reg::A0,
         rs2: Reg::A1,
     }]);
-    state.regs.write(Reg::A0, 0x0011223344556677u64);
-    state.regs.write(Reg::A1, 0x8899aabbccddeeffu64);
+    state.regs.write(Reg::A0, 0x0011_2233_4455_6677_u64);
+    state.regs.write(Reg::A1, 0x8899_aabb_ccdd_eeff_u64);
     execute(&mut state).unwrap();
     assert_ne!(state.regs.read(Reg::A2), 0u64);
 }
@@ -24,8 +24,8 @@ fn test_aes64esm_nonzero() {
         rs1: Reg::A0,
         rs2: Reg::A1,
     }]);
-    state.regs.write(Reg::A0, 0x0011223344556677u64);
-    state.regs.write(Reg::A1, 0x8899aabbccddeeffu64);
+    state.regs.write(Reg::A0, 0x0011_2233_4455_6677_u64);
+    state.regs.write(Reg::A1, 0x8899_aabb_ccdd_eeff_u64);
     execute(&mut state).unwrap();
     assert_ne!(state.regs.read(Reg::A2), 0u64);
 }
@@ -44,8 +44,8 @@ fn test_aes64es_differs_from_aes64esm() {
         rs1: Reg::A0,
         rs2: Reg::A1,
     }]);
-    let v0 = 0x0011223344556677u64;
-    let v1 = 0x8899aabbccddeeffu64;
+    let v0 = 0x0011_2233_4455_6677_u64;
+    let v1 = 0x8899_aabb_ccdd_eeff_u64;
     state_es.regs.write(Reg::A0, v0);
     state_es.regs.write(Reg::A1, v1);
     state_esm.regs.write(Reg::A0, v0);
@@ -69,8 +69,8 @@ fn test_aes64es_arg_swap_differs() {
         rs1: Reg::A1,
         rs2: Reg::A0,
     }]);
-    let v0 = 0x0011223344556677u64;
-    let v1 = 0x8899aabbccddeeffu64;
+    let v0 = 0x0011_2233_4455_6677_u64;
+    let v1 = 0x8899_aabb_ccdd_eeff_u64;
     state1.regs.write(Reg::A0, v0);
     state1.regs.write(Reg::A1, v1);
     state2.regs.write(Reg::A0, v0);
@@ -88,11 +88,11 @@ fn test_aes64es_zero_input_known() {
         rs2: Reg::A1,
     }]);
     // All-zero state: ShiftRows is a no-op on uniform input, SubBytes maps 0x00 -> 0x63.
-    // Every byte of every column becomes 0x63, so the low 64-bit half = 0x6363636363636363.
+    // Every byte of every column becomes 0x63, so the low 64-bit half = 0x6363_6363_6363_6363.
     state.regs.write(Reg::A0, 0u64);
     state.regs.write(Reg::A1, 0u64);
     execute(&mut state).unwrap();
-    assert_eq!(state.regs.read(Reg::A2), 0x6363636363636363u64);
+    assert_eq!(state.regs.read(Reg::A2), 0x6363_6363_6363_6363_u64);
 }
 
 #[test]
@@ -110,5 +110,5 @@ fn test_aes64esm_zero_input_known() {
     state.regs.write(Reg::A0, 0u64);
     state.regs.write(Reg::A1, 0u64);
     execute(&mut state).unwrap();
-    assert_eq!(state.regs.read(Reg::A2), 0x6363636363636363u64);
+    assert_eq!(state.regs.read(Reg::A2), 0x6363_6363_6363_6363_u64);
 }

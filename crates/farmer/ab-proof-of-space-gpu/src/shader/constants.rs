@@ -7,7 +7,7 @@ const _: () = {
 };
 // TODO: Replace this constant with usage of `Record::NUM_S_BUCKETS` after
 //  https://github.com/Rust-GPU/rust-gpu/pull/249 is merged
-pub const NUM_S_BUCKETS: usize = 2_usize.pow(16);
+pub const NUM_S_BUCKETS: usize = 2usize.pow(16);
 #[cfg(not(target_arch = "spirv"))]
 const _: () = {
     assert!(NUM_S_BUCKETS == ab_core_primitives::pieces::Record::NUM_S_BUCKETS);

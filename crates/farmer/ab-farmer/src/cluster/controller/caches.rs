@@ -149,7 +149,7 @@ pub async fn maintain_caches(
                         && let Some(sync_finish_sender) = sync_finish_sender.lock().take()
                     {
                         // Result doesn't matter
-                        let _ = sync_finish_sender.send(());
+                        let _: Result<(), ()> = sync_finish_sender.send(());
                     }
                 }));
 
@@ -159,7 +159,7 @@ pub async fn maintain_caches(
 
                 // Wait for piece cache sync to finish before potentially staring a new one, result
                 // doesn't matter
-                let _ = sync_finish_receiver.await;
+                let _: Result<(), _> = sync_finish_receiver.await;
             };
 
             cache_reinitialization =
@@ -197,7 +197,7 @@ pub async fn maintain_caches(
                         %cluster_cache_id,
                         %error,
                         "Failed to collect piece caches to add, may retry later"
-                    )
+                    );
                 }) else {
                     continue;
                 };
@@ -251,7 +251,7 @@ async fn collect_piece_caches(
                 %error,
                 %cluster_cache_id,
                 "Failed to request cache details"
-            )
+            );
         })?
         .map(
             |ClusterPieceCacheDetails {

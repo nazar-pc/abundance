@@ -549,8 +549,9 @@ where
         let max_segment_index = self
             .beacon_chain_info
             .last_super_segment_header()
-            .map(|super_segment_header| super_segment_header.max_segment_index.as_inner())
-            .unwrap_or(SegmentIndex::ZERO);
+            .map_or(SegmentIndex::ZERO, |super_segment_header| {
+                super_segment_header.max_segment_index.as_inner()
+            });
 
         let consensus_constants = &self.consensus_constants;
         let protocol_info = FarmerProtocolInfo {
@@ -600,29 +601,35 @@ where
         Ok(())
     }
 
-    async fn subscribe_slot_info(&self, pending: PendingSubscriptionSink) -> SubscriptionResult {
-        let subscription = pending.accept().await?;
+    async fn subscribe_slot_info(
+        &self,
+        subscription_sink: PendingSubscriptionSink,
+    ) -> SubscriptionResult {
+        let subscription = subscription_sink.accept().await?;
         self.slot_info_subscriptions.lock().push(subscription);
 
         Ok(())
     }
 
-    async fn subscribe_block_seal(&self, pending: PendingSubscriptionSink) -> SubscriptionResult {
-        let subscription = pending.accept().await?;
+    async fn subscribe_block_seal(
+        &self,
+        subscription_sink: PendingSubscriptionSink,
+    ) -> SubscriptionResult {
+        let subscription = subscription_sink.accept().await?;
         self.block_sealing_subscriptions.lock().push(subscription);
 
         Ok(())
     }
 
     fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error> {
-        let block_sealing_senders = self.block_sealing_senders.clone();
+        let block_sealing_senders = Arc::clone(&self.block_sealing_senders);
 
         let mut block_sealing_senders = block_sealing_senders.lock();
 
         if block_sealing_senders.current_pre_seal_hash == block_seal.pre_seal_hash
             && let Some(sender) = block_sealing_senders.senders.pop()
         {
-            let _ = sender.send(block_seal.seal);
+            let _: Result<(), _> = sender.send(block_seal.seal);
         }
 
         Ok(())
@@ -630,9 +637,9 @@ where
 
     async fn subscribe_new_super_segment_header(
         &self,
-        pending: PendingSubscriptionSink,
+        subscription_sink: PendingSubscriptionSink,
     ) -> SubscriptionResult {
-        let subscription = pending.accept().await?;
+        let subscription = subscription_sink.accept().await?;
         self.new_super_segment_header_subscriptions
             .lock()
             .push(subscription);
@@ -653,7 +660,7 @@ where
             return Err(Error::SuperSegmentHeadersLengthExceeded {
                 actual: super_segment_indices.len(),
             });
-        };
+        }
 
         Ok(super_segment_indices
             .into_iter()
@@ -677,13 +684,14 @@ where
             return Err(Error::SuperSegmentHeadersLengthExceeded {
                 actual: limit as usize,
             });
-        };
+        }
 
         let last_super_segment_index = self
             .beacon_chain_info
             .last_super_segment_header()
-            .map(|super_segment_header| super_segment_header.index.as_inner())
-            .unwrap_or(SuperSegmentIndex::ZERO);
+            .map_or(SuperSegmentIndex::ZERO, |super_segment_header| {
+                super_segment_header.index.as_inner()
+            });
 
         let mut last_super_segment_headers = (SuperSegmentIndex::ZERO..=last_super_segment_index)
             .rev()
@@ -711,8 +719,8 @@ where
 
     // Note: this RPC uses the cached archived segment, which is only updated by archived segments
     // subscriptions
-    async fn piece(&self, requested_piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
-        let segment_index = requested_piece_index.segment_index();
+    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
+        let segment_index = piece_index.segment_index();
         let cached_archived_segment = &mut *self.cached_archived_segment.lock().await;
 
         if let Some(cached_archived_segment) = cached_archived_segment
@@ -724,7 +732,7 @@ where
                 .segment
                 .pieces
                 .pieces()
-                .nth(usize::from(requested_piece_index.position())));
+                .nth(usize::from(piece_index.position())));
         }
 
         if segment_index == SegmentIndex::ZERO {
@@ -745,7 +753,7 @@ where
                 .segment
                 .pieces
                 .pieces()
-                .nth(usize::from(requested_piece_index.position())));
+                .nth(usize::from(piece_index.position())));
         }
 
         let (super_segment_index, shard_segment_root_with_position, segment_proof) = {
@@ -764,7 +772,7 @@ where
                 .copied()
             else {
                 error!(
-                    %requested_piece_index,
+                    %piece_index,
                     %segment_index,
                     super_segment_header = ?super_segment.header,
                     "Failed to find segment index inside super segment, this should never happen"
@@ -776,7 +784,7 @@ where
 
             let Some(segment_proof) = super_segment.proof_for_segment(segment_position) else {
                 error!(
-                    %requested_piece_index,
+                    %piece_index,
                     %segment_index,
                     %segment_position,
                     super_segment_header = ?super_segment.header,
@@ -836,15 +844,15 @@ where
             .segment
             .pieces
             .pieces()
-            .nth(usize::from(requested_piece_index.position())))
+            .nth(usize::from(piece_index.position())))
     }
 
     async fn update_shard_membership_info(
         &self,
-        extensions: &Extensions,
+        ext: &Extensions,
         info: Vec<FarmerShardMembershipInfo>,
     ) -> Result<(), Error> {
-        let connection_id = extensions
+        let connection_id = ext
             .get::<ConnectionId>()
             .expect("`ConnectionId` is always present; qed");
 

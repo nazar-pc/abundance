@@ -7,12 +7,12 @@ struct ForbiddenChecker<'a> {
 }
 
 impl<'ast> Visit<'ast> for ForbiddenChecker<'ast> {
-    fn visit_expr(&mut self, expr: &'ast Expr) {
+    fn visit_expr(&mut self, i: &'ast Expr) {
         if self.found {
             return;
         }
 
-        match expr {
+        match i {
             Expr::Return(ExprReturn { .. }) => {
                 self.found = true;
             }
@@ -47,7 +47,7 @@ impl<'ast> Visit<'ast> for ForbiddenChecker<'ast> {
         }
 
         // Recurse
-        visit_expr(self, expr);
+        visit_expr(self, i);
     }
 }
 

@@ -63,21 +63,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             if !status.success() {
                 if env::var("CARGO_FEATURE_BUILD_ELF_REQUIRED").is_ok() {
                     return Err("building coremark.elf failed".into());
-                } else {
-                    // Quietly create an empty file so that the build succeeds even if the ELF is
-                    // not
-                    fs::write(&elf_path, [])?;
                 }
+
+                // Quietly create an empty file so that the build succeeds even if the ELF is
+                // not
+                fs::write(&elf_path, [])?;
             }
         }
         Err(error) => {
             if env::var("CARGO_FEATURE_BUILD_ELF_REQUIRED").is_ok() {
                 return Err(error.into());
-            } else {
-                // Quietly create an empty file so that the build succeeds even if the ELF is
-                // not
-                fs::write(&elf_path, [])?;
             }
+
+            // Quietly create an empty file so that the build succeeds even if the ELF is
+            // not
+            fs::write(&elf_path, [])?;
         }
     }
 
@@ -104,7 +104,7 @@ fn clone_if_needed(dest: &PathBuf) -> Result<(), Box<dyn Error>> {
         println!(
             "cargo::warning=`coremark` commit mismatch or invalid repo; removing and re-cloning"
         );
-        let _ = fs::remove_dir_all(dest);
+        fs::remove_dir_all(dest)?;
     }
 
     let output = Command::new("git")

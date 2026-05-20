@@ -305,7 +305,7 @@ const fn struct_type_details(
     Some((
         IoTypeDetails {
             recommended_capacity: capacity,
-            alignment: NonZeroU8::new(alignment).expect("At least zero; qed"),
+            alignment: NonZeroU8::new(alignment).expect("At least one; qed"),
         },
         input,
     ))
@@ -369,7 +369,7 @@ const fn enum_capacity(
     Some((
         IoTypeDetails {
             recommended_capacity: enum_capacity,
-            alignment: NonZeroU8::new(alignment).expect("At least zero; qed"),
+            alignment: NonZeroU8::new(alignment).expect("At least one; qed"),
         },
         input,
     ))

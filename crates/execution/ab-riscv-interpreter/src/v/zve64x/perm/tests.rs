@@ -142,7 +142,7 @@ fn vmv_x_s_e8_reads_element_0() {
 
 #[test]
 fn vmv_x_s_e8_sign_extends_negative() {
-    // 0x80 = -128 as i8; sign-extended to i64 = 0xFFFFFFFFFFFFFF80
+    // 0x80 = -128 as i8; sign-extended to i64 = 0xFFFF_FFFF_FFFF_FF80
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80);
     exec(
@@ -155,12 +155,12 @@ fn vmv_x_s_e8_sign_extends_negative() {
         },
     )
     .unwrap();
-    assert_eq!(state.regs.read(Reg::A0), 0xFFFFFFFFFFFFFF80u64);
+    assert_eq!(state.regs.read(Reg::A0), 0xFFFF_FFFF_FFFF_FF80_u64);
 }
 
 #[test]
 fn vmv_x_s_e16_sign_extends_negative() {
-    // 0x8000 = -32768 as i16; sign-extended = 0xFFFFFFFFFFFF8000
+    // 0x8000 = -32768 as i16; sign-extended = 0xFFFF_FFFF_FFFF_8000
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x8000);
     exec(
@@ -173,12 +173,12 @@ fn vmv_x_s_e16_sign_extends_negative() {
         },
     )
     .unwrap();
-    assert_eq!(state.regs.read(Reg::A0), 0xFFFFFFFFFFFF8000u64);
+    assert_eq!(state.regs.read(Reg::A0), 0xFFFF_FFFF_FFFF_8000_u64);
 }
 
 #[test]
 fn vmv_x_s_e32_sign_extends_negative() {
-    // 0x8000_0000 sign-extended to 64 bits = 0xFFFFFFFF80000000
+    // 0x8000_0000 sign-extended to 64 bits = 0xFFFF_FFFF_8000_0000
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x8000_0000);
     exec(
@@ -191,7 +191,7 @@ fn vmv_x_s_e32_sign_extends_negative() {
         },
     )
     .unwrap();
-    assert_eq!(state.regs.read(Reg::A0), 0xFFFFFFFF80000000u64);
+    assert_eq!(state.regs.read(Reg::A0), 0xFFFF_FFFF_8000_0000_u64);
 }
 
 #[test]
@@ -2896,7 +2896,7 @@ fn all_instructions_reset_vstart() {
         state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
         state.ext_state.set_vstart(2);
         state.regs.write(Reg::A0, 1u64);
-        let _ = exec(&mut state, *instr);
+        exec(&mut state, *instr).unwrap();
         assert_eq!(state.ext_state.vstart(), 0, "vstart not reset for {name}");
     }
 }
@@ -3071,7 +3071,7 @@ fn all_vector_instructions_mark_vs_dirty() {
         state.regs.write(Reg::A0, 1u64);
         state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
         let before = state.ext_state.vs_dirty_count();
-        let _ = exec(&mut state, *instr);
+        exec(&mut state, *instr).unwrap();
         assert_eq!(
             state.ext_state.vs_dirty_count(),
             before + 1,

@@ -22,19 +22,19 @@ mod ks {
     /// ```
     #[inline(always)]
     pub(super) fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
-        let w = (rs1 >> 32) as u32;
+        let w = (rs1 >> 32u8) as u32;
 
-        let rotated = if rnum != Rv64ZkndKsRnum::Final {
-            w.rotate_right(8)
-        } else {
+        let rotated = if rnum == Rv64ZkndKsRnum::Final {
             w
+        } else {
+            w.rotate_right(8)
         };
 
         let b0 = u32::from(SBOX[(rotated & 0xff) as usize]);
-        let b1 = u32::from(SBOX[((rotated >> 8) & 0xff) as usize]);
-        let b2 = u32::from(SBOX[((rotated >> 16) & 0xff) as usize]);
-        let b3 = u32::from(SBOX[((rotated >> 24) & 0xff) as usize]);
-        let subbed = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+        let b1 = u32::from(SBOX[((rotated >> 8u8) & 0xff) as usize]);
+        let b2 = u32::from(SBOX[((rotated >> 16u8) & 0xff) as usize]);
+        let b3 = u32::from(SBOX[((rotated >> 24u8) & 0xff) as usize]);
+        let subbed = b0 | (b1 << 8u8) | (b2 << 16u8) | (b3 << 24u8);
 
         let result = if let Some(round_constant) = rnum.constant() {
             subbed ^ u32::from(round_constant)
@@ -42,7 +42,7 @@ mod ks {
             subbed
         };
 
-        u64::from(result) | (u64::from(result) << 32)
+        u64::from(result) | (u64::from(result) << 32u8)
     }
 
     /// AES key schedule step 2.
@@ -55,9 +55,9 @@ mod ks {
     /// ```
     #[inline(always)]
     pub(super) fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
-        let w0 = (rs1 >> 32) as u32 ^ rs2 as u32;
-        let w1 = w0 ^ (rs2 >> 32) as u32;
-        u64::from(w0) | (u64::from(w1) << 32)
+        let w0 = (rs1 >> 32u8) as u32 ^ rs2 as u32;
+        let w1 = w0 ^ (rs2 >> 32u8) as u32;
+        u64::from(w0) | (u64::from(w1) << 32u8)
     }
 }
 
@@ -158,14 +158,14 @@ cfg_select! {
             #[inline(always)]
             fn inv_mix_col(col: u32) -> u32 {
                 let s0 = col as u8;
-                let s1 = (col >> 8) as u8;
-                let s2 = (col >> 16) as u8;
-                let s3 = (col >> 24) as u8;
+                let s1 = (col >> 8u8) as u8;
+                let s2 = (col >> 16u8) as u8;
+                let s3 = (col >> 24u8) as u8;
                 let r0 = gmul(s0, 0x0e) ^ gmul(s1, 0x0b) ^ gmul(s2, 0x0d) ^ gmul(s3, 0x09);
                 let r1 = gmul(s0, 0x09) ^ gmul(s1, 0x0e) ^ gmul(s2, 0x0b) ^ gmul(s3, 0x0d);
                 let r2 = gmul(s0, 0x0d) ^ gmul(s1, 0x09) ^ gmul(s2, 0x0e) ^ gmul(s3, 0x0b);
                 let r3 = gmul(s0, 0x0b) ^ gmul(s1, 0x0d) ^ gmul(s2, 0x09) ^ gmul(s3, 0x0e);
-                (r0 as u32) | ((r1 as u32) << 8) | ((r2 as u32) << 16) | ((r3 as u32) << 24)
+                u32::from(r0) | (u32::from(r1) << 8u8) | (u32::from(r2) << 16u8) | (u32::from(r3) << 24u8)
             }
 
             /// Apply InvShiftRows + InvSubBytes to the full 128-bit state `(rs1, rs2)` and return
@@ -189,7 +189,7 @@ cfg_select! {
                     for r in 0..4usize {
                         let src_col = (c + 4 - r) & 3;
                         let b = INV_SBOX[state_byte(src_col, r) as usize];
-                        out |= (b as u64) << (c * 32 + r * 8);
+                        out |= u64::from(b) << (c * 32 + r * 8);
                     }
                 }
                 out
@@ -199,15 +199,15 @@ cfg_select! {
             pub(super) fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
                 let lo = aes64ds(rs1, rs2);
                 let col0 = inv_mix_col(lo as u32);
-                let col1 = inv_mix_col((lo >> 32) as u32);
-                (col0 as u64) | ((col1 as u64) << 32)
+                let col1 = inv_mix_col((lo >> 32u8) as u32);
+                u64::from(col0) | (u64::from(col1) << 32u8)
             }
 
             #[inline(always)]
             pub(super) fn aes64im(rs1: u64) -> u64 {
                 let col0 = inv_mix_col(rs1 as u32);
-                let col1 = inv_mix_col((rs1 >> 32) as u32);
-                (col0 as u64) | ((col1 as u64) << 32)
+                let col1 = inv_mix_col((rs1 >> 32u8) as u32);
+                u64::from(col0) | (u64::from(col1) << 32u8)
             }
         }
     }

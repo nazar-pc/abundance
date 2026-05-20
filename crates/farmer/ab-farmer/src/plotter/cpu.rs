@@ -27,7 +27,6 @@ use futures::{FutureExt, Sink, SinkExt, StreamExt, select, stream};
 use prometheus_client::registry::Registry;
 use std::any::type_name;
 use std::error::Error;
-use std::fmt;
 use std::future::pending;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
@@ -36,6 +35,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 use std::time::Instant;
+use std::{fmt, iter};
 use tokio::task::yield_now;
 use tracing::{Instrument, warn};
 
@@ -116,7 +116,7 @@ where
             replotting,
             progress_sender,
         )
-        .await
+        .await;
     }
 
     async fn try_plot_sector(
@@ -359,9 +359,11 @@ where
                         let encoded_sector = thread_pool.install(|| {
                             // TODO: Reuse global table generator (this comment is in many files)
                             let generator = PosTable::generator();
-                            let generators = (0..record_encoding_concurrency.get())
-                                .map(|_| generator.clone())
-                                .collect::<Vec<_>>();
+                            let generators = iter::repeat_n(
+                                generator.clone(),
+                                record_encoding_concurrency.get(),
+                            )
+                            .collect::<Vec<_>>();
                             let mut records_encoder = CpuRecordsEncoder::<PosTable>::new(
                                 &generators,
                                 &erasure_coding,

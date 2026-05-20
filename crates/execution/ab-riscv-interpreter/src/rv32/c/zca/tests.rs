@@ -104,7 +104,7 @@ fn test_cjal_negative_offset() {
         };
         state
             .instruction_fetcher
-            .set_pc(&state.memory, pc_before + instruction.size() as u32)
+            .set_pc(&state.memory, pc_before + u32::from(instruction.size()))
             .unwrap()
             .continue_ok()
             .unwrap();

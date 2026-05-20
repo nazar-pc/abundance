@@ -125,7 +125,7 @@ fn compute_fn_cpu() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     // Just some random comparisons against reference implementation
-    for _ in 0..10 {
+    for _ in 0..10u8 {
         test_compute_fn_cpu_impl::<2, 1>(&mut rng);
         test_compute_fn_cpu_impl::<3, 2>(&mut rng);
         test_compute_fn_cpu_impl::<4, 3>(&mut rng);

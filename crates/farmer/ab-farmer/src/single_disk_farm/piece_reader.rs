@@ -78,7 +78,7 @@ impl DiskPieceReader {
                 read_piece_receiver,
                 global_mutex,
             )
-            .await
+            .await;
         };
 
         (Self { read_piece_sender }, reading_fut)
@@ -150,17 +150,17 @@ async fn read_pieces<PosTable, S>(
 
             let sector_count = sectors_metadata.len() as u16;
 
-            let sector_metadata = match sectors_metadata.get(usize::from(sector_index)) {
-                Some(sector_metadata) => sector_metadata.clone(),
-                None => {
+            let sector_metadata =
+                if let Some(sector_metadata) = sectors_metadata.get(usize::from(sector_index)) {
+                    sector_metadata.clone()
+                } else {
                     error!(
                         %sector_index,
                         %sector_count,
                         "Tried to read piece from sector that is not yet plotted"
                     );
                     continue;
-                }
-            };
+                };
 
             (sector_metadata, sector_count)
         };
@@ -174,7 +174,7 @@ async fn read_pieces<PosTable, S>(
                 "Incorrect sector offset"
             );
             // Doesn't matter if receiver still cares about it
-            let _ = response_sender.send(None);
+            let _: Result<(), _> = response_sender.send(None);
             continue;
         }
         // Piece must be within sector
@@ -186,7 +186,7 @@ async fn read_pieces<PosTable, S>(
                 "Incorrect piece offset"
             );
             // Doesn't matter if receiver still cares about it
-            let _ = response_sender.send(None);
+            let _: Result<(), _> = response_sender.send(None);
             continue;
         }
 
@@ -209,7 +209,7 @@ async fn read_pieces<PosTable, S>(
         .await;
 
         // Doesn't matter if receiver still cares about it
-        let _ = response_sender.send(maybe_piece);
+        let _: Result<(), _> = response_sender.send(maybe_piece);
     }
 }
 

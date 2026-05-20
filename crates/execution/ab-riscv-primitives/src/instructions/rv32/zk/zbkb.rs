@@ -50,7 +50,7 @@ where
 
         match opcode {
             // OP-IMM (I-type): brev8, zip, unzip
-            0b0010011 => {
+            0b001_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 match funct3 {
@@ -64,18 +64,18 @@ where
                 }
             }
             // OP (R-type): pack, packh
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7, rs2_bits) {
                     // pack: funct3=100, funct7=0000100, rs2!=0
                     // rs2=0 collides with inherited RV32 Zbb zext.h and must fall through.
-                    (0b100, 0b0000100, rs2_bits) if rs2_bits != 0 => {
+                    (0b100, 0b000_0100, rs2_bits) if rs2_bits != 0 => {
                         Some(Self::Pack { rd, rs1, rs2 })
                     }
                     // packh: funct3=111, funct7=0000100
-                    (0b111, 0b0000100, _) => Some(Self::Packh { rd, rs1, rs2 }),
+                    (0b111, 0b000_0100, _) => Some(Self::Packh { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
@@ -101,11 +101,11 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Pack { rd, rs1, rs2 } => write!(f, "pack {}, {}, {}", rd, rs1, rs2),
-            Self::Packh { rd, rs1, rs2 } => write!(f, "packh {}, {}, {}", rd, rs1, rs2),
-            Self::Brev8 { rd, rs1 } => write!(f, "brev8 {}, {}", rd, rs1),
-            Self::Zip { rd, rs1 } => write!(f, "zip {}, {}", rd, rs1),
-            Self::Unzip { rd, rs1 } => write!(f, "unzip {}, {}", rd, rs1),
+            Self::Pack { rd, rs1, rs2 } => write!(f, "pack {rd}, {rs1}, {rs2}"),
+            Self::Packh { rd, rs1, rs2 } => write!(f, "packh {rd}, {rs1}, {rs2}"),
+            Self::Brev8 { rd, rs1 } => write!(f, "brev8 {rd}, {rs1}"),
+            Self::Zip { rd, rs1 } => write!(f, "zip {rd}, {rs1}"),
+            Self::Unzip { rd, rs1 } => write!(f, "unzip {rd}, {rs1}"),
         }
     }
 }

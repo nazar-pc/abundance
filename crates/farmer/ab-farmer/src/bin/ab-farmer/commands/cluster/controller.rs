@@ -339,7 +339,7 @@ pub(super) async fn controller(
         select! {
             // Networking future
             Ok(()) | Err(oneshot::Canceled) = networking_fut.fuse() => {
-                info!("Node runner exited")
+                info!("Node runner exited");
             },
 
             // Farms future

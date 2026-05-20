@@ -32,10 +32,7 @@ fn compute_f1_gpu() {
         .collect::<Vec<_>>();
 
     assert_eq!(
-        actual_output
-            .iter()
-            .map(|bucket| bucket.len())
-            .sum::<usize>(),
+        actual_output.iter().map(Vec::len).sum::<usize>(),
         MAX_TABLE_SIZE as usize
     );
     for (bucket_index, bucket) in actual_output.iter().enumerate() {

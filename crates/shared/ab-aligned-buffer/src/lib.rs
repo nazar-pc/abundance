@@ -100,7 +100,7 @@ impl Drop for InnerBuffer {
     fn drop(&mut self) {
         if self.strong_count_ref().fetch_sub(1, Ordering::AcqRel) == 1 {
             // SAFETY: Created from `Box` in constructor
-            let _ = unsafe {
+            let _: Box<_> = unsafe {
                 Box::from_non_null(NonNull::slice_from_raw_parts(
                     self.buffer,
                     1 + (self.capacity as usize).div_ceil(size_of::<u128>()),
@@ -122,7 +122,9 @@ impl InnerBuffer {
         ));
         // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
         // copy type
-        unsafe { buffer.cast::<AtomicU32>().write(AtomicU32::new(1)) };
+        unsafe {
+            buffer.cast::<AtomicU32>().write(AtomicU32::new(1));
+        }
         Self {
             buffer: buffer.cast::<MaybeUninit<u128>>(),
             capacity,
@@ -143,6 +145,10 @@ impl InnerBuffer {
         // `size_of::<u128>()` is added because the first bytes are allocated for `strong_count`
         let new_size = size_of::<u128>() + (capacity as usize).next_multiple_of(layout.align());
 
+        #[expect(
+            clippy::cast_ptr_alignment,
+            reason = "Cast from correct alignment to bytes and back due to API requirements"
+        )]
         // SAFETY: Allocated with global allocator, correct layout, non-zero size that is a
         // multiple of alignment
         let new_ptr = unsafe {
@@ -305,7 +311,7 @@ impl OwnedAlignedBuffer {
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
-            self.inner.resize(capacity)
+            self.inner.resize(capacity);
         }
     }
 

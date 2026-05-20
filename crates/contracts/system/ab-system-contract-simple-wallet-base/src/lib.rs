@@ -133,7 +133,7 @@ impl SimpleWalletBase {
         // Check if max nonce value was already reached
         if expected_nonce.checked_add(1).is_none() {
             return Err(ContractError::Forbidden);
-        };
+        }
 
         let public_key = PublicKey::from_bytes(state.public_key.as_ref())
             .expect("Guaranteed by constructor; qed");
@@ -168,10 +168,10 @@ impl SimpleWalletBase {
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
-        let _ = header;
-        let _ = read_slots;
-        let _ = write_slots;
-        let _ = seal;
+        let _: &_ = header;
+        let _: &_ = read_slots;
+        let _: &_ = write_slots;
+        let _: &_ = seal;
 
         // Only allow direct calls by context owner
         if env.caller() != env.context() {

@@ -35,24 +35,11 @@ fn round_increment(val: u64, shift: u32, mode: Vxrm, current_result_lsb: u64) ->
         // Round nearest up: increment = v[d-1]
         Vxrm::Rnu => d_minus1_bit,
         // Round nearest even: increment = v[d-1] & (sticky | result_lsb)
-        Vxrm::Rne => {
-            d_minus1_bit
-                & (if sticky || current_result_lsb != 0 {
-                    1
-                } else {
-                    0
-                })
-        }
+        Vxrm::Rne => d_minus1_bit & u64::from(sticky || current_result_lsb != 0),
         // Round down / truncate: never increment
         Vxrm::Rdn => 0,
         // Round to odd: set result LSB if any discarded bit was non-zero
-        Vxrm::Rod => {
-            if current_result_lsb == 0 && (d_minus1_bit != 0 || sticky) {
-                1
-            } else {
-                0
-            }
-        }
+        Vxrm::Rod => u64::from(current_result_lsb == 0 && (d_minus1_bit != 0 || sticky)),
     }
 }
 
@@ -107,8 +94,8 @@ pub fn sat_addu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 #[inline(always)]
 #[doc(hidden)]
 pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
-    let sa = sign_extend(a, sew) as i128;
-    let sb = sign_extend(b, sew) as i128;
+    let sa = i128::from(sign_extend(a, sew));
+    let sb = i128::from(sign_extend(b, sew));
     let result = sa.wrapping_add(sb);
     let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits()));
     let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits()));
@@ -146,8 +133,8 @@ pub fn sat_subu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 #[inline(always)]
 #[doc(hidden)]
 pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
-    let sa = sign_extend(a, sew) as i128;
-    let sb = sign_extend(b, sew) as i128;
+    let sa = i128::from(sign_extend(a, sew));
+    let sb = i128::from(sign_extend(b, sew));
     let result = sa.wrapping_sub(sb);
     let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits()));
     let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits()));
@@ -176,13 +163,13 @@ pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     // Use wrapping_add: the carry out of bit SEW-1 is the extra bit.
     let sum = a_w.wrapping_add(b_w);
     // Carry: set if unsigned sum overflowed SEW bits
-    let carry = if sum & mask < a_w { 1u64 } else { 0u64 };
+    let carry = u64::from(sum & mask < a_w);
     // Full (SEW+1)-bit value: `carry` is at bit position SEW, `sum & mask` are low SEW bits.
     // We need `(carry:sum) >> 1` with rounding.
     // Bit 0 of `sum & mask` is the rounding bit for the truncated division.
-    let r = round_increment(sum & mask, 1, mode, (sum >> 1) & 1);
+    let r = round_increment(sum & mask, 1, mode, (sum >> 1u8) & 1);
     // Shift the (SEW+1)-bit quantity right by 1: result = (carry << (SEW-1)) | ((sum & mask) >> 1)
-    let shifted = (carry << (sew.bits() as u32 - 1)) | ((sum & mask) >> 1);
+    let shifted = (carry << (u32::from(sew.bits()) - 1)) | ((sum & mask) >> 1u8);
     (shifted.wrapping_add(r)) & mask
 }
 
@@ -195,28 +182,24 @@ pub fn avg_add(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
     // Full sum as i128 to avoid overflow
-    let sum = (sa as i128).wrapping_add(sb as i128);
+    let sum = i128::from(sa).wrapping_add(i128::from(sb));
     // The low bit is the fractional bit for rounding
     let r = match mode {
         Vxrm::Rnu => (sum & 1).cast_unsigned() as u64,
         Vxrm::Rne => {
             // round-to-nearest-even: increment if fractional bit set AND (result LSB or sticky)
             // For a single bit shift there are no lower sticky bits, so only check result LSB
-            let result_lsb = ((sum >> 1) & 1).cast_unsigned() as u64;
+            let result_lsb = ((sum >> 1u8) & 1).cast_unsigned() as u64;
             ((sum & 1).cast_unsigned() as u64) & result_lsb
         }
         Vxrm::Rdn => 0,
         Vxrm::Rod => {
             // Set result LSB if it would be 0 and the fractional bit is nonzero
-            let result_lsb = (sum >> 1) & 1;
-            if result_lsb == 0 && (sum & 1) != 0 {
-                1
-            } else {
-                0
-            }
+            let result_lsb = (sum >> 1u8) & 1;
+            u64::from(result_lsb == 0 && (sum & 1) != 0)
         }
     };
-    let result = (sum >> 1) + r as i128;
+    let result = (sum >> 1u8) + i128::from(r);
     (result as i64).cast_unsigned() & sew_mask(sew)
 }
 
@@ -232,18 +215,18 @@ pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     // Compute difference with borrow using wrapping sub; borrow extends to SEW+1 bit.
     let diff = a_w.wrapping_sub(b_w);
     // Borrow: set if a < b (unsigned)
-    let borrow = if a_w < b_w { 1u64 } else { 0u64 };
+    let borrow = u64::from(a_w < b_w);
     // Full (SEW+1)-bit two's-complement difference:
     // If borrow: the SEW-bit `diff` is correct (it wrapped), and the sign extension bit is 1.
     // Rounding: bit 0 of diff is the fractional bit.
-    let r = round_increment(diff & mask, 1, mode, (diff >> 1) & 1);
+    let r = round_increment(diff & mask, 1, mode, (diff >> 1u8) & 1);
     // Arithmetic right shift by 1 of the (SEW+1)-bit signed value.
     // For unsigned averaging subtract: result = ((SEW+1)-bit diff) / 2 with rounding.
     // The (SEW+1)-bit value is: borrow is the sign bit. If borrow set, value is negative.
     // Result = (borrow << SEW | diff) >> 1 (arithmetic) + r
     // Arithmetic shift: sign bit (`borrow`) propagates.
     let sign_fill = borrow.wrapping_neg(); // all ones if borrow set, zero otherwise
-    let shifted = (sign_fill << (sew.bits() as u32 - 1)) | ((diff & mask) >> 1);
+    let shifted = (sign_fill << (u32::from(sew.bits()) - 1)) | ((diff & mask) >> 1u8);
     (shifted.wrapping_add(r)) & mask
 }
 
@@ -255,24 +238,20 @@ pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
-    let diff = (sa as i128).wrapping_sub(sb as i128);
+    let diff = i128::from(sa).wrapping_sub(i128::from(sb));
     let r = match mode {
         Vxrm::Rnu => (diff & 1).cast_unsigned() as u64,
         Vxrm::Rne => {
-            let result_lsb = ((diff >> 1) & 1).cast_unsigned() as u64;
+            let result_lsb = ((diff >> 1u8) & 1).cast_unsigned() as u64;
             ((diff & 1).cast_unsigned() as u64) & result_lsb
         }
         Vxrm::Rdn => 0,
         Vxrm::Rod => {
-            let result_lsb = (diff >> 1) & 1;
-            if result_lsb == 0 && (diff & 1) != 0 {
-                1
-            } else {
-                0
-            }
+            let result_lsb = (diff >> 1u8) & 1;
+            u64::from(result_lsb == 0 && (diff & 1) != 0)
         }
     };
-    let result = (diff >> 1) + r as i128;
+    let result = (diff >> 1u8) + i128::from(r);
     (result as i64).cast_unsigned() & sew_mask(sew)
 }
 
@@ -302,7 +281,7 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     let product = sa * sb;
     // Left shift by 1 for the Q-format fractional interpretation; safe because
     // |product| < INT_MIN^2, so after <<1 the result still fits in i128 for SEW <= 64.
-    let doubled = product << 1;
+    let doubled = product << 1u8;
     // Extract the low SEW bits (the discarded portion) for rounding.
     // Cast to u128 first to avoid sign-extension contaminating the mask.
     let shift = u32::from(sew.bits());

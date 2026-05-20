@@ -73,11 +73,11 @@ where
             }
             Self::Slt { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value.cast_signed() < rs2_value.cast_signed();
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::Sltu { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value < rs2_value;
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::Xor { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value ^ rs2_value;
@@ -141,11 +141,11 @@ where
             }
             Self::Slti { rd, rs1: _, imm } => {
                 let value = rs1_value.cast_signed() < i64::from(imm);
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::Sltiu { rd, rs1: _, imm } => {
                 let value = rs1_value < i64::from(imm).cast_unsigned();
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::Xori { rd, rs1: _, imm } => {
                 let value = rs1_value ^ i64::from(imm).cast_unsigned();
@@ -221,17 +221,17 @@ where
             Self::Lbu { rd, rs1: _, imm } => {
                 let addr = rs1_value.wrapping_add(i64::from(imm).cast_unsigned());
                 let value = memory.read::<u8>(addr)?;
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::Lhu { rd, rs1: _, imm } => {
                 let addr = rs1_value.wrapping_add(i64::from(imm).cast_unsigned());
                 let value = memory.read::<u16>(addr)?;
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
             Self::Lwu { rd, rs1: _, imm } => {
                 let addr = rs1_value.wrapping_add(i64::from(imm).cast_unsigned());
                 let value = memory.read::<u32>(addr)?;
-                Ok(ControlFlow::Continue((rd, value as u64)))
+                Ok(ControlFlow::Continue((rd, u64::from(value))))
             }
 
             Self::Jalr { rd, rs1: _, imm } => {

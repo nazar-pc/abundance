@@ -48,27 +48,27 @@ where
 
         match opcode {
             // R-type instructions
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b001, 0b0010100) => Some(Self::Bset { rd, rs1, rs2 }),
-                    (0b001, 0b0100100) => Some(Self::Bclr { rd, rs1, rs2 }),
-                    (0b001, 0b0110100) => Some(Self::Binv { rd, rs1, rs2 }),
-                    (0b101, 0b0100100) => Some(Self::Bext { rd, rs1, rs2 }),
+                    (0b001, 0b001_0100) => Some(Self::Bset { rd, rs1, rs2 }),
+                    (0b001, 0b010_0100) => Some(Self::Bclr { rd, rs1, rs2 }),
+                    (0b001, 0b011_0100) => Some(Self::Binv { rd, rs1, rs2 }),
+                    (0b101, 0b010_0100) => Some(Self::Bext { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
             // I-type instructions
-            0b0010011 => {
+            0b001_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 match (funct3, funct7) {
-                    (0b001, 0b0010100) => Some(Self::Bseti { rd, rs1, shamt }),
-                    (0b001, 0b0100100) => Some(Self::Bclri { rd, rs1, shamt }),
-                    (0b001, 0b0110100) => Some(Self::Binvi { rd, rs1, shamt }),
-                    (0b101, 0b0100100) => Some(Self::Bexti { rd, rs1, shamt }),
+                    (0b001, 0b001_0100) => Some(Self::Bseti { rd, rs1, shamt }),
+                    (0b001, 0b010_0100) => Some(Self::Bclri { rd, rs1, shamt }),
+                    (0b001, 0b011_0100) => Some(Self::Binvi { rd, rs1, shamt }),
+                    (0b101, 0b010_0100) => Some(Self::Bexti { rd, rs1, shamt }),
                     _ => None,
                 }
             }
@@ -94,14 +94,14 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Bset { rd, rs1, rs2 } => write!(f, "bset {}, {}, {}", rd, rs1, rs2),
-            Self::Bseti { rd, rs1, shamt } => write!(f, "bseti {}, {}, {}", rd, rs1, shamt),
-            Self::Bclr { rd, rs1, rs2 } => write!(f, "bclr {}, {}, {}", rd, rs1, rs2),
-            Self::Bclri { rd, rs1, shamt } => write!(f, "bclri {}, {}, {}", rd, rs1, shamt),
-            Self::Binv { rd, rs1, rs2 } => write!(f, "binv {}, {}, {}", rd, rs1, rs2),
-            Self::Binvi { rd, rs1, shamt } => write!(f, "binvi {}, {}, {}", rd, rs1, shamt),
-            Self::Bext { rd, rs1, rs2 } => write!(f, "bext {}, {}, {}", rd, rs1, rs2),
-            Self::Bexti { rd, rs1, shamt } => write!(f, "bexti {}, {}, {}", rd, rs1, shamt),
+            Self::Bset { rd, rs1, rs2 } => write!(f, "bset {rd}, {rs1}, {rs2}"),
+            Self::Bseti { rd, rs1, shamt } => write!(f, "bseti {rd}, {rs1}, {shamt}"),
+            Self::Bclr { rd, rs1, rs2 } => write!(f, "bclr {rd}, {rs1}, {rs2}"),
+            Self::Bclri { rd, rs1, shamt } => write!(f, "bclri {rd}, {rs1}, {shamt}"),
+            Self::Binv { rd, rs1, rs2 } => write!(f, "binv {rd}, {rs1}, {rs2}"),
+            Self::Binvi { rd, rs1, shamt } => write!(f, "binvi {rd}, {rs1}, {shamt}"),
+            Self::Bext { rd, rs1, rs2 } => write!(f, "bext {rd}, {rs1}, {rs2}"),
+            Self::Bexti { rd, rs1, shamt } => write!(f, "bexti {rd}, {rs1}, {shamt}"),
         }
     }
 }

@@ -161,7 +161,7 @@ pub unsafe fn compute_f1(
     let mut chacha8_keystream = [0u32; INVOCATION_KEYSTREAM_WORDS];
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    let first_block_counter = x_start * K as u32 / CHACHA8_BLOCK_BITS;
+    let first_block_counter = x_start * u32::from(K) / CHACHA8_BLOCK_BITS;
     for block_index in 0..BLOCKS_PER_INVOCATION {
         let counter = first_block_counter + block_index;
 

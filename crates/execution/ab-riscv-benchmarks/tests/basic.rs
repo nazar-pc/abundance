@@ -107,7 +107,7 @@ where
                     contract_file.get_code(),
                     TRAP_ADDRESS,
                     MEMORY_BASE_ADDRESS
-                        + contract_file.header().read_only_section_memory_size as u64,
+                        + u64::from(contract_file.header().read_only_section_memory_size),
                     pc,
                 )
             };

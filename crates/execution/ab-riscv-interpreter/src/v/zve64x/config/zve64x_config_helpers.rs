@@ -36,9 +36,7 @@ where
         });
     }
 
-    let new_vtype = if let Some(new_vtype) = Vtype::from_raw::<Reg>(vtype_raw) {
-        new_vtype
-    } else {
+    let Some(new_vtype) = Vtype::from_raw::<Reg>(vtype_raw) else {
         ext_state.set_vtype(None);
         ext_state.set_vl(0);
         regs.write(rd, Reg::Type::from(0u8));

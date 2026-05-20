@@ -7,7 +7,7 @@ const FUNCT5_ESI: u32 = 0b10001;
 const FUNCT5_ESMI: u32 = 0b10011;
 
 fn make_rv32_zkne(funct5: u32, rd: u32, rs1: u32, rs2: u32, bs: u32) -> u32 {
-    (bs << 30) | (funct5 << 25) | (rs2 << 20) | (rs1 << 15) | (rd << 7) | 0b0110011
+    (bs << 30u8) | (funct5 << 25u8) | (rs2 << 20u8) | (rs1 << 15u8) | (rd << 7u8) | 0b011_0011
 }
 
 // aes32esi
@@ -109,16 +109,20 @@ fn test_aes32esmi_bs3() {
 #[test]
 fn test_wrong_funct3_rejected() {
     // funct3 = 0b001 instead of 0b000
-    let inst =
-        (FUNCT5_ESI << 25) | (2u32 << 20) | (1u32 << 15) | (0b001 << 12) | (1u32 << 7) | 0b0110011;
+    let inst = (FUNCT5_ESI << 25u8)
+        | (2 << 20u8)
+        | (1 << 15u8)
+        | (0b001 << 12u8)
+        | (1 << 7u8)
+        | 0b011_0011;
     let decoded = Rv32ZkneInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_wrong_opcode_rejected() {
-    // opcode = 0b0010011 (OP-IMM) instead of 0b0110011 (OP)
-    let inst = (FUNCT5_ESI << 25) | (2u32 << 20) | (1u32 << 15) | (1u32 << 7) | 0b0010011;
+    // opcode = 0b001_0011 (OP-IMM) instead of 0b011_0011 (OP)
+    let inst = (FUNCT5_ESI << 25u8) | (2 << 20u8) | (1 << 15u8) | (1 << 7u8) | 0b001_0011;
     let decoded = Rv32ZkneInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -142,8 +146,8 @@ fn test_aes32esi_and_aes32esmi_distinct_funct5() {
 
 #[test]
 fn test_unknown_funct5_rejected() {
-    // funct5 = 0b10010: not aes32esi (0b10001) or aes32esmi (0b10011)
-    let inst = make_rv32_zkne(0b10010, 1, 1, 2, 0);
+    // funct5 = 0b1_0010: not aes32esi (0b1_0001) or aes32esmi (0b1_0011)
+    let inst = make_rv32_zkne(0b1_0010, 1, 1, 2, 0);
     let decoded = Rv32ZkneInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

@@ -20,7 +20,7 @@ impl SimpleUnbalancedMerkleTree {
     where
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
-        let mut nodes = leaves.cloned().collect::<Vec<[u8; OUT_LEN]>>();
+        let mut nodes = leaves.copied().collect::<Vec<[u8; OUT_LEN]>>();
         if nodes.is_empty() {
             return None;
         }

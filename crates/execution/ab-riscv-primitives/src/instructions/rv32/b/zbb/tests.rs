@@ -7,7 +7,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_andn() {
-    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b010_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -21,7 +21,7 @@ fn test_andn() {
 
 #[test]
 fn test_orn() {
-    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b010_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -35,7 +35,7 @@ fn test_orn() {
 
 #[test]
 fn test_xnor() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b010_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -49,8 +49,8 @@ fn test_xnor() {
 
 #[test]
 fn test_clz() {
-    // RV32: funct7=0110000, rs2=0, funct3=001, opcode=OP-IMM
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0, 0b0110000);
+    // RV32: funct7=011_0000, rs2=0, funct3=001, opcode=OP-IMM
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -64,8 +64,8 @@ fn test_clz() {
 
 #[test]
 fn test_ctz() {
-    // RV32: funct7=0110000, rs2=1, funct3=001
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 1, 0b0110000);
+    // RV32: funct7=011_0000, rs2=1, funct3=001
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 1, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -79,8 +79,8 @@ fn test_ctz() {
 
 #[test]
 fn test_cpop() {
-    // RV32: funct7=0110000, rs2=2, funct3=001
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 2, 0b0110000);
+    // RV32: funct7=011_0000, rs2=2, funct3=001
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 2, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -94,8 +94,8 @@ fn test_cpop() {
 
 #[test]
 fn test_sext_b() {
-    // RV32: funct7=0110000, rs2=4, funct3=001
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 4, 0b0110000);
+    // RV32: funct7=011_0000, rs2=4, funct3=001
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 4, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -109,8 +109,8 @@ fn test_sext_b() {
 
 #[test]
 fn test_sext_h() {
-    // RV32: funct7=0110000, rs2=5, funct3=001
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 5, 0b0110000);
+    // RV32: funct7=011_0000, rs2=5, funct3=001
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 5, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -124,7 +124,7 @@ fn test_sext_h() {
 
 #[test]
 fn test_min() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0101);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -138,7 +138,7 @@ fn test_min() {
 
 #[test]
 fn test_minu() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b000_0101);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -152,7 +152,7 @@ fn test_minu() {
 
 #[test]
 fn test_max() {
-    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b000_0101);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -166,7 +166,7 @@ fn test_max() {
 
 #[test]
 fn test_maxu() {
-    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0101);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -180,7 +180,7 @@ fn test_maxu() {
 
 #[test]
 fn test_rol() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -194,7 +194,7 @@ fn test_rol() {
 
 #[test]
 fn test_ror() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b011_0000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -208,8 +208,8 @@ fn test_ror() {
 
 #[test]
 fn test_rori() {
-    // RV32 rori: funct6=011000, shamt=5 bits
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 5, 0b011000);
+    // RV32 rori: funct6=01_1000, shamt=5 bits
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 5, 0b01_1000);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -224,8 +224,8 @@ fn test_rori() {
 
 #[test]
 fn test_zext_h() {
-    // RV32 zext.h: OP (0b0110011), funct3=100, funct7=0000100, rs2=0
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 0, 0b0000100);
+    // RV32 zext.h: OP (0b011_0011), funct3=100, funct7=000_0100, rs2=0
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 0, 0b000_0100);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -239,15 +239,15 @@ fn test_zext_h() {
 
 #[test]
 fn test_zext_h_nonzero_rs2_returns_none() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 1, 0b0000100);
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 1, 0b000_0100);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_orc_b() {
-    // orc.b: funct12=0b001010000111
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 0b000111, 0b001010);
+    // orc.b: funct12=0b0010_1000_0111
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 0b00_0111, 0b00_1010);
     let decoded = Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -277,10 +277,10 @@ fn test_rev8() {
 #[test]
 fn test_rv64_only_opcodes_return_none() {
     // OP-IMM-32 (0b0011011) is RV64-only
-    let inst = make_r_type(0b0011011, 1, 0b001, 2, 0, 0b0110000);
+    let inst = make_r_type(0b001_1011, 1, 0b001, 2, 0, 0b011_0000);
     assert_eq!(Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst), None);
 
     // OP-32 (0b0111011) is RV64-only
-    let inst = make_r_type(0b0111011, 1, 0b001, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_1011, 1, 0b001, 2, 3, 0b011_0000);
     assert_eq!(Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst), None);
 }

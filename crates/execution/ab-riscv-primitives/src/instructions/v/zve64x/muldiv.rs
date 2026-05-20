@@ -12,7 +12,7 @@ use core::fmt;
 /// RISC-V Zve64x multiply and divide instruction.
 ///
 /// Includes single-width multiply, integer divide, widening multiply, single-width multiply-add,
-/// and widening multiply-add instructions. All use the OP-V major opcode (0b1010111) with OPMVV
+/// and widening multiply-add instructions. All use the OP-V major opcode (0b101_0111) with OPMVV
 /// (funct3=0b010) or OPMVX (funct3=0b110).
 ///
 /// Note: In Zve64x, `vmulh`, `vmulhu`, and `vmulhsu` are not supported for SEW=64 (would
@@ -125,7 +125,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -134,7 +134,7 @@ where
         let vs1_or_rs1_bits = ((instruction >> 15) & 0x1f) as u8;
         let vs2_bits = ((instruction >> 20) & 0x1f) as u8;
         let vm = ((instruction >> 25) & 1) != 0;
-        let funct6 = ((instruction >> 26) & 0b111111) as u8;
+        let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
 
         let vd = VReg::from_bits(vd_bits)?;
         let vs2 = VReg::from_bits(vs2_bits)?;
@@ -145,28 +145,28 @@ where
                 let vs1 = VReg::from_bits(vs1_or_rs1_bits)?;
                 match funct6 {
                     // Integer divide
-                    0b100000 => Some(Self::VdivuVv { vd, vs2, vs1, vm }),
-                    0b100001 => Some(Self::VdivVv { vd, vs2, vs1, vm }),
-                    0b100010 => Some(Self::VremuVv { vd, vs2, vs1, vm }),
-                    0b100011 => Some(Self::VremVv { vd, vs2, vs1, vm }),
+                    0b10_0000 => Some(Self::VdivuVv { vd, vs2, vs1, vm }),
+                    0b10_0001 => Some(Self::VdivVv { vd, vs2, vs1, vm }),
+                    0b10_0010 => Some(Self::VremuVv { vd, vs2, vs1, vm }),
+                    0b10_0011 => Some(Self::VremVv { vd, vs2, vs1, vm }),
                     // Single-width multiply
-                    0b100100 => Some(Self::VmulhuVv { vd, vs2, vs1, vm }),
-                    0b100101 => Some(Self::VmulVv { vd, vs2, vs1, vm }),
-                    0b100110 => Some(Self::VmulhsuVv { vd, vs2, vs1, vm }),
-                    0b100111 => Some(Self::VmulhVv { vd, vs2, vs1, vm }),
+                    0b10_0100 => Some(Self::VmulhuVv { vd, vs2, vs1, vm }),
+                    0b10_0101 => Some(Self::VmulVv { vd, vs2, vs1, vm }),
+                    0b10_0110 => Some(Self::VmulhsuVv { vd, vs2, vs1, vm }),
+                    0b10_0111 => Some(Self::VmulhVv { vd, vs2, vs1, vm }),
                     // Single-width multiply-add
-                    0b101001 => Some(Self::VmaddVv { vd, vs1, vs2, vm }),
-                    0b101011 => Some(Self::VnmsubVv { vd, vs1, vs2, vm }),
-                    0b101101 => Some(Self::VmaccVv { vd, vs1, vs2, vm }),
-                    0b101111 => Some(Self::VnmsacVv { vd, vs1, vs2, vm }),
+                    0b10_1001 => Some(Self::VmaddVv { vd, vs1, vs2, vm }),
+                    0b10_1011 => Some(Self::VnmsubVv { vd, vs1, vs2, vm }),
+                    0b10_1101 => Some(Self::VmaccVv { vd, vs1, vs2, vm }),
+                    0b10_1111 => Some(Self::VnmsacVv { vd, vs1, vs2, vm }),
                     // Widening multiply
-                    0b111000 => Some(Self::VwmuluVv { vd, vs2, vs1, vm }),
-                    0b111010 => Some(Self::VwmulsuVv { vd, vs2, vs1, vm }),
-                    0b111011 => Some(Self::VwmulVv { vd, vs2, vs1, vm }),
+                    0b11_1000 => Some(Self::VwmuluVv { vd, vs2, vs1, vm }),
+                    0b11_1010 => Some(Self::VwmulsuVv { vd, vs2, vs1, vm }),
+                    0b11_1011 => Some(Self::VwmulVv { vd, vs2, vs1, vm }),
                     // Widening multiply-add
-                    0b111100 => Some(Self::VwmaccuVv { vd, vs1, vs2, vm }),
-                    0b111101 => Some(Self::VwmaccVv { vd, vs1, vs2, vm }),
-                    0b111111 => Some(Self::VwmaccsuVv { vd, vs1, vs2, vm }),
+                    0b11_1100 => Some(Self::VwmaccuVv { vd, vs1, vs2, vm }),
+                    0b11_1101 => Some(Self::VwmaccVv { vd, vs1, vs2, vm }),
+                    0b11_1111 => Some(Self::VwmaccsuVv { vd, vs1, vs2, vm }),
                     _ => None,
                 }
             }
@@ -175,29 +175,29 @@ where
                 let rs1 = Reg::from_bits(vs1_or_rs1_bits)?;
                 match funct6 {
                     // Integer divide
-                    0b100000 => Some(Self::VdivuVx { vd, vs2, rs1, vm }),
-                    0b100001 => Some(Self::VdivVx { vd, vs2, rs1, vm }),
-                    0b100010 => Some(Self::VremuVx { vd, vs2, rs1, vm }),
-                    0b100011 => Some(Self::VremVx { vd, vs2, rs1, vm }),
+                    0b10_0000 => Some(Self::VdivuVx { vd, vs2, rs1, vm }),
+                    0b10_0001 => Some(Self::VdivVx { vd, vs2, rs1, vm }),
+                    0b10_0010 => Some(Self::VremuVx { vd, vs2, rs1, vm }),
+                    0b10_0011 => Some(Self::VremVx { vd, vs2, rs1, vm }),
                     // Single-width multiply
-                    0b100100 => Some(Self::VmulhuVx { vd, vs2, rs1, vm }),
-                    0b100101 => Some(Self::VmulVx { vd, vs2, rs1, vm }),
-                    0b100110 => Some(Self::VmulhsuVx { vd, vs2, rs1, vm }),
-                    0b100111 => Some(Self::VmulhVx { vd, vs2, rs1, vm }),
+                    0b10_0100 => Some(Self::VmulhuVx { vd, vs2, rs1, vm }),
+                    0b10_0101 => Some(Self::VmulVx { vd, vs2, rs1, vm }),
+                    0b10_0110 => Some(Self::VmulhsuVx { vd, vs2, rs1, vm }),
+                    0b10_0111 => Some(Self::VmulhVx { vd, vs2, rs1, vm }),
                     // Single-width multiply-add
-                    0b101001 => Some(Self::VmaddVx { vd, rs1, vs2, vm }),
-                    0b101011 => Some(Self::VnmsubVx { vd, rs1, vs2, vm }),
-                    0b101101 => Some(Self::VmaccVx { vd, rs1, vs2, vm }),
-                    0b101111 => Some(Self::VnmsacVx { vd, rs1, vs2, vm }),
+                    0b10_1001 => Some(Self::VmaddVx { vd, rs1, vs2, vm }),
+                    0b10_1011 => Some(Self::VnmsubVx { vd, rs1, vs2, vm }),
+                    0b10_1101 => Some(Self::VmaccVx { vd, rs1, vs2, vm }),
+                    0b10_1111 => Some(Self::VnmsacVx { vd, rs1, vs2, vm }),
                     // Widening multiply
-                    0b111000 => Some(Self::VwmuluVx { vd, vs2, rs1, vm }),
-                    0b111010 => Some(Self::VwmulsuVx { vd, vs2, rs1, vm }),
-                    0b111011 => Some(Self::VwmulVx { vd, vs2, rs1, vm }),
+                    0b11_1000 => Some(Self::VwmuluVx { vd, vs2, rs1, vm }),
+                    0b11_1010 => Some(Self::VwmulsuVx { vd, vs2, rs1, vm }),
+                    0b11_1011 => Some(Self::VwmulVx { vd, vs2, rs1, vm }),
                     // Widening multiply-add
-                    0b111100 => Some(Self::VwmaccuVx { vd, rs1, vs2, vm }),
-                    0b111101 => Some(Self::VwmaccVx { vd, rs1, vs2, vm }),
-                    0b111110 => Some(Self::VwmaccusVx { vd, rs1, vs2, vm }),
-                    0b111111 => Some(Self::VwmaccsuVx { vd, rs1, vs2, vm }),
+                    0b11_1100 => Some(Self::VwmaccuVx { vd, rs1, vs2, vm }),
+                    0b11_1101 => Some(Self::VwmaccVx { vd, rs1, vs2, vm }),
+                    0b11_1110 => Some(Self::VwmaccusVx { vd, rs1, vs2, vm }),
+                    0b11_1111 => Some(Self::VwmaccsuVx { vd, rs1, vs2, vm }),
                     _ => None,
                 }
             }

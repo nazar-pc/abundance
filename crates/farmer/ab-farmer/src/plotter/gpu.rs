@@ -111,7 +111,7 @@ where
             pieces_in_sector,
             progress_sender,
         )
-        .await
+        .await;
     }
 
     async fn try_plot_sector(

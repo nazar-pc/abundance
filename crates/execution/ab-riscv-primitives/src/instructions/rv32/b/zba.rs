@@ -35,14 +35,14 @@ where
 
         match opcode {
             // R-type
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b010, 0b0010000) => Some(Self::Sh1add { rd, rs1, rs2 }),
-                    (0b100, 0b0010000) => Some(Self::Sh2add { rd, rs1, rs2 }),
-                    (0b110, 0b0010000) => Some(Self::Sh3add { rd, rs1, rs2 }),
+                    (0b010, 0b001_0000) => Some(Self::Sh1add { rd, rs1, rs2 }),
+                    (0b100, 0b001_0000) => Some(Self::Sh2add { rd, rs1, rs2 }),
+                    (0b110, 0b001_0000) => Some(Self::Sh3add { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
@@ -68,9 +68,9 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Sh1add { rd, rs1, rs2 } => write!(f, "sh1add {}, {}, {}", rd, rs1, rs2),
-            Self::Sh2add { rd, rs1, rs2 } => write!(f, "sh2add {}, {}, {}", rd, rs1, rs2),
-            Self::Sh3add { rd, rs1, rs2 } => write!(f, "sh3add {}, {}, {}", rd, rs1, rs2),
+            Self::Sh1add { rd, rs1, rs2 } => write!(f, "sh1add {rd}, {rs1}, {rs2}"),
+            Self::Sh2add { rd, rs1, rs2 } => write!(f, "sh2add {rd}, {rs1}, {rs2}"),
+            Self::Sh3add { rd, rs1, rs2 } => write!(f, "sh3add {rd}, {rs1}, {rs2}"),
         }
     }
 }

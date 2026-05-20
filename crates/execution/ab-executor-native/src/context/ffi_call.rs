@@ -107,7 +107,7 @@ impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
             &mut MaybeEnv::ReadOnly(env) | &mut MaybeEnv::ReadWrite(env) => {
                 // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
                 // and drop the original `Box`
-                let _ = unsafe { Box::from_raw(env) };
+                let _: Box<_> = unsafe { Box::from_raw(env) };
             }
         }
     }
@@ -266,8 +266,7 @@ where
         ..
     } = method_metadata_item;
 
-    let number_of_arguments =
-        usize::from(num_arguments) + if method_kind.has_self() { 1 } else { 0 };
+    let number_of_arguments = usize::from(num_arguments) + usize::from(method_kind.has_self());
 
     if number_of_arguments > usize::from(MAX_TOTAL_METHOD_ARGS) {
         debug!(%number_of_arguments, "Too many arguments");
@@ -668,7 +667,7 @@ where
         }
     }
 
-    for &entry in post_processing.iter() {
+    for &entry in &post_processing {
         match entry {
             PostProcessing::Slot {
                 internal_args_ptr,

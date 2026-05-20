@@ -225,7 +225,7 @@ where
 
             // We don't care if block production is too slow or block production is not enabled on
             // this node at all
-            let _ = self.slot_sender.send(PotSlotInfo { slot, checkpoints });
+            let _: Result<_, _> = self.slot_sender.send(PotSlotInfo { slot, checkpoints });
         }
     }
 
@@ -249,7 +249,7 @@ where
 
                 // We don't care if block production is too slow or block production is not enabled
                 // on this node at all
-                let _ = self.slot_sender.send(PotSlotInfo {
+                let _: Result<_, _> = self.slot_sender.send(PotSlotInfo {
                     slot: proof.slot,
                     checkpoints: proof.checkpoints,
                 });

@@ -15,7 +15,7 @@ use core::fmt;
 /// register moves. Floating-point scalar moves and floating-point slides
 /// are excluded (they belong to Zve64f/Zve64d).
 ///
-/// All instructions use the OP-V major opcode (0b1010111).
+/// All instructions use the OP-V major opcode (0b101_0111).
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
@@ -23,83 +23,83 @@ use core::fmt;
 pub enum Zve64xPermInstruction<Reg> {
     /// `vmv.x.s rd, vs2` - Copy scalar element 0 of vs2 to GPR rd
     ///
-    /// funct6=010000, OPMVV, vs1=00000, vm=1
+    /// funct6=01_0000, OPMVV, vs1=0_0000, vm=1
     VmvXS { rd: Reg, vs2: VReg },
     /// `vmv.s.x vd, rs1` - Copy scalar GPR rs1 to element 0 of vd
     ///
-    /// funct6=010000, OPMVX, vs2=00000, vm=1
+    /// funct6=01_0000, OPMVX, vs2=0_0000, vm=1
     VmvSX { vd: VReg, rs1: Reg },
     /// `vslideup.vx vd, vs2, rs1, vm` - Slide elements up by scalar amount
     ///
-    /// funct6=001110, OPIVX
+    /// funct6=00_1110, OPIVX
     VslideupVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
     /// `vslideup.vi vd, vs2, uimm, vm` - Slide elements up by immediate amount
     ///
-    /// funct6=001110, OPIVI
+    /// funct6=00_1110, OPIVI
     VslideupVi { vd: VReg,  vs2: VReg, uimm: u8, vm: bool },
     /// `vslidedown.vx vd, vs2, rs1, vm` - Slide elements down by scalar amount
     ///
-    /// funct6=001111, OPIVX
+    /// funct6=00_1111, OPIVX
     VslidedownVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
     /// `vslidedown.vi vd, vs2, uimm, vm` - Slide elements down by immediate amount
     ///
-    /// funct6=001111, OPIVI
+    /// funct6=00_1111, OPIVI
     VslidedownVi { vd: VReg,  vs2: VReg, uimm: u8, vm: bool },
     /// `vslide1up.vx vd, vs2, rs1, vm` - Slide up by 1 and insert scalar at element 0
     ///
-    /// funct6=001110, OPMVX
+    /// funct6=00_1110, OPMVX
     Vslide1upVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
     /// `vslide1down.vx vd, vs2, rs1, vm` - Slide down by 1 and insert scalar at top
     ///
-    /// funct6=001111, OPMVX
+    /// funct6=00_1111, OPMVX
     Vslide1downVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
     /// `vrgather.vv vd, vs2, vs1, vm` - Gather elements from vs2 using indices in vs1
     ///
-    /// funct6=001100, OPIVV
+    /// funct6=00_1100, OPIVV
     VrgatherVv { vd: VReg,  vs2: VReg, vs1: VReg, vm: bool },
     /// `vrgather.vx vd, vs2, rs1, vm` - Gather elements from vs2 using scalar index
     ///
-    /// funct6=001100, OPIVX
+    /// funct6=00_1100, OPIVX
     VrgatherVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
     /// `vrgather.vi vd, vs2, uimm, vm` - Gather elements from vs2 using immediate index
     ///
-    /// funct6=001100, OPIVI
+    /// funct6=00_1100, OPIVI
     VrgatherVi { vd: VReg,  vs2: VReg, uimm: u8, vm: bool },
     /// `vrgatherei16.vv vd, vs2, vs1, vm` - Gather with 16-bit indices
     ///
-    /// funct6=001110, OPIVV
+    /// funct6=00_1110, OPIVV
     Vrgatherei16Vv { vd: VReg,  vs2: VReg, vs1: VReg, vm: bool },
     /// `vmerge.vvm vd, vs2, vs1, v0` / `vmv.v.v vd, vs1` (when vm=1)
     ///
-    /// funct6=010111, OPIVV
+    /// funct6=01_0111, OPIVV
     VmergeVvm { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmerge.vxm vd, vs2, rs1, v0` / `vmv.v.x vd, rs1` (when vm=1)
     ///
-    /// funct6=010111, OPIVX
+    /// funct6=01_0111, OPIVX
     VmergeVxm { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
     /// `vmerge.vim vd, vs2, simm5, v0` / `vmv.v.i vd, simm5` (when vm=1)
     ///
-    /// funct6=010111, OPIVI
+    /// funct6=01_0111, OPIVI
     VmergeVim { vd: VReg, vs2: VReg, simm5: i8, vm: bool },
     /// `vcompress.vm vd, vs2, vs1` - Compress active elements from vs2 under mask vs1
     ///
-    /// funct6=010111, OPMVV, vm=1 (always unmasked)
+    /// funct6=01_0111, OPMVV, vm=1 (always unmasked)
     VcompressVm { vd: VReg,  vs2: VReg, vs1: VReg },
     /// `vmv1r.v vd, vs2` - Whole register move (1 register)
     ///
-    /// funct6=100111, OPIVI, simm5=00000, vm=1
+    /// funct6=10_0111, OPIVI, simm5=0_0000, vm=1
     Vmv1rV { vd: VReg, vs2: VReg },
     /// `vmv2r.v vd, vs2` - Whole register move (2 registers)
     ///
-    /// funct6=100111, OPIVI, simm5=00001, vm=1
+    /// funct6=10_0111, OPIVI, simm5=0_0001, vm=1
     Vmv2rV { vd: VReg, vs2: VReg },
     /// `vmv4r.v vd, vs2` - Whole register move (4 registers)
     ///
-    /// funct6=100111, OPIVI, simm5=00011, vm=1
+    /// funct6=10_0111, OPIVI, simm5=0_0011, vm=1
     Vmv4rV { vd: VReg, vs2: VReg },
     /// `vmv8r.v vd, vs2` - Whole register move (8 registers)
     ///
-    /// funct6=100111, OPIVI, simm5=00111, vm=1
+    /// funct6=10_0111, OPIVI, simm5=0_0111, vm=1
     Vmv8rV { vd: VReg, vs2: VReg },
 }
 
@@ -115,7 +115,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -124,11 +124,11 @@ where
         let vs1_bits = ((instruction >> 15) & 0x1f) as u8;
         let vs2_bits = ((instruction >> 20) & 0x1f) as u8;
         let vm = ((instruction >> 25) & 1) != 0;
-        let funct6 = ((instruction >> 26) & 0b111111) as u8;
+        let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
 
         match funct6 {
-            // 010000: vmv.x.s (OPMVV) / vmv.s.x (OPMVX)
-            0b010000 => match funct3 {
+            // 01_0000: vmv.x.s (OPMVV) / vmv.s.x (OPMVX)
+            0b01_0000 => match funct3 {
                 // OPMVV
                 0b010 => {
                     // vmv.x.s rd, vs2 - vs1=00000, vm=1
@@ -151,8 +151,8 @@ where
                 }
                 _ => None,
             },
-            // 001100: vrgather
-            0b001100 => match funct3 {
+            // 00_1100: vrgather
+            0b00_1100 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vd = VReg::from_bits(vd_bits)?;
@@ -176,8 +176,8 @@ where
                 }
                 _ => None,
             },
-            // 001110: vslideup / vslide1up / vrgatherei16
-            0b001110 => match funct3 {
+            // 00_1110: vslideup / vslide1up / vrgatherei16
+            0b00_1110 => match funct3 {
                 // OPIVV
                 0b000 => {
                     // vrgatherei16.vv
@@ -212,8 +212,8 @@ where
                 }
                 _ => None,
             },
-            // 001111: vslidedown / vslide1down
-            0b001111 => match funct3 {
+            // 00_1111: vslidedown / vslide1down
+            0b00_1111 => match funct3 {
                 // OPIVX
                 0b100 => {
                     // vslidedown.vx
@@ -240,8 +240,8 @@ where
                 }
                 _ => None,
             },
-            // 010111: vmerge/vmv.v.* (OPIVV/OPIVX/OPIVI) and vcompress (OPMVV)
-            0b010111 => match funct3 {
+            // 01_0111: vmerge/vmv.v.* (OPIVV/OPIVX/OPIVI) and vcompress (OPMVV)
+            0b01_0111 => match funct3 {
                 // OPIVV: vmerge.vvm / vmv.v.v
                 0b000 => {
                     let vd = VReg::from_bits(vd_bits)?;
@@ -276,8 +276,8 @@ where
                 }
                 _ => None,
             },
-            // 100111: vmvNr.v (whole register move)
-            0b100111 => match funct3 {
+            // 10_0111: vmvNr.v (whole register move)
+            0b10_0111 => match funct3 {
                 // OPIVI
                 0b011 => {
                     // vm must be 1
@@ -320,8 +320,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]
         match self {
-            Self::VmvXS { rd, vs2 } => write!(f, "vmv.x.s {}, {}", rd, vs2),
-            Self::VmvSX { vd, rs1 } => write!(f, "vmv.s.x {}, {}", vd, rs1),
+            Self::VmvXS { rd, vs2 } => write!(f, "vmv.x.s {rd}, {vs2}"),
+            Self::VmvSX { vd, rs1 } => write!(f, "vmv.s.x {vd}, {rs1}"),
             Self::VslideupVx { vd, vs2, rs1, vm } => write!(f, "vslideup.vx {vd}, {vs2}, {rs1}{}", mask_suffix(vm)),
             Self::VslideupVi { vd, vs2, uimm, vm } => write!(f, "vslideup.vi {vd}, {vs2}, {uimm}{}", mask_suffix(vm)),
             Self::VslidedownVx { vd, vs2, rs1, vm } => write!(f, "vslidedown.vx {vd}, {vs2}, {rs1}{}", mask_suffix(vm)),

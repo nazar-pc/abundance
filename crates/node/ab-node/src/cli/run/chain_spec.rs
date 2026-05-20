@@ -51,9 +51,7 @@ const {
 }
 
 // TODO: Placeholder data structure, should probably be replaced with something else
-pub(super) struct ChainSpec {
-    // TODO
-}
+pub(super) struct ChainSpec;
 
 // TODO: Think harder about API here
 impl ChainSpec {
@@ -61,6 +59,10 @@ impl ChainSpec {
         Self {}
     }
 
+    #[expect(
+        clippy::unnecessary_literal_bound,
+        reason = "Temporary while it is hardcoded"
+    )]
     pub(super) fn name(&self) -> &str {
         // TODO: Proper name
         "dev"

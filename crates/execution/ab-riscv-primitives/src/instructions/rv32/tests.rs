@@ -12,7 +12,7 @@ use crate::registers::general_purpose::{EReg, Reg};
 
 #[test]
 fn test_add() {
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -26,7 +26,7 @@ fn test_add() {
 
 #[test]
 fn test_sub() {
-    let inst = make_r_type(0b0110011, 5, 0b000, 6, 7, 0b0100000);
+    let inst = make_r_type(0b011_0011, 5, 0b000, 6, 7, 0b010_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -40,7 +40,7 @@ fn test_sub() {
 
 #[test]
 fn test_sll() {
-    let inst = make_r_type(0b0110011, 10, 0b001, 11, 12, 0b0000000);
+    let inst = make_r_type(0b011_0011, 10, 0b001, 11, 12, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -54,7 +54,7 @@ fn test_sll() {
 
 #[test]
 fn test_slt() {
-    let inst = make_r_type(0b0110011, 1, 0b010, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -68,7 +68,7 @@ fn test_slt() {
 
 #[test]
 fn test_sltu() {
-    let inst = make_r_type(0b0110011, 1, 0b011, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b011, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -82,7 +82,7 @@ fn test_sltu() {
 
 #[test]
 fn test_xor() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -96,7 +96,7 @@ fn test_xor() {
 
 #[test]
 fn test_srl() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -110,7 +110,7 @@ fn test_srl() {
 
 #[test]
 fn test_sra() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b010_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -124,7 +124,7 @@ fn test_sra() {
 
 #[test]
 fn test_or() {
-    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -138,7 +138,7 @@ fn test_or() {
 
 #[test]
 fn test_and() {
-    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0000000);
+    let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -156,7 +156,7 @@ fn test_and() {
 fn test_addi() {
     {
         // Positive immediate
-        let inst = make_i_type(0b0010011, 1, 0b000, 2, 100);
+        let inst = make_i_type(0b001_0011, 1, 0b000, 2, 100);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -171,7 +171,7 @@ fn test_addi() {
 
     {
         // Negative immediate (-1)
-        let inst = make_i_type(0b0010011, 1, 0b000, 2, 0xfff);
+        let inst = make_i_type(0b001_0011, 1, 0b000, 2, 0xfff);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -186,7 +186,7 @@ fn test_addi() {
 
     {
         // Max positive 12-bit signed
-        let inst = make_i_type(0b0010011, 1, 0b000, 2, 0x7ff);
+        let inst = make_i_type(0b001_0011, 1, 0b000, 2, 0x7ff);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -201,7 +201,7 @@ fn test_addi() {
 
     {
         // Min negative 12-bit signed
-        let inst = make_i_type(0b0010011, 1, 0b000, 2, 0x800);
+        let inst = make_i_type(0b001_0011, 1, 0b000, 2, 0x800);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -217,7 +217,7 @@ fn test_addi() {
 
 #[test]
 fn test_slti() {
-    let inst = make_i_type(0b0010011, 1, 0b010, 2, 50);
+    let inst = make_i_type(0b001_0011, 1, 0b010, 2, 50);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -232,7 +232,7 @@ fn test_slti() {
 
 #[test]
 fn test_sltiu() {
-    let inst = make_i_type(0b0010011, 1, 0b011, 2, 50);
+    let inst = make_i_type(0b001_0011, 1, 0b011, 2, 50);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -247,7 +247,7 @@ fn test_sltiu() {
 
 #[test]
 fn test_xori() {
-    let inst = make_i_type(0b0010011, 1, 0b100, 2, 0xff);
+    let inst = make_i_type(0b001_0011, 1, 0b100, 2, 0xff);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -262,7 +262,7 @@ fn test_xori() {
 
 #[test]
 fn test_ori() {
-    let inst = make_i_type(0b0010011, 1, 0b110, 2, 0xff);
+    let inst = make_i_type(0b001_0011, 1, 0b110, 2, 0xff);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -277,7 +277,7 @@ fn test_ori() {
 
 #[test]
 fn test_andi() {
-    let inst = make_i_type(0b0010011, 1, 0b111, 2, 0xff);
+    let inst = make_i_type(0b001_0011, 1, 0b111, 2, 0xff);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -294,7 +294,7 @@ fn test_andi() {
 fn test_slli() {
     {
         // Basic shift
-        let inst = make_i_type(0b0010011, 1, 0b001, 2, 10);
+        let inst = make_i_type(0b001_0011, 1, 0b001, 2, 10);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -309,7 +309,7 @@ fn test_slli() {
 
     {
         // Max shift (shamt=31) - all 5 bits set
-        let inst = make_i_type(0b0010011, 1, 0b001, 2, 31);
+        let inst = make_i_type(0b001_0011, 1, 0b001, 2, 31);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -323,9 +323,10 @@ fn test_slli() {
     }
 
     {
-        // Invalid: bit 25 set (funct7 != 0b0000000) - would be valid in RV64 but not RV32
+        // Invalid: bit 25 set (funct7 != 0b000_0000) - would be valid in RV64 but not RV32
         let shamt = 10u32;
-        let inst = 0b0010011 | (1 << 7) | (0b001 << 12) | (2 << 15) | (shamt << 20) | (1 << 25);
+        let inst =
+            0b001_0011 | (1 << 7u8) | (0b001 << 12u8) | (2 << 15u8) | (shamt << 20u8) | (1 << 25u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
         assert!(
             decoded.is_none(),
@@ -334,14 +335,18 @@ fn test_slli() {
     }
 
     {
-        // Invalid: bit 30 set (funct7 = 0b0100000, which is SRAI's funct7)
+        // Invalid: bit 30 set (funct7 = 0b010_0000, which is SRAI's funct7)
         let shamt = 10u32;
-        let inst =
-            0b0010011 | (1 << 7) | (0b001 << 12) | (2 << 15) | (shamt << 20) | (0b0100000 << 25);
+        let inst = 0b001_0011
+            | (1 << 7u8)
+            | (0b001 << 12u8)
+            | (2 << 15u8)
+            | (shamt << 20u8)
+            | (0b010_0000 << 25u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
         assert!(
             decoded.is_none(),
-            "SLLI with funct7=0b0100000 should be invalid"
+            "SLLI with funct7=0b010_0000 should be invalid"
         );
     }
 }
@@ -350,7 +355,7 @@ fn test_slli() {
 fn test_srli() {
     {
         // Basic shift
-        let inst = make_i_type(0b0010011, 1, 0b101, 2, 10);
+        let inst = make_i_type(0b001_0011, 1, 0b101, 2, 10);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -365,7 +370,7 @@ fn test_srli() {
 
     {
         // Max shift (shamt=31)
-        let inst = make_i_type(0b0010011, 1, 0b101, 2, 31);
+        let inst = make_i_type(0b001_0011, 1, 0b101, 2, 31);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -379,9 +384,10 @@ fn test_srli() {
     }
 
     {
-        // Invalid: bit 25 set (funct7 != 0b0000000)
+        // Invalid: bit 25 set (funct7 != 0b000_0000)
         let shamt = 10u32;
-        let inst = 0b0010011 | (1 << 7) | (0b101 << 12) | (2 << 15) | (shamt << 20) | (1 << 25);
+        let inst =
+            0b001_0011 | (1 << 7u8) | (0b101 << 12u8) | (2 << 15u8) | (shamt << 20u8) | (1 << 25u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
         assert!(
             decoded.is_none(),
@@ -395,8 +401,12 @@ fn test_srai() {
     {
         // Basic shift with correct funct7
         let shamt = 10u32;
-        let inst =
-            0b0010011 | (1 << 7) | (0b101 << 12) | (2 << 15) | (shamt << 20) | (0b0100000 << 25);
+        let inst = 0b001_0011
+            | (1 << 7u8)
+            | (0b101 << 12u8)
+            | (2 << 15u8)
+            | (shamt << 20u8)
+            | (0b010_0000 << 25u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -412,8 +422,12 @@ fn test_srai() {
     {
         // Max shift (shamt=31)
         let shamt = 31u32;
-        let inst =
-            0b0010011 | (1 << 7) | (0b101 << 12) | (2 << 15) | (shamt << 20) | (0b0100000 << 25);
+        let inst = 0b001_0011
+            | (1 << 7u8)
+            | (0b101 << 12u8)
+            | (2 << 15u8)
+            | (shamt << 20u8)
+            | (0b010_0000 << 25u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -429,7 +443,7 @@ fn test_srai() {
     {
         // Without SRAI's funct7 bit, this is SRLI
         let shamt = 10u32;
-        let inst = 0b0010011 | (1 << 7) | (0b101 << 12) | (2 << 15) | (shamt << 20);
+        let inst = 0b001_0011 | (1 << 7u8) | (0b101 << 12u8) | (2 << 15u8) | (shamt << 20u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -446,8 +460,12 @@ fn test_srai() {
     {
         // Invalid: extra bits set in funct7
         let shamt = 10u32;
-        let inst =
-            0b0010011 | (1 << 7) | (0b101 << 12) | (2 << 15) | (shamt << 20) | (0b0100001 << 25);
+        let inst = 0b001_0011
+            | (1 << 7u8)
+            | (0b101 << 12u8)
+            | (2 << 15u8)
+            | (shamt << 20u8)
+            | (0b010_0001 << 25u8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
         assert!(
             decoded.is_none(),
@@ -460,7 +478,7 @@ fn test_srai() {
 
 #[test]
 fn test_lb() {
-    let inst = make_i_type(0b0000011, 1, 0b000, 2, 100);
+    let inst = make_i_type(0b000_0011, 1, 0b000, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -475,7 +493,7 @@ fn test_lb() {
 
 #[test]
 fn test_lh() {
-    let inst = make_i_type(0b0000011, 1, 0b001, 2, 100);
+    let inst = make_i_type(0b000_0011, 1, 0b001, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -492,7 +510,7 @@ fn test_lh() {
 fn test_lw() {
     {
         // Positive offset
-        let inst = make_i_type(0b0000011, 1, 0b010, 2, 100);
+        let inst = make_i_type(0b000_0011, 1, 0b010, 2, 100);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -507,7 +525,7 @@ fn test_lw() {
 
     {
         // Negative offset (-4)
-        let inst = make_i_type(0b0000011, 1, 0b010, 2, 0xffc);
+        let inst = make_i_type(0b000_0011, 1, 0b010, 2, 0xffc);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -523,7 +541,7 @@ fn test_lw() {
 
 #[test]
 fn test_lbu() {
-    let inst = make_i_type(0b0000011, 1, 0b100, 2, 100);
+    let inst = make_i_type(0b000_0011, 1, 0b100, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -538,7 +556,7 @@ fn test_lbu() {
 
 #[test]
 fn test_lhu() {
-    let inst = make_i_type(0b0000011, 1, 0b101, 2, 100);
+    let inst = make_i_type(0b000_0011, 1, 0b101, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -556,7 +574,7 @@ fn test_lhu() {
 #[test]
 fn test_no_ld() {
     // funct3=0b011 on load opcode is LD in RV64, must be invalid in RV32
-    let inst = make_i_type(0b0000011, 1, 0b011, 2, 100);
+    let inst = make_i_type(0b000_0011, 1, 0b011, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
     assert!(
         decoded.is_none(),
@@ -567,7 +585,7 @@ fn test_no_ld() {
 #[test]
 fn test_no_lwu() {
     // funct3=0b110 on load opcode is LWU in RV64, must be invalid in RV32
-    let inst = make_i_type(0b0000011, 1, 0b110, 2, 100);
+    let inst = make_i_type(0b000_0011, 1, 0b110, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
     assert!(
         decoded.is_none(),
@@ -579,7 +597,7 @@ fn test_no_lwu() {
 
 #[test]
 fn test_jalr() {
-    let inst = make_i_type(0b1100111, 1, 0b000, 2, 100);
+    let inst = make_i_type(0b110_0111, 1, 0b000, 2, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -596,7 +614,7 @@ fn test_jalr() {
 
 #[test]
 fn test_sb() {
-    let inst = make_s_type(0b0100011, 0b000, 2, 3, 100);
+    let inst = make_s_type(0b010_0011, 0b000, 2, 3, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -610,7 +628,7 @@ fn test_sb() {
 
 #[test]
 fn test_sh() {
-    let inst = make_s_type(0b0100011, 0b001, 2, 3, 100);
+    let inst = make_s_type(0b010_0011, 0b001, 2, 3, 100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -626,7 +644,7 @@ fn test_sh() {
 fn test_sw() {
     {
         // Positive offset
-        let inst = make_s_type(0b0100011, 0b010, 2, 3, 100);
+        let inst = make_s_type(0b010_0011, 0b010, 2, 3, 100);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -640,7 +658,7 @@ fn test_sw() {
 
     {
         // Negative offset
-        let inst = make_s_type(0b0100011, 0b010, 2, 3, -8);
+        let inst = make_s_type(0b010_0011, 0b010, 2, 3, -8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -658,7 +676,7 @@ fn test_sw() {
 #[test]
 fn test_no_sd() {
     // funct3=0b011 on store opcode is SD in RV64, must be invalid in RV32
-    let inst = make_s_type(0b0100011, 0b011, 2, 3, 0);
+    let inst = make_s_type(0b010_0011, 0b011, 2, 3, 0);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
     assert!(
         decoded.is_none(),
@@ -672,7 +690,7 @@ fn test_no_sd() {
 fn test_beq() {
     {
         // Positive offset
-        let inst = make_b_type(0b1100011, 0b000, 1, 2, 0x100);
+        let inst = make_b_type(0b110_0011, 0b000, 1, 2, 0x100);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -686,7 +704,7 @@ fn test_beq() {
 
     {
         // Negative offset
-        let inst = make_b_type(0b1100011, 0b000, 1, 2, -8);
+        let inst = make_b_type(0b110_0011, 0b000, 1, 2, -8);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -701,7 +719,7 @@ fn test_beq() {
 
 #[test]
 fn test_bne() {
-    let inst = make_b_type(0b1100011, 0b001, 1, 2, 0x100);
+    let inst = make_b_type(0b110_0011, 0b001, 1, 2, 0x100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -715,7 +733,7 @@ fn test_bne() {
 
 #[test]
 fn test_blt() {
-    let inst = make_b_type(0b1100011, 0b100, 1, 2, 0x100);
+    let inst = make_b_type(0b110_0011, 0b100, 1, 2, 0x100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -729,7 +747,7 @@ fn test_blt() {
 
 #[test]
 fn test_bge() {
-    let inst = make_b_type(0b1100011, 0b101, 1, 2, 0x100);
+    let inst = make_b_type(0b110_0011, 0b101, 1, 2, 0x100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -743,7 +761,7 @@ fn test_bge() {
 
 #[test]
 fn test_bltu() {
-    let inst = make_b_type(0b1100011, 0b110, 1, 2, 0x100);
+    let inst = make_b_type(0b110_0011, 0b110, 1, 2, 0x100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -757,7 +775,7 @@ fn test_bltu() {
 
 #[test]
 fn test_bgeu() {
-    let inst = make_b_type(0b1100011, 0b111, 1, 2, 0x100);
+    let inst = make_b_type(0b110_0011, 0b111, 1, 2, 0x100);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -773,13 +791,13 @@ fn test_bgeu() {
 
 #[test]
 fn test_lui() {
-    let inst = make_u_type(0b0110111, 1, 0x12345000);
+    let inst = make_u_type(0b011_0111, 1, 0x1234_5000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv32Instruction::Lui {
             rd: Reg::Ra,
-            imm: I24WithZeroedBits::from_i32(0x12345000),
+            imm: I24WithZeroedBits::from_i32(0x1234_5000),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -790,13 +808,13 @@ fn test_lui() {
 
 #[test]
 fn test_auipc() {
-    let inst = make_u_type(0b0010111, 1, 0x12345000);
+    let inst = make_u_type(0b001_0111, 1, 0x1234_5000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv32Instruction::Auipc {
             rd: Reg::Ra,
-            imm: I24WithZeroedBits::from_i32(0x12345000),
+            imm: I24WithZeroedBits::from_i32(0x1234_5000),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -809,7 +827,7 @@ fn test_auipc() {
 fn test_jal() {
     {
         // Positive offset
-        let inst = make_j_type(0b1101111, 1, 0x1000);
+        let inst = make_j_type(0b110_1111, 1, 0x1000);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -824,7 +842,7 @@ fn test_jal() {
 
     {
         // Negative offset
-        let inst = make_j_type(0b1101111, 1, -0x1000);
+        let inst = make_j_type(0b110_1111, 1, -0x1000);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -855,7 +873,7 @@ fn test_fence_valid() {
         }
     );
 
-    let inst = 0b0001111_u32 | (3_u32 << 24) | (3_u32 << 20);
+    let inst = 0b000_1111_u32 | (3_u32 << 24u8) | (3_u32 << 20u8);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -893,7 +911,7 @@ fn test_fence_invalid() {
 
 #[test]
 fn test_fence_tso() {
-    // Canonical encoding: 0x8330000f
+    // Canonical encoding: 0x8330_000f
     let inst = 0x8330_000f_u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
@@ -956,7 +974,7 @@ fn test_ebreak() {
 
 #[test]
 fn test_unimp() {
-    let inst = 0xc0001073u32;
+    let inst = 0xc000_1073_u32;
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -973,14 +991,14 @@ fn test_unimp() {
 fn test_invalid() {
     {
         // Invalid opcode
-        let inst = 0b1111111u32;
+        let inst = 0b111_1111_u32;
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
         assert!(decoded.is_none());
     }
 
     {
         // Invalid R-type funct7
-        let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b1111111);
+        let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b111_1111);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst);
         assert!(decoded.is_none());
     }
@@ -992,7 +1010,7 @@ fn test_invalid() {
 fn test_rv32e() {
     {
         // Valid RV32E instruction
-        let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0000000);
+        let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b000_0000);
         let decoded = Rv32Instruction::<EReg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -1006,7 +1024,7 @@ fn test_rv32e() {
 
     {
         // Max valid register (15/A5) in RV32E
-        let inst = make_r_type(0b0110011, 15, 0b000, 14, 13, 0b0000000);
+        let inst = make_r_type(0b011_0011, 15, 0b000, 14, 13, 0b000_0000);
         let decoded = Rv32Instruction::<EReg<u32>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
@@ -1020,7 +1038,7 @@ fn test_rv32e() {
 
     {
         // Invalid register (16 doesn't exist in RV32E)
-        let inst = make_r_type(0b0110011, 16, 0b000, 2, 3, 0b0000000);
+        let inst = make_r_type(0b011_0011, 16, 0b000, 2, 3, 0b000_0000);
         let decoded = Rv32Instruction::<EReg<u32>>::try_decode(inst);
         assert!(decoded.is_none());
     }
@@ -1030,7 +1048,7 @@ fn test_rv32e() {
 
 #[test]
 fn test_zero_register() {
-    let inst = make_r_type(0b0110011, 0, 0b000, 0, 0, 0b0000000);
+    let inst = make_r_type(0b011_0011, 0, 0b000, 0, 0, 0b000_0000);
     let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -1045,12 +1063,11 @@ fn test_zero_register() {
 #[test]
 fn test_all_registers_rv32i() {
     for reg_num in 0..32 {
-        let inst = make_r_type(0b0110011, reg_num, 0b000, 1, 2, 0b0000000);
+        let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
         assert!(
             matches!(decoded, Rv32Instruction::Add { .. }),
-            "Register {} should be valid for RV32I",
-            reg_num
+            "Register {reg_num} should be valid for RV32I"
         );
     }
 }
@@ -1059,23 +1076,21 @@ fn test_all_registers_rv32i() {
 fn test_all_registers_rv32e() {
     // Valid registers (0-15)
     for reg_num in 0..16 {
-        let inst = make_r_type(0b0110011, reg_num, 0b000, 1, 2, 0b0000000);
+        let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
         let decoded = Rv32Instruction::<EReg<u32>>::try_decode(inst).unwrap();
         assert!(
             matches!(decoded, Rv32Instruction::Add { .. }),
-            "Register {} should be valid for RV32E",
-            reg_num
+            "Register {reg_num} should be valid for RV32E"
         );
     }
 
     // Invalid registers (16-31)
     for reg_num in 16..32 {
-        let inst = make_r_type(0b0110011, reg_num, 0b000, 1, 2, 0b0000000);
+        let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
         let decoded = Rv32Instruction::<EReg<u32>>::try_decode(inst);
         assert!(
             decoded.is_none(),
-            "Register {} should be invalid for RV32E",
-            reg_num
+            "Register {reg_num} should be invalid for RV32E"
         );
     }
 }

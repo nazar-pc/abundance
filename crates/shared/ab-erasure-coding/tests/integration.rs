@@ -4,9 +4,9 @@ use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use reed_solomon_simd::Error;
-use std::assert_matches;
 use std::iter::TrustedLen;
 use std::ops::Range;
+use std::{assert_matches, iter};
 
 fn corrupt_shards<'a, Iter>(
     iter: Iter,
@@ -38,13 +38,13 @@ fn basic_data() {
     });
     let ec = ErasureCoding::new();
 
-    let source_shards = (0..num_shards / 2)
-        .map(|_| {
-            let mut bytes = [0u8; 32];
-            rng.fill_bytes(&mut bytes);
-            bytes
-        })
-        .collect::<Vec<_>>();
+    let source_shards = iter::repeat_with(|| {
+        let mut bytes = [0u8; 32];
+        rng.fill_bytes(&mut bytes);
+        bytes
+    })
+    .take(num_shards / 2)
+    .collect::<Vec<_>>();
     let mut parity_shards = vec![[0u8; 32]; source_shards.len()];
 
     ec.extend(source_shards.iter(), parity_shards.iter_mut())

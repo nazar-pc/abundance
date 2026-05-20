@@ -50,12 +50,12 @@ where
     c.bench_function(&format!("{N}/balanced/new"), |b| {
         b.iter(|| {
             BalancedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
-        })
+        });
     });
     c.bench_function(&format!("{N}/balanced/compute-root-only"), |b| {
         b.iter(|| {
             black_box(BalancedMerkleTree::compute_root_only(black_box(&input)));
-        })
+        });
     });
 
     let tree = &*BalancedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
@@ -63,7 +63,7 @@ where
     c.bench_function(&format!("{N}/balanced/all-proofs"), |b| {
         b.iter(|| {
             black_box(black_box(black_box(tree).all_proofs()).count());
-        })
+        });
     });
 
     let root = tree.root();
@@ -79,7 +79,7 @@ where
                     black_box(input[index]),
                 ));
             }
-        })
+        });
     });
 }
 
@@ -98,7 +98,7 @@ where
             black_box(UnbalancedMerkleTree::compute_root_only(black_box(
                 input.iter().copied(),
             )));
-        })
+        });
     });
 
     {
@@ -115,7 +115,7 @@ where
                         black_box(&mut proof),
                     ));
                 }
-            })
+            });
         });
 
         let root = UnbalancedMerkleTree::compute_root_only(input.iter().copied()).unwrap();
@@ -147,7 +147,7 @@ where
                         black_box(MAX_N_U64),
                     ));
                 }
-            })
+            });
         });
     }
 
@@ -162,7 +162,7 @@ where
                     black_box(UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(
                         black_box(input.iter().copied()),
                     ));
-                })
+                });
             },
         );
 
@@ -179,7 +179,7 @@ where
                             black_box(&mut proof),
                         ));
                     }
-                })
+                });
             },
         );
     }

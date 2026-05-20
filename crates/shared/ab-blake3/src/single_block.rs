@@ -90,7 +90,7 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
             flags | CHUNK_START | CHUNK_END | ROOT,
         );
 
-        output.copy_from_slice(le_bytes_from_words_32(&cv))
+        output.copy_from_slice(le_bytes_from_words_32(&cv));
     }
 }
 
@@ -116,7 +116,7 @@ pub fn single_block_hash_many_exact<const NUM_BLOCKS: usize>(
     //  `blake3` API
     outputs: &mut [[u8; OUT_LEN]; NUM_BLOCKS],
 ) {
-    hash_block_many_exact(inputs, outputs, *IV, 0)
+    hash_block_many_exact(inputs, outputs, *IV, 0);
 }
 
 /// The keyed hash function for at most single block worth of bytes.
@@ -144,7 +144,7 @@ pub fn single_block_keyed_hash_many_exact<const NUM_BLOCKS: usize>(
     outputs: &mut [[u8; OUT_LEN]; NUM_BLOCKS],
 ) {
     let key_words = words_from_le_bytes_32(key);
-    hash_block_many_exact(inputs, outputs, key_words, KEYED_HASH)
+    hash_block_many_exact(inputs, outputs, key_words, KEYED_HASH);
 }
 
 // The key derivation function for at most a single block worth of bytes.
@@ -184,7 +184,7 @@ pub fn single_block_hash_portable_words(input: &BlockWords, num_bytes: u32) -> C
         input,
         num_bytes,
         0,
-        (CHUNK_START | CHUNK_END | ROOT) as u32,
+        u32::from(CHUNK_START | CHUNK_END | ROOT),
     );
 
     cv

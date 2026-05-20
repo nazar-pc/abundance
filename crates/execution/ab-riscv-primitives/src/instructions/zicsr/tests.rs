@@ -5,7 +5,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_csrrw() {
-    let inst = make_i_type(0b1110011, 1, 0b001, 2, 0x305);
+    let inst = make_i_type(0b111_0011, 1, 0b001, 2, 0x305);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -20,7 +20,7 @@ fn test_csrrw() {
 
 #[test]
 fn test_csrrs() {
-    let inst = make_i_type(0b1110011, 3, 0b010, 4, 0x341);
+    let inst = make_i_type(0b111_0011, 3, 0b010, 4, 0x341);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -35,7 +35,7 @@ fn test_csrrs() {
 
 #[test]
 fn test_csrrc() {
-    let inst = make_i_type(0b1110011, 5, 0b011, 6, 0x300);
+    let inst = make_i_type(0b111_0011, 5, 0b011, 6, 0x300);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -50,7 +50,7 @@ fn test_csrrc() {
 
 #[test]
 fn test_csrrwi() {
-    let inst = make_i_type(0b1110011, 7, 0b101, 0b10101, 0x7c0);
+    let inst = make_i_type(0b111_0011, 7, 0b101, 0b10101, 0x7c0);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -66,7 +66,7 @@ fn test_csrrwi() {
 
 #[test]
 fn test_csrrsi() {
-    let inst = make_i_type(0b1110011, 8, 0b110, 0b00001, 0x7c1);
+    let inst = make_i_type(0b111_0011, 8, 0b110, 0b00001, 0x7c1);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -82,7 +82,7 @@ fn test_csrrsi() {
 
 #[test]
 fn test_csrrci() {
-    let inst = make_i_type(0b1110011, 9, 0b111, 0b11111, 0x7c2);
+    let inst = make_i_type(0b111_0011, 9, 0b111, 0b11111, 0x7c2);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -98,7 +98,7 @@ fn test_csrrci() {
 
 #[test]
 fn test_csrrw_nop_like_encoding() {
-    let inst = make_i_type(0b1110011, 0, 0b001, 0, 0x000);
+    let inst = make_i_type(0b111_0011, 0, 0b001, 0, 0x000);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -113,7 +113,7 @@ fn test_csrrw_nop_like_encoding() {
 
 #[test]
 fn test_csrrwi_nop_like_encoding() {
-    let inst = make_i_type(0b1110011, 0, 0b101, 0, 0x000);
+    let inst = make_i_type(0b111_0011, 0, 0b101, 0, 0x000);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -129,14 +129,14 @@ fn test_csrrwi_nop_like_encoding() {
 
 #[test]
 fn test_invalid_opcode() {
-    let inst = make_i_type(0b0000000, 1, 0b001, 2, 0x305);
+    let inst = make_i_type(0b000_0000, 1, 0b001, 2, 0x305);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_invalid_funct3() {
-    let inst = make_i_type(0b1110011, 1, 0b000, 2, 0x305);
+    let inst = make_i_type(0b111_0011, 1, 0b000, 2, 0x305);
     let decoded = ZicsrInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

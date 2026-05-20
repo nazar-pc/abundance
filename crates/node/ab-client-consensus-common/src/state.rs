@@ -21,7 +21,7 @@ pub struct GlobalState {
 impl GlobalState {
     pub fn new(system_contract_states: &[ContractSlotState]) -> Self {
         let mut state = BTreeMap::<Address, BTreeMap<_, _>>::new();
-        for system_contract_state in system_contract_states.iter() {
+        for system_contract_state in system_contract_states {
             state
                 .entry(system_contract_state.owner)
                 .or_default()

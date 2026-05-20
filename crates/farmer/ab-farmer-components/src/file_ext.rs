@@ -214,13 +214,13 @@ impl FileExt for File {
                     }
                 }
 
-                if !buf.is_empty() {
+                if buf.is_empty() {
+                    Ok(())
+                } else {
                     Err(std::io::Error::new(
                         std::io::ErrorKind::UnexpectedEof,
                         "failed to fill whole buffer",
                     ))
-                } else {
-                    Ok(())
                 }
             }}
             _ => {

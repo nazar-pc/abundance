@@ -7,7 +7,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_andn() {
-    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b010_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -21,7 +21,7 @@ fn test_andn() {
 
 #[test]
 fn test_orn() {
-    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b010_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -35,7 +35,7 @@ fn test_orn() {
 
 #[test]
 fn test_xnor() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0100000);
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b010_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -50,7 +50,7 @@ fn test_xnor() {
 #[test]
 fn test_clz() {
     // Current encoding: clz ra, sp (low6=0)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 0, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 0, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -65,7 +65,7 @@ fn test_clz() {
 #[test]
 fn test_clz_real_instruction() {
     // clz a0, a0 in current "B" extension
-    let inst = 0x60051513_u32;
+    let inst = 0x6005_1513;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -79,31 +79,31 @@ fn test_clz_real_instruction() {
 
 #[test]
 fn test_legacy_clz_reserved_subop() {
-    // subop >2 with funct6=011000 in funct3=001 -> reserved/None
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 3, 0b011000);
+    // subop >2 with funct6=01_1000 in funct3=001 -> reserved/None
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 3, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_reserved_subop_in_legacy_clz_space() {
-    // funct6=011000 in funct3=001 with subop/rs2_bits not 0-2 -> reserved/None
+    // funct6=01_1000 in funct3=001 with subop/rs2_bits not 0-2 -> reserved/None
     // (0-2 are legacy aliases for clz/ctz/cpop)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 3, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 3, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_old_zbb_clz_now_reserved() {
-    let inst = make_r_type(0b0110011, 10, 0b001, 10, 0, 0b0000101);
+    let inst = make_r_type(0b011_0011, 10, 0b001, 10, 0, 0b000_0101);
     assert_eq!(Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst), None);
 }
 
 #[test]
 fn test_clzw() {
-    // Current encoding: clzw ra, sp (rs2=0, funct7=0110000)
-    let inst = make_r_type(0b0011011, 1, 0b001, 2, 0, 0b0110000);
+    // Current encoding: clzw ra, sp (rs2=0, funct7=011_0000)
+    let inst = make_r_type(0b001_1011, 1, 0b001, 2, 0, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -118,7 +118,7 @@ fn test_clzw() {
 #[test]
 fn test_ctz() {
     // Current encoding: ctz ra, sp (low6=1)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 1, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 1, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -133,7 +133,7 @@ fn test_ctz() {
 #[test]
 fn test_ctz_legacy_encoding() {
     // Analogous legacy for ctz (rs2/subop=1)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 1, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 1, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -147,8 +147,8 @@ fn test_ctz_legacy_encoding() {
 
 #[test]
 fn test_ctzw() {
-    // Current encoding: ctzw ra, sp (rs2=1, funct7=0110000)
-    let inst = make_r_type(0b0011011, 1, 0b001, 2, 1, 0b0110000);
+    // Current encoding: ctzw ra, sp (rs2=1, funct7=011_0000)
+    let inst = make_r_type(0b001_1011, 1, 0b001, 2, 1, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -163,7 +163,7 @@ fn test_ctzw() {
 #[test]
 fn test_cpop() {
     // Current encoding: cpop ra, sp (low6=2)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 2, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 2, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -178,7 +178,7 @@ fn test_cpop() {
 #[test]
 fn test_cpop_legacy_encoding() {
     // Legacy for cpop (rs2/subop=2)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 2, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 2, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -192,8 +192,8 @@ fn test_cpop_legacy_encoding() {
 
 #[test]
 fn test_cpopw() {
-    // Current encoding: cpopw ra, sp (rs2=2, funct7=0110000)
-    let inst = make_r_type(0b0011011, 1, 0b001, 2, 2, 0b0110000);
+    // Current encoding: cpopw ra, sp (rs2=2, funct7=011_0000)
+    let inst = make_r_type(0b001_1011, 1, 0b001, 2, 2, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -207,8 +207,8 @@ fn test_cpopw() {
 
 #[test]
 fn test_min() {
-    // min: opcode=0b0110011, funct3=0b100, funct7=0b0000101
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000101);
+    // min: opcode=0b011_0011, funct3=0b100, funct7=0b000_0101
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -222,8 +222,8 @@ fn test_min() {
 
 #[test]
 fn test_minu() {
-    // minu: opcode=0b0110011, funct3=0b101, funct7=0b0000101
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0000101);
+    // minu: opcode=0b011_0011, funct3=0b101, funct7=0b000_0101
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b000_0101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -237,8 +237,8 @@ fn test_minu() {
 
 #[test]
 fn test_max() {
-    // max: opcode=0b0110011, funct3=0b110, funct7=0b0000101
-    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0000101);
+    // max: opcode=0b011_0011, funct3=0b110, funct7=0b000_0101
+    let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b000_0101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -252,8 +252,8 @@ fn test_max() {
 
 #[test]
 fn test_maxu() {
-    // maxu: opcode=0b0110011, funct3=0b111, funct7=0b0000101
-    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0000101);
+    // maxu: opcode=0b011_0011, funct3=0b111, funct7=0b000_0101
+    let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0101);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -267,7 +267,7 @@ fn test_maxu() {
 
 #[test]
 fn test_rol() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -281,7 +281,7 @@ fn test_rol() {
 
 #[test]
 fn test_rolw() {
-    let inst = make_r_type(0b0111011, 1, 0b001, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_1011, 1, 0b001, 2, 3, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -295,7 +295,7 @@ fn test_rolw() {
 
 #[test]
 fn test_ror() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -309,7 +309,7 @@ fn test_ror() {
 
 #[test]
 fn test_rorw() {
-    let inst = make_r_type(0b0111011, 1, 0b101, 2, 3, 0b0110000);
+    let inst = make_r_type(0b011_1011, 1, 0b101, 2, 3, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -323,7 +323,7 @@ fn test_rorw() {
 
 #[test]
 fn test_rori() {
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 5, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 5, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -338,8 +338,8 @@ fn test_rori() {
 
 #[test]
 fn test_rori_large_shamt() {
-    // shamt = 40 = 0b101000
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 40, 0b011000);
+    // shamt = 40 = 0b10_1000
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 40, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -354,8 +354,8 @@ fn test_rori_large_shamt() {
 
 #[test]
 fn test_rori_real_instruction() {
-    // Real instruction: rori a1,t1,0xe (0x60e35593)
-    let inst = 0x60e35593u32;
+    // Real instruction: rori a1,t1,0xe (0x60e3_5593)
+    let inst = 0x60e3_5593;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -370,7 +370,7 @@ fn test_rori_real_instruction() {
 
 #[test]
 fn test_roriw() {
-    let inst = make_i_type_with_shamt(0b0011011, 1, 0b101, 2, 12, 0b011000);
+    let inst = make_i_type_with_shamt(0b001_1011, 1, 0b101, 2, 12, 0b01_1000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -413,9 +413,9 @@ fn test_sext_h() {
 
 #[test]
 fn test_zext_h() {
-    // Ratified encoding: zext.h ra, sp (rd=1, rs1=2, rs2=0, funct3=100, funct7=0000100,
-    // opcode=0111011)
-    let inst = make_r_type(0b0111011, 1, 0b100, 2, 0, 0b0000100);
+    // Ratified encoding: zext.h ra, sp (rd=1, rs1=2, rs2=0, funct3=100, funct7=000_0100,
+    // opcode=011_1011)
+    let inst = make_r_type(0b011_1011, 1, 0b100, 2, 0, 0b000_0100);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -429,8 +429,8 @@ fn test_zext_h() {
 
 #[test]
 fn test_zext_h_real_instruction() {
-    // zext.h a2, a1 (real encoding from current tools/spec: 0x0805c63b)
-    let inst = 0x0805c63b_u32;
+    // zext.h a2, a1 (real encoding from current tools/spec: 0x0805_c63b)
+    let inst = 0x0805_c63b;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -445,14 +445,14 @@ fn test_zext_h_real_instruction() {
 #[test]
 fn test_no_zext_h_with_nonzero_rs2() {
     // Same encoding but rs2 != 0 -> reserved/invalid for Zbb
-    let inst = make_r_type(0b0111011, 1, 0b100, 2, 1, 0b0000100);
+    let inst = make_r_type(0b011_1011, 1, 0b100, 2, 1, 0b000_0100);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_old_draft_zext_h_now_ror() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 0b00100, 0b0110000);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 0b00100, 0b011_0000);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -481,8 +481,8 @@ fn test_rev8() {
 
 #[test]
 fn test_rev8_real_instruction() {
-    // Real instruction: rev8 a3,a3 (0x6b86d693)
-    let inst = 0x6b86d693u32;
+    // Real instruction: rev8 a3,a3 (0x6b86_d693)
+    let inst = 0x6b86_d693;
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -499,8 +499,8 @@ fn test_orc_b() {
     // orc.b: OP-IMM, funct3=0b101, funct12=0b001010000111 (0x287)
     // Encoding: 0010100 00111 rs1 101 rd 0010011
     // make_i_type_with_shamt(opcode, rd, funct3, rs1, shamt/low6, funct6)
-    // funct6=0b001010, shamt=0b000111=7
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 0b000111, 0b001010);
+    // funct6=0b00_1010, shamt=0b00_0111=7
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 0b00_0111, 0b00_1010);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -514,8 +514,8 @@ fn test_orc_b() {
 
 #[test]
 fn test_orc_b_wrong_funct12_returns_none() {
-    // funct6=0b001010 but shamt != 7 should return None (not a valid Zbb OP-IMM)
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 0b000110, 0b001010);
+    // funct6=0b00_1010 but shamt != 7 should return None (not a valid Zbb OP-IMM)
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 0b00_0110, 0b00_1010);
     let decoded = Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

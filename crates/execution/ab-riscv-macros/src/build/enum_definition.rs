@@ -83,9 +83,8 @@ pub(super) fn collect_enum_definitions_from_dependencies()
             );
             let dependencies_string = env::var(&dependencies_key).with_context(|| {
                 format!(
-                    "Failed to read environment variable `{}` that is expected to contain \
-                    instruction enum dependencies",
-                    dependencies_key
+                    "Failed to read environment variable `{dependencies_key}` that is expected to \
+                    contain instruction enum dependencies"
                 )
             })?;
             let dependencies = dependencies_string
@@ -191,7 +190,7 @@ fn output_processed_enum_definition(
     }
 
     let enum_name = item_enum.ident.clone();
-    let enum_file_path = out_dir.join(format!("{}_definition.rs", enum_name));
+    let enum_file_path = out_dir.join(format!("{enum_name}_definition.rs"));
     let code = item_enum.to_token_stream().to_string();
     // Format
     let code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
@@ -201,10 +200,7 @@ fn output_processed_enum_definition(
     // Avoid extra file truncation/override if it didn't change
     if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
         fs::write(&enum_file_path, code).with_context(|| {
-            format!(
-                "Failed to write generated Rust file with instruction enum `{}`",
-                enum_name,
-            )
+            format!("Failed to write generated Rust file with instruction enum `{enum_name}`")
         })?;
     }
     println!(
@@ -412,9 +408,8 @@ fn process_enum_definition_inherited(
                 for reorder_variant in reorder_variants {
                     if processed_instructions.contains(reorder_variant) {
                         return Err(anyhow::anyhow!(
-                            "Instruction `{}` in `#[instruction(...)]`'s `reorder` attribute is \
-                            already included earlier",
-                            reorder_variant
+                            "Instruction `{reorder_variant}` in `#[instruction(...)]`'s `reorder` \
+                            attribute is already included earlier"
                         ));
                     }
                     processed_instructions.insert(reorder_variant.clone());
@@ -427,8 +422,8 @@ fn process_enum_definition_inherited(
                         Rc::clone(&instruction.instruction)
                     } else {
                         return Err(anyhow::anyhow!(
-                            "Unknown reorder instruction `{}` in `#[instruction(...)]` attribute",
-                            reorder_variant
+                            "Unknown reorder instruction `{reorder_variant}` in \
+                            `#[instruction(...)]` attribute"
                         ));
                     };
 

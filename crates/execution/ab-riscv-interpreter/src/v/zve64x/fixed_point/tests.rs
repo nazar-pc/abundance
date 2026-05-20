@@ -8,7 +8,7 @@ use crate::{
 use ab_riscv_primitives::prelude::*;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
 }
 
 fn setup(
@@ -1869,10 +1869,10 @@ fn vssrl_masked_only_active_written() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0xFF >> 4);
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0xFF >> 4u8);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 0xAA);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0xFF >> 4);
+    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0xFF >> 4u8);
 }
 
 // vstart partial execution
@@ -2313,7 +2313,10 @@ fn vnclipu_e32_saturates() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), u32::MAX as u64);
+    assert_eq!(
+        read_elem(&state, VReg::V8, 0, Vsew::E32),
+        u64::from(u32::MAX)
+    );
     assert!(vxsat(&state));
 }
 

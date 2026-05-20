@@ -136,8 +136,8 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
     const LAMBDA: u64 = PARAM_BC as u64 / 2u64.pow(PARAM_EXT as u32);
     // Approximation of ln(2) as a fraction: ln(2) ≈ LN2_NUM / LN2_DEN.
     // This allows integer-only computation of the square root term involving ln(2).
-    const LN2_NUM: u128 = 693147;
-    const LN2_DEN: u128 = 1000000;
+    const LN2_NUM: u128 = 693_147;
+    const LN2_DEN: u128 = 1_000_000;
 
     // `k + security_bits` for the union bound over ~2^k intervals
     let ks = k as u128 + security_bits as u128;
@@ -1402,8 +1402,8 @@ where
                             ys,
                             positions,
                             metadatas,
-                        )
-                    };
+                        );
+                    }
                     *count = matches.len() as u16;
                 }
             }

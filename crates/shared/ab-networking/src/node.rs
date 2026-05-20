@@ -58,7 +58,7 @@ impl PinnedDrop for TopicSubscription {
 
         tokio::spawn(async move {
             // Doesn't matter if node runner is already dropped.
-            let _ = command_sender
+            let _: Result<(), _> = command_sender
                 .send(Command::Unsubscribe {
                     topic,
                     subscription_id,
@@ -581,7 +581,7 @@ impl Node {
 
         result_receiver
             .await
-            .map_err(|_| ConnectedPeersError::ConnectedPeers)
+            .map_err(|_cancelled| ConnectedPeersError::ConnectedPeers)
     }
 
     /// Returns a collection of currently connected servers (typically farmers).
@@ -598,7 +598,7 @@ impl Node {
 
         result_receiver
             .await
-            .map_err(|_| ConnectedPeersError::ConnectedPeers)
+            .map_err(|_cancelled| ConnectedPeersError::ConnectedPeers)
     }
 
     /// Bootstraps Kademlia network
@@ -615,7 +615,7 @@ impl Node {
             })
             .await?;
 
-        for step in 0.. {
+        for step in 0usize.. {
             let result = result_receiver.next().await;
 
             if result.is_some() {
@@ -645,11 +645,11 @@ impl Node {
 
     /// Returns the request batch handle with common "connection permit" slot from the shared pool.
     pub async fn get_requests_batch_handle(&self) -> NodeRequestsBatchHandle {
-        let _permit = self.shared.rate_limiter.acquire_permit().await;
+        let permit = self.shared.rate_limiter.acquire_permit().await;
 
         NodeRequestsBatchHandle {
-            _permit,
             node: self.clone(),
+            _permit: permit,
         }
     }
 

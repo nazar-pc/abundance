@@ -23,7 +23,7 @@ use std::env::current_exe;
 use std::mem;
 use std::net::SocketAddr;
 use std::pin::pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 const REQUEST_RETRY_MAX_ELAPSED_TIME: Duration = Duration::from_mins(1);
@@ -93,7 +93,7 @@ where
 {
     let mut shutdown_signal_fut = pin!(shutdown_signal());
     // Poll once to register signal handlers and ensure a graceful shutdown later
-    let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
+    let _: Poll<()> = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
 
     let ClusterArgs {
         shared_args,

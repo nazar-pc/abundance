@@ -33,13 +33,13 @@ where
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
 
         match opcode {
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b010, 0b0010100) => Some(Self::Xperm4 { rd, rs1, rs2 }),
-                    (0b100, 0b0010100) => Some(Self::Xperm8 { rd, rs1, rs2 }),
+                    (0b010, 0b001_0100) => Some(Self::Xperm4 { rd, rs1, rs2 }),
+                    (0b100, 0b001_0100) => Some(Self::Xperm8 { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
@@ -65,8 +65,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Xperm4 { rd, rs1, rs2 } => write!(f, "xperm4 {}, {}, {}", rd, rs1, rs2),
-            Self::Xperm8 { rd, rs1, rs2 } => write!(f, "xperm8 {}, {}, {}", rd, rs1, rs2),
+            Self::Xperm4 { rd, rs1, rs2 } => write!(f, "xperm4 {rd}, {rs1}, {rs2}"),
+            Self::Xperm8 { rd, rs1, rs2 } => write!(f, "xperm8 {rd}, {rs1}, {rs2}"),
         }
     }
 }

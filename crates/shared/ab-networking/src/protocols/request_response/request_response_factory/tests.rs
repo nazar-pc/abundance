@@ -70,33 +70,33 @@ async fn basic_request_response_works() {
     let protocol_name = "/test/req-resp/1";
 
     // Build swarms whose behaviour is `RequestResponsesBehaviour`.
-    let mut swarms = (0..2)
-        .map(|_| async {
-            let (tx, mut rx) = mpsc::channel::<IncomingRequest>(64);
+    let mut swarms = iter::repeat_with(|| async {
+        let (tx, mut rx) = mpsc::channel::<IncomingRequest>(64);
 
-            tokio::spawn(async move {
-                while let Some(rq) = rx.next().await {
-                    assert_eq!(rq.payload, b"this is a request");
-                    let _ = rq.pending_response.send(OutgoingResponse {
-                        result: Ok(b"this is a response".to_vec()),
-                        sent_feedback: None,
-                    });
-                }
-            });
+        tokio::spawn(async move {
+            while let Some(rq) = rx.next().await {
+                assert_eq!(rq.payload, b"this is a request");
+                let _: Result<_, _> = rq.pending_response.send(OutgoingResponse {
+                    result: Ok(b"this is a response".to_vec()),
+                    sent_feedback: None,
+                });
+            }
+        });
 
-            let protocol_config = ProtocolConfig {
-                name: protocol_name,
-                max_request_size: 1024,
-                max_response_size: 1024 * 1024,
-                request_timeout: Duration::from_secs(30),
-                inbound_queue: Some(tx),
-            };
+        let protocol_config = ProtocolConfig {
+            name: protocol_name,
+            max_request_size: 1024,
+            max_response_size: 1024 * 1024,
+            request_timeout: Duration::from_secs(30),
+            inbound_queue: Some(tx),
+        };
 
-            build_swarm(iter::once(protocol_config)).await
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+        build_swarm(iter::once(protocol_config)).await
+    })
+    .take(2)
+    .collect::<FuturesUnordered<_>>()
+    .collect::<Vec<_>>()
+    .await;
 
     let mut swarm_0 = swarms.remove(0);
     let mut swarm_1 = swarms.remove(0);
@@ -146,33 +146,33 @@ async fn max_response_size_exceeded() {
     let protocol_name = "/test/req-resp/1";
 
     // Build swarms whose behaviour is `RequestResponsesBehaviour`.
-    let mut swarms = (0..2)
-        .map(|_| async {
-            let (tx, mut rx) = mpsc::channel::<IncomingRequest>(64);
+    let mut swarms = iter::repeat_with(|| async {
+        let (tx, mut rx) = mpsc::channel::<IncomingRequest>(64);
 
-            tokio::spawn(async move {
-                while let Some(rq) = rx.next().await {
-                    assert_eq!(rq.payload, b"this is a request");
-                    let _ = rq.pending_response.send(OutgoingResponse {
-                        result: Ok(b"this response exceeds the limit".to_vec()),
-                        sent_feedback: None,
-                    });
-                }
-            });
+        tokio::spawn(async move {
+            while let Some(rq) = rx.next().await {
+                assert_eq!(rq.payload, b"this is a request");
+                let _: Result<(), _> = rq.pending_response.send(OutgoingResponse {
+                    result: Ok(b"this response exceeds the limit".to_vec()),
+                    sent_feedback: None,
+                });
+            }
+        });
 
-            let protocol_config = ProtocolConfig {
-                name: protocol_name,
-                max_request_size: 1024,
-                max_response_size: 8, // <-- important for the test
-                request_timeout: Duration::from_secs(30),
-                inbound_queue: Some(tx),
-            };
+        let protocol_config = ProtocolConfig {
+            name: protocol_name,
+            max_request_size: 1024,
+            max_response_size: 8, // <-- important for the test
+            request_timeout: Duration::from_secs(30),
+            inbound_queue: Some(tx),
+        };
 
-            build_swarm(iter::once(protocol_config)).await
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+        build_swarm(iter::once(protocol_config)).await
+    })
+    .take(2)
+    .collect::<FuturesUnordered<_>>()
+    .collect::<Vec<_>>()
+    .await;
 
     let mut swarm_0 = swarms.remove(0);
     let mut swarm_1 = swarms.remove(0);
@@ -334,7 +334,7 @@ async fn request_id_collision() {
     });
 
     // Have swarm 1 send two requests to swarm 2 and await responses.
-    let mut num_responses = 0;
+    let mut num_responses = 0usize;
 
     let (sender_1, receiver_1) = oneshot::channel();
     let (sender_2, receiver_2) = oneshot::channel();

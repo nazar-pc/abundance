@@ -40,23 +40,23 @@ where
 
         match opcode {
             // I-type format (OP-IMM encoding)
-            0b0010011 => {
-                if funct3 != 0b001 || funct7 != 0b0001000 {
+            0b001_0011 => {
+                if funct3 != 0b001 || funct7 != 0b000_1000 {
                     None
                 } else {
                     let rd = Reg::from_bits(rd_bits)?;
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     match funct5 {
                         // SHA-256 instructions
-                        0b00010 => Some(Self::Sha256Sig0 { rd, rs1 }),
-                        0b00011 => Some(Self::Sha256Sig1 { rd, rs1 }),
-                        0b00000 => Some(Self::Sha256Sum0 { rd, rs1 }),
-                        0b00001 => Some(Self::Sha256Sum1 { rd, rs1 }),
+                        0b0_0010 => Some(Self::Sha256Sig0 { rd, rs1 }),
+                        0b0_0011 => Some(Self::Sha256Sig1 { rd, rs1 }),
+                        0b0_0000 => Some(Self::Sha256Sum0 { rd, rs1 }),
+                        0b0_0001 => Some(Self::Sha256Sum1 { rd, rs1 }),
                         // SHA-512 instructions
-                        0b00110 => Some(Self::Sha512Sig0 { rd, rs1 }),
-                        0b00111 => Some(Self::Sha512Sig1 { rd, rs1 }),
-                        0b00100 => Some(Self::Sha512Sum0 { rd, rs1 }),
-                        0b00101 => Some(Self::Sha512Sum1 { rd, rs1 }),
+                        0b0_0110 => Some(Self::Sha512Sig0 { rd, rs1 }),
+                        0b0_0111 => Some(Self::Sha512Sig1 { rd, rs1 }),
+                        0b0_0100 => Some(Self::Sha512Sum0 { rd, rs1 }),
+                        0b0_0101 => Some(Self::Sha512Sum1 { rd, rs1 }),
                         _ => None,
                     }
                 }
@@ -83,14 +83,14 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Sha256Sig0 { rd, rs1 } => write!(f, "sha256sig0 {}, {}", rd, rs1),
-            Self::Sha256Sig1 { rd, rs1 } => write!(f, "sha256sig1 {}, {}", rd, rs1),
-            Self::Sha256Sum0 { rd, rs1 } => write!(f, "sha256sum0 {}, {}", rd, rs1),
-            Self::Sha256Sum1 { rd, rs1 } => write!(f, "sha256sum1 {}, {}", rd, rs1),
-            Self::Sha512Sig0 { rd, rs1 } => write!(f, "sha512sig0 {}, {}", rd, rs1),
-            Self::Sha512Sig1 { rd, rs1 } => write!(f, "sha512sig1 {}, {}", rd, rs1),
-            Self::Sha512Sum0 { rd, rs1 } => write!(f, "sha512sum0 {}, {}", rd, rs1),
-            Self::Sha512Sum1 { rd, rs1 } => write!(f, "sha512sum1 {}, {}", rd, rs1),
+            Self::Sha256Sig0 { rd, rs1 } => write!(f, "sha256sig0 {rd}, {rs1}"),
+            Self::Sha256Sig1 { rd, rs1 } => write!(f, "sha256sig1 {rd}, {rs1}"),
+            Self::Sha256Sum0 { rd, rs1 } => write!(f, "sha256sum0 {rd}, {rs1}"),
+            Self::Sha256Sum1 { rd, rs1 } => write!(f, "sha256sum1 {rd}, {rs1}"),
+            Self::Sha512Sig0 { rd, rs1 } => write!(f, "sha512sig0 {rd}, {rs1}"),
+            Self::Sha512Sig1 { rd, rs1 } => write!(f, "sha512sig1 {rd}, {rs1}"),
+            Self::Sha512Sum0 { rd, rs1 } => write!(f, "sha512sum0 {rd}, {rs1}"),
+            Self::Sha512Sum1 { rd, rs1 } => write!(f, "sha512sum1 {rd}, {rs1}"),
         }
     }
 }

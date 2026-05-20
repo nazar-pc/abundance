@@ -16,10 +16,10 @@ fn test_clmul_simple() {
     execute(&mut state).unwrap();
 
     // 1010 clmul 1100:
-    // bit 2 of b: 1010 << 2 = 101000
-    // bit 3 of b: 1010 << 3 = 1010000
-    // XOR: 101000 ^ 1010000 = 1111000
-    assert_eq!(state.regs.read(Reg::A2), 0b1111000);
+    // bit 2 of b: 1010 << 2 = 10_1000
+    // bit 3 of b: 1010 << 3 = 101_0000
+    // XOR: 10_1000 ^ 101_0000 = 111_1000
+    assert_eq!(state.regs.read(Reg::A2), 0b111_1000);
 }
 
 #[test]

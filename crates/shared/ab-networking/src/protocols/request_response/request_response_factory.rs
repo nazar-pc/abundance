@@ -594,7 +594,7 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                     "New event must be forwarded to request response protocols"
                 );
             }
-        };
+        }
     }
 
     fn on_connection_handler_event(
@@ -611,7 +611,7 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
         warn!(
             target: LOG_TARGET,
             "inject_node_event: no request-response instance registered for protocol {:?}", p_name
-        )
+        );
     }
 
     fn poll(
@@ -637,7 +637,7 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                     // If the response builder is too busy, silently drop `tx`. This
                     // will be reported by the corresponding `RequestResponse` through
                     // an `InboundFailure::Omission` event.
-                    let _ = response_builder.try_send(IncomingRequest {
+                    let _: Result<(), _> = response_builder.try_send(IncomingRequest {
                         peer,
                         payload: request,
                         pending_response: tx,
@@ -668,16 +668,16 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
             }
             // Poll to see if any response is ready to be sent back.
             while let Poll::Ready(Some(outcome)) = self.pending_responses.poll_next_unpin(cx) {
-                let RequestProcessingOutcome {
+                let Some(RequestProcessingOutcome {
                     request_id,
                     protocol: protocol_name,
                     inner_channel,
                     response: OutgoingResponse { result, .. },
-                } = match outcome {
-                    Some(outcome) => outcome,
-                    // The response builder was too busy or handling the request failed. This is
-                    // later on reported as a `InboundFailure::Omission`.
-                    None => continue,
+                }) = outcome
+                else {
+                    // The response builder was too busy, or handling the request failed. This is
+                    // later on reported as `InboundFailure::Omission`.
+                    continue;
                 };
 
                 if let Ok(payload) = result
@@ -699,7 +699,7 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
 
             for rq_rs_runner in &mut self.request_handlers {
                 // Future.Output == (), so we don't need a result here
-                let _ = rq_rs_runner.poll_unpin(cx);
+                let _: Poll<()> = rq_rs_runner.poll_unpin(cx);
             }
 
             // Poll request-responses protocols.
@@ -801,25 +801,22 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                                 },
                             ..
                         } => {
-                            let (started, delivered) = match self
-                                .pending_requests
-                                .remove(&(protocol.clone(), request_id).into())
+                            let (started, delivered) = if let Some((started, pending_response)) =
+                                self.pending_requests
+                                    .remove(&(protocol.clone(), request_id).into())
                             {
-                                Some((started, pending_response)) => {
-                                    let delivered = pending_response
-                                        .send(response.map_err(|()| RequestFailure::Refused))
-                                        .map_err(|_| RequestFailure::Obsolete.to_string());
-                                    (started, delivered)
-                                }
-                                None => {
-                                    warn!(
-                                        target: LOG_TARGET,
-                                        "Received `RequestResponseEvent::Message` with unexpected request id {:?}",
-                                        request_id,
-                                    );
-                                    debug_assert!(false);
-                                    continue;
-                                }
+                                let delivered = pending_response
+                                    .send(response.map_err(|()| RequestFailure::Refused))
+                                    .map_err(|_error_result| RequestFailure::Obsolete.to_string());
+                                (started, delivered)
+                            } else {
+                                warn!(
+                                    target: LOG_TARGET,
+                                    "Received `RequestResponseEvent::Message` with unexpected request id {:?}",
+                                    request_id,
+                                );
+                                debug_assert!(false);
+                                continue;
                             };
 
                             let out = Event::RequestFinished {
@@ -840,33 +837,30 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                             ..
                         } => {
                             let error_string = error.to_string();
-                            let started = match self
+                            let started = if let Some((started, pending_response)) = self
                                 .pending_requests
                                 .remove(&(protocol.clone(), request_id).into())
                             {
-                                Some((started, pending_response)) => {
-                                    if pending_response
-                                        .send(Err(RequestFailure::Network(error)))
-                                        .is_err()
-                                    {
-                                        debug!(
-                                            target: LOG_TARGET,
-                                            %request_id,
-                                            "Request failed. At the same time local node is no longer interested in \
-                                            the result",
-                                        );
-                                    }
-                                    started
-                                }
-                                None => {
-                                    warn!(
+                                if pending_response
+                                    .send(Err(RequestFailure::Network(error)))
+                                    .is_err()
+                                {
+                                    debug!(
                                         target: LOG_TARGET,
                                         %request_id,
-                                        "Received `RequestResponseEvent::Message` with unexpected request",
+                                        "Request failed. At the same time local node is no longer interested in \
+                                        the result",
                                     );
-                                    debug_assert!(false);
-                                    continue;
                                 }
+                                started
+                            } else {
+                                warn!(
+                                    target: LOG_TARGET,
+                                    %request_id,
+                                    "Received `RequestResponseEvent::Message` with unexpected request",
+                                );
+                                debug_assert!(false);
+                                continue;
                             };
 
                             let out = Event::RequestFinished {

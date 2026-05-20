@@ -54,7 +54,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -72,20 +72,20 @@ where
         match funct3 {
             // OPMVV: single-width integer reductions
             0b010 => match funct6 {
-                0b000000 => Some(Self::Vredsum { vd, vs2, vs1, vm }),
-                0b000001 => Some(Self::Vredand { vd, vs2, vs1, vm }),
-                0b000010 => Some(Self::Vredor { vd, vs2, vs1, vm }),
-                0b000011 => Some(Self::Vredxor { vd, vs2, vs1, vm }),
-                0b000100 => Some(Self::Vredminu { vd, vs2, vs1, vm }),
-                0b000101 => Some(Self::Vredmin { vd, vs2, vs1, vm }),
-                0b000110 => Some(Self::Vredmaxu { vd, vs2, vs1, vm }),
-                0b000111 => Some(Self::Vredmax { vd, vs2, vs1, vm }),
+                0b00_0000 => Some(Self::Vredsum { vd, vs2, vs1, vm }),
+                0b00_0001 => Some(Self::Vredand { vd, vs2, vs1, vm }),
+                0b00_0010 => Some(Self::Vredor { vd, vs2, vs1, vm }),
+                0b00_0011 => Some(Self::Vredxor { vd, vs2, vs1, vm }),
+                0b00_0100 => Some(Self::Vredminu { vd, vs2, vs1, vm }),
+                0b00_0101 => Some(Self::Vredmin { vd, vs2, vs1, vm }),
+                0b00_0110 => Some(Self::Vredmaxu { vd, vs2, vs1, vm }),
+                0b00_0111 => Some(Self::Vredmax { vd, vs2, vs1, vm }),
                 _ => None,
             },
             // OPIVV: widening integer reductions
             0b000 => match funct6 {
-                0b110000 => Some(Self::Vwredsumu { vd, vs2, vs1, vm }),
-                0b110001 => Some(Self::Vwredsum { vd, vs2, vs1, vm }),
+                0b11_0000 => Some(Self::Vwredsumu { vd, vs2, vs1, vm }),
+                0b11_0001 => Some(Self::Vwredsum { vd, vs2, vs1, vm }),
                 _ => None,
             },
             _ => None,

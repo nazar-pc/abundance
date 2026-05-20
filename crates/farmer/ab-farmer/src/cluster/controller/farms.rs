@@ -59,7 +59,7 @@ impl KnownFarmer {
         let Some(close_sender) = self.close_sender.take() else {
             return false;
         };
-        let _ = close_sender.send(());
+        let _: Result<_, _> = close_sender.send(());
         true
     }
 }
@@ -399,7 +399,7 @@ async fn collect_farmer_farms(
                 %error,
                 %farmer_id,
                 "Failed to request farmer farm details"
-            )
+            );
         })?
         .collect()
         .await)

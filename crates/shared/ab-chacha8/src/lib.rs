@@ -42,10 +42,10 @@ impl ChaCha8State {
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn init(key: &[u8; 32], nonce: &[u8; 12]) -> Self {
         let mut data = [0u32; 16];
-        data[0] = 0x61707865;
-        data[1] = 0x3320646e;
-        data[2] = 0x79622d32;
-        data[3] = 0x6b206574;
+        data[0] = 0x6170_7865;
+        data[1] = 0x3320_646e;
+        data[2] = 0x7962_2d32;
+        data[3] = 0x6b20_6574;
 
         for (i, &chunk) in key.as_chunks::<4>().0.iter().enumerate() {
             data[4 + i] = u32::from_le_bytes(chunk);

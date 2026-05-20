@@ -81,7 +81,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // LOAD-FP major opcode
-        if opcode != 0b0000111 {
+        if opcode != 0b000_0111 {
             None?;
         }
 
@@ -111,7 +111,7 @@ where
                 let lumop = rs2_bits;
                 match lumop {
                     // Regular unit-stride load
-                    0b00000 => {
+                    0b0_0000 => {
                         let eew = Eew::from_width(width)?;
                         if nf == 0 {
                             Some(Self::Vle { vd, rs1, vm, eew })
@@ -126,7 +126,7 @@ where
                         }
                     }
                     // Whole-register load
-                    0b01000 => {
+                    0b0_1000 => {
                         // vm must be 1 (unmasked)
                         if !vm {
                             None?;
@@ -144,7 +144,7 @@ where
                         }
                     }
                     // Mask load
-                    0b01011 => {
+                    0b0_1011 => {
                         // Must be eew=e8, vm=1, nf=0
                         if width != 0b000 || !vm || nf != 0 {
                             None?;
@@ -152,7 +152,7 @@ where
                         Some(Self::Vlm { vd, rs1 })
                     }
                     // Fault-only-first
-                    0b10000 => {
+                    0b1_0000 => {
                         let eew = Eew::from_width(width)?;
                         if nf == 0 {
                             Some(Self::Vleff { vd, rs1, vm, eew })
@@ -267,7 +267,7 @@ where
             Self::Vlse { vd, rs1, rs2, vm, eew } => write!(f, "vlse{eew}.v {vd}, ({rs1}), {rs2}{}", mask_suffix(vm)),
             Self::Vluxei { vd, rs1, vs2, vm, eew } => write!(f, "vluxei{eew}.v {vd}, ({rs1}), {vs2}{}", mask_suffix(vm)),
             Self::Vloxei { vd, rs1, vs2, vm, eew } => write!(f, "vloxei{eew}.v {vd}, ({rs1}), {vs2}{}", mask_suffix(vm)),
-            Self::Vlr { vd, rs1, nreg, eew } => write!(f, "vl{}re{}.v {}, ({})", nreg, eew, vd, rs1),
+            Self::Vlr { vd, rs1, nreg, eew } => write!(f, "vl{nreg}re{eew}.v {vd}, ({rs1})"),
             Self::Vlseg { vd, rs1, vm, eew, nf } => write!(f, "vlseg{nf}e{eew}.v {vd}, ({rs1}){}", mask_suffix(vm)),
             Self::Vlsegff { vd, rs1, vm, eew, nf } => write!(f, "vlseg{nf}e{eew}ff.v {vd}, ({rs1}){}", mask_suffix(vm)),
             Self::Vlsseg { vd, rs1, rs2, vm, eew, nf } => write!(f, "vlsseg{nf}e{eew}.v {vd}, ({rs1}), {rs2}{}", mask_suffix(vm)),

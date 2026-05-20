@@ -1281,6 +1281,7 @@ impl MethodDetails {
                     clippy::new_without_default,
                     reason = "Do not want `Default` in auto-generated code"
                 )]
+                #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
                 pub fn new(
                     #( #method_args )*
                 ) -> Self {
@@ -1574,6 +1575,7 @@ impl MethodDetails {
         {
             quote_spanned! {fn_sig.span() =>
                 #[allow(dead_code, reason = "Macro-generated")]
+                #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1610,6 +1612,7 @@ impl MethodDetails {
 
             quote_spanned! {fn_sig.span() =>
                 #[allow(dead_code, reason = "Macro-generated")]
+                #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg

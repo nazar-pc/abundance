@@ -10,11 +10,11 @@ use crate::registers::general_purpose::{EReg, Reg};
 /// nzuimm\[5:4] = inst\[12:11], nzuimm\[9:6] = inst\[10:7], nzuimm\[2] = inst\[6],
 /// nzuimm\[3] = inst\[5]
 const fn make_addi4spn(rd_prime: u16, nzuimm: u16) -> u16 {
-    let imm5_4 = (nzuimm >> 4) & 0b11;
-    let imm9_6 = (nzuimm >> 6) & 0xf;
-    let imm2 = (nzuimm >> 2) & 1;
-    let imm3 = (nzuimm >> 3) & 1;
-    (imm5_4 << 11) | (imm9_6 << 7) | (imm2 << 6) | (imm3 << 5) | (rd_prime << 2)
+    let imm5_4 = (nzuimm >> 4u8) & 0b11;
+    let imm9_6 = (nzuimm >> 6u8) & 0xf;
+    let imm2 = (nzuimm >> 2u8) & 1;
+    let imm3 = (nzuimm >> 3u8) & 1;
+    (imm5_4 << 11u8) | (imm9_6 << 7u8) | (imm2 << 6u8) | (imm3 << 5u8) | (rd_prime << 2u8)
 }
 
 /// Build a Q00 CL/CS-type 16-bit instruction.
@@ -28,15 +28,20 @@ const fn make_cl_cs(
     bit5: u16,
     rd_rs2p: u16,
 ) -> u16 {
-    (funct3 << 13) | (imm6_bits << 10) | (rs1p << 7) | (bit6 << 6) | (bit5 << 5) | (rd_rs2p << 2)
+    (funct3 << 13u8)
+        | (imm6_bits << 10u8)
+        | (rs1p << 7u8)
+        | (bit6 << 6u8)
+        | (bit5 << 5u8)
+        | (rd_rs2p << 2u8)
 }
 
 /// Build a CI-type Q01 instruction with 6-bit immediate.
 /// imm\[5] = inst\[12], imm\[4:0] = inst\[6:2]
 const fn make_ci_q01(funct3: u16, rd: u16, imm6: u16) -> u16 {
-    let imm5 = (imm6 >> 5) & 1;
+    let imm5 = (imm6 >> 5u8) & 1;
     let imm4_0 = imm6 & 0x1f;
-    (funct3 << 13) | (imm5 << 12) | (rd << 7) | (imm4_0 << 2) | 0b01
+    (funct3 << 13u8) | (imm5 << 12u8) | (rd << 7u8) | (imm4_0 << 2u8) | 0b01
 }
 
 /// Build a Q01 CJ-type instruction (C.J).
@@ -44,23 +49,23 @@ const fn make_ci_q01(funct3: u16, rd: u16, imm6: u16) -> u16 {
 /// imm\[6]=inst\[7], imm\[7]=inst\[6], imm\[3:1]=inst\[5:3], imm\[5]=inst\[2]
 const fn make_cj(imm: i16) -> u16 {
     let imm = imm.cast_unsigned();
-    let imm11 = (imm >> 11) & 1;
-    let imm4 = (imm >> 4) & 1;
-    let imm9_8 = (imm >> 8) & 0b11;
-    let imm10 = (imm >> 10) & 1;
-    let imm6 = (imm >> 6) & 1;
-    let imm7 = (imm >> 7) & 1;
-    let imm3_1 = (imm >> 1) & 0b111;
-    let imm5 = (imm >> 5) & 1;
-    (0b101 << 13)
-        | (imm11 << 12)
-        | (imm4 << 11)
-        | (imm9_8 << 9)
-        | (imm10 << 8)
-        | (imm6 << 7)
-        | (imm7 << 6)
-        | (imm3_1 << 3)
-        | (imm5 << 2)
+    let imm11 = (imm >> 11u8) & 1;
+    let imm4 = (imm >> 4u8) & 1;
+    let imm9_8 = (imm >> 8u8) & 0b11;
+    let imm10 = (imm >> 10u8) & 1;
+    let imm6 = (imm >> 6u8) & 1;
+    let imm7 = (imm >> 7u8) & 1;
+    let imm3_1 = (imm >> 1u8) & 0b111;
+    let imm5 = (imm >> 5u8) & 1;
+    (0b101 << 13u8)
+        | (imm11 << 12u8)
+        | (imm4 << 11u8)
+        | (imm9_8 << 9u8)
+        | (imm10 << 8u8)
+        | (imm6 << 7u8)
+        | (imm7 << 6u8)
+        | (imm3_1 << 3u8)
+        | (imm5 << 2u8)
         | 0b01
 }
 
@@ -69,51 +74,51 @@ const fn make_cj(imm: i16) -> u16 {
 /// imm\[2:1]=inst\[4:3], imm\[5]=inst\[2]
 const fn make_cb_branch(funct3: u16, rs1p: u16, imm: i16) -> u16 {
     let imm = imm.cast_unsigned();
-    let imm8 = (imm >> 8) & 1;
-    let imm4_3 = (imm >> 3) & 0b11;
-    let imm7_6 = (imm >> 6) & 0b11;
-    let imm2_1 = (imm >> 1) & 0b11;
-    let imm5 = (imm >> 5) & 1;
-    (funct3 << 13)
-        | (imm8 << 12)
-        | (imm4_3 << 10)
-        | (rs1p << 7)
-        | (imm7_6 << 5)
-        | (imm5 << 2)
-        | (imm2_1 << 3)
+    let imm8 = (imm >> 8u8) & 1;
+    let imm4_3 = (imm >> 3u8) & 0b11;
+    let imm7_6 = (imm >> 6u8) & 0b11;
+    let imm2_1 = (imm >> 1u8) & 0b11;
+    let imm5 = (imm >> 5u8) & 1;
+    (funct3 << 13u8)
+        | (imm8 << 12u8)
+        | (imm4_3 << 10u8)
+        | (rs1p << 7u8)
+        | (imm7_6 << 5u8)
+        | (imm5 << 2u8)
+        | (imm2_1 << 3u8)
         | 0b01
 }
 
 /// Build a Q01 CA-type arithmetic instruction (C.SUB/XOR/OR/AND/SUBW/ADDW).
 const fn make_ca_arith(bit12: u16, rd_prime: u16, funct2b: u16, rs2_prime: u16) -> u16 {
-    (0b100 << 13)
-        | (bit12 << 12)
-        | (0b11 << 10)
-        | (rd_prime << 7)
-        | (funct2b << 5)
-        | (rs2_prime << 2)
+    (0b100 << 13u8)
+        | (bit12 << 12u8)
+        | (0b11 << 10u8)
+        | (rd_prime << 7u8)
+        | (funct2b << 5u8)
+        | (rs2_prime << 2u8)
         | 0b01
 }
 
 /// Build a Q10 CR-type instruction (C.JR/MV/JALR/ADD/EBREAK).
 const fn make_cr_q10(funct3: u16, bit12: u16, rs1: u16, rs2: u16) -> u16 {
-    (funct3 << 13) | (bit12 << 12) | (rs1 << 7) | (rs2 << 2) | 0b10
+    (funct3 << 13u8) | (bit12 << 12u8) | (rs1 << 7u8) | (rs2 << 2u8) | 0b10
 }
 
 /// Build a Q10 C.SWSP instruction.
 /// uimm\[5:2]=inst\[12:9], uimm\[7:6]=inst\[8:7]
 const fn make_swsp(rs2: u16, uimm: u8) -> u16 {
-    let uimm52 = ((uimm >> 2) & 0xf) as u16;
-    let uimm76 = ((uimm >> 6) & 0b11) as u16;
-    (0b110 << 13) | (uimm52 << 9) | (uimm76 << 7) | (rs2 << 2) | 0b10
+    let uimm52 = ((uimm >> 2u8) & 0xf) as u16;
+    let uimm76 = ((uimm >> 6u8) & 0b11) as u16;
+    (0b110 << 13u8) | (uimm52 << 9u8) | (uimm76 << 7u8) | (rs2 << 2u8) | 0b10
 }
 
 /// Build a Q10 C.SDSP instruction.
 /// uimm\[5:3]=inst\[12:10], uimm\[8:6]=inst\[9:7]
 const fn make_sdsp(rs2: u16, uimm: u16) -> u16 {
-    let uimm53 = (uimm >> 3) & 0b111;
-    let uimm86 = (uimm >> 6) & 0b111;
-    (0b111 << 13) | (uimm53 << 10) | (uimm86 << 7) | (rs2 << 2) | 0b10
+    let uimm53 = (uimm >> 3u8) & 0b111;
+    let uimm86 = (uimm >> 6u8) & 0b111;
+    (0b111 << 13u8) | (uimm53 << 10u8) | (uimm86 << 7u8) | (rs2 << 2u8) | 0b10
 }
 
 // Quadrant 00
@@ -255,14 +260,14 @@ fn test_csd_basic() {
 #[test]
 fn test_q00_funct3_001_reserved() {
     // Zcb slot - must not decode as Zca
-    let inst = (0b001 << 13) | 0b00;
+    let inst = (0b001 << 13u8) | 0b00;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_q00_funct3_100_reserved() {
     // Zcb slot - must not decode as Zca
-    let inst = (0b100 << 13) | 0b00;
+    let inst = (0b100 << 13u8) | 0b00;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
@@ -299,7 +304,7 @@ fn test_caddi_positive() {
 #[test]
 fn test_caddi_negative() {
     // imm6=0b111111 = -1 in 6-bit signed
-    let inst = make_ci_q01(0b000, 10, 0b111111);
+    let inst = make_ci_q01(0b000, 10, 0b11_1111);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
@@ -315,7 +320,7 @@ fn test_caddi_negative() {
 #[test]
 fn test_caddi_most_negative() {
     // imm6=0b100000 = -32 in 6-bit signed (minimum value)
-    let inst = make_ci_q01(0b000, 10, 0b100000);
+    let inst = make_ci_q01(0b000, 10, 0b10_0000);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
@@ -362,7 +367,7 @@ fn test_caddiw_positive() {
 #[test]
 fn test_caddiw_negative() {
     // imm6=0b111110 = -2 in 6-bit signed
-    let inst = make_ci_q01(0b001, 10, 0b111110);
+    let inst = make_ci_q01(0b001, 10, 0b11_1110);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
@@ -399,7 +404,7 @@ fn test_cli_basic() {
 #[test]
 fn test_cli_negative() {
     // imm6=0b111000 = -8 in 6-bit signed
-    let inst = make_ci_q01(0b010, 10, 0b111000);
+    let inst = make_ci_q01(0b010, 10, 0b11_1000);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
@@ -415,7 +420,7 @@ fn test_cli_negative() {
 #[test]
 fn test_cli_most_negative() {
     // imm6=0b100000 = -32 in 6-bit signed (minimum value)
-    let inst = make_ci_q01(0b010, 10, 0b100000);
+    let inst = make_ci_q01(0b010, 10, 0b10_0000);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
@@ -447,7 +452,7 @@ fn test_cli_hint_rd0() {
 #[test]
 fn test_caddi16sp_positive() {
     // nzimm=16: imm4=1, others=0
-    let inst = (0b011 << 13) | (0 << 12) | (2 << 7) | (1 << 6) | 0b01;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (2 << 7u8) | (1 << 6u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -462,8 +467,14 @@ fn test_caddi16sp_positive() {
 #[test]
 fn test_caddi16sp_negative() {
     // nzimm=-16: imm9=1, imm8_7=11, imm6=1, imm5=1, imm4=1
-    let inst =
-        (0b011 << 13) | (1 << 12) | (2 << 7) | (1 << 6) | (1 << 5) | (0b11 << 3) | (1 << 2) | 0b01;
+    let inst = (0b011 << 13u8)
+        | (1 << 12u8)
+        | (2 << 7u8)
+        | (1 << 6u8)
+        | (1 << 5u8)
+        | (0b11 << 3u8)
+        | (1 << 2u8)
+        | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -477,14 +488,14 @@ fn test_caddi16sp_negative() {
 
 #[test]
 fn test_caddi16sp_reserved_zero() {
-    let inst = (0b011 << 13) | (0 << 12) | (2 << 7) | 0b01;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (2 << 7u8) | 0b01;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_clui() {
     // nzimm=0x1000: imm16:12=1, imm17=0
-    let inst = (0b011 << 13) | (0 << 12) | (10 << 7) | (1 << 2) | 0b01;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (10 << 7u8) | (1 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -500,7 +511,7 @@ fn test_clui() {
 #[test]
 fn test_clui_negative() {
     // imm17=1, imm16:12=11111 -> sign-extended = -4096
-    let inst = (0b011 << 13) | (1 << 12) | (10 << 7) | (0b11111 << 2) | 0b01;
+    let inst = (0b011 << 13u8) | (1 << 12u8) | (10 << 7u8) | (0b1_1111 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -515,14 +526,14 @@ fn test_clui_negative() {
 
 #[test]
 fn test_clui_reserved_zero() {
-    let inst = (0b011 << 13) | (0 << 12) | (10 << 7) | (0 << 2) | 0b01;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (10 << 7u8) | (0 << 2u8) | 0b01;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_clui_hint_rd0_positive() {
     // rd=0, nzimm>0 is a HINT - must be accepted
-    let inst = (0b011 << 13) | (0 << 12) | (0 << 7) | (1 << 2) | 0b01;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (0 << 7u8) | (1 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -538,7 +549,7 @@ fn test_clui_hint_rd0_positive() {
 #[test]
 fn test_clui_hint_rd0_negative() {
     // rd=0, nzimm<0 is a HINT - must be accepted
-    let inst = (0b011 << 13) | (1 << 12) | (0 << 7) | (0b11111 << 2) | 0b01;
+    let inst = (0b011 << 13u8) | (1 << 12u8) | (0 << 7u8) | (0b1_1111 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -553,7 +564,7 @@ fn test_clui_hint_rd0_negative() {
 
 #[test]
 fn test_csrli_basic() {
-    let inst = (0b100 << 13) | (0 << 12) | (0b00 << 10) | (0 << 7) | (4 << 2) | 0b01;
+    let inst = (0b100 << 13u8) | (0 << 12u8) | (0b00 << 10u8) | (0 << 7u8) | (4 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -569,7 +580,8 @@ fn test_csrli_basic() {
 #[test]
 fn test_csrli_shamt63() {
     // shamt=63 (6-bit max): shamt5=1, shamt4:0=11111
-    let inst = (0b100 << 13) | (1 << 12) | (0b00 << 10) | (0 << 7) | (0b11111 << 2) | 0b01;
+    let inst =
+        (0b100 << 13u8) | (1 << 12u8) | (0b00 << 10u8) | (0 << 7u8) | (0b1_1111 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -585,7 +597,7 @@ fn test_csrli_shamt63() {
 #[test]
 fn test_csrli_hint_shamt0() {
     // shamt=0 is a hint - must be accepted
-    let inst = (0b100 << 13) | (0 << 12) | (0b00 << 10) | (0 << 7) | (0 << 2) | 0b01;
+    let inst = (0b100 << 13u8) | (0 << 12u8) | (0b00 << 10u8) | (0 << 7u8) | (0 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -600,7 +612,7 @@ fn test_csrli_hint_shamt0() {
 
 #[test]
 fn test_csrai_basic() {
-    let inst = (0b100 << 13) | (0 << 12) | (0b01 << 10) | (0 << 7) | (8 << 2) | 0b01;
+    let inst = (0b100 << 13u8) | (0 << 12u8) | (0b01 << 10u8) | (0 << 7u8) | (8 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -616,7 +628,7 @@ fn test_csrai_basic() {
 #[test]
 fn test_csrai_hint_shamt0() {
     // shamt=0 is a hint - must be accepted
-    let inst = (0b100 << 13) | (0 << 12) | (0b01 << 10) | (0 << 7) | (0 << 2) | 0b01;
+    let inst = (0b100 << 13u8) | (0 << 12u8) | (0b01 << 10u8) | (0 << 7u8) | (0 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -632,7 +644,8 @@ fn test_csrai_hint_shamt0() {
 #[test]
 fn test_candi() {
     // imm=-1: imm5=1, imm4:0=11111
-    let inst = (0b100 << 13) | (1 << 12) | (0b10 << 10) | (0 << 7) | (0b11111 << 2) | 0b01;
+    let inst =
+        (0b100 << 13u8) | (1 << 12u8) | (0b10 << 10u8) | (0 << 7u8) | (0b1_1111 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -648,7 +661,8 @@ fn test_candi() {
 #[test]
 fn test_candi_most_negative() {
     // imm6=0b100000 = -32 in 6-bit signed (minimum value)
-    let inst = (0b100 << 13) | (1 << 12) | (0b10 << 10) | (0 << 7) | (0b00000 << 2) | 0b01;
+    let inst =
+        (0b100 << 13u8) | (1 << 12u8) | (0b10 << 10u8) | (0 << 7u8) | (0b0_0000 << 2u8) | 0b01;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -833,7 +847,7 @@ fn test_cbnez_positive() {
 
 #[test]
 fn test_cslli_basic() {
-    let inst = (0b000 << 13) | (0 << 12) | (10 << 7) | (3 << 2) | 0b10;
+    let inst = (0b000 << 13u8) | (0 << 12u8) | (10 << 7u8) | (3 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -849,7 +863,7 @@ fn test_cslli_basic() {
 #[test]
 fn test_cslli_shamt63() {
     // shamt=63 (6-bit max): shamt5=1, shamt4:0=11111
-    let inst = (0b000 << 13) | (1 << 12) | (10 << 7) | (0b11111 << 2) | 0b10;
+    let inst = (0b000 << 13u8) | (1 << 12u8) | (10 << 7u8) | (0b1_1111 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -865,7 +879,7 @@ fn test_cslli_shamt63() {
 #[test]
 fn test_cslli_hint_shamt0() {
     // shamt=0, rd≠0: hint - must be accepted
-    let inst = (0b000 << 13) | (0 << 12) | (10 << 7) | (0 << 2) | 0b10;
+    let inst = (0b000 << 13u8) | (0 << 12u8) | (10 << 7u8) | (0 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -881,7 +895,7 @@ fn test_cslli_hint_shamt0() {
 #[test]
 fn test_cslli_hint_rd0() {
     // rd=0, shamt≠0: hint - must be accepted
-    let inst = (0b000 << 13) | (0 << 12) | (0 << 7) | (3 << 2) | 0b10;
+    let inst = (0b000 << 13u8) | (0 << 12u8) | (0 << 7u8) | (3 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -897,7 +911,7 @@ fn test_cslli_hint_rd0() {
 #[test]
 fn test_clwsp_basic() {
     // uimm=4: uimm5=0, uimm4:2=001, uimm7:6=00
-    let inst = (0b010 << 13) | (0 << 12) | (10 << 7) | (0b001 << 4) | (0 << 2) | 0b10;
+    let inst = (0b010 << 13u8) | (0 << 12u8) | (10 << 7u8) | (0b001 << 4u8) | (0 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -913,7 +927,7 @@ fn test_clwsp_basic() {
 #[test]
 fn test_clwsp_max_uimm() {
     // uimm=252: uimm5=1, uimm4:2=111, uimm7:6=11
-    let inst = (0b010 << 13) | (1 << 12) | (10 << 7) | (0b111 << 4) | (0b11 << 2) | 0b10;
+    let inst = (0b010 << 13u8) | (1 << 12u8) | (10 << 7u8) | (0b111 << 4u8) | (0b11 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -928,14 +942,14 @@ fn test_clwsp_max_uimm() {
 
 #[test]
 fn test_clwsp_reserved_rd0() {
-    let inst = (0b010 << 13) | (0 << 12) | (0 << 7) | (1 << 4) | 0b10;
+    let inst = (0b010 << 13u8) | (0 << 12u8) | (0 << 7u8) | (1 << 4u8) | 0b10;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_cldsp_basic() {
     // uimm=8: uimm5=0, uimm4:3=01, uimm8:6=000
-    let inst = (0b011 << 13) | (0 << 12) | (10 << 7) | (0b01 << 5) | (0b000 << 2) | 0b10;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (10 << 7u8) | (0b01 << 5u8) | (0b000 << 2u8) | 0b10;
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
@@ -950,7 +964,7 @@ fn test_cldsp_basic() {
 
 #[test]
 fn test_cldsp_reserved_rd0() {
-    let inst = (0b011 << 13) | (0 << 12) | (0 << 7) | (1 << 5) | 0b10;
+    let inst = (0b011 << 13u8) | (0 << 12u8) | (0 << 7u8) | (1 << 5u8) | 0b10;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
@@ -1157,7 +1171,7 @@ fn test_cunimp_ignores_upper_16_bits() {
 #[test]
 fn test_quadrant_11_invalid() {
     // Quadrant 11 = 32-bit instruction territory
-    let inst = 0x00000033;
+    let inst = 0x0000_0033;
     assert!(Rv64ZcaInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
@@ -1182,6 +1196,6 @@ fn test_ereg_clw_valid() {
 #[test]
 fn test_ereg_cslli_invalid_high_reg() {
     // C.SLLI rd=x16 - x16 does not exist in EReg, from_bits must fail
-    let inst = (0b000 << 13) | (0 << 12) | (16 << 7) | (3 << 2) | 0b10;
+    let inst = (0b000 << 13u8) | (0 << 12u8) | (16 << 7u8) | (3 << 2u8) | 0b10;
     assert!(Rv64ZcaInstruction::<EReg<u64>>::try_decode(inst).is_none());
 }

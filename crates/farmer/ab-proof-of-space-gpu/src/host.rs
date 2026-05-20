@@ -23,11 +23,11 @@ use parking_lot::Mutex;
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use rclite::Arc;
-use std::fmt;
 use std::num::NonZeroU8;
 use std::simd::Simd;
 use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::{fmt, iter};
 use tracing::{debug, warn};
 use wgpu::{
     AdapterInfo, Backend, BackendOptions, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
@@ -117,50 +117,51 @@ impl Device {
                 let adapter_info = adapter.get_info();
 
                 let (shader, required_features, required_limits) =
-                    match select_shader_features_limits(&adapter) {
-                        Some((shader, required_features, required_limits)) => {
-                            debug!(
-                                %id,
-                                adapter_info = ?adapter_info,
-                                "Compatible adapter found"
-                            );
+                    if let Some((shader, required_features, required_limits)) =
+                        select_shader_features_limits(&adapter)
+                    {
+                        debug!(
+                            %id,
+                            adapter_info = ?adapter_info,
+                            "Compatible adapter found"
+                        );
 
-                            (shader, required_features, required_limits)
-                        }
-                        None => {
-                            debug!(
-                                %id,
-                                adapter_info = ?adapter_info,
-                                "Incompatible adapter found"
-                            );
+                        (shader, required_features, required_limits)
+                    } else {
+                        debug!(
+                            %id,
+                            adapter_info = ?adapter_info,
+                            "Incompatible adapter found"
+                        );
 
-                            return None;
-                        }
+                        return None;
                     };
 
                 // TODO: creation of multiple devices is a workaround for lack of support for
                 //  multiple queues: https://github.com/gfx-rs/wgpu/issues/1066
-                let devices = (0..number_of_queues(adapter_info.device_type).get())
-                    .map(|_| async {
-                        let (device, queue) = adapter
-                            .request_device(&DeviceDescriptor {
-                                label: None,
-                                required_features,
-                                required_limits: required_limits.clone(),
-                                ..DeviceDescriptor::default()
-                            })
-                            .await
-                            .inspect_err(|error| {
-                                warn!(%id, ?adapter_info, %error, "Failed to request the device");
-                            })?;
-                        let module = device.create_shader_module(shader.clone());
+                let devices = iter::repeat_with(|| async {
+                    let (device, queue) = adapter
+                        .request_device(&DeviceDescriptor {
+                            label: None,
+                            required_features,
+                            required_limits: required_limits.clone(),
+                            ..DeviceDescriptor::default()
+                        })
+                        .await
+                        .inspect_err(|error| {
+                            warn!(%id, ?adapter_info, %error, "Failed to request the device");
+                        })?;
+                    let module = device.create_shader_module(shader.clone());
 
-                        Ok::<_, RequestDeviceError>((device, queue, module))
-                    })
-                    .collect::<FuturesOrdered<_>>()
-                    .try_collect::<Vec<_>>()
-                    .await
-                    .ok()?;
+                    Ok::<_, RequestDeviceError>((device, queue, module))
+                })
+                .take(usize::from(
+                    number_of_queues(adapter_info.device_type).get(),
+                ))
+                .collect::<FuturesOrdered<_>>()
+                .try_collect::<Vec<_>>()
+                .await
+                .ok()?;
 
                 Some(Self {
                     id,
@@ -251,7 +252,7 @@ impl RecordsEncoder for GpuRecordsEncoder {
     ) -> anyhow::Result<SectorContentsMap> {
         let mut sector_contents_map = SectorContentsMap::new(
             u16::try_from(records.len())
-                .map_err(|_| RecordEncodingError::TooManyRecords(records.len()))?,
+                .map_err(|_error| RecordEncodingError::TooManyRecords(records.len()))?,
         );
 
         let maybe_error = self.thread_pool.install(|| {

@@ -15,7 +15,7 @@ use ab_riscv_primitives::prelude::*;
 // helpers
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    (vlmul.to_bits() as u64) | ((vsew.to_bits() as u64) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 fn setup(
@@ -526,9 +526,9 @@ fn vcpop_sparse_bits() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     // Set exactly bits 0, 3, 7, 11, 15 - one per byte boundary cluster
     let mut data = [0u8; 16];
-    // Byte 0: bits 0,3,7 -> 0b10001001 = 0x89
+    // Byte 0: bits 0,3,7 -> 0b1000_1001 = 0x89
     data[0] = 0x89;
-    // Byte 1: bits 8+3=11 -> 0b00001000 = 0x08
+    // Byte 1: bits 8+3=11 -> 0b0000_1000 = 0x08
     data[1] = 0x08;
     // bit 15: byte 1 bit 7 -> 0x80
     data[1] |= 0x80;
@@ -555,7 +555,7 @@ fn vfirst_basic() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     // First set bit at position 3
     let mut data = [0u8; 16];
-    data[0] = 0b00001000;
+    data[0] = 0b0000_1000;
     set_vreg(&mut state, VReg::V2, data);
     exec(
         &mut state,
@@ -618,7 +618,7 @@ fn vfirst_respects_vl() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // Only bit 5 set - beyond vl=4
     let mut data = [0u8; 16];
-    data[0] = 0b00100000;
+    data[0] = 0b0010_0000;
     set_vreg(&mut state, VReg::V2, data);
     exec(
         &mut state,
@@ -640,7 +640,7 @@ fn vfirst_masked_skips_inactive() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2: bit 0 set, bit 4 set
     let mut vs2 = [0u8; 16];
-    vs2[0] = 0b00010001;
+    vs2[0] = 0b0001_0001;
     set_vreg(&mut state, VReg::V2, vs2);
     // Mask: elements 2,3,4,5,6,7 active (bits 2-7 = 0b11111100 = 0xFC)
     let mut mask = [0u8; 16];
@@ -667,7 +667,7 @@ fn vfirst_vstart_skips_early() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Bits 1 and 5 set
     let mut data = [0u8; 16];
-    data[0] = 0b00100010;
+    data[0] = 0b0010_0010;
     set_vreg(&mut state, VReg::V2, data);
     state.ext_state.set_vstart(3);
     exec(
@@ -693,7 +693,7 @@ fn vmsbf_first_at_position_3() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit at position 3
     let mut vs2 = [0u8; 16];
-    vs2[0] = 0b00001000;
+    vs2[0] = 0b0000_1000;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
         &mut state,
@@ -767,7 +767,7 @@ fn vmsbf_masked_inactive_undisturbed() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit in vs2 at position 4
     let mut vs2 = [0u8; 16];
-    vs2[0] = 0b00010000;
+    vs2[0] = 0b0001_0000;
     set_vreg(&mut state, VReg::V2, vs2);
     // Pre-set vd to all-ones so we can detect undisturbed bits
     set_vreg(&mut state, VReg::V4, [0xFF; 16]);
@@ -887,7 +887,7 @@ fn vmsof_first_at_position_3() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Set bits at positions 3 and 6
     let mut vs2 = [0u8; 16];
-    vs2[0] = 0b01001000;
+    vs2[0] = 0b0100_1000;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
         &mut state,
@@ -976,7 +976,7 @@ fn vmsof_masked_inactive_undisturbed() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit in vs2 at position 2
     let mut vs2 = [0u8; 16];
-    vs2[0] = 0b00000100;
+    vs2[0] = 0b0000_0100;
     set_vreg(&mut state, VReg::V2, vs2);
     // vd pre-set to all-ones
     set_vreg(&mut state, VReg::V4, [0xFF; 16]);
@@ -1035,7 +1035,7 @@ fn vmsif_first_at_position_3() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit at position 3
     let mut vs2 = [0u8; 16];
-    vs2[0] = 0b00001000;
+    vs2[0] = 0b0000_1000;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
         &mut state,

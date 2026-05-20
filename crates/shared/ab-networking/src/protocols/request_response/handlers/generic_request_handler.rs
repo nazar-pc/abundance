@@ -92,7 +92,7 @@ where
     ) -> Result<Vec<u8>, RequestHandlerError> {
         trace!(%peer, protocol=Request::LOG_TARGET, "Handling request...");
         let request = Request::decode(&mut payload.as_slice())
-            .map_err(|_| RequestHandlerError::InvalidRequestFormat)?;
+            .map_err(|_error| RequestHandlerError::InvalidRequestFormat)?;
         let response = (self.request_handler)(peer, request).await;
 
         Ok(response.ok_or(RequestHandlerError::NoResponse)?.encode())
@@ -120,16 +120,17 @@ where
                         sent_feedback: None,
                     };
 
-                    match pending_response.send(response) {
-                        Ok(()) => trace!(target = Request::LOG_TARGET, %peer, "Handled request",),
-                        Err(_) => debug!(
+                    if pending_response.send(response).is_ok() {
+                        trace!(target = Request::LOG_TARGET, %peer, "Handled request");
+                    } else {
+                        debug!(
                             target = Request::LOG_TARGET,
                             protocol = Request::PROTOCOL_NAME,
                             %peer,
                             "Failed to handle request: {}",
                             RequestHandlerError::SendResponse
-                        ),
-                    };
+                        );
+                    }
                 }
                 Err(e) => {
                     debug!(
@@ -151,7 +152,7 @@ where
                             %peer,
                             "Failed to handle request: {}", RequestHandlerError::SendResponse
                         );
-                    };
+                    }
                 }
             }
         }

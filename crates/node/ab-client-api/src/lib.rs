@@ -21,11 +21,11 @@ use std::io;
 use std::sync::Arc as StdArc;
 
 // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows the
-//  code to compile. Constant 4294967295 is hardcoded here and below for compilation to succeed.
+//  code to compile. Constant 4_294_967_295 is hardcoded here and below for compilation to succeed.
 #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
 #[expect(clippy::eq_op, reason = "Intentional documentation")]
 const {
-    assert!(u32::MAX == 4294967295);
+    assert!(u32::MAX == 4_294_967_295);
 }
 
 // TODO: Make this a `#[transparent]` struct to improve usability (avoiding the need for
@@ -34,7 +34,7 @@ const {
 ///
 /// NOTE: `u32` is smaller than `BlockNumber`'s internal `u64` but will be sufficient for a long
 /// time and substantially decrease the size of the data structure.
-pub type BlockMerkleMountainRange = MerkleMountainRange<4294967295>;
+pub type BlockMerkleMountainRange = MerkleMountainRange<4_294_967_295>;
 
 /// State of a contract slot
 #[derive(Debug, Clone)]
@@ -290,7 +290,7 @@ pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
     /// `None` is returned for blocks <= 1.
     fn previous_super_segment_header(
         &self,
-        target_block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> Option<SuperSegmentHeader>;
 
     /// Get a single super segment header

@@ -185,17 +185,17 @@ mod tests {
         assert_eq!(next_item, Some((0, 0x00)));
         assert_is_terminated(&stream_map);
 
-        let fut11 = Box::pin(async { 0x11 });
-        let fut12 = Box::pin(async { 0x12 });
-        let fut13 = Box::pin(async { 0x13 });
+        let fut11 = Box::pin(async { 0x11u8 });
+        let fut12 = Box::pin(async { 0x12u8 });
+        let fut13 = Box::pin(async { 0x13u8 });
         let fut21 = Box::pin(async {
             // Yield the current task three times to ensure that fut22 is polled last.
-            for _ in 0..3 {
+            for _ in 0..3u8 {
                 tokio::task::yield_now().await;
             }
-            0x21
+            0x21u8
         });
-        let fut22 = Box::pin(async { 0x22 });
+        let fut22 = Box::pin(async { 0x22u8 });
 
         // Push 2 futs into the same farm index 1, expect fut11 to be polled first,
         // fut12 should push into the in_progress queue and wait for fut11 to finish

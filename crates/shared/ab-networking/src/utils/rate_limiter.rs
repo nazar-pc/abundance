@@ -51,8 +51,7 @@ impl RateLimiter {
     }
 
     pub(crate) async fn acquire_permit(&self) -> OwnedSemaphorePermit {
-        self.connections_semaphore
-            .clone()
+        Arc::clone(&self.connections_semaphore)
             .acquire_owned()
             .await
             .expect("We never close semaphore.")

@@ -312,9 +312,9 @@ where
             );
 
             return None;
-        } else {
-            debug!(%slot, "Attempting to claim a slot");
         }
+
+        debug!(%slot, "Attempting to claim a slot");
 
         let parent_consensus_parameters = parent_beacon_chain_header.consensus_parameters();
 

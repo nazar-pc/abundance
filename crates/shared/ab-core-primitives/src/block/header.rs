@@ -353,11 +353,11 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
         + <NumShardsUnchecked as TrivialType>::SIZE
         + size_of::<BlockHeaderPotParametersChange>() as u32;
     /// Bitmask for presence of `super_segment_root` field
-    pub const SUPER_SEGMENT_ROOT_MASK: u8 = 0b_0000_0001;
+    pub const SUPER_SEGMENT_ROOT_MASK: u8 = 0b0000_0001;
     /// Bitmask for presence of `next_solution_range` field
-    pub const NEXT_SOLUTION_RANGE_MASK: u8 = 0b_0000_0010;
+    pub const NEXT_SOLUTION_RANGE_MASK: u8 = 0b0000_0010;
     /// Bitmask for presence of `pot_parameters_change` field
-    pub const POT_PARAMETERS_CHANGE_MASK: u8 = 0b_0000_0100;
+    pub const POT_PARAMETERS_CHANGE_MASK: u8 = 0b0000_0100;
     /// All supported bitmask variants
     pub const MASK_ALL: u8 = Self::SUPER_SEGMENT_ROOT_MASK
         | Self::NEXT_SOLUTION_RANGE_MASK
@@ -429,8 +429,8 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
 
         Some((
             Self {
-                super_segment_root,
                 fixed_parameters,
+                super_segment_root,
                 next_solution_range,
                 pot_parameters_change,
             },

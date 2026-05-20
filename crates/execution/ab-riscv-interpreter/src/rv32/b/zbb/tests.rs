@@ -10,13 +10,13 @@ fn test_andn() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 0b11110000u32);
-    state.regs.write(Reg::A1, 0b11001100u32);
+    state.regs.write(Reg::A0, 0b1111_0000);
+    state.regs.write(Reg::A1, 0b1100_1100);
 
     execute(&mut state).unwrap();
 
-    // 11110000 & ~11001100 = 11110000 & 00110011 = 00110000
-    assert_eq!(state.regs.read(Reg::A2), 0b00110000);
+    // 1111_0000 & ~1100_1100 = 1111_0000 & 0011_0011 = 0011_0000
+    assert_eq!(state.regs.read(Reg::A2), 0b0011_0000);
 }
 
 #[test]
@@ -27,13 +27,13 @@ fn test_orn() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 0b11110000u32);
-    state.regs.write(Reg::A1, 0b11001100u32);
+    state.regs.write(Reg::A0, 0b1111_0000);
+    state.regs.write(Reg::A1, 0b1100_1100);
 
     execute(&mut state).unwrap();
 
-    // 11110000 | ~11001100 = 11110000 | 00110011 = 11110011
-    assert_eq!(state.regs.read(Reg::A2) & 0xFF, 0b11110011);
+    // 1111_0000 | ~1100_1100 = 1111_0000 | 0011_0011 = 1111_0011
+    assert_eq!(state.regs.read(Reg::A2) & 0xFF, 0b1111_0011);
 }
 
 #[test]
@@ -44,13 +44,13 @@ fn test_xnor() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 0b11110000u32);
-    state.regs.write(Reg::A1, 0b11001100u32);
+    state.regs.write(Reg::A0, 0b1111_0000);
+    state.regs.write(Reg::A1, 0b1100_1100);
 
     execute(&mut state).unwrap();
 
-    // ~(11110000 ^ 11001100) = ~00111100 = ...11000011
-    assert_eq!(state.regs.read(Reg::A2) & 0xFF, 0b11000011);
+    // ~(1111_0000 ^ 1100_1100) = ~0011_1100 = ...1100_0011
+    assert_eq!(state.regs.read(Reg::A2) & 0xFF, 0b1100_0011);
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn test_clz() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x0100_0000u32);
+    state.regs.write(Reg::A0, 0x0100_0000);
 
     execute(&mut state).unwrap();
 
@@ -77,7 +77,7 @@ fn test_ctz() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x0000_1000u32);
+    state.regs.write(Reg::A0, 0x0000_1000);
 
     execute(&mut state).unwrap();
 
@@ -92,7 +92,7 @@ fn test_cpop() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0b11010101u32);
+    state.regs.write(Reg::A0, 0b1101_0101);
 
     execute(&mut state).unwrap();
 
@@ -107,7 +107,7 @@ fn test_max() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 10u32);
+    state.regs.write(Reg::A0, 10);
     state.regs.write(Reg::A1, (-5i32).cast_unsigned());
 
     execute(&mut state).unwrap();
@@ -123,7 +123,7 @@ fn test_min() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 10u32);
+    state.regs.write(Reg::A0, 10);
     state.regs.write(Reg::A1, (-5i32).cast_unsigned());
 
     execute(&mut state).unwrap();
@@ -139,7 +139,7 @@ fn test_sext_b() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0xFFu32);
+    state.regs.write(Reg::A0, 0xFF);
 
     execute(&mut state).unwrap();
 
@@ -154,7 +154,7 @@ fn test_sext_h() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0xFFFFu32);
+    state.regs.write(Reg::A0, 0xFFFF);
 
     execute(&mut state).unwrap();
 
@@ -169,7 +169,7 @@ fn test_zext_h() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0xFFFF_FFFFu32);
+    state.regs.write(Reg::A0, 0xFFFF_FFFF);
 
     execute(&mut state).unwrap();
 
@@ -184,12 +184,12 @@ fn test_rol() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 0x8000_0001u32);
-    state.regs.write(Reg::A1, 1u32);
+    state.regs.write(Reg::A0, 0x8000_0001);
+    state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A2), 0x0000_0003u32);
+    assert_eq!(state.regs.read(Reg::A2), 0x0000_0003);
 }
 
 #[test]
@@ -200,12 +200,12 @@ fn test_ror() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, 0x8000_0001u32);
-    state.regs.write(Reg::A1, 1u32);
+    state.regs.write(Reg::A0, 0x8000_0001);
+    state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A2), 0xC000_0000u32);
+    assert_eq!(state.regs.read(Reg::A2), 0xC000_0000);
 }
 
 #[test]
@@ -217,11 +217,11 @@ fn test_rori() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x8000_0001u32);
+    state.regs.write(Reg::A0, 0x8000_0001);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A2), 0xC000_0000u32);
+    assert_eq!(state.regs.read(Reg::A2), 0xC000_0000);
 }
 
 #[test]
@@ -232,11 +232,11 @@ fn test_orc_b() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x0001_0002u32);
+    state.regs.write(Reg::A0, 0x0001_0002);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A2), 0x00FF_00FFu32);
+    assert_eq!(state.regs.read(Reg::A2), 0x00FF_00FF);
 }
 
 #[test]
@@ -247,9 +247,9 @@ fn test_rev8() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x0123_4567u32);
+    state.regs.write(Reg::A0, 0x0123_4567);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A2), 0x6745_2301u32);
+    assert_eq!(state.regs.read(Reg::A2), 0x6745_2301);
 }

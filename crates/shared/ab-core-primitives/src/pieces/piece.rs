@@ -29,8 +29,8 @@ impl Encode for Piece {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
-        self.as_ref().encode_to(output)
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+        self.as_ref().encode_to(dest);
     }
 
     #[inline]

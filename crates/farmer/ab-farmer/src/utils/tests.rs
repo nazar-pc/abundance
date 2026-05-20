@@ -24,7 +24,7 @@ use tokio::sync::oneshot;
 #[cfg(not(all(miri, target_os = "windows")))]
 #[tokio::test]
 async fn run_future_in_dedicated_thread_ready() {
-    let value = run_future_in_dedicated_thread(|| future::ready(1), "ready".to_string())
+    let value = run_future_in_dedicated_thread(|| future::ready(1u8), "ready".to_string())
         .unwrap()
         .await
         .unwrap();
@@ -67,7 +67,7 @@ fn run_future_in_dedicated_thread_tokio_on_drop() {
         drop(run_future_in_dedicated_thread(
             move || async move {
                 let s = S;
-                let _ = receiver.await;
+                let _: Result<(), _> = receiver.await;
                 drop(s);
             },
             "tokio_on_drop".to_string(),

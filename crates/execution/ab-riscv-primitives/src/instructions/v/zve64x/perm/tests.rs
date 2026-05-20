@@ -13,8 +13,8 @@ use alloc::format;
 /// Fields: vs2 maps to rs2 position, vs1/rs1/uimm maps to rs1 position,
 /// vd/rd maps to rd position.
 fn make_v_type(vd: u8, funct3: u8, vs1: u8, vs2: u8, vm: bool, funct6: u8) -> u32 {
-    let funct7 = (funct6 << 1) | (vm as u8);
-    make_r_type(0b1010111, vd, funct3, vs1, vs2, funct7)
+    let funct7 = (funct6 << 1u8) | u8::from(vm);
+    make_r_type(0b101_0111, vd, funct3, vs1, vs2, funct7)
 }
 
 // funct3 constants matching the spec
@@ -29,7 +29,7 @@ const OPMVX: u8 = 0b110;
 #[test]
 fn test_vmv_x_s() {
     // funct6=010000, OPMVV, vs1=0, vm=1
-    let inst = make_v_type(1, OPMVV, 0, 2, true, 0b010000);
+    let inst = make_v_type(1, OPMVV, 0, 2, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -44,7 +44,7 @@ fn test_vmv_x_s() {
 
 #[test]
 fn test_vmv_x_s_different_regs() {
-    let inst = make_v_type(10, OPMVV, 0, 16, true, 0b010000);
+    let inst = make_v_type(10, OPMVV, 0, 16, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -59,14 +59,14 @@ fn test_vmv_x_s_different_regs() {
 
 #[test]
 fn test_vmv_x_s_rejects_nonzero_vs1() {
-    let inst = make_v_type(1, OPMVV, 1, 2, true, 0b010000);
+    let inst = make_v_type(1, OPMVV, 1, 2, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_vmv_x_s_rejects_vm_zero() {
-    let inst = make_v_type(1, OPMVV, 0, 2, false, 0b010000);
+    let inst = make_v_type(1, OPMVV, 0, 2, false, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -76,7 +76,7 @@ fn test_vmv_x_s_rejects_vm_zero() {
 #[test]
 fn test_vmv_s_x() {
     // funct6=010000, OPMVX, vs2=0, vm=1
-    let inst = make_v_type(3, OPMVX, 2, 0, true, 0b010000);
+    let inst = make_v_type(3, OPMVX, 2, 0, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -90,14 +90,14 @@ fn test_vmv_s_x() {
 
 #[test]
 fn test_vmv_s_x_rejects_nonzero_vs2() {
-    let inst = make_v_type(3, OPMVX, 2, 1, true, 0b010000);
+    let inst = make_v_type(3, OPMVX, 2, 1, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_vmv_s_x_rejects_vm_zero() {
-    let inst = make_v_type(3, OPMVX, 2, 0, false, 0b010000);
+    let inst = make_v_type(3, OPMVX, 2, 0, false, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -107,7 +107,7 @@ fn test_vmv_s_x_rejects_vm_zero() {
 #[test]
 fn test_vrgather_vv() {
     // funct6=001100, OPIVV
-    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b001100);
+    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -124,7 +124,7 @@ fn test_vrgather_vv() {
 
 #[test]
 fn test_vrgather_vv_masked() {
-    let inst = make_v_type(8, OPIVV, 10, 12, false, 0b001100);
+    let inst = make_v_type(8, OPIVV, 10, 12, false, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -144,7 +144,7 @@ fn test_vrgather_vv_masked() {
 #[test]
 fn test_vrgather_vx() {
     // funct6=001100, OPIVX
-    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b001100);
+    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -160,7 +160,7 @@ fn test_vrgather_vx() {
 
 #[test]
 fn test_vrgather_vx_masked() {
-    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b001100);
+    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -179,7 +179,7 @@ fn test_vrgather_vx_masked() {
 #[test]
 fn test_vrgather_vi() {
     // funct6=001100, OPIVI, uimm=7
-    let inst = make_v_type(4, OPIVI, 7, 8, true, 0b001100);
+    let inst = make_v_type(4, OPIVI, 7, 8, true, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -196,7 +196,7 @@ fn test_vrgather_vi() {
 
 #[test]
 fn test_vrgather_vi_max_uimm() {
-    let inst = make_v_type(4, OPIVI, 31, 8, true, 0b001100);
+    let inst = make_v_type(4, OPIVI, 31, 8, true, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -216,7 +216,7 @@ fn test_vrgather_vi_max_uimm() {
 #[test]
 fn test_vrgatherei16_vv() {
     // funct6=001110, OPIVV
-    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b001110);
+    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -233,7 +233,7 @@ fn test_vrgatherei16_vv() {
 
 #[test]
 fn test_vrgatherei16_vv_masked() {
-    let inst = make_v_type(16, OPIVV, 20, 24, false, 0b001110);
+    let inst = make_v_type(16, OPIVV, 20, 24, false, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -253,7 +253,7 @@ fn test_vrgatherei16_vv_masked() {
 #[test]
 fn test_vslideup_vx() {
     // funct6=001110, OPIVX
-    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b001110);
+    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -269,7 +269,7 @@ fn test_vslideup_vx() {
 
 #[test]
 fn test_vslideup_vx_masked() {
-    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b001110);
+    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -288,7 +288,7 @@ fn test_vslideup_vx_masked() {
 #[test]
 fn test_vslideup_vi() {
     // funct6=001110, OPIVI
-    let inst = make_v_type(4, OPIVI, 3, 8, true, 0b001110);
+    let inst = make_v_type(4, OPIVI, 3, 8, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -305,7 +305,7 @@ fn test_vslideup_vi() {
 
 #[test]
 fn test_vslideup_vi_masked() {
-    let inst = make_v_type(4, OPIVI, 3, 8, false, 0b001110);
+    let inst = make_v_type(4, OPIVI, 3, 8, false, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -325,7 +325,7 @@ fn test_vslideup_vi_masked() {
 #[test]
 fn test_vslide1up_vx() {
     // funct6=001110, OPMVX
-    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b001110);
+    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -341,7 +341,7 @@ fn test_vslide1up_vx() {
 
 #[test]
 fn test_vslide1up_vx_masked() {
-    let inst = make_v_type(4, OPMVX, 10, 8, false, 0b001110);
+    let inst = make_v_type(4, OPMVX, 10, 8, false, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -360,7 +360,7 @@ fn test_vslide1up_vx_masked() {
 #[test]
 fn test_vslidedown_vx() {
     // funct6=001111, OPIVX
-    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b001111);
+    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -376,7 +376,7 @@ fn test_vslidedown_vx() {
 
 #[test]
 fn test_vslidedown_vx_masked() {
-    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b001111);
+    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -395,7 +395,7 @@ fn test_vslidedown_vx_masked() {
 #[test]
 fn test_vslidedown_vi() {
     // funct6=001111, OPIVI
-    let inst = make_v_type(4, OPIVI, 15, 8, true, 0b001111);
+    let inst = make_v_type(4, OPIVI, 15, 8, true, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -415,7 +415,7 @@ fn test_vslidedown_vi() {
 #[test]
 fn test_vslide1down_vx() {
     // funct6=001111, OPMVX
-    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b001111);
+    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -431,7 +431,7 @@ fn test_vslide1down_vx() {
 
 #[test]
 fn test_vslide1down_vx_masked() {
-    let inst = make_v_type(4, OPMVX, 10, 8, false, 0b001111);
+    let inst = make_v_type(4, OPMVX, 10, 8, false, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -450,7 +450,7 @@ fn test_vslide1down_vx_masked() {
 #[test]
 fn test_vmerge_vvm_masked() {
     // funct6=010111, OPIVV, vm=0 -> vmerge.vvm
-    let inst = make_v_type(8, OPIVV, 4, 12, false, 0b010111);
+    let inst = make_v_type(8, OPIVV, 4, 12, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -468,7 +468,7 @@ fn test_vmerge_vvm_masked() {
 #[test]
 fn test_vmv_v_v() {
     // funct6=010111, OPIVV, vm=1 -> vmv.v.v
-    let inst = make_v_type(8, OPIVV, 4, 0, true, 0b010111);
+    let inst = make_v_type(8, OPIVV, 4, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -488,7 +488,7 @@ fn test_vmv_v_v() {
 #[test]
 fn test_vmerge_vxm_masked() {
     // funct6=010111, OPIVX, vm=0
-    let inst = make_v_type(8, OPIVX, 5, 12, false, 0b010111);
+    let inst = make_v_type(8, OPIVX, 5, 12, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -505,7 +505,7 @@ fn test_vmerge_vxm_masked() {
 #[test]
 fn test_vmv_v_x() {
     // funct6=010111, OPIVX, vm=1 -> vmv.v.x
-    let inst = make_v_type(8, OPIVX, 10, 0, true, 0b010111);
+    let inst = make_v_type(8, OPIVX, 10, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -524,7 +524,7 @@ fn test_vmv_v_x() {
 #[test]
 fn test_vmerge_vim_masked() {
     // funct6=010111, OPIVI, vm=0, simm5=5
-    let inst = make_v_type(8, OPIVI, 5, 12, false, 0b010111);
+    let inst = make_v_type(8, OPIVI, 5, 12, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -542,7 +542,7 @@ fn test_vmerge_vim_masked() {
 #[test]
 fn test_vmv_v_i() {
     // funct6=010111, OPIVI, vm=1, simm5=0 -> vmv.v.i
-    let inst = make_v_type(8, OPIVI, 0, 0, true, 0b010111);
+    let inst = make_v_type(8, OPIVI, 0, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -559,8 +559,8 @@ fn test_vmv_v_i() {
 
 #[test]
 fn test_vmv_v_i_negative_imm() {
-    // funct6=010111, OPIVI, vm=1, simm5=-1 (0b11111 = 31, sign-extended = -1)
-    let inst = make_v_type(4, OPIVI, 0b11111, 0, true, 0b010111);
+    // funct6=010111, OPIVI, vm=1, simm5=-1 (0b1_1111 = 31, sign-extended = -1)
+    let inst = make_v_type(4, OPIVI, 0b1_1111, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -577,8 +577,8 @@ fn test_vmv_v_i_negative_imm() {
 
 #[test]
 fn test_vmv_v_i_min_negative() {
-    // simm5=-16 (0b10000)
-    let inst = make_v_type(4, OPIVI, 0b10000, 0, true, 0b010111);
+    // simm5=-16 (0b1_0000)
+    let inst = make_v_type(4, OPIVI, 0b1_0000, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -596,7 +596,7 @@ fn test_vmv_v_i_min_negative() {
 #[test]
 fn test_vmerge_funct6_wrong_funct3() {
     // funct3=0b001 is not valid for funct6=010111
-    let inst = make_v_type(1, 0b001, 2, 3, true, 0b010111);
+    let inst = make_v_type(1, 0b001, 2, 3, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -606,7 +606,7 @@ fn test_vmerge_funct6_wrong_funct3() {
 #[test]
 fn test_vcompress_vm() {
     // funct6=010111, OPMVV, vm=1
-    let inst = make_v_type(1, OPMVV, 2, 3, true, 0b010111);
+    let inst = make_v_type(1, OPMVV, 2, 3, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -622,7 +622,7 @@ fn test_vcompress_vm() {
 
 #[test]
 fn test_vcompress_vm_different_regs() {
-    let inst = make_v_type(16, OPMVV, 0, 24, true, 0b010111);
+    let inst = make_v_type(16, OPMVV, 0, 24, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -639,7 +639,7 @@ fn test_vcompress_vm_different_regs() {
 #[test]
 fn test_vcompress_vm_rejects_vm_zero() {
     // vcompress requires vm=1
-    let inst = make_v_type(1, OPMVV, 2, 3, false, 0b010111);
+    let inst = make_v_type(1, OPMVV, 2, 3, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -649,7 +649,7 @@ fn test_vcompress_vm_rejects_vm_zero() {
 #[test]
 fn test_vmv1r_v() {
     // funct6=100111, OPIVI, simm5=0, vm=1
-    let inst = make_v_type(1, OPIVI, 0b00000, 2, true, 0b100111);
+    let inst = make_v_type(1, OPIVI, 0b0_0000, 2, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -667,7 +667,7 @@ fn test_vmv1r_v() {
 #[test]
 fn test_vmv2r_v() {
     // funct6=100111, OPIVI, simm5=1, vm=1
-    let inst = make_v_type(2, OPIVI, 0b00001, 4, true, 0b100111);
+    let inst = make_v_type(2, OPIVI, 0b0_0001, 4, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -685,7 +685,7 @@ fn test_vmv2r_v() {
 #[test]
 fn test_vmv4r_v() {
     // funct6=100111, OPIVI, simm5=3, vm=1
-    let inst = make_v_type(4, OPIVI, 0b00011, 8, true, 0b100111);
+    let inst = make_v_type(4, OPIVI, 0b0_0011, 8, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -703,7 +703,7 @@ fn test_vmv4r_v() {
 #[test]
 fn test_vmv8r_v() {
     // funct6=100111, OPIVI, simm5=7, vm=1
-    let inst = make_v_type(8, OPIVI, 0b00111, 16, true, 0b100111);
+    let inst = make_v_type(8, OPIVI, 0b0_0111, 16, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -719,7 +719,7 @@ fn test_vmv8r_v() {
 #[test]
 fn test_vmvnr_rejects_vm_zero() {
     // vmvNr.v requires vm=1
-    let inst = make_v_type(1, OPIVI, 0b00000, 2, false, 0b100111);
+    let inst = make_v_type(1, OPIVI, 0b00000, 2, false, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -727,7 +727,7 @@ fn test_vmvnr_rejects_vm_zero() {
 #[test]
 fn test_vmvnr_rejects_invalid_nr_hint() {
     // simm5=0b00010 is not a valid nr encoding
-    let inst = make_v_type(1, OPIVI, 0b00010, 2, true, 0b100111);
+    let inst = make_v_type(1, OPIVI, 0b00010, 2, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -735,7 +735,7 @@ fn test_vmvnr_rejects_invalid_nr_hint() {
 #[test]
 fn test_vmvnr_rejects_nr_hint_5() {
     // simm5=0b00101 is not valid
-    let inst = make_v_type(1, OPIVI, 0b00101, 2, true, 0b100111);
+    let inst = make_v_type(1, OPIVI, 0b00101, 2, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -743,7 +743,7 @@ fn test_vmvnr_rejects_nr_hint_5() {
 #[test]
 fn test_vmvnr_rejects_nr_hint_15() {
     // simm5=0b01111 is not valid
-    let inst = make_v_type(1, OPIVI, 0b01111, 2, true, 0b100111);
+    let inst = make_v_type(1, OPIVI, 0b01111, 2, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -753,7 +753,7 @@ fn test_vmvnr_rejects_nr_hint_15() {
 #[test]
 fn test_wrong_opcode() {
     // Use LOAD-FP opcode instead of OP-V
-    let inst = make_r_type(0b0000111, 1, OPMVV, 0, 2, (0b010000 << 1) | 1);
+    let inst = make_r_type(0b000_0111, 1, OPMVV, 0, 2, (0b01_0000 << 1) | 1);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -763,7 +763,7 @@ fn test_wrong_opcode() {
 #[test]
 fn test_vrgather_wrong_funct3() {
     // funct6=001100 with OPMVV should not match
-    let inst = make_v_type(1, OPMVV, 2, 3, true, 0b001100);
+    let inst = make_v_type(1, OPMVV, 2, 3, true, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -771,7 +771,7 @@ fn test_vrgather_wrong_funct3() {
 #[test]
 fn test_vmv_x_s_wrong_funct3() {
     // funct6=010000 with OPIVV should not match
-    let inst = make_v_type(1, OPIVV, 0, 2, true, 0b010000);
+    let inst = make_v_type(1, OPIVV, 0, 2, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -781,7 +781,7 @@ fn test_vmv_x_s_wrong_funct3() {
 #[test]
 fn test_unrelated_funct6() {
     // funct6=000000 (vadd) should not decode as perm
-    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b000000);
+    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b00_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -790,154 +790,154 @@ fn test_unrelated_funct6() {
 
 #[test]
 fn test_display_vmv_x_s() {
-    let inst = make_v_type(1, OPMVV, 0, 8, true, 0b010000);
+    let inst = make_v_type(1, OPMVV, 0, 8, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv.x.s ra, v8");
+    assert_eq!(format!("{decoded}"), "vmv.x.s ra, v8");
 }
 
 #[test]
 fn test_display_vmv_s_x() {
-    let inst = make_v_type(8, OPMVX, 1, 0, true, 0b010000);
+    let inst = make_v_type(8, OPMVX, 1, 0, true, 0b01_0000);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv.s.x v8, ra");
+    assert_eq!(format!("{decoded}"), "vmv.s.x v8, ra");
 }
 
 #[test]
 fn test_display_vrgather_vv_unmasked() {
-    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b001100);
+    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vrgather.vv v1, v3, v2");
+    assert_eq!(format!("{decoded}"), "vrgather.vv v1, v3, v2");
 }
 
 #[test]
 fn test_display_vrgather_vv_masked() {
-    let inst = make_v_type(1, OPIVV, 2, 3, false, 0b001100);
+    let inst = make_v_type(1, OPIVV, 2, 3, false, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vrgather.vv v1, v3, v2, v0.t");
+    assert_eq!(format!("{decoded}"), "vrgather.vv v1, v3, v2, v0.t");
 }
 
 #[test]
 fn test_display_vslideup_vx_unmasked() {
-    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b001110);
+    let inst = make_v_type(4, OPIVX, 5, 8, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vslideup.vx v4, v8, t0");
+    assert_eq!(format!("{decoded}"), "vslideup.vx v4, v8, t0");
 }
 
 #[test]
 fn test_display_vslideup_vi_masked() {
-    let inst = make_v_type(4, OPIVI, 3, 8, false, 0b001110);
+    let inst = make_v_type(4, OPIVI, 3, 8, false, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vslideup.vi v4, v8, 3, v0.t");
+    assert_eq!(format!("{decoded}"), "vslideup.vi v4, v8, 3, v0.t");
 }
 
 #[test]
 fn test_display_vslide1up_vx() {
-    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b001110);
+    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vslide1up.vx v4, v8, a0");
+    assert_eq!(format!("{decoded}"), "vslide1up.vx v4, v8, a0");
 }
 
 #[test]
 fn test_display_vslidedown_vi() {
-    let inst = make_v_type(4, OPIVI, 15, 8, true, 0b001111);
+    let inst = make_v_type(4, OPIVI, 15, 8, true, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vslidedown.vi v4, v8, 15");
+    assert_eq!(format!("{decoded}"), "vslidedown.vi v4, v8, 15");
 }
 
 #[test]
 fn test_display_vslide1down_vx() {
-    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b001111);
+    let inst = make_v_type(4, OPMVX, 10, 8, true, 0b00_1111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vslide1down.vx v4, v8, a0");
+    assert_eq!(format!("{decoded}"), "vslide1down.vx v4, v8, a0");
 }
 
 #[test]
 fn test_display_vmv_v_v() {
-    let inst = make_v_type(8, OPIVV, 4, 0, true, 0b010111);
+    let inst = make_v_type(8, OPIVV, 4, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv.v.v v8, v4");
+    assert_eq!(format!("{decoded}"), "vmv.v.v v8, v4");
 }
 
 #[test]
 fn test_display_vmerge_vvm() {
-    let inst = make_v_type(8, OPIVV, 4, 12, false, 0b010111);
+    let inst = make_v_type(8, OPIVV, 4, 12, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmerge.vvm v8, v12, v4, v0");
+    assert_eq!(format!("{decoded}"), "vmerge.vvm v8, v12, v4, v0");
 }
 
 #[test]
 fn test_display_vmv_v_x() {
-    let inst = make_v_type(8, OPIVX, 10, 0, true, 0b010111);
+    let inst = make_v_type(8, OPIVX, 10, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv.v.x v8, a0");
+    assert_eq!(format!("{decoded}"), "vmv.v.x v8, a0");
 }
 
 #[test]
 fn test_display_vmerge_vxm() {
-    let inst = make_v_type(8, OPIVX, 5, 12, false, 0b010111);
+    let inst = make_v_type(8, OPIVX, 5, 12, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmerge.vxm v8, v12, t0, v0");
+    assert_eq!(format!("{decoded}"), "vmerge.vxm v8, v12, t0, v0");
 }
 
 #[test]
 fn test_display_vmerge_vim() {
-    let inst = make_v_type(8, OPIVI, 5, 12, false, 0b010111);
+    let inst = make_v_type(8, OPIVI, 5, 12, false, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmerge.vim v8, v12, 5, v0");
+    assert_eq!(format!("{decoded}"), "vmerge.vim v8, v12, 5, v0");
 }
 
 #[test]
 fn test_display_vmv_v_i_negative() {
-    let inst = make_v_type(4, OPIVI, 0b11111, 0, true, 0b010111);
+    let inst = make_v_type(4, OPIVI, 0b11111, 0, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv.v.i v4, -1");
+    assert_eq!(format!("{decoded}"), "vmv.v.i v4, -1");
 }
 
 #[test]
 fn test_display_vcompress_vm() {
-    let inst = make_v_type(1, OPMVV, 2, 3, true, 0b010111);
+    let inst = make_v_type(1, OPMVV, 2, 3, true, 0b01_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vcompress.vm v1, v3, v2");
+    assert_eq!(format!("{decoded}"), "vcompress.vm v1, v3, v2");
 }
 
 #[test]
 fn test_display_vmv1r_v() {
-    let inst = make_v_type(1, OPIVI, 0, 2, true, 0b100111);
+    let inst = make_v_type(1, OPIVI, 0, 2, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv1r.v v1, v2");
+    assert_eq!(format!("{decoded}"), "vmv1r.v v1, v2");
 }
 
 #[test]
 fn test_display_vmv2r_v() {
-    let inst = make_v_type(2, OPIVI, 1, 4, true, 0b100111);
+    let inst = make_v_type(2, OPIVI, 1, 4, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv2r.v v2, v4");
+    assert_eq!(format!("{decoded}"), "vmv2r.v v2, v4");
 }
 
 #[test]
 fn test_display_vmv4r_v() {
-    let inst = make_v_type(4, OPIVI, 3, 8, true, 0b100111);
+    let inst = make_v_type(4, OPIVI, 3, 8, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv4r.v v4, v8");
+    assert_eq!(format!("{decoded}"), "vmv4r.v v4, v8");
 }
 
 #[test]
 fn test_display_vmv8r_v() {
-    let inst = make_v_type(8, OPIVI, 7, 16, true, 0b100111);
+    let inst = make_v_type(8, OPIVI, 7, 16, true, 0b10_0111);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmv8r.v v8, v16");
+    assert_eq!(format!("{decoded}"), "vmv8r.v v8, v16");
 }
 
 #[test]
 fn test_display_vrgather_vx_masked() {
-    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b001100);
+    let inst = make_v_type(4, OPIVX, 5, 8, false, 0b00_1100);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vrgather.vx v4, v8, t0, v0.t");
+    assert_eq!(format!("{decoded}"), "vrgather.vx v4, v8, t0, v0.t");
 }
 
 #[test]
 fn test_display_vrgatherei16_vv() {
-    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b001110);
+    let inst = make_v_type(1, OPIVV, 2, 3, true, 0b00_1110);
     let decoded = Zve64xPermInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vrgatherei16.vv v1, v3, v2");
+    assert_eq!(format!("{decoded}"), "vrgatherei16.vv v1, v3, v2");
 }

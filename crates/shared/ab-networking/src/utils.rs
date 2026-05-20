@@ -61,7 +61,7 @@ impl<T> Drop for AsyncJoinOnDrop<T> {
         let handle = self.0.take().expect("Always called exactly once; qed");
         if !handle.is_terminated() {
             task::block_in_place(move || {
-                let _ = Handle::current().block_on(handle);
+                let _: Result<_, _> = Handle::current().block_on(handle);
             });
         }
     }

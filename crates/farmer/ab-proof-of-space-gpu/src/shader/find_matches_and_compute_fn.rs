@@ -90,9 +90,9 @@ unsafe fn compute_fn_into_buckets_inner<const TABLE_NUMBER: u8, const PARENT_TAB
             if right_position_or_skip == 0 {
                 right_position_or_skip = position_r.position;
                 break;
-            } else {
-                right_position_or_skip -= 1;
             }
+
+            right_position_or_skip -= 1;
         }
     }
     let right_position = right_position_or_skip;

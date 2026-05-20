@@ -12,10 +12,10 @@ use core::fmt;
 /// RISC-V Zve64x single-width integer arithmetic instruction.
 ///
 /// Covers: add, sub, reverse-sub, bitwise logic, shifts, compares, min/max. All use the OP-V major
-/// opcode (0b1010111) with OPIVV/OPIVX/OPIVI funct3.
+/// opcode (0b101_0111) with OPIVV/OPIVX/OPIVI funct3.
 ///
 /// Vector arithmetic format:
-/// `[funct6(6)|vm(1)|vs2(5)|vs1/rs1/imm(5)|funct3(3)|vd(5)|1010111(7)]`
+/// `[funct6(6)|vm(1)|vs2(5)|vs1/rs1/imm(5)|funct3(3)|vd(5)|101_0111(7)]`
 ///
 /// funct3 selects an operand type:
 /// - OPIVV = 0b000: vector-vector
@@ -160,7 +160,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -179,24 +179,24 @@ where
             0b000 => {
                 let vs1 = VReg::from_bits(vs1_bits)?;
                 match funct6 {
-                    0b000000 => Some(Self::VaddVv { vd, vs2, vs1, vm }),
-                    0b000010 => Some(Self::VsubVv { vd, vs2, vs1, vm }),
-                    0b001001 => Some(Self::VandVv { vd, vs2, vs1, vm }),
-                    0b001010 => Some(Self::VorVv { vd, vs2, vs1, vm }),
-                    0b001011 => Some(Self::VxorVv { vd, vs2, vs1, vm }),
-                    0b100101 => Some(Self::VsllVv { vd, vs2, vs1, vm }),
-                    0b101000 => Some(Self::VsrlVv { vd, vs2, vs1, vm }),
-                    0b101001 => Some(Self::VsraVv { vd, vs2, vs1, vm }),
-                    0b000100 => Some(Self::VminuVv { vd, vs2, vs1, vm }),
-                    0b000101 => Some(Self::VminVv { vd, vs2, vs1, vm }),
-                    0b000110 => Some(Self::VmaxuVv { vd, vs2, vs1, vm }),
-                    0b000111 => Some(Self::VmaxVv { vd, vs2, vs1, vm }),
-                    0b011000 => Some(Self::VmseqVv { vd, vs2, vs1, vm }),
-                    0b011001 => Some(Self::VmsneVv { vd, vs2, vs1, vm }),
-                    0b011010 => Some(Self::VmsltuVv { vd, vs2, vs1, vm }),
-                    0b011011 => Some(Self::VmsltVv { vd, vs2, vs1, vm }),
-                    0b011100 => Some(Self::VmsleuVv { vd, vs2, vs1, vm }),
-                    0b011101 => Some(Self::VmsleVv { vd, vs2, vs1, vm }),
+                    0b00_0000 => Some(Self::VaddVv { vd, vs2, vs1, vm }),
+                    0b00_0010 => Some(Self::VsubVv { vd, vs2, vs1, vm }),
+                    0b00_1001 => Some(Self::VandVv { vd, vs2, vs1, vm }),
+                    0b00_1010 => Some(Self::VorVv { vd, vs2, vs1, vm }),
+                    0b00_1011 => Some(Self::VxorVv { vd, vs2, vs1, vm }),
+                    0b10_0101 => Some(Self::VsllVv { vd, vs2, vs1, vm }),
+                    0b10_1000 => Some(Self::VsrlVv { vd, vs2, vs1, vm }),
+                    0b10_1001 => Some(Self::VsraVv { vd, vs2, vs1, vm }),
+                    0b00_0100 => Some(Self::VminuVv { vd, vs2, vs1, vm }),
+                    0b00_0101 => Some(Self::VminVv { vd, vs2, vs1, vm }),
+                    0b00_0110 => Some(Self::VmaxuVv { vd, vs2, vs1, vm }),
+                    0b00_0111 => Some(Self::VmaxVv { vd, vs2, vs1, vm }),
+                    0b01_1000 => Some(Self::VmseqVv { vd, vs2, vs1, vm }),
+                    0b01_1001 => Some(Self::VmsneVv { vd, vs2, vs1, vm }),
+                    0b01_1010 => Some(Self::VmsltuVv { vd, vs2, vs1, vm }),
+                    0b01_1011 => Some(Self::VmsltVv { vd, vs2, vs1, vm }),
+                    0b01_1100 => Some(Self::VmsleuVv { vd, vs2, vs1, vm }),
+                    0b01_1101 => Some(Self::VmsleVv { vd, vs2, vs1, vm }),
                     _ => None,
                 }
             }
@@ -204,27 +204,27 @@ where
             0b100 => {
                 let rs1 = Reg::from_bits(vs1_bits)?;
                 match funct6 {
-                    0b000000 => Some(Self::VaddVx { vd, vs2, rs1, vm }),
-                    0b000010 => Some(Self::VsubVx { vd, vs2, rs1, vm }),
-                    0b000011 => Some(Self::VrsubVx { vd, vs2, rs1, vm }),
-                    0b001001 => Some(Self::VandVx { vd, vs2, rs1, vm }),
-                    0b001010 => Some(Self::VorVx { vd, vs2, rs1, vm }),
-                    0b001011 => Some(Self::VxorVx { vd, vs2, rs1, vm }),
-                    0b100101 => Some(Self::VsllVx { vd, vs2, rs1, vm }),
-                    0b101000 => Some(Self::VsrlVx { vd, vs2, rs1, vm }),
-                    0b101001 => Some(Self::VsraVx { vd, vs2, rs1, vm }),
-                    0b000100 => Some(Self::VminuVx { vd, vs2, rs1, vm }),
-                    0b000101 => Some(Self::VminVx { vd, vs2, rs1, vm }),
-                    0b000110 => Some(Self::VmaxuVx { vd, vs2, rs1, vm }),
-                    0b000111 => Some(Self::VmaxVx { vd, vs2, rs1, vm }),
-                    0b011000 => Some(Self::VmseqVx { vd, vs2, rs1, vm }),
-                    0b011001 => Some(Self::VmsneVx { vd, vs2, rs1, vm }),
-                    0b011010 => Some(Self::VmsltuVx { vd, vs2, rs1, vm }),
-                    0b011011 => Some(Self::VmsltVx { vd, vs2, rs1, vm }),
-                    0b011100 => Some(Self::VmsleuVx { vd, vs2, rs1, vm }),
-                    0b011101 => Some(Self::VmsleVx { vd, vs2, rs1, vm }),
-                    0b011110 => Some(Self::VmsgtuVx { vd, vs2, rs1, vm }),
-                    0b011111 => Some(Self::VmsgtVx { vd, vs2, rs1, vm }),
+                    0b00_0000 => Some(Self::VaddVx { vd, vs2, rs1, vm }),
+                    0b00_0010 => Some(Self::VsubVx { vd, vs2, rs1, vm }),
+                    0b00_0011 => Some(Self::VrsubVx { vd, vs2, rs1, vm }),
+                    0b00_1001 => Some(Self::VandVx { vd, vs2, rs1, vm }),
+                    0b00_1010 => Some(Self::VorVx { vd, vs2, rs1, vm }),
+                    0b00_1011 => Some(Self::VxorVx { vd, vs2, rs1, vm }),
+                    0b10_0101 => Some(Self::VsllVx { vd, vs2, rs1, vm }),
+                    0b10_1000 => Some(Self::VsrlVx { vd, vs2, rs1, vm }),
+                    0b10_1001 => Some(Self::VsraVx { vd, vs2, rs1, vm }),
+                    0b00_0100 => Some(Self::VminuVx { vd, vs2, rs1, vm }),
+                    0b00_0101 => Some(Self::VminVx { vd, vs2, rs1, vm }),
+                    0b00_0110 => Some(Self::VmaxuVx { vd, vs2, rs1, vm }),
+                    0b00_0111 => Some(Self::VmaxVx { vd, vs2, rs1, vm }),
+                    0b01_1000 => Some(Self::VmseqVx { vd, vs2, rs1, vm }),
+                    0b01_1001 => Some(Self::VmsneVx { vd, vs2, rs1, vm }),
+                    0b01_1010 => Some(Self::VmsltuVx { vd, vs2, rs1, vm }),
+                    0b01_1011 => Some(Self::VmsltVx { vd, vs2, rs1, vm }),
+                    0b01_1100 => Some(Self::VmsleuVx { vd, vs2, rs1, vm }),
+                    0b01_1101 => Some(Self::VmsleVx { vd, vs2, rs1, vm }),
+                    0b01_1110 => Some(Self::VmsgtuVx { vd, vs2, rs1, vm }),
+                    0b01_1111 => Some(Self::VmsgtVx { vd, vs2, rs1, vm }),
                     _ => None,
                 }
             }
@@ -232,25 +232,25 @@ where
             0b011 => {
                 match funct6 {
                     // Shift immediates are unsigned (uimm[4:0])
-                    0b100101 => {
+                    0b10_0101 => {
                         let uimm = vs1_bits;
                         Some(Self::VsllVi { vd, vs2, uimm, vm })
                     }
-                    0b101000 => {
+                    0b10_1000 => {
                         let uimm = vs1_bits;
                         Some(Self::VsrlVi { vd, vs2, uimm, vm })
                     }
-                    0b101001 => {
+                    0b10_1001 => {
                         let uimm = vs1_bits;
                         Some(Self::VsraVi { vd, vs2, uimm, vm })
                     }
                     // Compare immediates with unsigned interpretation
-                    0b011110 => {
+                    0b01_1110 => {
                         // Sign-extend a 5-bit immediate to i8
                         let imm = (vs1_bits << 3).cast_signed() >> 3;
                         Some(Self::VmsgtuVi { vd, vs2, imm, vm })
                     }
-                    0b011111 => {
+                    0b01_1111 => {
                         // Sign-extend a 5-bit immediate to i8
                         let imm = (vs1_bits << 3).cast_signed() >> 3;
                         Some(Self::VmsgtVi { vd, vs2, imm, vm })
@@ -260,15 +260,15 @@ where
                         // Sign-extend a 5-bit immediate to i8
                         let imm = (vs1_bits << 3).cast_signed() >> 3;
                         match funct6 {
-                            0b000000 => Some(Self::VaddVi { vd, vs2, imm, vm }),
-                            0b000011 => Some(Self::VrsubVi { vd, vs2, imm, vm }),
-                            0b001001 => Some(Self::VandVi { vd, vs2, imm, vm }),
-                            0b001010 => Some(Self::VorVi { vd, vs2, imm, vm }),
-                            0b001011 => Some(Self::VxorVi { vd, vs2, imm, vm }),
-                            0b011000 => Some(Self::VmseqVi { vd, vs2, imm, vm }),
-                            0b011001 => Some(Self::VmsneVi { vd, vs2, imm, vm }),
-                            0b011100 => Some(Self::VmsleuVi { vd, vs2, imm, vm }),
-                            0b011101 => Some(Self::VmsleVi { vd, vs2, imm, vm }),
+                            0b00_0000 => Some(Self::VaddVi { vd, vs2, imm, vm }),
+                            0b00_0011 => Some(Self::VrsubVi { vd, vs2, imm, vm }),
+                            0b00_1001 => Some(Self::VandVi { vd, vs2, imm, vm }),
+                            0b00_1010 => Some(Self::VorVi { vd, vs2, imm, vm }),
+                            0b00_1011 => Some(Self::VxorVi { vd, vs2, imm, vm }),
+                            0b01_1000 => Some(Self::VmseqVi { vd, vs2, imm, vm }),
+                            0b01_1001 => Some(Self::VmsneVi { vd, vs2, imm, vm }),
+                            0b01_1100 => Some(Self::VmsleuVi { vd, vs2, imm, vm }),
+                            0b01_1101 => Some(Self::VmsleVi { vd, vs2, imm, vm }),
                             _ => None,
                         }
                     }

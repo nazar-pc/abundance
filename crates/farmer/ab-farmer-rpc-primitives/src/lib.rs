@@ -44,7 +44,7 @@ impl Encode for FarmerAppInfo {
                 &self
                     .dsn_bootstrap_nodes
                     .iter()
-                    .map(|addr| addr.as_ref())
+                    .map(AsRef::as_ref)
                     .collect::<Vec<_>>(),
             ))
             .saturating_add(Encode::size_hint(&self.syncing))
@@ -52,19 +52,19 @@ impl Encode for FarmerAppInfo {
             .saturating_add(Encode::size_hint(&self.protocol_info))
     }
 
-    fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
-        Encode::encode_to(&self.genesis_root, output);
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+        Encode::encode_to(&self.genesis_root, dest);
         Encode::encode_to(
             &self
                 .dsn_bootstrap_nodes
                 .iter()
-                .map(|addr| addr.as_ref())
+                .map(AsRef::as_ref)
                 .collect::<Vec<_>>(),
-            output,
+            dest,
         );
-        Encode::encode_to(&self.syncing, output);
-        Encode::encode_to(&self.farming_timeout, output);
-        Encode::encode_to(&self.protocol_info, output);
+        Encode::encode_to(&self.syncing, dest);
+        Encode::encode_to(&self.farming_timeout, dest);
+        Encode::encode_to(&self.protocol_info, dest);
     }
 }
 

@@ -77,7 +77,7 @@ where
                     let masked = write_value & Reg::Type::from(0b11u8);
                     // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
                     let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
-                    let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1);
+                    let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
                     ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
                     masked
                 }
@@ -87,7 +87,7 @@ where
                     ext_state.write_csr(VCsr::Vxsat as u16, new_vxsat)?;
 
                     // Mirror `vcsr[2:1]` -> `vxrm`
-                    let new_vxrm = (write_value >> 1) & Reg::Type::from(0b11u8);
+                    let new_vxrm = (write_value >> 1u8) & Reg::Type::from(0b11u8);
                     ext_state.write_csr(VCsr::Vxrm as u16, new_vxrm)?;
 
                     write_value & Reg::Type::from(0b111u8)

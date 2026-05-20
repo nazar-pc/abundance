@@ -62,29 +62,29 @@ where
         &self,
         piece_index: PieceIndex,
     ) -> Option<impl Future<Output = Option<Piece>> + use<FarmIndex> + 'static> {
-        let piece_details = match self.pieces.get(&piece_index) {
-            Some(piece_details) => piece_details
+        let piece_details = if let Some(piece_details) = self.pieces.get(&piece_index) {
+            piece_details
                 .choose(&mut rand::rng())
                 .copied()
-                .expect("Empty lists are not stored in the map; qed"),
-            None => {
-                trace!(
-                    ?piece_index,
-                    "Piece is not stored in any of the local plots"
-                );
-                return None;
-            }
+                .expect("Empty lists are not stored in the map; qed")
+        } else {
+            trace!(
+                ?piece_index,
+                "Piece is not stored in any of the local plots"
+            );
+            return None;
         };
-        let reader = match self.readers.get(usize::from(piece_details.farm_index)) {
-            Some(reader) => reader.clone(),
-            None => {
-                warn!(
-                    ?piece_index,
-                    ?piece_details,
-                    "No piece reader for associated farm index"
-                );
-                return None;
-            }
+        let Some(reader) = self
+            .readers
+            .get(usize::from(piece_details.farm_index))
+            .cloned()
+        else {
+            warn!(
+                ?piece_index,
+                ?piece_details,
+                "No piece reader for associated farm index"
+            );
+            return None;
         };
 
         Some(async move {

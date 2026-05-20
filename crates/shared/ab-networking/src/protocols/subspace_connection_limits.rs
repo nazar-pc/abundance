@@ -175,7 +175,7 @@ impl NetworkBehaviour for Behaviour {
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
-        self.inner.on_swarm_event(event)
+        self.inner.on_swarm_event(event);
     }
 
     fn on_connection_handler_event(
@@ -185,7 +185,7 @@ impl NetworkBehaviour for Behaviour {
         event: THandlerOutEvent<Self>,
     ) {
         self.inner
-            .on_connection_handler_event(id, connection_id, event)
+            .on_connection_handler_event(id, connection_id, event);
     }
 
     fn poll(

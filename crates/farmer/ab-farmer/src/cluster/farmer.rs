@@ -52,8 +52,8 @@ impl Encode for ClusterFarmerId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
-        Encode::encode_to(&self.0.0, output)
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+        Encode::encode_to(&self.0.0, dest);
     }
 }
 

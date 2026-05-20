@@ -20,10 +20,8 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
-#[cfg(feature = "alloc")]
-use core::iter;
 use core::iter::TrustedLen;
-use core::{array, cmp, fmt, slice};
+use core::{array, cmp, fmt, iter, slice};
 use derive_more::From;
 use yoke::Yokeable;
 
@@ -515,7 +513,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 .split_at_unchecked(self.num_blocks * (size_of::<u8>() + size_of::<u16>()))
         };
 
-        (0..self.num_blocks).map(move |_| {
+        iter::repeat_with(move || {
             let num_own_segment_roots = usize::from(counts[0]);
             let num_leaf_shard_blocks_with_segments = counts[1];
             counts = &counts[2..];
@@ -590,7 +588,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                         + usize::from(num_leaf_shard_blocks_with_segments)
                             * (ShardIndex::SIZE + LocalSegmentIndex::SIZE) as usize
                         + leaf_shard_segment_roots_counts.iter().fold(
-                            0_usize,
+                            0usize,
                             |acc, &num_own_segment_roots| {
                                 acc + usize::from(num_own_segment_roots) * SegmentRoot::SIZE
                             },
@@ -609,6 +607,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 leaf_shards_segments_bytes,
             }
         })
+        .take(self.num_blocks)
     }
 
     /// Number of intermediate shard blocks
@@ -631,14 +630,14 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         let root = UnbalancedMerkleTree::compute_root_only::<{ u16::MAX as u64 }, _, _>(
             self.iter().map(|shard_block_info| {
                 // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866
-                //  that allows the code to compile. Constant 4294967295 is hardcoded here and below
-                //  for compilation to succeed.
+                //  that allows the code to compile. Constant 4_294_967_295 is hardcoded here and
+                //  below for compilation to succeed.
                 #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
                 #[expect(clippy::eq_op, reason = "Intentional documentation")]
                 const {
-                    assert!(u32::MAX == 4294967295);
+                    assert!(u32::MAX == 4_294_967_295);
                 }
-                UnbalancedMerkleTree::compute_root_only::<4294967295, _, _>(
+                UnbalancedMerkleTree::compute_root_only::<4_294_967_295, _, _>(
                     shard_block_info
                         .own_segments
                         .as_ref()
@@ -1167,7 +1166,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 .split_at_unchecked(self.num_blocks * size_of::<u8>())
         };
 
-        (0..self.num_blocks).map(move |_| {
+        iter::repeat_with(move || {
             let num_own_segment_roots = usize::from(counts[0]);
             counts = &counts[1..];
 
@@ -1226,6 +1225,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             LeafShardBlockInfo { header, segments }
         })
+        .take(self.num_blocks)
     }
 
     /// Number of leaf shard blocks
@@ -1537,7 +1537,7 @@ impl<'a> Transactions<'a> {
     pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + use<'a> {
         let mut remainder = self.bytes;
 
-        (0..self.num_transactions).map(move |_| {
+        iter::repeat_with(move || {
             // SAFETY: Checked in constructor
             let transaction = unsafe { Transaction::from_bytes_unchecked(remainder) };
 
@@ -1547,6 +1547,7 @@ impl<'a> Transactions<'a> {
 
             transaction
         })
+        .take(self.num_transactions)
     }
 
     /// Number of transactions

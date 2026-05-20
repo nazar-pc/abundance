@@ -39,18 +39,18 @@ struct IgnoredVariantsRemover<'a> {
 }
 
 impl VisitMut for IgnoredVariantsRemover<'_> {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
-        if let Some(variant) = extract_self_variant_ident(expr)
+    fn visit_expr_mut(&mut self, i: &mut Expr) {
+        if let Some(variant) = extract_self_variant_ident(i)
             && !self.allowed.contains(&variant)
         {
             // Replace the entire variant construction with `None?`
-            *expr = syn::parse_quote! { None? };
+            *i = syn::parse_quote! { None? };
             // Do not recurse – the subtree is discarded
             return;
         }
 
         // Recurse
-        visit_expr_mut(self, expr);
+        visit_expr_mut(self, i);
     }
 }
 

@@ -88,8 +88,7 @@ fn create_thread_pool(
     farming_thread_pool_size: Option<NonZeroUsize>,
 ) -> Result<ThreadPool, ThreadPoolBuildError> {
     let farming_thread_pool_size = farming_thread_pool_size
-        .map(|farming_thread_pool_size| farming_thread_pool_size.get())
-        .unwrap_or_else(recommended_number_of_farming_threads);
+        .map_or_else(recommended_number_of_farming_threads, NonZeroUsize::get);
 
     ThreadPoolBuilder::new()
         .thread_name(|thread_index| format!("benchmark.{thread_index}"))
@@ -205,7 +204,7 @@ where
                         black_box(plot_audit.audit(black_box(options)))
                     },
                     BatchSize::SmallInput,
-                )
+                );
             });
         }
         {
@@ -240,7 +239,7 @@ where
                         black_box(plot_audit.audit(black_box(options)))
                     },
                     BatchSize::SmallInput,
-                )
+                );
             });
         }
         {
@@ -273,7 +272,7 @@ where
                         black_box(plot_audit.audit(black_box(options)))
                     },
                     BatchSize::SmallInput,
-                )
+                );
             });
         }
     }
@@ -337,7 +336,7 @@ where
         .map_err(|error| anyhow::anyhow!("Failed to read sectors metadata: {error}"))?;
     if let Some(limit_sector_count) = limit_sector_count {
         sectors_metadata.truncate(limit_sector_count);
-    };
+    }
 
     let mut criterion = Criterion::default().sample_size(sample_size);
     if let Some(filter) = filter {
@@ -390,7 +389,7 @@ where
                         }
                     },
                     BatchSize::SmallInput,
-                )
+                );
             });
         }
         {
@@ -438,7 +437,7 @@ where
                         }
                     },
                     BatchSize::SmallInput,
-                )
+                );
             });
         }
         {
@@ -484,7 +483,7 @@ where
                         }
                     },
                     BatchSize::SmallInput,
-                )
+                );
             });
         }
     }

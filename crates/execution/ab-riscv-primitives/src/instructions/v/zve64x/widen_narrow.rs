@@ -17,7 +17,7 @@ use core::fmt;
 /// - Narrowing integer right shifts (SEW = 2*SEW >> SEW)
 /// - Integer zero/sign extension (vzext, vsext)
 ///
-/// All instructions use the OP-V major opcode (0b1010111).
+/// All instructions use the OP-V major opcode (0b101_0111).
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
@@ -128,7 +128,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -145,7 +145,7 @@ where
 
         match funct6 {
             // Widening unsigned add, 2*SEW = SEW + SEW
-            0b110000 => match funct3 {
+            0b11_0000 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -159,7 +159,7 @@ where
                 _ => None,
             },
             // Widening signed add, 2*SEW = SEW + SEW
-            0b110001 => match funct3 {
+            0b11_0001 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -173,7 +173,7 @@ where
                 _ => None,
             },
             // Widening unsigned sub, 2*SEW = SEW - SEW
-            0b110010 => match funct3 {
+            0b11_0010 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -187,7 +187,7 @@ where
                 _ => None,
             },
             // Widening signed sub, 2*SEW = SEW - SEW
-            0b110011 => match funct3 {
+            0b11_0011 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -201,7 +201,7 @@ where
                 _ => None,
             },
             // Widening unsigned add, 2*SEW = 2*SEW + SEW
-            0b110100 => match funct3 {
+            0b11_0100 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -215,7 +215,7 @@ where
                 _ => None,
             },
             // Widening signed add, 2*SEW = 2*SEW + SEW
-            0b110101 => match funct3 {
+            0b11_0101 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -229,7 +229,7 @@ where
                 _ => None,
             },
             // Widening unsigned sub, 2*SEW = 2*SEW - SEW
-            0b110110 => match funct3 {
+            0b11_0110 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -243,7 +243,7 @@ where
                 _ => None,
             },
             // Widening signed sub, 2*SEW = 2*SEW - SEW
-            0b110111 => match funct3 {
+            0b11_0111 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -257,7 +257,7 @@ where
                 _ => None,
             },
             // Narrowing shift right logical
-            0b101100 => match funct3 {
+            0b10_1100 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -276,7 +276,7 @@ where
                 _ => None,
             },
             // Narrowing shift right arithmetic
-            0b101101 => match funct3 {
+            0b10_1101 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -297,15 +297,15 @@ where
             // VXUNARY0: integer extension instructions
             // funct6=010010, funct3=OPMVV(010)
             // vs1 field selects the specific operation
-            0b010010 => match funct3 {
+            0b01_0010 => match funct3 {
                 // OPMVV
                 0b010 => match vs1_bits {
-                    0b00010 => Some(Self::VzextVf8 { vd, vs2, vm }),
-                    0b00011 => Some(Self::VsextVf8 { vd, vs2, vm }),
-                    0b00100 => Some(Self::VzextVf4 { vd, vs2, vm }),
-                    0b00101 => Some(Self::VsextVf4 { vd, vs2, vm }),
-                    0b00110 => Some(Self::VzextVf2 { vd, vs2, vm }),
-                    0b00111 => Some(Self::VsextVf2 { vd, vs2, vm }),
+                    0b0_0010 => Some(Self::VzextVf8 { vd, vs2, vm }),
+                    0b0_0011 => Some(Self::VsextVf8 { vd, vs2, vm }),
+                    0b0_0100 => Some(Self::VzextVf4 { vd, vs2, vm }),
+                    0b0_0101 => Some(Self::VsextVf4 { vd, vs2, vm }),
+                    0b0_0110 => Some(Self::VzextVf2 { vd, vs2, vm }),
+                    0b0_0111 => Some(Self::VsextVf2 { vd, vs2, vm }),
                     _ => None,
                 },
                 _ => None,

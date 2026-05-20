@@ -89,7 +89,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         code,
                         TRAP_ADDRESS,
                         MEMORY_BASE_ADDRESS
-                            + contract_file.header().read_only_section_memory_size as u64,
+                            + u64::from(contract_file.header().read_only_section_memory_size),
                         benchmarks_blake3_hash_chunk_addr,
                     )
                 };
@@ -142,7 +142,8 @@ fn criterion_benchmark(c: &mut Criterion) {
             EagerTestInstructionFetcher::new(
                 contract_file.get_code(),
                 TRAP_ADDRESS,
-                MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
+                MEMORY_BASE_ADDRESS
+                    + u64::from(contract_file.header().read_only_section_memory_size),
                 benchmarks_blake3_hash_chunk_addr,
             )
         },

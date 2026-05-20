@@ -262,7 +262,7 @@ pub struct MethodsMetadataDecoder<'a, 'metadata> {
     remaining: u8,
 }
 
-impl<'a, 'metadata> Drop for MethodsMetadataDecoder<'a, 'metadata> {
+impl Drop for MethodsMetadataDecoder<'_, '_> {
     fn drop(&mut self) {
         while let Some(_method_metadata_decoder) = self.decode_next() {
             // Drain remaining methods if dropped early
@@ -361,7 +361,7 @@ pub struct MethodMetadataDecoder<'a, 'metadata> {
     container_kind: MethodsContainerKind,
 }
 
-impl<'a, 'metadata> Drop for MethodMetadataDecoder<'a, 'metadata> {
+impl Drop for MethodMetadataDecoder<'_, '_> {
     fn drop(&mut self) {
         let metadata_before = *self.metadata;
 
@@ -539,7 +539,7 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     remaining: u8,
 }
 
-impl<'a, 'metadata> Drop for ArgumentsMetadataDecoder<'a, 'metadata> {
+impl Drop for ArgumentsMetadataDecoder<'_, '_> {
     fn drop(&mut self) {
         let metadata_before = *self.metadata;
         while let Some(maybe_argument_metadata_item) = self.decode_next() {

@@ -40,10 +40,10 @@ where
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
 
         // R-type: OP opcode (0x33)
-        //   aes64es:  funct7=0b0011001, funct3=0 -> MATCH=0x32000033
-        //   aes64esm: funct7=0b0011011, funct3=0 -> MATCH=0x36000033
+        //   aes64es:  funct7=0b001_1001, funct3=0 -> MATCH=0x3200_0033
+        //   aes64esm: funct7=0b001_1011, funct3=0 -> MATCH=0x3600_0033
         match opcode {
-            0b0110011 => {
+            0b011_0011 => {
                 if funct3 != 0b000 {
                     None?;
                 }
@@ -51,8 +51,8 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match funct7 {
-                    0b0011001 => Some(Self::Aes64Es { rd, rs1, rs2 }),
-                    0b0011011 => Some(Self::Aes64Esm { rd, rs1, rs2 }),
+                    0b001_1001 => Some(Self::Aes64Es { rd, rs1, rs2 }),
+                    0b001_1011 => Some(Self::Aes64Esm { rd, rs1, rs2 }),
                     _ => None,
                 }
             }

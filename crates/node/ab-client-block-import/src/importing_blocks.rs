@@ -151,7 +151,7 @@ unsafe impl<'a> Yokeable<'a> for ImportingBlockHandleGuard<'static> {
     {
         // SAFETY: Implementation is a `transmute`, as per in `Yokeable::transform_mut()`'s
         // description
-        f(unsafe { mem::transmute::<&mut Self, &mut Self::Output>(self) })
+        f(unsafe { mem::transmute::<&mut Self, &mut Self::Output>(self) });
     }
 }
 

@@ -256,14 +256,14 @@ impl PieceGetter for ClusterPieceGetter {
                         );
 
                         return Ok(Some(piece));
-                    } else {
-                        trace!(
-                            %piece_index,
-                            %piece_cache_id,
-                            %piece_cache_offset,
-                            "Retrieving piece was replaced in cache during retrieval"
-                        );
                     }
+
+                    trace!(
+                        %piece_index,
+                        %piece_cache_id,
+                        %piece_cache_offset,
+                        "Retrieving piece was replaced in cache during retrieval"
+                    );
                 }
                 Ok(None) => {
                     trace!(
@@ -431,7 +431,7 @@ impl PieceGetter for ClusterPieceGetter {
         Ok(Box::new(stream::poll_fn(move |cx| {
             if !fut.is_terminated() {
                 // Result doesn't matter, we'll need to poll stream below anyway
-                let _ = fut.poll_unpin(cx);
+                let _: Poll<()> = fut.poll_unpin(cx);
             }
 
             if let Poll::Ready(maybe_result) = rx.poll_next_unpin(cx) {

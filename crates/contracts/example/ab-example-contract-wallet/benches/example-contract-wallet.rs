@@ -130,7 +130,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     black_box(slots),
                 )
                 .unwrap();
-        })
+        });
     });
 
     group.bench_function("execute-only", |b| {
@@ -156,7 +156,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap();
             },
             BatchSize::SmallInput,
-        )
+        );
     });
 
     group.bench_function("verify-and-execute", |b| {
@@ -182,7 +182,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap();
             },
             BatchSize::SmallInput,
-        )
+        );
     });
 }
 

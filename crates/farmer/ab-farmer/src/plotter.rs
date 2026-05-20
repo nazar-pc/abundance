@@ -150,7 +150,7 @@ where
                 replotting,
                 progress_sender,
             )
-            .await
+            .await;
     }
 
     #[inline]

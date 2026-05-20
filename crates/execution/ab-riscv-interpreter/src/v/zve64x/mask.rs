@@ -64,9 +64,9 @@ where
             // set, regardless of whether it uses SEW or vl.
             Self::Vmandn { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -87,9 +87,9 @@ where
             }
             Self::Vmand { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -109,9 +109,9 @@ where
             }
             Self::Vmor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -131,9 +131,9 @@ where
             }
             Self::Vmxor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -153,9 +153,9 @@ where
             }
             Self::Vmorn { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -175,9 +175,9 @@ where
             }
             Self::Vmnand { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -197,9 +197,9 @@ where
             }
             Self::Vmnor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -219,9 +219,9 @@ where
             }
             Self::Vmxnor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -242,9 +242,9 @@ where
             // vcpop.m (§16.2): count set bits in vs2 over active elements, write to GPR rd.
             Self::Vcpop { rd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // vcpop/vfirst require a valid vtype to know vl, but do not use SEW.
                 ext_state
@@ -263,9 +263,9 @@ where
             // vfirst.m (§16.3): find lowest-numbered active set bit in vs2, write index to rd.
             Self::Vfirst { rd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -283,9 +283,9 @@ where
             // Constraints: vd != vs2 (overlap illegal), vm=false implies vd != v0.
             Self::Vmsbf { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -295,20 +295,20 @@ where
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
                 if ext_state.vstart() != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // Per spec §16.4: vd must not overlap vs2
                 if vd.bits() == vs2.bits() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 // SAFETY: `vd != vs2` checked above; `vd != v0` when masked checked above;
@@ -321,9 +321,9 @@ where
             // Same overlap constraints as vmsbf.
             Self::Vmsof { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -333,19 +333,19 @@ where
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
                 if ext_state.vstart() != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if vd.bits() == vs2.bits() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 // SAFETY: see `Vmsbf`
@@ -357,9 +357,9 @@ where
             // Same overlap constraints as vmsbf.
             Self::Vmsif { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 ext_state
                     .vtype()
@@ -369,19 +369,19 @@ where
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
                 if ext_state.vstart() != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if vd.bits() == vs2.bits() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 // SAFETY: see `Vmsbf`
@@ -395,9 +395,9 @@ where
             // to represent VLMAX-1.
             Self::Viota { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -406,37 +406,37 @@ where
                     })?;
                 // Spec §16.8: viota.m with vstart != 0 raises an illegal instruction exception.
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let vd_idx = vd.bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // vd must not overlap vs2; vs2 is always a single mask register (group size 1).
                 let vd_start = u32::from(vd.bits());
                 let vs2_start = u32::from(vs2.bits());
                 if vd_start < vs2_start + 1 && vs2_start < vd_start + u32::from(group_regs) {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let sew_bits = u32::from(sew.bits());
                 let vlmax = vtype.vlmul().vlmax(ExtState::VLEN, sew_bits);
                 if u64::from(vlmax).unbounded_shr(sew_bits) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
@@ -451,9 +451,9 @@ where
             // Constraints: vm=false implies vd != v0; vd alignment per LMUL.
             Self::Vid { vd, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -463,14 +463,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let vd_idx = vd.bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();

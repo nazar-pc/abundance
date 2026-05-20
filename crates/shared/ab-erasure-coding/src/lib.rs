@@ -49,7 +49,7 @@ pub enum RecoveryShardState<PresentShard, MissingShard> {
 ///
 /// Supports creation of parity records and recovery of missing data.
 #[derive(Debug, Clone)]
-pub struct ErasureCoding {}
+pub struct ErasureCoding;
 
 impl Default for ErasureCoding {
     fn default() -> Self {

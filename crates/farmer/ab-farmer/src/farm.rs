@@ -67,11 +67,11 @@ impl Encode for PieceCacheId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
         match self {
             PieceCacheId::Ulid(ulid) => {
-                output.push_byte(0);
-                Encode::encode_to(&ulid.0, output);
+                dest.push_byte(0);
+                Encode::encode_to(&ulid.0, dest);
             }
         }
     }
@@ -334,7 +334,7 @@ impl Encode for FarmingError {
             is_fatal: self.is_fatal(),
         };
 
-        error.encode_to(dest)
+        error.encode_to(dest);
     }
 }
 
@@ -490,11 +490,11 @@ impl Encode for FarmId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
         match self {
             FarmId::Ulid(ulid) => {
-                output.push_byte(0);
-                Encode::encode_to(&ulid.0, output);
+                dest.push_byte(0);
+                Encode::encode_to(&ulid.0, dest);
             }
         }
     }

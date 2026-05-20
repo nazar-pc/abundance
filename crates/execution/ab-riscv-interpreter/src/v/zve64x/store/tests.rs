@@ -28,7 +28,7 @@ fn setup(
 }
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    (vlmul.to_bits() as u64) | ((vsew.to_bits() as u64) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 fn set_vreg(
@@ -416,7 +416,7 @@ fn vsm_vl_zero_writes_nothing() {
 fn vsm_vl_exactly_8_writes_one_byte() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     let mut mask = [0u8; 16];
-    mask[0] = 0b10110101;
+    mask[0] = 0b1011_0101;
     set_vreg(&mut state, VReg::V3, &mask);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -430,7 +430,10 @@ fn vsm_vl_exactly_8_writes_one_byte() {
     )
     .unwrap();
 
-    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0b10110101);
+    assert_eq!(
+        state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(),
+        0b1011_0101
+    );
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 1).unwrap(), 0x00);
 }
 
@@ -590,8 +593,8 @@ fn vse_e64_m1_stores_two_elements() {
     // VLMAX=2
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let mut vreg = [0u8; 16];
-    vreg[0..8].copy_from_slice(&0x0102030405060708u64.to_le_bytes());
-    vreg[8..16].copy_from_slice(&0xAABBCCDDEEFF0011u64.to_le_bytes());
+    vreg[0..8].copy_from_slice(&0x0102_0304_0506_0708_u64.to_le_bytes());
+    vreg[8..16].copy_from_slice(&0xAABB_CCDD_EEFF_0011_u64.to_le_bytes());
     set_vreg(&mut state, VReg::V8, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -609,11 +612,11 @@ fn vse_e64_m1_stores_two_elements() {
 
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR).unwrap(),
-        0x0102030405060708u64
+        0x0102_0304_0506_0708
     );
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR + 8).unwrap(),
-        0xAABBCCDDEEFF0011u64
+        0xAABB_CCDD_EEFF_0011
     );
 }
 
@@ -623,7 +626,7 @@ fn vse_masked_skips_inactive_elements() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // mask: bits 0,2,4,6 set -> elements 0,2,4,6 active
     let mut mask = [0u8; 16];
-    mask[0] = 0b01010101;
+    mask[0] = 0b0101_0101;
     set_vreg(&mut state, VReg::V0, &mask);
     let data = array::from_fn::<_, 16, _>(|i| (i as u8 + 1) * 10);
     set_vreg(&mut state, VReg::V2, &data);
@@ -705,7 +708,7 @@ fn vse_masked_vs3_equals_v0_is_legal() {
     // Per RVV 1.0, vs3 is a source operand; source/v0 overlap is permitted for stores.
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     let mut mask_and_data = [0u8; 16];
-    mask_and_data[0] = 0b11111111;
+    mask_and_data[0] = 0b1111_1111;
     set_vreg(&mut state, VReg::V0, &mask_and_data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -721,7 +724,10 @@ fn vse_masked_vs3_equals_v0_is_legal() {
     )
     .unwrap();
 
-    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0b11111111);
+    assert_eq!(
+        state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(),
+        0b1111_1111
+    );
 }
 
 #[test]
@@ -875,16 +881,16 @@ fn vsse_masked_skips_inactive_elements() {
     // E64/M1 VLMAX=2, vl=2, stride=16; mask bit 0 set, bit 1 clear
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let mut mask = [0u8; 16];
-    mask[0] = 0b00000001;
+    mask[0] = 0b0000_0001;
     set_vreg(&mut state, VReg::V0, &mask);
     let mut vreg = [0u8; 16];
-    vreg[0..8].copy_from_slice(&0xAAAAAAAAAAAAAAAAu64.to_le_bytes());
-    vreg[8..16].copy_from_slice(&0xBBBBBBBBBBBBBBBBu64.to_le_bytes());
+    vreg[0..8].copy_from_slice(&0xAAAA_AAAA_AAAA_AAAA_u64.to_le_bytes());
+    vreg[8..16].copy_from_slice(&0xBBBB_BBBB_BBBB_BBBB_u64.to_le_bytes());
     set_vreg(&mut state, VReg::V2, &vreg);
     // Sentinel for element 1 slot
     state
         .memory
-        .write::<u64>(TEST_BASE_ADDR + 16, 0x1234567890ABCDEFu64)
+        .write::<u64>(TEST_BASE_ADDR + 16, 0x1234_5678_90AB_CDEF)
         .unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.regs.write(Reg::A1, 16);
@@ -903,12 +909,12 @@ fn vsse_masked_skips_inactive_elements() {
 
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR).unwrap(),
-        0xAAAAAAAAAAAAAAAAu64
+        0xAAAA_AAAA_AAAA_AAAA
     );
     // Element 1 inactive: sentinel untouched
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR + 16).unwrap(),
-        0x1234567890ABCDEFu64
+        0x1234_5678_90AB_CDEF
     );
 }
 
@@ -963,8 +969,8 @@ fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
     // SEW=E64/M1: VLMAX=2, vl=2; index EEW=E64 -> EMUL=1
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let mut data_reg = [0u8; 16];
-    data_reg[0..8].copy_from_slice(&0xDEADBEEFDEADBEEFu64.to_le_bytes());
-    data_reg[8..16].copy_from_slice(&0xCAFEBABECAFEBABEu64.to_le_bytes());
+    data_reg[0..8].copy_from_slice(&0xDEAD_BEEF_DEAD_BEEF_u64.to_le_bytes());
+    data_reg[8..16].copy_from_slice(&0xCAFE_BABE_CAFE_BABE_u64.to_le_bytes());
     set_vreg(&mut state, VReg::V2, &data_reg);
     // Offsets: 0 and 32
     let mut idx_reg = [0u8; 16];
@@ -988,11 +994,11 @@ fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
 
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR).unwrap(),
-        0xDEADBEEFDEADBEEFu64
+        0xDEAD_BEEF_DEAD_BEEF
     );
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR + 32).unwrap(),
-        0xCAFEBABECAFEBABEu64
+        0xCAFE_BABE_CAFE_BABE
     );
 }
 
@@ -1040,7 +1046,7 @@ fn vsuxei_masked_skips_inactive_elements() {
     // E32/M1, vl=4; mask has only bits 0 and 3 set
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     let mut mask = [0u8; 16];
-    mask[0] = 0b00001001;
+    mask[0] = 0b0000_1001;
     set_vreg(&mut state, VReg::V0, &mask);
     let mut data_reg = [0u8; 16];
     for i in 0u32..4 {
@@ -1226,7 +1232,7 @@ fn vsseg_masked_vs3_equals_v0_is_legal() {
     // Per RVV 1.0, vs3 is a source register group; source/v0 overlap is permitted for stores.
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     let mut mask_and_f0 = [0u8; 16];
-    mask_and_f0[0] = 0b00001111;
+    mask_and_f0[0] = 0b0000_1111;
     set_vreg(&mut state, VReg::V0, &mask_and_f0);
     let f1 = array::from_fn::<_, 16, _>(|i| i as u8 + 100);
     set_vreg(&mut state, VReg::V1, &f1);
@@ -1248,11 +1254,11 @@ fn vsseg_masked_vs3_equals_v0_is_legal() {
     )
     .unwrap();
 
-    // All 4 elements active (mask = 0b00001111). Per-element: [v0[i], v1[i]].
+    // All 4 elements active (mask = 0b0000_1111). Per-element: [v0[i], v1[i]].
     for i in 0u64..4 {
         assert_eq!(
             state.memory.read::<u8>(TEST_BASE_ADDR + i * 2).unwrap(),
-            if i == 0 { 0b00001111 } else { 0 }
+            if i == 0 { 0b0000_1111 } else { 0 }
         );
         assert_eq!(
             state.memory.read::<u8>(TEST_BASE_ADDR + i * 2 + 1).unwrap(),
@@ -1353,11 +1359,11 @@ fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
     // nf=2, SEW=E64/M1 VLMAX=2, vl=2; index EEW=E64
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let mut f0 = [0u8; 16];
-    f0[0..8].copy_from_slice(&0xAAAAAAAAAAAAAAAAu64.to_le_bytes());
-    f0[8..16].copy_from_slice(&0xBBBBBBBBBBBBBBBBu64.to_le_bytes());
+    f0[0..8].copy_from_slice(&0xAAAA_AAAA_AAAA_AAAA_u64.to_le_bytes());
+    f0[8..16].copy_from_slice(&0xBBBB_BBBB_BBBB_BBBB_u64.to_le_bytes());
     let mut f1 = [0u8; 16];
-    f1[0..8].copy_from_slice(&0xCCCCCCCCCCCCCCCCu64.to_le_bytes());
-    f1[8..16].copy_from_slice(&0xDDDDDDDDDDDDDDDDu64.to_le_bytes());
+    f1[0..8].copy_from_slice(&0xCCCC_CCCC_CCCC_CCCC_u64.to_le_bytes());
+    f1[8..16].copy_from_slice(&0xDDDD_DDDD_DDDD_DDDD_u64.to_le_bytes());
     set_vreg(&mut state, VReg::V2, &f0);
     set_vreg(&mut state, VReg::V3, &f1);
     let mut idx = [0u8; 16];
@@ -1384,20 +1390,20 @@ fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
     // Element 0 at base+64: f0=0xAAAA..., f1=0xCCCC...
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR + 64).unwrap(),
-        0xAAAAAAAAAAAAAAAAu64
+        0xAAAA_AAAA_AAAA_AAAA
     );
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR + 72).unwrap(),
-        0xCCCCCCCCCCCCCCCCu64
+        0xCCCC_CCCC_CCCC_CCCC
     );
     // Element 1 at base+0: f0=0xBBBB..., f1=0xDDDD...
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR).unwrap(),
-        0xBBBBBBBBBBBBBBBBu64
+        0xBBBB_BBBB_BBBB_BBBB
     );
     assert_eq!(
         state.memory.read::<u64>(TEST_BASE_ADDR + 8).unwrap(),
-        0xDDDDDDDDDDDDDDDDu64
+        0xDDDD_DDDD_DDDD_DDDD
     );
 }
 

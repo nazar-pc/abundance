@@ -10,7 +10,7 @@ use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use futures::executor::block_on;
 use std::mem::MaybeUninit;
-use std::slice;
+use std::{iter, slice};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
@@ -25,9 +25,10 @@ fn find_matches_and_compute_f2_gpu() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     // Generate `y`s within `0..PARAM_BC*NUM_BUCKETS` range to fill the first `NUM_BUCKETS` buckets
-    let parent_table_ys = (0..MAX_TABLE_SIZE)
-        .map(|_| Y::from(rng.next_u32() % (PARAM_BC as u32 * NUM_BUCKETS as u32)))
-        .collect::<Vec<_>>();
+    let parent_table_ys =
+        iter::repeat_with(|| Y::from(rng.next_u32() % (u32::from(PARAM_BC) * NUM_BUCKETS as u32)))
+            .take(MAX_TABLE_SIZE as usize)
+            .collect::<Vec<_>>();
     let parent_buckets = {
         // SAFETY: Contents is `MaybeUninit`
         let mut buckets = unsafe {
@@ -35,7 +36,7 @@ fn find_matches_and_compute_f2_gpu() {
                 .assume_init()
         };
 
-        let mut bucket_offsets = [0_usize; NUM_BUCKETS];
+        let mut bucket_offsets = [0usize; NUM_BUCKETS];
         for (position, &y) in parent_table_ys.iter().enumerate() {
             let (bucket_index, r) = y.into_bucket_index_and_r();
             let next_index = bucket_offsets[bucket_index as usize];

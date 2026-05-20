@@ -56,11 +56,11 @@ where
     #[inline(always)]
     #[track_caller]
     unsafe fn from_ptr<'a>(
-        data: &'a NonNull<Self::PointerType>,
+        ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(data.is_aligned(), "Misaligned pointer");
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || *size <= capacity,
             "Invalid size {size} for capacity {capacity}"
@@ -74,17 +74,17 @@ where
 
         let size = NonNull::from_ref(size);
 
-        DerefWrapper(MaybeData { data: *data, size })
+        DerefWrapper(MaybeData { data: *ptr, size })
     }
 
     #[inline(always)]
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
-        data: &'a mut NonNull<Self::PointerType>,
+        ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(data.is_aligned(), "Misaligned pointer");
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || *size <= capacity,
             "Invalid size {size} for capacity {capacity}"
@@ -96,7 +96,7 @@ where
         );
 
         DerefWrapper(MaybeData {
-            data: *data,
+            data: *ptr,
             size: NonNull::from_mut(size),
         })
     }

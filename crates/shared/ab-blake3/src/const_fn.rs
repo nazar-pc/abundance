@@ -222,7 +222,9 @@ const fn const_compress_chunks_parallel(
 
     // Hash the remaining partial chunk, if there is one. Note that the empty
     // chunk (meaning the empty message) is a different codepath.
-    if !chunks.is_empty() {
+    if chunks.is_empty() {
+        chunks_so_far
+    } else {
         let counter = chunk_counter + chunks_so_far as u64;
         let mut chunk_state = ConstChunkState::new(key, counter, flags);
         chunk_state.update(chunks);
@@ -234,8 +236,6 @@ const fn const_compress_chunks_parallel(
         let chaining_value = chunk_state.output().chaining_value();
         out.copy_from_slice(&chaining_value);
         chunks_so_far + 1
-    } else {
-        chunks_so_far
     }
 }
 
@@ -283,7 +283,9 @@ const fn const_compress_parents_parallel(
     );
 
     // If there's an odd child left over, it becomes an output.
-    if !parents.is_empty() {
+    if parents.is_empty() {
+        parents_so_far
+    } else {
         let out = out
             .split_at_mut(parents_so_far * OUT_LEN)
             .1
@@ -291,8 +293,6 @@ const fn const_compress_parents_parallel(
             .0;
         out.copy_from_slice(parents);
         parents_so_far + 1
-    } else {
-        parents_so_far
     }
 }
 

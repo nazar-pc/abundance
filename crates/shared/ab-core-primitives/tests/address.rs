@@ -24,7 +24,7 @@ fn format() {
         ),
         // Full length
         (
-            Address::from(668134116173567166818323700814383461),
+            Address::from(668_134_116_173_567_166_818_323_700_814_383_461),
             &ShortHrp::MAINNET,
             "abc1qzq2-mr3r-nsr-wcka-6fk6-sdz-cfv5-ygv5w7",
         ),

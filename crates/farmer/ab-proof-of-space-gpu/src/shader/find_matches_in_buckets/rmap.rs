@@ -63,14 +63,14 @@ impl Rmap {
                 unsafe {
                     atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
                         word,
-                        mask << 1,
-                    )
-                };
+                        mask << 1u8,
+                    );
+                }
             }
         } else if *word & mask != 0 {
             // Bit was already set, so this is not the first such `r` value, set a flag
             // indicating there was a duplicate
-            *word |= mask << 1;
+            *word |= mask << 1u8;
         } else {
             *word |= mask;
         }

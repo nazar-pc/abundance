@@ -241,7 +241,7 @@ async fn test_async_handler_works_with_pending_internal_future() {
         let node = node_2.clone();
 
         async move {
-            let _ = node.bootstrap().await;
+            let _: Result<(), _> = node.bootstrap().await;
 
             pending::<()>().await;
         }

@@ -77,7 +77,7 @@ where
 
         let mut gpus_to_use = gpus
             .split(',')
-            .map(|gpu_index| gpu_index.parse())
+            .map(str::parse)
             .collect::<Result<BTreeSet<u32>, _>>()?;
 
         let gpu_devices = all_gpu_devices
@@ -161,9 +161,7 @@ where
     }
 
     let downloading_semaphore = Arc::new(Semaphore::new(
-        gpu_sector_downloading_concurrency
-            .map(|gpu_sector_downloading_concurrency| gpu_sector_downloading_concurrency.get())
-            .unwrap_or(used_gpu_devices.len() * 3),
+        gpu_sector_downloading_concurrency.map_or(used_gpu_devices.len() * 3, NonZeroUsize::get),
     ));
 
     Ok(Some(

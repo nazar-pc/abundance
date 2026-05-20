@@ -152,5 +152,5 @@ fn test_slli_uw_max_shamt() {
     execute(&mut state).unwrap();
 
     // Zero-extend lower 32 bits (1), then shift left 63
-    assert_eq!(state.regs.read(Reg::A2), 1u64 << 63);
+    assert_eq!(state.regs.read(Reg::A2), 1u64 << 63u8);
 }

@@ -417,7 +417,7 @@ impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
 
 impl Record {
     /// Number of chunks within one record.
-    pub const NUM_CHUNKS: usize = 2_usize.pow(15);
+    pub const NUM_CHUNKS: usize = 2usize.pow(15);
     /// Number of s-buckets contained within one sector record.
     ///
     /// Essentially we chunk records and erasure code them.

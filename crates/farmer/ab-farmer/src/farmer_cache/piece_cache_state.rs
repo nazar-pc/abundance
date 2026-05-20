@@ -33,34 +33,31 @@ impl PieceCachesState {
     }
 
     pub(super) fn pop_free_offset(&mut self) -> Option<FarmerCacheOffset> {
-        match self.dangling_free_offsets.pop_front() {
-            Some(free_offset) => {
-                debug!(?free_offset, "Popped dangling free offset");
-                Some(free_offset)
-            }
-            None => {
-                // TODO: Use simple round robin for uniform filling instead of re-sorting all the
-                //  time
-                // Sort piece caches by number of stored pieces to fill those that are less
-                // populated first
-                let mut sorted_backends = self
-                    .backends
-                    .iter_mut()
-                    .enumerate()
-                    .filter_map(|(cache_index, backend)| {
-                        Some((CacheIndex::try_from(cache_index).ok()?, backend))
-                    })
-                    .collect::<Vec<_>>();
-                sorted_backends.sort_unstable_by_key(|(_, backend)| backend.free_size());
-                sorted_backends
-                    .into_iter()
-                    .rev()
-                    .find_map(|(cache_index, backend)| {
-                        backend
-                            .next_free()
-                            .map(|free_offset| FarmerCacheOffset::new(cache_index, free_offset))
-                    })
-            }
+        if let Some(free_offset) = self.dangling_free_offsets.pop_front() {
+            debug!(?free_offset, "Popped dangling free offset");
+            Some(free_offset)
+        } else {
+            // TODO: Use simple round robin for uniform filling instead of re-sorting all the
+            //  time
+            // Sort piece caches by number of stored pieces to fill those that are less
+            // populated first
+            let mut sorted_backends = self
+                .backends
+                .iter_mut()
+                .enumerate()
+                .filter_map(|(cache_index, backend)| {
+                    Some((CacheIndex::try_from(cache_index).ok()?, backend))
+                })
+                .collect::<Vec<_>>();
+            sorted_backends.sort_unstable_by_key(|(_, backend)| backend.free_size());
+            sorted_backends
+                .into_iter()
+                .rev()
+                .find_map(|(cache_index, backend)| {
+                    backend
+                        .next_free()
+                        .map(|free_offset| FarmerCacheOffset::new(cache_index, free_offset))
+                })
         }
     }
 
@@ -103,7 +100,7 @@ impl PieceCachesState {
                 // There is no need to adjust the `last_stored_offset` of the `backend` here,
                 // as the free_offset will be preferentially taken from the dangling free offsets
                 self.dangling_free_offsets.push_back(offset);
-            })
+            });
     }
 
     pub(super) fn push_dangling_free_offset(&mut self, offset: FarmerCacheOffset) {
@@ -144,10 +141,10 @@ impl PieceCachesState {
             return None;
         }
 
-        if !self.has_free_capacity() {
-            self.stored_pieces.pop_last()
-        } else {
+        if self.has_free_capacity() {
             None
+        } else {
+            self.stored_pieces.pop_last()
         }
     }
 

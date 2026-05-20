@@ -35,14 +35,14 @@ where
 
         match opcode {
             // R-type
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b001, 0b0000101) => Some(Self::Clmul { rd, rs1, rs2 }),
-                    (0b011, 0b0000101) => Some(Self::Clmulh { rd, rs1, rs2 }),
-                    (0b010, 0b0000101) => Some(Self::Clmulr { rd, rs1, rs2 }),
+                    (0b001, 0b000_0101) => Some(Self::Clmul { rd, rs1, rs2 }),
+                    (0b011, 0b000_0101) => Some(Self::Clmulh { rd, rs1, rs2 }),
+                    (0b010, 0b000_0101) => Some(Self::Clmulr { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
@@ -68,9 +68,9 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Clmul { rd, rs1, rs2 } => write!(f, "clmul {}, {}, {}", rd, rs1, rs2),
-            Self::Clmulh { rd, rs1, rs2 } => write!(f, "clmulh {}, {}, {}", rd, rs1, rs2),
-            Self::Clmulr { rd, rs1, rs2 } => write!(f, "clmulr {}, {}, {}", rd, rs1, rs2),
+            Self::Clmul { rd, rs1, rs2 } => write!(f, "clmul {rd}, {rs1}, {rs2}"),
+            Self::Clmulh { rd, rs1, rs2 } => write!(f, "clmulh {rd}, {rs1}, {rs2}"),
+            Self::Clmulr { rd, rs1, rs2 } => write!(f, "clmulr {rd}, {rs1}, {rs2}"),
         }
     }
 }

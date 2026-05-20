@@ -43,7 +43,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::pin::pin;
 use std::sync::Arc as StdArc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 use std::{io, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
@@ -59,7 +59,7 @@ const INFORMER_INTERVAL: Duration = Duration::from_secs(5);
 type PosTable = ChiaTable;
 
 #[derive(Debug, Clone)]
-struct ChainSyncStatusPlaceholder {}
+struct ChainSyncStatusPlaceholder;
 
 impl ChainSyncStatus for ChainSyncStatusPlaceholder {
     #[inline(always)]
@@ -348,7 +348,8 @@ impl Run {
 
         let mut shutdown_signal_fut = pin!(shutdown_signal());
         // Poll once to register signal handlers and ensure a graceful shutdown later
-        let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
+        let _: Poll<()> =
+            shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
 
         // Development mode handling is limited to this section
         {
@@ -452,7 +453,7 @@ impl Run {
 
         let pot_external_entropy = derive_pot_external_entropy(
             &chain_spec,
-            pot_external_entropy.as_deref().map(|s| s.as_bytes()),
+            pot_external_entropy.as_deref().map(str::as_bytes),
         );
 
         let pot_verifier = PotVerifier::new(
@@ -682,9 +683,9 @@ impl Run {
         shutdown_signal_fut.await;
 
         // TODO: These should be used
-        let _ = force_synced;
-        let _ = prometheus_listen_on;
-        let _ = network_options;
+        let _: bool = force_synced;
+        let _: Option<_> = prometheus_listen_on;
+        let _: NetworkOptions = network_options;
 
         Ok(())
     }

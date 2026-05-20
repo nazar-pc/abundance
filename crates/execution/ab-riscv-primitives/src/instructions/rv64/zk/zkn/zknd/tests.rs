@@ -11,7 +11,7 @@ fn make_i_type(opcode: u32, rd: u32, funct3: u32, rs1: u32, imm12: u32) -> u32 {
 
 #[test]
 fn test_aes64ds() {
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0011101);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b001_1101);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -25,7 +25,7 @@ fn test_aes64ds() {
 
 #[test]
 fn test_aes64dsm() {
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0011111);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b001_1111);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -39,7 +39,7 @@ fn test_aes64dsm() {
 
 #[test]
 fn test_aes64ks2() {
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0111111);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b011_1111);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -53,7 +53,7 @@ fn test_aes64ks2() {
 
 #[test]
 fn test_wrong_funct3_rejected() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0011101);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b001_1101);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -62,8 +62,8 @@ fn test_wrong_funct3_rejected() {
 
 #[test]
 fn test_aes64im() {
-    // imm12=0x300: funct7=0b0011000, rs2=0b00000
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x300);
+    // imm12=0x300: funct7=0b001_1000, rs2=0b0_0000
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x300);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -79,7 +79,7 @@ fn test_aes64im() {
 fn test_aes64im_nonzero_rs2_rejected() {
     // imm12=0x301: rnum=1 in the rs2 field; not a valid aes64im
     // (decodes as aes64ks1i rnum=1 instead - covered in ks1i tests)
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x301);
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x301);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_ne!(
         decoded,
@@ -94,7 +94,7 @@ fn test_aes64im_nonzero_rs2_rejected() {
 // aes64ks1i decoding
 //
 // Both aes64im and aes64ks1i share opcode=0x13, funct3=0b001, and
-// bits[31:25]=0b0011000 (funct7=0x18). They are distinguished by bit 24 of the instruction (bit 4
+// bits[31:25]=0b001_1000 (funct7=0x18). They are distinguished by bit 24 of the instruction (bit 4
 // of imm12):
 //
 //   bit 4 = 0: aes64im      imm12 = 0x300        (rs2 field = 0b00000)
@@ -105,7 +105,7 @@ fn test_aes64im_nonzero_rs2_rejected() {
 #[test]
 fn test_aes64ks1i_rnum_0() {
     // imm12 = 0x310: bit4=1, rnum=0
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x310);
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x310);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -121,7 +121,7 @@ fn test_aes64ks1i_rnum_0() {
 #[test]
 fn test_aes64ks1i_rnum_7() {
     // imm12 = 0x317: bit4=1, rnum=7
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x317);
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x317);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -137,7 +137,7 @@ fn test_aes64ks1i_rnum_7() {
 #[test]
 fn test_aes64ks1i_rnum_10() {
     // imm12 = 0x31A: bit4=1, rnum=10
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x31A);
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x31A);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -153,7 +153,7 @@ fn test_aes64ks1i_rnum_10() {
 #[test]
 fn test_aes64ks1i_rnum_11_rejected() {
     // rnum=0xB is illegal per spec
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x31B);
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x31B);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -161,7 +161,7 @@ fn test_aes64ks1i_rnum_11_rejected() {
 #[test]
 fn test_aes64im_bit4_zero_rnum0() {
     // imm12=0x300: bit4=0, rnum=0 - this is aes64im, NOT aes64ks1i
-    let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x300);
+    let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x300);
     let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -177,7 +177,7 @@ fn test_aes64im_bit4_zero_rnum0() {
 fn test_aes64ks1i_bit4_zero_nonzero_rnum_rejected() {
     // imm12=0x301..=0x30A: bit4=0, rnum 1..=10 - these are NOT valid ks1i or im encodings
     for rnum in 0x1u32..=0xAu32 {
-        let inst = make_i_type(0b0010011, 1, 0b001, 2, 0x300 | rnum);
+        let inst = make_i_type(0b001_0011, 1, 0b001, 2, 0x300 | rnum);
         let decoded = Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst);
         assert_eq!(
             decoded,

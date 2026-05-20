@@ -48,7 +48,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 env.flipper_flip(MethodContext::Keep, flipper_address)
                     .unwrap();
             });
-        })
+        });
     });
 }
 

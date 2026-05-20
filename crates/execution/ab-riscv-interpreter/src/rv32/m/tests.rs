@@ -49,10 +49,10 @@ fn test_mulh() {
 
     execute(&mut state).unwrap();
 
-    let prod = (i32::MAX as i64) * 2i64;
+    let prod = i64::from(i32::MAX) * 2i64;
     assert_eq!(
         state.regs.read(Reg::A2),
-        ((prod >> 32) as i32).cast_unsigned()
+        ((prod >> 32u8) as i32).cast_unsigned()
     );
 }
 
@@ -86,8 +86,8 @@ fn test_mulhu() {
 
     execute(&mut state).unwrap();
 
-    let prod = (u32::MAX as u64) * (u32::MAX as u64);
-    assert_eq!(state.regs.read(Reg::A2), (prod >> 32) as u32);
+    let prod = u64::from(u32::MAX) * u64::from(u32::MAX);
+    assert_eq!(state.regs.read(Reg::A2), (prod >> 32u8) as u32);
 }
 
 #[test]
@@ -103,10 +103,10 @@ fn test_mulhsu() {
 
     execute(&mut state).unwrap();
 
-    let prod = (-2i32 as i64) * (3i64);
+    let prod = i64::from(-2i32) * (3i64);
     assert_eq!(
         state.regs.read(Reg::A2),
-        ((prod >> 32) as i32).cast_unsigned()
+        ((prod >> 32u8) as i32).cast_unsigned()
     );
 }
 

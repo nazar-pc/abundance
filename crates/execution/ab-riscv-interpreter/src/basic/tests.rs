@@ -7,8 +7,8 @@ fn test_registers_read_write() {
     {
         // Basic read/write
         let mut regs = BasicRegisters::<Reg<u64>>::default();
-        regs.write(Reg::A0, 0xdeadbeef);
-        assert_eq!(regs.read(Reg::A0), 0xdeadbeef);
+        regs.write(Reg::A0, 0xdead_beef);
+        assert_eq!(regs.read(Reg::A0), 0xdead_beef);
     }
 
     {
@@ -37,8 +37,8 @@ fn test_registers_read_write() {
         regs.write(Reg::A0, u64::MAX);
         assert_eq!(regs.read(Reg::A0), u64::MAX);
 
-        regs.write(Reg::A1, 0x0123456789abcdef);
-        assert_eq!(regs.read(Reg::A1), 0x0123456789abcdef);
+        regs.write(Reg::A1, 0x0123_4567_89ab_cdef);
+        assert_eq!(regs.read(Reg::A1), 0x0123_4567_89ab_cdef);
     }
 }
 
@@ -53,7 +53,7 @@ fn test_registers_zero_register() {
     {
         // Writes to zero register are ignored
         let mut regs = BasicRegisters::<Reg<u64>>::default();
-        regs.write(Reg::Zero, 0xdeadbeef);
+        regs.write(Reg::Zero, 0xdead_beef);
         assert_eq!(regs.read(Reg::Zero), 0);
     }
 
@@ -74,12 +74,12 @@ fn test_registers_all_registers() {
 
     for i in 1..32 {
         let reg = Reg::from_bits(i).unwrap();
-        regs.write(reg, i as u64 * 1000);
+        regs.write(reg, u64::from(i) * 1000);
     }
 
     for i in 1..32 {
         let reg = Reg::from_bits(i).unwrap();
-        assert_eq!(regs.read(reg), i as u64 * 1000, "Register {} failed", i);
+        assert_eq!(regs.read(reg), u64::from(i) * 1000, "Register {i} failed");
     }
 
     // Zero should still be zero
@@ -91,8 +91,8 @@ fn test_eregisters_read_write() {
     {
         // Basic read/write
         let mut regs = BasicRegisters::default();
-        regs.write(EReg::<u64>::A0, 0xdeadbeef);
-        assert_eq!(regs.read(EReg::<u64>::A0), 0xdeadbeef);
+        regs.write(EReg::<u64>::A0, 0xdead_beef);
+        assert_eq!(regs.read(EReg::<u64>::A0), 0xdead_beef);
     }
 
     {
@@ -121,8 +121,8 @@ fn test_eregisters_read_write() {
         regs.write(EReg::<u64>::A0, u64::MAX);
         assert_eq!(regs.read(EReg::<u64>::A0), u64::MAX);
 
-        regs.write(EReg::<u64>::A1, 0x0123456789abcdef);
-        assert_eq!(regs.read(EReg::<u64>::A1), 0x0123456789abcdef);
+        regs.write(EReg::<u64>::A1, 0x0123_4567_89ab_cdef);
+        assert_eq!(regs.read(EReg::<u64>::A1), 0x0123_4567_89ab_cdef);
     }
 }
 
@@ -137,7 +137,7 @@ fn test_eregisters_zero_register() {
     {
         // Writes to zero register are ignored
         let mut regs = BasicRegisters::default();
-        regs.write(EReg::<u64>::Zero, 0xdeadbeef);
+        regs.write(EReg::<u64>::Zero, 0xdead_beef);
         assert_eq!(regs.read(EReg::<u64>::Zero), 0);
     }
 
@@ -158,12 +158,12 @@ fn test_eregisters_all_registers() {
 
     for i in 1..16 {
         let reg = EReg::<u64>::from_bits(i).unwrap();
-        regs.write(reg, i as u64 * 1000);
+        regs.write(reg, u64::from(i) * 1000);
     }
 
     for i in 1..16 {
         let reg = EReg::<u64>::from_bits(i).unwrap();
-        assert_eq!(regs.read(reg), i as u64 * 1000, "Register {} failed", i);
+        assert_eq!(regs.read(reg), u64::from(i) * 1000, "Register {i} failed");
     }
 
     // Zero should still be zero

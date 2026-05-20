@@ -18,7 +18,7 @@ const DIALING_INTERVAL_IN_SECS: Duration = Duration::from_secs(1);
 #[ignore]
 async fn test_connection_breaks_after_timeout_without_reservation() {
     let connection_timeout = Duration::from_millis(300);
-    let long_delay = Duration::from_millis(12000);
+    let long_delay = Duration::from_secs(12);
 
     let identity1 = Keypair::generate_ed25519();
     let mut peer1 = new_ephemeral(
@@ -64,7 +64,7 @@ async fn test_connection_breaks_after_timeout_without_reservation() {
 #[ignore]
 async fn test_connection_reservation() {
     let connection_timeout = Duration::from_millis(300);
-    let long_delay = Duration::from_millis(12000);
+    let long_delay = Duration::from_secs(12);
 
     let identity1 = Keypair::generate_ed25519();
     let identity2 = Keypair::generate_ed25519();
@@ -114,7 +114,7 @@ async fn test_connection_reservation() {
 #[ignore]
 async fn test_connection_reservation_symmetry() {
     let connection_timeout = Duration::from_millis(300);
-    let long_delay = Duration::from_millis(12000);
+    let long_delay = Duration::from_secs(12);
 
     let identity1 = Keypair::generate_ed25519();
     let identity2 = Keypair::generate_ed25519();
@@ -160,7 +160,7 @@ async fn test_connection_reservation_symmetry() {
 #[tokio::test]
 async fn test_reserved_peers_dial_event() {
     let connection_timeout = Duration::from_millis(1300);
-    let long_delay = Duration::from_millis(2000);
+    let long_delay = Duration::from_secs(2);
 
     let identity1 = Keypair::generate_ed25519();
     let identity2 = Keypair::generate_ed25519();

@@ -21,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("prove", |b| {
         b.iter(|| {
             black_box(prove(black_box(seed), black_box(pot_iterations))).unwrap();
-        })
+        });
     });
 
     let checkpoints = prove(seed, pot_iterations).unwrap();
@@ -34,7 +34,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(&checkpoints),
             ))
             .unwrap();
-        })
+        });
     });
 }
 
