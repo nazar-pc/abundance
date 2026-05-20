@@ -1,6 +1,7 @@
 mod enum_definition;
 mod enum_impl;
 mod execution_impl;
+mod shared_impl;
 mod state;
 
 use crate::build::enum_definition::{

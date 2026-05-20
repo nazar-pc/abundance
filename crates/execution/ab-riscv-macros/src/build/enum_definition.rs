@@ -299,39 +299,10 @@ pub(super) fn process_enum_definition(
         item_enum.attrs.push(parse_quote! { #[repr(u16)] });
     }
 
-    let dependencies = match attribute.meta {
-        Meta::Path(_) => {
-            process_enum_definition_with_variants(&mut item_enum, state)?;
-            Vec::new()
-        }
-        Meta::List(meta_list) => {
-            let instruction_definition = parse2::<InstructionDefinition>(meta_list.tokens)
-                .context("Failed to parse `#[instruction(...)]` attribute")?;
-
-            if instruction_definition.items.iter().any(|item| match item {
-                InstructionDefinitionItem::Reorder(_) | InstructionDefinitionItem::Ignore(_) => {
-                    false
-                }
-                InstructionDefinitionItem::Inherit(enums) => enums
-                    .iter()
-                    .any(|enum_name| state.get_known_enum_definition(enum_name).is_none()),
-            }) {
-                state.add_pending_enum_definition(PendingEnumDefinition {
-                    instruction_definition,
-                    item_enum,
-                });
-                return Ok(());
-            }
-
-            let Some(result) =
-                process_enum_definition_inherited(instruction_definition, item_enum, state)?
-            else {
-                return Ok(());
-            };
-            let dependencies;
-            (item_enum, dependencies) = result;
-            dependencies
-        }
+    let instruction_definition = match attribute.meta {
+        Meta::Path(_) => InstructionDefinition::default(),
+        Meta::List(meta_list) => parse2::<InstructionDefinition>(meta_list.tokens)
+            .context("Failed to parse `#[instruction(...)]` attribute")?,
         Meta::NameValue(meta_name_value) => {
             return Err(anyhow::anyhow!(
                 "Unexpected `#[instruction = {}]` attribute",
@@ -340,15 +311,26 @@ pub(super) fn process_enum_definition(
         }
     };
 
-    output_processed_enum_definition(item_enum, dependencies, out_dir, state)
-}
+    if instruction_definition.items.iter().any(|item| match item {
+        InstructionDefinitionItem::Reorder(_) | InstructionDefinitionItem::Ignore(_) => false,
+        InstructionDefinitionItem::Inherit(enums) => enums
+            .iter()
+            .any(|enum_name| state.get_known_enum_definition(enum_name).is_none()),
+    }) {
+        state.add_pending_enum_definition(PendingEnumDefinition {
+            instruction_definition,
+            item_enum,
+        });
+        return Ok(());
+    }
 
-fn process_enum_definition_with_variants(
-    _item_enum: &mut ItemEnum,
-    _state: &mut State,
-) -> anyhow::Result<()> {
-    // No special processing needed, at least not yet
-    Ok(())
+    let Some(result) = process_enum_definition_inherited(instruction_definition, item_enum, state)?
+    else {
+        return Ok(());
+    };
+    let (item_enum, dependencies) = result;
+
+    output_processed_enum_definition(item_enum, dependencies, out_dir, state)
 }
 
 fn process_enum_definition_inherited(

@@ -5,6 +5,7 @@ mod ignored_variants_remover;
 use crate::build::enum_impl::add_missing_fields::add_missing_rs_fields;
 use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
+use crate::build::shared_impl::collect_all_dependencies;
 use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
@@ -295,55 +296,48 @@ pub(super) fn process_enum_decoding_impl(
         return Ok(());
     };
 
+    let all_dependencies =
+        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
+            Ok(all_dependencies) => all_dependencies,
+            Err(dependency_enum_name) => {
+                eprintln!("{enum_name} decoding is waiting on {dependency_enum_name} definition");
+                state.add_pending_enum_impl(PendingEnumImpl { item_impl });
+                return Ok(());
+            }
+        };
+
     let mut all_try_decode_blocks = Vec::new();
     let mut all_dependency_alignment_blocks = Vec::new();
     let mut all_dependency_size_entries = Vec::new();
     let mut all_where_predicates = Vec::new();
-    {
-        let mut all_dependencies = HashSet::new();
-        all_dependencies.insert(enum_name.clone());
-        let mut new_dependencies = enum_definition.dependencies.clone();
 
-        while !new_dependencies.is_empty() {
-            for dependency_enum_name in mem::take(&mut new_dependencies) {
-                let Some(dependency_enum_definition) =
-                    state.get_known_enum_definition(&dependency_enum_name)
-                else {
-                    state.add_pending_enum_impl(PendingEnumImpl { item_impl });
-                    return Ok(());
-                };
+    for (dependency_enum_name, dependency_enum_definition) in all_dependencies {
+        let Some(dependency_enum_impl) =
+            state.get_known_original_enum_decoding_impl(&dependency_enum_name)
+        else {
+            eprintln!(
+                "{enum_name} decoding is waiting on {dependency_enum_name} decoding implementation"
+            );
+            state.add_pending_enum_impl(PendingEnumImpl { item_impl });
+            return Ok(());
+        };
 
-                if !all_dependencies.insert(dependency_enum_name.clone()) {
-                    continue;
-                }
+        let dependency_blocks =
+            extract_instruction_blocks_from_impl(&dependency_enum_impl.item_impl.items)
+                .expect("Dependencies are all valid; qed");
 
-                let Some(dependency_enum_impl) =
-                    state.get_known_original_enum_decoding_impl(&dependency_enum_name)
-                else {
-                    state.add_pending_enum_impl(PendingEnumImpl { item_impl });
-                    return Ok(());
-                };
+        all_try_decode_blocks.push(dependency_blocks.try_decode);
+        all_dependency_alignment_blocks.push(dependency_blocks.alignment);
 
-                let dependency_blocks =
-                    extract_instruction_blocks_from_impl(&dependency_enum_impl.item_impl.items)
-                        .expect("Dependencies are all valid; qed");
+        let variant_idents = dependency_enum_definition
+            .instructions
+            .iter()
+            .map(|v| &v.ident)
+            .collect::<Vec<_>>();
+        all_dependency_size_entries.push((variant_idents, dependency_blocks.size));
 
-                all_try_decode_blocks.push(dependency_blocks.try_decode);
-                all_dependency_alignment_blocks.push(dependency_blocks.alignment);
-
-                let variant_idents = dependency_enum_definition
-                    .instructions
-                    .iter()
-                    .map(|v| &v.ident)
-                    .collect::<Vec<_>>();
-                all_dependency_size_entries.push((variant_idents, dependency_blocks.size));
-
-                if let Some(where_clause) = &dependency_enum_impl.item_impl.generics.where_clause {
-                    all_where_predicates.extend(where_clause.predicates.iter().cloned());
-                }
-
-                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
-            }
+        if let Some(where_clause) = &dependency_enum_impl.item_impl.generics.where_clause {
+            all_where_predicates.extend(where_clause.predicates.iter().cloned());
         }
     }
 
@@ -496,27 +490,24 @@ pub(super) fn process_enum_display_impl(
         return Ok(());
     };
 
-    let mut variants_from_dependencies = HashMap::new();
-    {
-        let mut new_dependencies = enum_definition.dependencies.clone();
-
-        while !new_dependencies.is_empty() {
-            for dependency_enum_name in mem::take(&mut new_dependencies) {
-                let Some(dependency_enum_definition) =
-                    state.get_known_enum_definition(&dependency_enum_name)
-                else {
-                    state.add_pending_enum_display_impl(PendingEnumDisplayImpl { item_impl });
-                    return Ok(());
-                };
-
-                let dependency_enum_name = Rc::new(dependency_enum_name);
-                for instruction in &dependency_enum_definition.instructions {
-                    variants_from_dependencies
-                        .insert(Rc::clone(instruction), Rc::clone(&dependency_enum_name));
-                }
-
-                new_dependencies.extend(dependency_enum_definition.dependencies.iter().cloned());
+    let all_dependencies =
+        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
+            Ok(all_dependencies) => all_dependencies,
+            Err(dependency_enum_name) => {
+                eprintln!("{enum_name} display is waiting on {dependency_enum_name} definition");
+                state.add_pending_enum_display_impl(PendingEnumDisplayImpl { item_impl });
+                return Ok(());
             }
+        };
+
+    let mut variants_from_dependencies = HashMap::new();
+
+    for (dependency_enum_name, dependency_enum_definition) in all_dependencies {
+        let dependency_enum_name = Rc::new(dependency_enum_name);
+
+        for instruction in &dependency_enum_definition.instructions {
+            variants_from_dependencies
+                .insert(Rc::clone(instruction), Rc::clone(&dependency_enum_name));
         }
     }
 
