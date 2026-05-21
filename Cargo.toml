@@ -69,7 +69,7 @@ bech32 = { version = "0.11.1", default-features = false }
 blake3 = { version = "1.8.5", default-features = false }
 bytes = { version = "1.11.1", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
-cargo-gpu-install = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "e2e4d529a5ead1364228530d301ebbca4ef90262", default-features = false }
+cargo-gpu-install = "=0.10.0-alpha.1"
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0", default-features = false }
 clap = { version = "4.6.1", features = ["derive"] }
@@ -88,7 +88,7 @@ event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
 fs4 = "1.1.0"
 futures = { version = "0.3.32", default-features = false, features = ["async-await"] }
-futures-timer = "3.0.3"
+futures-timer = "3.0.4"
 halfbrown = "0.4.0"
 heck = { version = "0.5.0" }
 hex = { version = "0.4.3", default-features = false }
@@ -98,7 +98,7 @@ libc = "0.2.186"
 libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea", default-features = false }
 libp2p-swarm-test = { version = "0.6.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
 memmap2 = "0.9.10"
-mimalloc = "0.1.50"
+mimalloc = "0.1.51"
 multihash = "0.19.5"
 nohash-hasher = "0.2.0"
 no-panic = "0.1.36"
@@ -108,7 +108,7 @@ once_cell = { version = "1.21.4", default-features = false }
 ouroboros = "0.18.5"
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
-pin-project = "1.1.12"
+pin-project = "1.1.13"
 prettyplease = "0.2.37"
 proc-macro2 = "1.0.106"
 prometheus-client = "0.23.1"
@@ -127,14 +127,14 @@ serde_json = "1.0.149"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "e2e4d529a5ead1364228530d301ebbca4ef90262" }
+spirv-std = "=0.10.0-alpha.1"
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "2.0.117"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.18", default-features = false }
 thread-priority = "3.0.0"
-tokio = { version = "1.52.2", default-features = false }
+tokio = { version = "1.52.3", default-features = false }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
