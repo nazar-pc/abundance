@@ -32,7 +32,7 @@ fn test_mulh() {
 
     execute(&mut state).unwrap();
 
-    let (_, hi) = i64::MAX.widening_mul(2);
+    let (_, hi) = i64::MAX.carrying_mul(2, 0);
     assert_eq!(state.regs.read(Reg::A2), hi.cast_unsigned());
 }
 

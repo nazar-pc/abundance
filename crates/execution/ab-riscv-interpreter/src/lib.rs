@@ -64,7 +64,7 @@
     const_trait_impl,
     generic_const_exprs,
     result_option_map_or_default,
-    widening_mul
+    signed_bigint_helpers
 )]
 #![cfg_attr(
     not(any(

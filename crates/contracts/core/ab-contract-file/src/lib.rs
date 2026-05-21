@@ -34,12 +34,12 @@
     const_default,
     const_index,
     const_trait_impl,
-    maybe_uninit_fill,
-    trusted_len,
     const_try,
     const_try_residual,
-    try_blocks,
-    widening_mul
+    maybe_uninit_fill,
+    signed_bigint_helpers,
+    trusted_len,
+    try_blocks
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for

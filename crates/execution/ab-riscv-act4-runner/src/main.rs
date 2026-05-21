@@ -6,8 +6,8 @@
     const_try_residual,
     generic_const_exprs,
     iter_array_chunks,
-    try_blocks,
-    widening_mul
+    signed_bigint_helpers,
+    try_blocks
 )]
 
 mod abundance_rv32i_max;
