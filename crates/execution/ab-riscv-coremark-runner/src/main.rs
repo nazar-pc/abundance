@@ -3,8 +3,8 @@
     const_trait_impl,
     const_try,
     const_try_residual,
-    try_blocks,
-    widening_mul
+    signed_bigint_helpers,
+    try_blocks
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for

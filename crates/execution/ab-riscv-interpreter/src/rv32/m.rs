@@ -53,10 +53,10 @@ where
                 Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Mulh { rd, rs1: _, rs2: _ } => {
-                // Signed × signed: widen to i64, take upper 32 bits
+                // Signed × signed: multiply and take upper 32 bits
                 let (_lo, prod) = rs1_value
                     .cast_signed()
-                    .widening_mul(rs2_value.cast_signed());
+                    .carrying_mul(rs2_value.cast_signed(), 0);
                 Ok(ControlFlow::Continue((rd, prod.cast_unsigned())))
             }
             Self::Mulhsu { rd, rs1: _, rs2: _ } => {
