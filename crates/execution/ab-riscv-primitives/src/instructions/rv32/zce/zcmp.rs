@@ -27,22 +27,22 @@ where
 }
 
 // SAFETY: [`Reg::from_bits()`] returns Some for all valid register numbers
-unsafe impl const ZcmpRegister for Reg<u32> {
+const unsafe impl ZcmpRegister for Reg<u32> {
     const RVE: bool = false;
 }
 
 // SAFETY: [`Reg::from_bits()`] returns Some for all valid register numbers
-unsafe impl const ZcmpRegister for Reg<u64> {
+const unsafe impl ZcmpRegister for Reg<u64> {
     const RVE: bool = false;
 }
 
 // SAFETY: [`EReg::from_bits()`] returns Some for all valid register numbers
-unsafe impl const ZcmpRegister for EReg<u32> {
+const unsafe impl ZcmpRegister for EReg<u32> {
     const RVE: bool = true;
 }
 
 // SAFETY: [`EReg::from_bits()`] returns Some for all valid register numbers
-unsafe impl const ZcmpRegister for EReg<u64> {
+const unsafe impl ZcmpRegister for EReg<u64> {
     const RVE: bool = true;
 }
 
@@ -251,7 +251,7 @@ impl<Reg> fmt::Display for ZcmpUrlist<Reg> {
 pub enum Rv32ZcmpInstruction<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for Rv32ZcmpInstruction<Reg>
+const impl<Reg> Instruction for Rv32ZcmpInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
@@ -323,7 +323,7 @@ pub enum Rv32ZcmpOnlyInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv32ZcmpOnlyInstruction<Reg>
+const impl<Reg> Instruction for Rv32ZcmpOnlyInstruction<Reg>
 where
     Reg: [const] ZcmpRegister<Type = u32>,
 {

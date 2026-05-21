@@ -1,6 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
@@ -33,15 +33,15 @@ pub(crate) fn mask_bit(mask: &[u8], i: u32) -> bool {
 /// `vl.div_ceil(8)` must be `<= VLENB`. This holds when `vl <= VLEN`, which is always true
 /// when `vl` is the current architectural `vl` (bounded by `VLMAX <= VLEN`).
 #[inline(always)]
-pub(in super::super) unsafe fn snapshot_mask<const VLENB: usize>(
+pub(in super::super) unsafe fn snapshot_mask<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     vm: bool,
     vl: u32,
-) -> [u8; VLENB] {
-    let mut buf = [0u8; VLENB];
+) -> [u8; VLENB_USIZE::<VLENB>] {
+    let mut buf = [0u8; _];
     if vm {
         // All-ones: every element active
-        buf = [0xffu8; VLENB];
+        buf = [0xffu8; _];
     } else {
         let mask_bytes = vl.div_ceil(u8::BITS) as usize;
         // SAFETY: `mask_bytes <= VLENB` by the caller's precondition
@@ -193,17 +193,17 @@ where
 /// `base_reg + elem_i / (VLENB / eew.bytes())` must be less than 32, i.e. `elem_i` must be
 /// a valid element index within the register group.
 #[inline(always)]
-pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
+pub(in super::super) unsafe fn read_group_element<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     // TODO: `elem_i` here and in other places shouldn't be `u32`
     elem_i: u32,
     eew: Eew,
-) -> [u8; Eew::MAX_BYTES as usize] {
-    let elem_bytes = usize::from(eew.bytes_width());
+) -> [u8; const { Eew::MAX_BYTES as usize }] {
+    let elem_bytes = u32::from(eew.bytes_width());
     let elems_per_reg = VLENB / elem_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * elem_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * elem_bytes;
     // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
@@ -212,11 +212,11 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
     // `(elems_per_reg - 1) * elem_bytes = VLENB - elem_bytes`, so
     // `byte_off + elem_bytes <= VLENB - elem_bytes + elem_bytes = VLENB`.
     // `elem_bytes <= Eew::MAX_BYTES`: all `Eew` variants are at most E64.
-    let src = unsafe { reg.get_unchecked(byte_off..byte_off + elem_bytes) };
+    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + elem_bytes) as usize) };
     let mut buf = [0; _];
     // SAFETY: `elem_bytes <= Eew::MAX_BYTES` as established above, so `..elem_bytes` is in bounds
     // for `buf`
-    unsafe { buf.get_unchecked_mut(..elem_bytes) }.copy_from_slice(src);
+    unsafe { buf.get_unchecked_mut(..elem_bytes as usize) }.copy_from_slice(src);
     buf
 }
 
@@ -229,27 +229,27 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
 /// `base_reg + elem_i / (VLENB / eew.bytes())` must be less than 32, i.e. `elem_i` must be
 /// a valid element index within the register group.
 #[inline(always)]
-unsafe fn write_group_element<const VLENB: usize>(
+unsafe fn write_group_element<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     eew: Eew,
-    buf: [u8; Eew::MAX_BYTES as usize],
+    buf: [u8; const { Eew::MAX_BYTES as usize }],
 ) {
-    let elem_bytes = usize::from(eew.bytes_width());
+    let elem_bytes = u32::from(eew.bytes_width());
     let elems_per_reg = VLENB / elem_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * elem_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * elem_bytes;
     // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
     let reg = unsafe {
         vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
     // SAFETY: `byte_off + elem_bytes <= VLENB` and `elem_bytes <= Eew::MAX_BYTES`: same argument as
     // in `read_group_element`
-    let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + elem_bytes) };
+    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + elem_bytes) as usize) };
     // SAFETY: `elem_bytes <= Eew::MAX_BYTES` as established above, so `..elem_bytes` is in bounds
     // for `buf`
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..elem_bytes) });
+    dst.copy_from_slice(unsafe { buf.get_unchecked(..elem_bytes as usize) });
 }
 
 /// Read `eew`-sized data from memory at `addr` into a `[u8; Eew::MAX_BYTES]` buffer
@@ -259,7 +259,7 @@ fn read_mem_element(
     memory: &impl VirtualMemory,
     addr: u64,
     eew: Eew,
-) -> Result<[u8; Eew::MAX_BYTES as usize], VirtualMemoryError> {
+) -> Result<[u8; const { Eew::MAX_BYTES as usize }], VirtualMemoryError> {
     let source = match memory.read_slice(addr, u32::from(eew.bytes_width())) {
         Ok(source) => source,
         Err(err) => {
@@ -310,9 +310,6 @@ pub unsafe fn execute_unit_stride_load<
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -338,8 +335,9 @@ where
         //
         // Sized by `Nf::MAX * Eew::MAX_BYTES`: the V spec allows at most 8 fields (nf in 1..=8)
         // each is at most 8 bytes (E64), giving 64 bytes.
-        let mut field_buf =
-            [[0u8; usize::from(Eew::MAX_BYTES)]; usize::from(Nf::MAX.fields_per_segment())];
+        let mut field_buf = [[0u8; const { usize::from(Eew::MAX_BYTES) }]; const {
+            usize::from(Nf::MAX.fields_per_segment())
+        }];
 
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
@@ -437,9 +435,6 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -529,9 +524,6 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {

@@ -479,7 +479,7 @@ pub(super) fn process_enum_decoding_impl(
 
     item_impl
         .attrs
-        .push(parse_quote! { #[automatically_derived] });
+        .insert(0, parse_quote! { #[automatically_derived] });
 
     output_processed_enum_decoding_impl(&enum_name, original_item_impl, item_impl, out_dir, state)
 }

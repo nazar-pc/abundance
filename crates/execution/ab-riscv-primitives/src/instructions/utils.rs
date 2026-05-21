@@ -38,7 +38,7 @@ impl fmt::UpperHex for U24 {
     }
 }
 
-impl const Shl<u8> for U24 {
+const impl Shl<u8> for U24 {
     type Output = Self;
 
     #[inline(always)]
@@ -47,7 +47,7 @@ impl const Shl<u8> for U24 {
     }
 }
 
-impl const Shr<u8> for U24 {
+const impl Shr<u8> for U24 {
     type Output = Self;
 
     #[inline(always)]
@@ -56,7 +56,7 @@ impl const Shr<u8> for U24 {
     }
 }
 
-impl const Shl<u8> for &U24 {
+const impl Shl<u8> for &U24 {
     type Output = U24;
 
     #[inline(always)]
@@ -65,7 +65,7 @@ impl const Shl<u8> for &U24 {
     }
 }
 
-impl const Shr<u8> for &U24 {
+const impl Shr<u8> for &U24 {
     type Output = U24;
 
     #[inline(always)]
@@ -142,7 +142,7 @@ impl fmt::UpperHex for I24 {
     }
 }
 
-impl const Shl<u8> for I24 {
+const impl Shl<u8> for I24 {
     type Output = Self;
 
     #[inline(always)]
@@ -151,7 +151,7 @@ impl const Shl<u8> for I24 {
     }
 }
 
-impl const Shr<u8> for I24 {
+const impl Shr<u8> for I24 {
     type Output = Self;
 
     #[inline(always)]
@@ -160,7 +160,7 @@ impl const Shr<u8> for I24 {
     }
 }
 
-impl const Shl<u8> for &I24 {
+const impl Shl<u8> for &I24 {
     type Output = I24;
 
     #[inline(always)]
@@ -169,7 +169,7 @@ impl const Shl<u8> for &I24 {
     }
 }
 
-impl const Shr<u8> for &I24 {
+const impl Shr<u8> for &I24 {
     type Output = I24;
 
     #[inline(always)]
