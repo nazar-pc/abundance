@@ -20,7 +20,7 @@ use core::fmt;
 pub enum Rv64ZcbInstruction<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for Rv64ZcbInstruction<Reg>
+const impl<Reg> Instruction for Rv64ZcbInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
@@ -98,7 +98,7 @@ pub enum Rv64ZcbOnlyInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv64ZcbOnlyInstruction<Reg>
+const impl<Reg> Instruction for Rv64ZcbOnlyInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {

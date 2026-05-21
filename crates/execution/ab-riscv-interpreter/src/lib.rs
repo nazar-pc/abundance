@@ -58,15 +58,17 @@
 //! Experimental extensions are known to have bugs and need more work. They are not tested against
 //! ACTs yet.
 
-#![expect(incomplete_features, reason = "generic_const_exprs")]
+#![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
     const_cmp,
     const_convert,
     const_default,
     const_index,
     const_trait_impl,
-    generic_const_exprs,
-    result_option_map_or_default,
+    generic_const_args,
+    generic_const_items,
+    inherent_associated_types,
+    min_generic_const_args,
     signed_bigint_helpers
 )]
 #![cfg_attr(
@@ -88,7 +90,8 @@
                 target_feature = "zknd",
                 target_feature = "zkne",
                 target_feature = "zknh"
-            )
+            ),
+            not(miri)
         ),
         all(
             target_arch = "riscv64",
@@ -99,7 +102,8 @@
                 target_feature = "zknd",
                 target_feature = "zkne",
                 target_feature = "zknh"
-            )
+            ),
+            not(miri)
         )
     ),
     feature(riscv_ext_intrinsics)

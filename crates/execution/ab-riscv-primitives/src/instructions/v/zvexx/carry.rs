@@ -73,7 +73,7 @@ pub enum ZveXxCarryInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for ZveXxCarryInstruction<Reg>
+const impl<Reg> Instruction for ZveXxCarryInstruction<Reg>
 where
     Reg: [const] Register,
 {

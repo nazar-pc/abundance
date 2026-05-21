@@ -26,8 +26,6 @@ pub fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
@@ -107,8 +105,6 @@ pub fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {

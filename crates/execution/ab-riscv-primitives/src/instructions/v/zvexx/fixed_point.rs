@@ -89,7 +89,7 @@ pub enum ZveXxFixedPointInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for ZveXxFixedPointInstruction<Reg>
+const impl<Reg> Instruction for ZveXxFixedPointInstruction<Reg>
 where
     Reg: [const] Register,
 {

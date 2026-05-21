@@ -1,8 +1,3 @@
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-// TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/141492
-#![feature(generic_const_exprs)]
-
 use ab_blake3::CHUNK_LEN;
 use ab_contract_file::ContractFile;
 use ab_contract_file::instruction::ContractRegisters;

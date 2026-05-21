@@ -30,9 +30,6 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -94,9 +91,6 @@ pub unsafe fn execute_widening_reduce_op<
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {

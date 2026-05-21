@@ -386,25 +386,26 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 /// - `2*SEW <= 64` (Zve64x constraint: only valid for SEW <= 32; caller must verify)
 /// - `base_reg + elem_i / (VLENB / (2*sew_bytes)) < 32`
 #[inline(always)]
-pub unsafe fn read_wide_element_u64<const VLENB: usize>(
+pub unsafe fn read_wide_element_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
 ) -> u64 {
-    let double_sew_bytes = usize::from(sew.bytes_width()) * 2;
+    let double_sew_bytes = u32::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / double_sew_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * double_sew_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * double_sew_bytes;
     // SAFETY: caller guarantees bounds
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
     // SAFETY: `byte_off + double_sew_bytes <= VLENB`
-    let src = unsafe { reg.get_unchecked(byte_off..byte_off + double_sew_bytes) };
+    let src =
+        unsafe { reg.get_unchecked(byte_off as usize..(byte_off + double_sew_bytes) as usize) };
     let mut buf = [0u8; 8];
     // SAFETY: `double_sew_bytes <= 8` (SEW <= 32 for Zve64x narrowing)
-    unsafe { buf.get_unchecked_mut(..double_sew_bytes) }.copy_from_slice(src);
+    unsafe { buf.get_unchecked_mut(..double_sew_bytes as usize) }.copy_from_slice(src);
     u64::from_le_bytes(buf)
 }
 
@@ -428,9 +429,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
@@ -495,9 +493,6 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
