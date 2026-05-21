@@ -3,13 +3,13 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
 
-const ELEN: u32 = u64::BITS;
-const VLEN: u32 = 1024;
+type const ELEN: u32 = const { u64::BITS };
+type const VLEN: u32 = const { 1024 };
 
 pub(crate) struct AbundanceRv32IMaxExtState {
     csrs: BTreeMap<u16, u32>,
-    vregs: VectorRegisterFile<{ Self::VLENB as usize }>,
-    vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>,
+    vregs: VectorRegisterFile<const { Self::VLENB }>,
+    vtype: Option<Vtype<const { Self::ELEN }, const { Self::VLEN }>>,
     vtype_raw: u32,
     vl: u32,
 }
@@ -93,18 +93,18 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
 }
 
 impl VectorRegistersBase for AbundanceRv32IMaxExtState {
-    const ELEN: u32 = ELEN;
-    const VLEN: u32 = VLEN;
+    type const ELEN: u32 = ELEN;
+    type const VLEN: u32 = VLEN;
 }
 
 impl VectorRegisters for AbundanceRv32IMaxExtState
 where
     Self: Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg>,
 {
-    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB }> {
         &self.vregs
     }
-    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }> {
         &mut self.vregs
     }
     fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {

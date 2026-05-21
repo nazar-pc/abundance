@@ -171,9 +171,6 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -230,9 +227,6 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -294,9 +288,6 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -351,9 +342,6 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -401,9 +389,6 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -462,9 +447,6 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -525,9 +507,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // Maximum number of EEW=16 elements the index register group can hold.
@@ -600,9 +579,6 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
@@ -655,9 +631,6 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
@@ -702,9 +675,6 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vd_base = vd.bits();
@@ -712,7 +682,7 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     let vs1_base = vs1.bits();
     let mask_bytes = vl.div_ceil(u8::BITS) as usize;
     let vreg = ext_state.read_vreg();
-    let mut vs1_buf = [0u8; { ExtState::VLENB as usize }];
+    let mut vs1_buf = [0u8; ExtState::VLENB_USIZE];
     // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf.get_unchecked_mut(..mask_bytes).copy_from_slice(

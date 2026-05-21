@@ -24,7 +24,7 @@ where
     /// The number of general purpose registers.
     ///
     /// Canonically 32 unless E extension is used, in which case 16.
-    const N: usize;
+    type const N: usize;
 
     /// Offset in a set of registers
     fn offset(self) -> u8;
@@ -35,7 +35,7 @@ unsafe impl<Type> const BasicRegister for EReg<Type>
 where
     Self: [const] Register,
 {
-    const N: usize = 16;
+    type const N: usize = 16;
 
     #[inline(always)]
     fn offset(self) -> u8 {
@@ -49,7 +49,7 @@ unsafe impl<Type> const BasicRegister for Reg<Type>
 where
     Self: [const] Register,
 {
-    const N: usize = 32;
+    type const N: usize = 32;
 
     #[inline(always)]
     fn offset(self) -> u8 {

@@ -140,7 +140,7 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
     base_reg: usize,
     elem_i: u32,
     eew: Eew,
-) -> [u8; Eew::MAX_BYTES as usize] {
+) -> [u8; const { Eew::MAX_BYTES as usize }] {
     let elem_bytes = usize::from(eew.bytes());
     let elems_per_reg = VLENB / elem_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
@@ -173,7 +173,7 @@ unsafe fn write_group_element<const VLENB: usize>(
     base_reg: u8,
     elem_i: u32,
     eew: Eew,
-    buf: [u8; Eew::MAX_BYTES as usize],
+    buf: [u8; const { Eew::MAX_BYTES as usize }],
 ) {
     let elem_bytes = usize::from(eew.bytes());
     let elems_per_reg = VLENB / elem_bytes;
@@ -196,7 +196,7 @@ fn read_mem_element(
     memory: &impl VirtualMemory,
     addr: u64,
     eew: Eew,
-) -> Result<[u8; Eew::MAX_BYTES as usize], VirtualMemoryError> {
+) -> Result<[u8; const { Eew::MAX_BYTES as usize }], VirtualMemoryError> {
     let mut out = [0; _];
     out[..usize::from(eew.bytes())]
         .copy_from_slice(memory.read_slice(addr, u32::from(eew.bytes()))?);
@@ -239,9 +239,6 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -265,7 +262,8 @@ where
         //
         // Sized by `MAX_NF * Eew::MAX_BYTES`: the V spec allows at most 8
         // fields (nf in 1..=8) each is at most 8 bytes (E64), giving 64 bytes.
-        let mut field_buf = [[0u8; usize::from(Eew::MAX_BYTES)]; usize::from(MAX_NF)];
+        let mut field_buf =
+            [[0u8; const { usize::from(Eew::MAX_BYTES) }]; const { usize::from(MAX_NF) }];
 
         for f in 0..nf {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
@@ -363,9 +361,6 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -452,9 +447,6 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {

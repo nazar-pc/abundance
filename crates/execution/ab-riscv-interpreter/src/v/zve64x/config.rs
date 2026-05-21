@@ -112,8 +112,6 @@ where
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {

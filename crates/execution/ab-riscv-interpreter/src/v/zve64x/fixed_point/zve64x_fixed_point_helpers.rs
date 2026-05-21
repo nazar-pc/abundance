@@ -426,9 +426,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
@@ -496,9 +493,6 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,

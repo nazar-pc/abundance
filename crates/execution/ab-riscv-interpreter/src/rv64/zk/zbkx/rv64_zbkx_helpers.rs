@@ -10,7 +10,7 @@ pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
         }
         _ => {
             use core::simd::num::SimdUint;
-            use core::simd::{simd_swizzle, u64x16};
+            use core::simd::u64x16;
 
             const SHIFT: u64x16 =
                 u64x16::from_array([0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60]);
@@ -22,9 +22,27 @@ pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
             let idx = (u64x16::splat(rs2) >> SHIFT) & MASK;
             // For each nibble of rs2, look up directly from lut; all indices 0–15 are in-bounds
             let nibbles = lut.cast().swizzle_dyn(idx.cast());
+            // TODO: Including modified macro expansions for now, switch back to the macro once
+            //  migrated to the newer nightly
             // Pack nibbles back: interleave even/odd lanes and fold into bytes
-            let lo = simd_swizzle!(nibbles, [0, 2, 4, 6, 8, 10, 12, 14]);
-            let hi = simd_swizzle!(nibbles, [1, 3, 5, 7, 9, 11, 13, 15]);
+            // let lo = simd_swizzle!(nibbles, [0, 2, 4, 6, 8, 10, 12, 14]);
+            let lo = {
+                use core::simd::Swizzle;
+                struct Impl;
+                impl Swizzle<const { [0, 2, 4, 6, 8, 10, 12, 14].len() }> for Impl {
+                    const INDEX: [usize; const { [0, 2, 4, 6, 8, 10, 12, 14].len() }] = [0, 2, 4, 6, 8, 10, 12, 14];
+                }
+                Impl::swizzle(nibbles)
+            };
+            // let hi = simd_swizzle!(nibbles, [1, 3, 5, 7, 9, 11, 13, 15]);
+            let hi = {
+                use core::simd::Swizzle;
+                struct Impl;
+                impl Swizzle<const { [1, 3, 5, 7, 9, 11, 13, 15].len() }> for Impl {
+                    const INDEX: [usize; const { [1, 3, 5, 7, 9, 11, 13, 15].len() }] = [1, 3, 5, 7, 9, 11, 13, 15];
+                }
+                Impl::swizzle(nibbles)
+            };
             u64::from_le_bytes((lo | (hi << 4)).to_array())
         }
     }

@@ -1189,7 +1189,8 @@ fn vtype_encode_decode_roundtrip() {
 
     for &(vsew, vlmul, vta, vma) in combos {
         let raw = u64::from(encode_vtype(vsew, vlmul, vta, vma));
-        let decoded = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+        let decoded =
+            Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
         assert!(
             decoded.is_some(),
             "Failed to decode vsew={vsew}, vlmul={vlmul}"
@@ -1210,7 +1211,8 @@ fn vtype_encode_decode_roundtrip() {
 fn vtype_from_raw_rejects_reserved_vsew() {
     // vsew = 0b100 (bits [5:3] = 4)
     let raw = 0b100_000u64;
-    let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result =
+        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1218,14 +1220,16 @@ fn vtype_from_raw_rejects_reserved_vsew() {
 fn vtype_from_raw_rejects_reserved_vlmul() {
     // vlmul = 0b100
     let raw = 0b100u64;
-    let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result =
+        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
 #[test]
 fn vtype_from_raw_rejects_upper_bits_set() {
     let raw = (1u64 << 8u8) | u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false));
-    let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result =
+        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1234,7 +1238,7 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
     // For Zve32x (ELEN=32), e64 should be rejected.
     // But our ELEN=64, so e64 is fine. Test with a smaller ELEN.
     let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::M1, false, false));
-    let result = Vtype::<32, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result = Vtype::<32, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1242,7 +1246,8 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
 fn vtype_from_raw_rejects_zero_vlmax() {
     // e64 mf8 on VLEN=128: VLMAX = 0
     let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::Mf8, false, false));
-    let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result =
+        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 

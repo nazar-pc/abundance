@@ -1,11 +1,14 @@
-#![expect(incomplete_features, reason = "generic_const_exprs")]
+#![expect(incomplete_features, reason = "min_generic_const_args")]
 #![feature(
     const_cmp,
     const_trait_impl,
     const_try,
     const_try_residual,
-    generic_const_exprs,
+    generic_const_args,
+    generic_const_items,
+    inherent_associated_types,
     iter_array_chunks,
+    min_generic_const_args,
     signed_bigint_helpers,
     try_blocks
 )]
@@ -38,8 +41,8 @@ compile_error!("Only little-endian platforms are supported");
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 
-const RAM_BASE: u64 = 0x8000_0000;
-const RAM_SIZE: usize = 4 * 1024 * 1024;
+type const RAM_BASE: u64 = 0x8000_0000;
+type const RAM_SIZE: usize = const { 4 * 1024 * 1024 };
 const MRET_INSTRUCTION: u32 = 0x3020_0073;
 
 /// RISC-V ISA
@@ -585,7 +588,6 @@ fn check_signature<const RAM_BASE: u64, const RAM_SIZE: usize, Reg>(
 ) -> Result<(), TestError<Reg::Type>>
 where
     Reg: Register<Type: BasicInt>,
-    [(); size_of::<Reg::Type>()]:,
 {
     let Some(tohost) = memory.tohost_value::<Reg::Type>(elf.tohost_addr)? else {
         return Err(TestError::Test(anyhow::anyhow!(
@@ -624,10 +626,12 @@ where
         });
     }
 
+    type const SIZE_OF<Type>: usize = const { size_of::<Type>() };
+
     for (word, (actual, expected)) in actual_signature
         .iter()
         .copied()
-        .array_chunks::<{ size_of::<Reg::Type>() }>()
+        .array_chunks::<{ SIZE_OF::<Reg::Type> }>()
         .map(|bytes| {
             // SAFETY: Correct size with all bit patterns being valid
             unsafe { bytes.as_ptr().cast::<Reg::Type>().read_unaligned() }
@@ -636,7 +640,7 @@ where
             expected_signature
                 .iter()
                 .copied()
-                .array_chunks::<{ size_of::<Reg::Type>() }>()
+                .array_chunks::<{ SIZE_OF::<Reg::Type> }>()
                 .map(|bytes| {
                     // SAFETY: Correct size with all bit patterns being valid
                     unsafe { bytes.as_ptr().cast::<Reg::Type>().read_unaligned() }

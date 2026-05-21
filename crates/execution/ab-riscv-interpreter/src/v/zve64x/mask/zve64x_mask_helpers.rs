@@ -26,9 +26,6 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u8, u8) -> u8,
 {
@@ -80,9 +77,6 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -126,9 +120,6 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -185,9 +176,6 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -233,9 +221,6 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -281,9 +266,6 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -337,9 +319,6 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
@@ -388,9 +367,6 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`

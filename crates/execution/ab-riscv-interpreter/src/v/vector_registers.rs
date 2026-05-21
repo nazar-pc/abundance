@@ -6,22 +6,25 @@ use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
 
+type const VLENB<const VLEN: u32>: u32 = const { VLEN / u8::BITS };
+type const VLENB_USIZE<const VLENB: u32>: usize = const { VLENB as usize };
+
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases
 #[repr(align(128))]
-pub struct VectorRegisterFile<const VLENB: usize>([[u8; VLENB]; 32]);
+pub struct VectorRegisterFile<const VLENB: u32>([[u8; VLENB_USIZE::<VLENB>]; 32]);
 
-impl<const VLENB: usize> const Default for VectorRegisterFile<VLENB> {
+impl<const VLENB: u32> const Default for VectorRegisterFile<VLENB> {
     #[inline(always)]
     fn default() -> Self {
-        Self([[0; VLENB]; 32])
+        Self([[0; _]; _])
     }
 }
 
-impl<const VLENB: usize> const Deref for VectorRegisterFile<VLENB> {
-    type Target = [[u8; VLENB]; 32];
+impl<const VLENB: u32> const Deref for VectorRegisterFile<VLENB> {
+    type Target = [[u8; VLENB_USIZE::<VLENB>]; 32];
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -29,7 +32,7 @@ impl<const VLENB: usize> const Deref for VectorRegisterFile<VLENB> {
     }
 }
 
-impl<const VLENB: usize> const DerefMut for VectorRegisterFile<VLENB> {
+impl<const VLENB: u32> const DerefMut for VectorRegisterFile<VLENB> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -41,11 +44,15 @@ impl<const VLENB: usize> const DerefMut for VectorRegisterFile<VLENB> {
 /// This is primarily a workaround for type system cycles.
 pub trait VectorRegistersBase {
     /// Maximum vector element width `ELEN` in bits
-    const ELEN: u32;
+    type const ELEN: u32;
     /// Vector register width `VLEN` in bits
-    const VLEN: u32;
+    type const VLEN: u32;
     /// Vector register width in bytes (`vlenb = VLEN / 8`)
-    const VLENB: u32 = Self::VLEN / u8::BITS;
+    type const VLENB: u32 = VLENB::<{ Self::VLEN }>;
+    /// Vector register width in bytes (`vlenb = VLEN / 8`).
+    ///
+    /// The same as `Self::VLENB`, but `usize`.
+    type const VLENB_USIZE: usize = VLENB_USIZE::<{ Self::VLENB }>;
 }
 
 // TODO: Figure out a way to make `VectorRegisters + VectorRegistersExt` trait bounds work without
@@ -69,10 +76,10 @@ where
     Self: VectorRegistersBase + SupportedElenVlen<{ Self::ELEN }, { Self::VLEN }>,
 {
     /// Read the vector register file
-    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }>;
+    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB }>;
 
     /// Mutable access to the vector register file
-    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }>;
+    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }>;
 
     /// Get the current decoded vtype
     fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>;
@@ -133,8 +140,6 @@ where
 pub trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
 where
     Self: Csrs<Reg, CustomError> + VectorRegisters<CustomError>,
-    [(); Self::ELEN as usize]:,
-    [(); Self::VLEN as usize]:,
     Reg: Register,
     CustomError: fmt::Debug,
 {

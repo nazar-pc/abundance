@@ -15,7 +15,7 @@ use core::fmt;
 /// # Safety
 /// `index_eew.bytes() <= Eew::MAX_BYTES`, which is always true by construction.
 #[inline(always)]
-unsafe fn index_buf_to_u64(buf: [u8; Eew::MAX_BYTES as usize], index_eew: Eew) -> u64 {
+unsafe fn index_buf_to_u64(buf: [u8; const { Eew::MAX_BYTES as usize }], index_eew: Eew) -> u64 {
     match index_eew {
         Eew::E8 => u64::from(buf[0]),
         Eew::E16 => u64::from(u16::from_le_bytes([buf[0], buf[1]])),
@@ -30,7 +30,7 @@ fn write_mem_element(
     memory: &mut impl VirtualMemory,
     addr: u64,
     eew: Eew,
-    buf: [u8; Eew::MAX_BYTES as usize],
+    buf: [u8; const { Eew::MAX_BYTES as usize }],
 ) -> Result<(), VirtualMemoryError> {
     memory.write_slice(addr, &buf[..usize::from(eew.bytes())])
 }
@@ -93,9 +93,6 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -171,9 +168,6 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -244,9 +238,6 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
