@@ -6,7 +6,7 @@ use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use futures::executor::block_on;
 use std::mem::MaybeUninit;
-use std::slice;
+use std::{iter, slice};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
@@ -24,13 +24,14 @@ fn find_matches_in_buckets_gpu() {
     let parent_table_size = 1000_usize;
 
     // Generate `y`s within `0..PARAM_BC*NUM_BUCKETS` range to fill the first `NUM_BUCKETS` buckets
-    let parent_table_ys = (0..parent_table_size)
-        .map(|_| Y::from(rng.next_u32() % (PARAM_BC as u32 * NUM_BUCKETS as u32)))
-        .collect::<Vec<_>>();
+    let parent_table_ys =
+        iter::repeat_with(|| Y::from(rng.next_u32() % (u32::from(PARAM_BC) * NUM_BUCKETS as u32)))
+            .take(parent_table_size)
+            .collect::<Vec<_>>();
     let buckets = {
         let mut buckets = [[PositionR::SENTINEL; MAX_BUCKET_SIZE]; 3];
 
-        let mut total_found = [0_usize; 3];
+        let mut total_found = [0usize; 3];
         for (position, &y) in parent_table_ys.iter().enumerate() {
             let (bucket_index, r) = y.into_bucket_index_and_r();
             let next_index = total_found[bucket_index as usize];

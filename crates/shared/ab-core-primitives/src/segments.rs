@@ -305,13 +305,13 @@ impl SuperSegment {
         );
 
         // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
-        //  allows the code to compile. Constant 1048575 is hardcoded here and below for compilation
-        //  to succeed.
+        //  allows the code to compile. Constant 1_048_575 is hardcoded here and below for
+        //  compilation to succeed.
         const {
-            assert!(SuperSegmentRoot::MAX_SEGMENTS == 1048575);
+            assert!(SuperSegmentRoot::MAX_SEGMENTS == 1_048_575);
         }
         // TODO: Keyed hash
-        let maybe_super_segment_root = UnbalancedMerkleTree::compute_root_only::<1048575, _, _>(
+        let maybe_super_segment_root = UnbalancedMerkleTree::compute_root_only::<1_048_575, _, _>(
             segment_roots.iter().map(ShardSegmentRootWithPosition::hash),
         )?;
 
@@ -334,14 +334,14 @@ impl SuperSegment {
     /// Produce a proof for a segment in the super segment at a given position
     pub fn proof_for_segment(&self, segment_position: SegmentPosition) -> Option<SegmentProof> {
         // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
-        //  allows the code to compile. Constant 1048575 is hardcoded here and below for compilation
-        //  to succeed.
+        //  allows the code to compile. Constant 1_048_575 is hardcoded here and below for
+        //  compilation to succeed.
         const {
-            assert!(SuperSegmentRoot::MAX_SEGMENTS == 1048575);
+            assert!(SuperSegmentRoot::MAX_SEGMENTS == 1_048_575);
         }
         // TODO: Keyed hash
         let mut segment_proof = SegmentProof::default();
-        UnbalancedMerkleTree::compute_root_and_proof_in::<1048575, _, _>(
+        UnbalancedMerkleTree::compute_root_and_proof_in::<1_048_575, _, _>(
             self.segment_roots.iter().map(|shard_segment_root| {
                 single_block_hash(shard_segment_root.as_bytes())
                     .expect("Less than a single block worth of bytes; qed")

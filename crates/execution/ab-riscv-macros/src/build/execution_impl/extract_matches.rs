@@ -32,11 +32,13 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
     let path = match &arm.pat {
         Pat::Struct(pat_struct) => &pat_struct.path,
         Pat::Path(expr_path) => &expr_path.path,
-        _ => Err(anyhow::anyhow!(
-            "`match` pattern must be `Self::Variant`, `Self::Variant {{ .. }}` or \
-            `Self::Variant(..)`: {}",
-            arm.pat.to_token_stream()
-        ))?,
+        _ => {
+            return Err(anyhow::anyhow!(
+                "`match` pattern must be `Self::Variant`, `Self::Variant {{ .. }}` or \
+                `Self::Variant(..)`: {}",
+                arm.pat.to_token_stream()
+            ));
+        }
     };
 
     let mut segments = path.segments.iter();

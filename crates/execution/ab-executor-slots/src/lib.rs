@@ -271,7 +271,7 @@ enum NestedSlotsInner<'a> {
 #[derive(Debug)]
 pub struct NestedSlots<'a>(NestedSlotsInner<'a>);
 
-impl<'a> Drop for NestedSlots<'a> {
+impl Drop for NestedSlots<'_> {
     #[inline(always)]
     fn drop(&mut self) {
         let (inner, parent_slot_access_len, original_parent) = match &mut self.0 {
@@ -307,7 +307,7 @@ impl<'a> Drop for NestedSlots<'a> {
                 | SlotState::ModifiedReadWrite { buffer, .. } => {
                     SlotState::Modified(buffer.into_shared())
                 }
-            })
+            });
         }
 
         if original_parent {

@@ -19,7 +19,7 @@ where
     C: Csrs<Reg, CustomError>,
 {
     let current = csrs.privilege_level();
-    let required_bits = ((csr_index >> 8) & 0b11) as u8;
+    let required_bits = ((csr_index >> 8u8) & 0b11) as u8;
     // Privilege level uses two bits. Using machine value as a placeholder (`0b11`) allows the
     // compiler to optimize this whole function away if `csrs.privilege_level()` returns fixed
     // `PrivilegeLevel::Machine` value, which is the most common case since `0b11` is larger or

@@ -492,7 +492,7 @@ where
     }
 
     #[inline(always)]
-    fn beacon_chain_block_details(&self) -> &Option<BeaconChainBlockDetails> {
+    fn beacon_chain_block_details(&self) -> Option<&BeaconChainBlockDetails> {
         match self {
             Self::InMemory {
                 beacon_chain_block_details,
@@ -505,7 +505,7 @@ where
             | Self::PersistedConfirmed {
                 beacon_chain_block_details,
                 ..
-            } => beacon_chain_block_details,
+            } => beacon_chain_block_details.as_ref(),
         }
     }
 }
@@ -550,7 +550,7 @@ struct SegmentHeadersCache {
 impl SegmentHeadersCache {
     #[inline(always)]
     fn last_segment_header(&self) -> Option<SegmentHeader> {
-        self.segment_headers_cache.last().cloned()
+        self.segment_headers_cache.last().copied()
     }
 
     #[inline(always)]
@@ -586,28 +586,25 @@ impl SegmentHeadersCache {
         // segment indices are monotonically increasing
         for segment_header in segment_headers.iter().copied() {
             let local_segment_index = segment_header.index.as_inner();
-            match maybe_last_local_segment_index {
-                Some(last_local_segment_index) => {
-                    if local_segment_index != last_local_segment_index + LocalSegmentIndex::ONE {
-                        return Err(PersistSegmentHeadersError::MustFollowLastSegmentIndex {
-                            local_segment_index,
-                            last_local_segment_index,
-                        });
-                    }
-
-                    self.segment_headers_cache.push(segment_header);
-                    maybe_last_local_segment_index.replace(local_segment_index);
+            if let Some(last_local_segment_index) = maybe_last_local_segment_index {
+                if local_segment_index != last_local_segment_index + LocalSegmentIndex::ONE {
+                    return Err(PersistSegmentHeadersError::MustFollowLastSegmentIndex {
+                        local_segment_index,
+                        last_local_segment_index,
+                    });
                 }
-                None => {
-                    if local_segment_index != LocalSegmentIndex::ZERO {
-                        return Err(PersistSegmentHeadersError::FirstSegmentIndexZero {
-                            local_segment_index,
-                        });
-                    }
 
-                    self.segment_headers_cache.push(segment_header);
-                    maybe_last_local_segment_index.replace(local_segment_index);
+                self.segment_headers_cache.push(segment_header);
+                maybe_last_local_segment_index.replace(local_segment_index);
+            } else {
+                if local_segment_index != LocalSegmentIndex::ZERO {
+                    return Err(PersistSegmentHeadersError::FirstSegmentIndexZero {
+                        local_segment_index,
+                    });
                 }
+
+                self.segment_headers_cache.push(segment_header);
+                maybe_last_local_segment_index.replace(local_segment_index);
             }
         }
 
@@ -623,7 +620,7 @@ struct SuperSegmentHeadersCache {
 impl SuperSegmentHeadersCache {
     #[inline(always)]
     fn last_super_segment_header(&self) -> Option<SuperSegmentHeader> {
-        self.super_segment_headers_cache.last().cloned()
+        self.super_segment_headers_cache.last().copied()
     }
 
     #[inline]
@@ -705,30 +702,27 @@ impl SuperSegmentHeadersCache {
         // that super segment indices are monotonically increasing
         for super_segment_header in super_segment_headers.iter().copied() {
             let super_segment_index = super_segment_header.index.as_inner();
-            match maybe_last_super_segment_index {
-                Some(last_super_segment_index) => {
-                    if super_segment_index != last_super_segment_index + SuperSegmentIndex::ONE {
-                        return Err(
-                            PersistSuperSegmentHeadersError::MustFollowLastSegmentIndex {
-                                super_segment_index,
-                                last_super_segment_index,
-                            },
-                        );
-                    }
-
-                    self.super_segment_headers_cache.push(super_segment_header);
-                    maybe_last_super_segment_index.replace(super_segment_index);
-                }
-                None => {
-                    if super_segment_index != SuperSegmentIndex::ZERO {
-                        return Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero {
+            if let Some(last_super_segment_index) = maybe_last_super_segment_index {
+                if super_segment_index != last_super_segment_index + SuperSegmentIndex::ONE {
+                    return Err(
+                        PersistSuperSegmentHeadersError::MustFollowLastSegmentIndex {
                             super_segment_index,
-                        });
-                    }
-
-                    self.super_segment_headers_cache.push(super_segment_header);
-                    maybe_last_super_segment_index.replace(super_segment_index);
+                            last_super_segment_index,
+                        },
+                    );
                 }
+
+                self.super_segment_headers_cache.push(super_segment_header);
+                maybe_last_super_segment_index.replace(super_segment_index);
+            } else {
+                if super_segment_index != SuperSegmentIndex::ZERO {
+                    return Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero {
+                        super_segment_index,
+                    });
+                }
+
+                self.super_segment_headers_cache.push(super_segment_header);
+                maybe_last_super_segment_index.replace(super_segment_index);
             }
         }
 
@@ -1148,7 +1142,7 @@ where
             if target_block_number > block_number {
                 // no need to check the initial segment
                 if current_local_segment_index > LocalSegmentIndex::ONE {
-                    current_local_segment_index -= LocalSegmentIndex::ONE
+                    current_local_segment_index -= LocalSegmentIndex::ONE;
                 } else {
                     break;
                 }
@@ -1329,7 +1323,7 @@ where
     #[inline]
     fn previous_super_segment_header(
         &self,
-        target_block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> Option<SuperSegmentHeader> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // most locks are read locks
@@ -1337,7 +1331,7 @@ where
 
         state
             .super_segment_headers_cache
-            .previous_super_segment_header(target_block_number)
+            .previous_super_segment_header(block_number)
     }
 
     #[inline]
@@ -1604,14 +1598,10 @@ where
                     0
                 };
 
-                let block_forks = match state_data.blocks.get_mut(block_offset) {
-                    Some(block_forks) => block_forks,
-                    None => {
-                        // Ignore the older block, other blocks at its height were already pruned
-                        // anyway
-
-                        return Ok(());
-                    }
+                let Some(block_forks) = state_data.blocks.get_mut(block_offset) else {
+                    // Ignore the older block, other blocks at its height were already pruned
+                    // anyway
+                    return Ok(());
                 };
 
                 // Push a new block to the end of the list, we'll fix it up later

@@ -423,14 +423,14 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
         let raw = raw.as_u64();
 
         // All bits in [XLEN-1:8] must be zero
-        if (raw >> 8) != 0 {
+        if (raw >> 8u8) != 0 {
             return None;
         }
 
         let vlmul_bits = (raw & 0b111) as u8;
-        let vsew_bits = ((raw >> 3) & 0b111) as u8;
-        let vta = ((raw >> 6) & 1) != 0;
-        let vma = ((raw >> 7) & 1) != 0;
+        let vsew_bits = ((raw >> 3u8) & 0b111) as u8;
+        let vta = ((raw >> 6u8) & 1) != 0;
+        let vma = ((raw >> 7u8) & 1) != 0;
 
         let vlmul = Vlmul::from_bits(vlmul_bits)?;
         let vsew = Vsew::from_bits(vsew_bits)?;
@@ -464,14 +464,14 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
     {
         let mut raw = 0u8;
         raw |= self.vlmul.to_bits();
-        raw |= self.vsew.to_bits() << 3;
+        raw |= self.vsew.to_bits() << 3u8;
 
         if self.vta {
-            raw |= 1 << 6;
+            raw |= 1 << 6u8;
         }
 
         if self.vma {
-            raw |= 1 << 7;
+            raw |= 1 << 7u8;
         }
 
         Reg::Type::from(raw)

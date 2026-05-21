@@ -42,7 +42,7 @@ impl<T> Drop for AsyncJoinOnDrop<T> {
 
             if !handle.is_finished() {
                 task::block_in_place(move || {
-                    let _ = Handle::current().block_on(handle);
+                    let _: Result<_, _> = Handle::current().block_on(handle);
                 });
             }
         }
@@ -298,7 +298,7 @@ impl CpuCoreSet {
             if let Err(error) =
                 topology.bind_thread_cpu(current_thread_id(), &cpu_cores, CpuBindingFlags::empty())
             {
-                warn!(%error, ?cpu_cores, "Failed to pin thread to CPU cores")
+                warn!(%error, ?cpu_cores, "Failed to pin thread to CPU cores");
             }
         }
     }
@@ -314,7 +314,7 @@ pub fn recommended_number_of_farming_threads() -> usize {
                 // Iterate over NUMA nodes
                 .objects_at_depth(hwlocality::object::depth::Depth::NUMANode)
                 // For each NUMA nodes get CPU set
-                .filter_map(|node| node.cpuset())
+                .filter_map(hwlocality::object::TopologyObject::cpuset)
                 // Get number of CPU cores
                 .map(|cpuset| cpuset.iter_set().count())
                 .find(|&count| count > 0)
@@ -340,7 +340,7 @@ pub fn all_cpu_cores() -> Vec<CpuCoreSet> {
                 // Iterate over groups of L3 caches
                 .objects_with_type(hwlocality::object::types::ObjectType::L3Cache)
                 // For each NUMA nodes get CPU set
-                .filter_map(|node| node.cpuset())
+                .filter_map(hwlocality::object::TopologyObject::cpuset)
                 // For each CPU set extract individual cores
                 .map(|cpuset| cpuset.iter_set().map(usize::from).collect::<Vec<_>>())
                 .filter(|cores| !cores.is_empty())
@@ -425,13 +425,13 @@ fn thread_pool_core_indices_internal(
     // In case number of thread pools is not specified, but user did customize thread pool size,
     // default to auto-detected number of thread pools
     let thread_pools = thread_pools
-        .map(|thread_pools| thread_pools.get())
+        .map(NonZeroUsize::get)
         .or_else(|| thread_pool_size.map(|_| all_cpu_cores.len()));
 
     if let Some(thread_pools) = thread_pools {
         let mut thread_pool_core_indices = Vec::<CpuCoreSet>::with_capacity(thread_pools);
 
-        let total_cpu_cores = all_cpu_cores.iter().flat_map(|set| set.cpu_cores()).count();
+        let total_cpu_cores = all_cpu_cores.iter().flat_map(CpuCoreSet::cpu_cores).count();
 
         if let Some(thread_pool_size) = thread_pool_size {
             // If thread pool size is fixed, loop over all CPU cores as many times as necessary and
@@ -528,7 +528,7 @@ fn create_plotting_thread_pool_manager_thread_pool_pair(
 
                     let _guard = handle.enter();
 
-                    task::block_in_place(|| thread.run())
+                    task::block_in_place(|| thread.run());
                 }
             })
         })
@@ -618,7 +618,7 @@ pub fn tokio_rayon_spawn_handler() -> impl FnMut(ThreadBuilder) -> io::Result<()
         move || {
             let _guard = handle.enter();
 
-            task::block_in_place(|| thread.run())
+            task::block_in_place(|| thread.run());
         }
     })
 }

@@ -5,13 +5,13 @@ use ab_riscv_primitives::prelude::*;
 
 /// Encode a vtype immediate from SEW, LMUL, vta, vma fields
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul, vta: bool, vma: bool) -> u16 {
-    let mut val = vlmul.to_bits() as u16;
-    val |= (vsew.to_bits() as u16) << 3;
+    let mut val = u16::from(vlmul.to_bits());
+    val |= u16::from(vsew.to_bits()) << 3u8;
     if vta {
-        val |= 1 << 6;
+        val |= 1 << 6u8;
     }
     if vma {
-        val |= 1 << 7;
+        val |= 1 << 7u8;
     }
     val
 }
@@ -255,7 +255,7 @@ fn vsetvli_tu_mu_flags_preserved() {
 #[test]
 fn vsetvli_unsupported_sew_sets_vill() {
     // vsew = 0b100 is reserved, encode manually
-    let vtypei = 0b100 << 3;
+    let vtypei = 0b100 << 3u8;
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -315,7 +315,7 @@ fn vsetvli_vlmax_zero_sets_vill() {
 #[test]
 fn vsetvli_reserved_upper_bits_set_vill() {
     // Bit 8 set in vtypei -> reserved, must set vill
-    let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false) | (1 << 8);
+    let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false) | (1 << 8u8);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -552,7 +552,7 @@ fn vsetivli_with_ta_ma() {
 
 #[test]
 fn vsetvl_basic() {
-    let vtype_raw = encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64;
+    let vtype_raw = u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false));
     // VLMAX = 4, AVL = 3
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
@@ -575,7 +575,7 @@ fn vsetvl_basic() {
 
 #[test]
 fn vsetvl_rs1_x0_rd_nonzero() {
-    let vtype_raw = encode_vtype(Vsew::E64, Vlmul::M1, false, false) as u64;
+    let vtype_raw = u64::from(encode_vtype(Vsew::E64, Vlmul::M1, false, false));
     // VLMAX = 128/64 = 2
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
@@ -614,7 +614,7 @@ fn vsetvl_unsupported_raw_sets_vill() {
 #[test]
 fn vsetvl_high_bits_in_rs2_sets_vill() {
     // Upper bits [62:8] non-zero -> must set vill per spec
-    let vtype_raw = (1u64 << 10) | encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64;
+    let vtype_raw = (1u64 << 10u8) | u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false));
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -633,7 +633,7 @@ fn vsetvl_high_bits_in_rs2_sets_vill() {
 #[test]
 fn vsetvl_context_restore_preserves_vtype() {
     // vsetvl is used for context restore; ensure the full round-trip works
-    let vtype_raw = encode_vtype(Vsew::E16, Vlmul::M4, true, false) as u64;
+    let vtype_raw = u64::from(encode_vtype(Vsew::E16, Vlmul::M4, true, false));
     // VLMAX = (128*4)/16 = 32
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
@@ -738,7 +738,7 @@ fn vsetvl_fails_when_vector_disabled() {
     state.regs.write(Reg::A1, 1);
     state.regs.write(
         Reg::A2,
-        encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64,
+        u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false)),
     );
     state.ext_state.set_vector_allowed(false);
 
@@ -945,7 +945,7 @@ fn vtype_csr_raw_value_matches_decoded() {
 
     let raw = state.ext_state.read_csr(VCsr::Vtype as u16).unwrap();
     // Should match the encoded vtypei (low 8 bits)
-    assert_eq!(raw, vtypei as u64);
+    assert_eq!(raw, u64::from(vtypei));
 }
 
 #[test]
@@ -989,7 +989,7 @@ fn vlenb_csr_returns_correct_value() {
     let mut state = initialize_state::<Zve64xConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     let raw = state.ext_state.read_csr(VCsr::Vlenb as u16).unwrap();
-    assert_eq!(raw, ExtState::VLENB as u64);
+    assert_eq!(raw, u64::from(ExtState::VLENB));
 }
 
 // Sequential instruction tests
@@ -1188,7 +1188,7 @@ fn vtype_encode_decode_roundtrip() {
     ];
 
     for &(vsew, vlmul, vta, vma) in combos {
-        let raw = encode_vtype(vsew, vlmul, vta, vma) as u64;
+        let raw = u64::from(encode_vtype(vsew, vlmul, vta, vma));
         let decoded = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
         assert!(
             decoded.is_some(),
@@ -1224,7 +1224,7 @@ fn vtype_from_raw_rejects_reserved_vlmul() {
 
 #[test]
 fn vtype_from_raw_rejects_upper_bits_set() {
-    let raw = (1u64 << 8) | encode_vtype(Vsew::E32, Vlmul::M1, false, false) as u64;
+    let raw = (1u64 << 8u8) | u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false));
     let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
@@ -1233,7 +1233,7 @@ fn vtype_from_raw_rejects_upper_bits_set() {
 fn vtype_from_raw_rejects_sew_exceeding_elen() {
     // For Zve32x (ELEN=32), e64 should be rejected.
     // But our ELEN=64, so e64 is fine. Test with a smaller ELEN.
-    let raw = encode_vtype(Vsew::E64, Vlmul::M1, false, false) as u64;
+    let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::M1, false, false));
     let result = Vtype::<32, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
@@ -1241,7 +1241,7 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
 #[test]
 fn vtype_from_raw_rejects_zero_vlmax() {
     // e64 mf8 on VLEN=128: VLMAX = 0
-    let raw = encode_vtype(Vsew::E64, Vlmul::Mf8, false, false) as u64;
+    let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::Mf8, false, false));
     let result = Vtype::<{ ExtState::ELEN }, { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }

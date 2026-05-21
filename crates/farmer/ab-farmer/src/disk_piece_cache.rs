@@ -25,7 +25,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::task::Poll;
-use std::{fs, io};
+use std::{fs, io, iter};
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::task;
@@ -67,8 +67,8 @@ struct FilePool {
 
 impl FilePool {
     fn open(path: &Path) -> io::Result<Self> {
-        let files = (0..PIECES_READING_CONCURRENCY)
-            .map(|_| DirectIoFileWrapper::open(path))
+        let files = iter::repeat_with(|| DirectIoFileWrapper::open(path))
+            .take(PIECES_READING_CONCURRENCY)
             .collect::<Result<Box<_>, _>>()?
             .try_into()
             .expect("Statically correct length; qed");
@@ -302,15 +302,10 @@ impl DiskPieceCache {
         &self,
     ) -> impl ExactSizeIterator<Item = (PieceCacheOffset, Option<PieceIndex>)> + '_ {
         let mut element = vec![0; Self::element_size() as usize];
-        let count_total = self
-            .inner
-            .metrics
-            .as_ref()
-            .map(|metrics| {
-                metrics.contents.inc();
-                metrics.capacity_used.get() == 0
-            })
-            .unwrap_or_default();
+        let count_total = self.inner.metrics.as_ref().is_some_and(|metrics| {
+            metrics.contents.inc();
+            metrics.capacity_used.get() == 0
+        });
         let mut current_skip = 0;
 
         // TODO: Parallelize or read in larger batches

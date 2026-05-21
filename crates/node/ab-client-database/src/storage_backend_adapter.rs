@@ -21,7 +21,7 @@ use replace_with::replace_with_or_abort_and_return;
 use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::task::Poll;
-use std::{future, io};
+use std::{future, io, iter};
 use strum::FromRepr;
 use tracing::{Instrument, debug, error, info_span};
 
@@ -253,7 +253,7 @@ where
         .await?;
 
         // Read all temporary storage groups
-        let _ = StorageBackendAdapter::read_page_groups(
+        let _: Vec<_> = StorageBackendAdapter::read_page_groups(
             &mut page_groups[PageGroupKind::Temporary],
             page_group_size,
             &storage_backend,
@@ -276,8 +276,8 @@ where
             database_version,
             page_group_size,
             storage_backend,
-            write_buffer: (0..write_buffer_size)
-                .map(|_| WriteBufferEntry::Free(Vec::new()))
+            write_buffer: iter::repeat_with(|| WriteBufferEntry::Free(Vec::new()))
+                .take(write_buffer_size)
                 .collect(),
             page_groups,
             free_page_groups,

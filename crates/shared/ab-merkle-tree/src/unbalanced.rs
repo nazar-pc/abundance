@@ -52,7 +52,7 @@ impl UnbalancedMerkleTree {
     {
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
-        let mut num_leaves = 0_u64;
+        let mut num_leaves = 0u64;
 
         for hash in leaves {
             // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
@@ -189,7 +189,7 @@ impl UnbalancedMerkleTree {
         Iter: IntoIterator<Item = Item> + 'a,
     {
         let mut proof_length = 0;
-        let mut num_leaves = 0_u64;
+        let mut num_leaves = 0u64;
 
         let mut current_target_level = None;
         let mut position = target_index;

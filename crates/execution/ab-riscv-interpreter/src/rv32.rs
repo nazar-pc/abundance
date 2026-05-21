@@ -73,11 +73,11 @@ where
             }
             Self::Slt { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value.cast_signed() < rs2_value.cast_signed();
-                Ok(ControlFlow::Continue((rd, value as u32)))
+                Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
             Self::Sltu { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value < rs2_value;
-                Ok(ControlFlow::Continue((rd, value as u32)))
+                Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
             Self::Xor { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value ^ rs2_value;
@@ -108,11 +108,11 @@ where
             }
             Self::Slti { rd, rs1: _, imm } => {
                 let value = rs1_value.cast_signed() < i32::from(imm);
-                Ok(ControlFlow::Continue((rd, value as u32)))
+                Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
             Self::Sltiu { rd, rs1: _, imm } => {
                 let value = rs1_value < i32::from(imm).cast_unsigned();
-                Ok(ControlFlow::Continue((rd, value as u32)))
+                Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
             Self::Xori { rd, rs1: _, imm } => {
                 let value = rs1_value ^ i32::from(imm).cast_unsigned();
@@ -157,12 +157,12 @@ where
             Self::Lbu { rd, rs1: _, imm } => {
                 let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = memory.read::<u8>(u64::from(addr))?;
-                Ok(ControlFlow::Continue((rd, value as u32)))
+                Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
             Self::Lhu { rd, rs1: _, imm } => {
                 let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 let value = memory.read::<u16>(u64::from(addr))?;
-                Ok(ControlFlow::Continue((rd, value as u32)))
+                Ok(ControlFlow::Continue((rd, u32::from(value))))
             }
 
             Self::Jalr { rd, rs1: _, imm } => {

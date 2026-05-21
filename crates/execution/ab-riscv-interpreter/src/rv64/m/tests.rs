@@ -49,8 +49,8 @@ fn test_mulhu() {
 
     execute(&mut state).unwrap();
 
-    let prod = (u64::MAX as u128) * (u64::MAX as u128);
-    assert_eq!(state.regs.read(Reg::A2), (prod >> 64) as u64);
+    let prod = u128::from(u64::MAX) * u128::from(u64::MAX);
+    assert_eq!(state.regs.read(Reg::A2), (prod >> 64u8) as u64);
 }
 
 #[test]
@@ -66,10 +66,10 @@ fn test_mulhsu() {
 
     execute(&mut state).unwrap();
 
-    let prod = (-2i64 as i128) * (3i128);
+    let prod = i128::from(-2i64) * (3i128);
     assert_eq!(
         state.regs.read(Reg::A2),
-        (prod >> 64).cast_unsigned() as u64
+        (prod >> 64u8).cast_unsigned() as u64
     );
 }
 
@@ -279,7 +279,9 @@ fn test_mulw_negative() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, (-3i32).cast_unsigned() as u64);
+    state
+        .regs
+        .write(Reg::A0, u64::from((-3i32).cast_unsigned()));
     state.regs.write(Reg::A1, 4);
 
     execute(&mut state).unwrap();
@@ -329,7 +331,9 @@ fn test_divw_negative() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, (-20i32).cast_unsigned() as u64);
+    state
+        .regs
+        .write(Reg::A0, u64::from((-20i32).cast_unsigned()));
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
@@ -362,13 +366,20 @@ fn test_divw_overflow() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, i32::MIN.cast_unsigned() as u64);
-    state.regs.write(Reg::A1, (-1i32).cast_unsigned() as u64);
+    state
+        .regs
+        .write(Reg::A0, u64::from(i32::MIN.cast_unsigned()));
+    state
+        .regs
+        .write(Reg::A1, u64::from((-1i32).cast_unsigned()));
 
     execute(&mut state).unwrap();
 
     // Overflow case: returns i32::MIN sign-extended
-    assert_eq!(state.regs.read(Reg::A2), (i32::MIN as i64).cast_unsigned());
+    assert_eq!(
+        state.regs.read(Reg::A2),
+        i64::from(i32::MIN).cast_unsigned()
+    );
 }
 
 #[test]
@@ -479,7 +490,9 @@ fn test_remw_negative_dividend() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, (-20i32).cast_unsigned() as u64);
+    state
+        .regs
+        .write(Reg::A0, u64::from((-20i32).cast_unsigned()));
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
@@ -497,7 +510,9 @@ fn test_remw_negative_divisor() {
     }]);
 
     state.regs.write(Reg::A0, 20);
-    state.regs.write(Reg::A1, (-3i32).cast_unsigned() as u64);
+    state
+        .regs
+        .write(Reg::A1, u64::from((-3i32).cast_unsigned()));
 
     execute(&mut state).unwrap();
 
@@ -530,8 +545,12 @@ fn test_remw_overflow() {
         rs2: Reg::A1,
     }]);
 
-    state.regs.write(Reg::A0, i32::MIN.cast_unsigned() as u64);
-    state.regs.write(Reg::A1, (-1i32).cast_unsigned() as u64);
+    state
+        .regs
+        .write(Reg::A0, u64::from(i32::MIN.cast_unsigned()));
+    state
+        .regs
+        .write(Reg::A1, u64::from((-1i32).cast_unsigned()));
 
     execute(&mut state).unwrap();
 

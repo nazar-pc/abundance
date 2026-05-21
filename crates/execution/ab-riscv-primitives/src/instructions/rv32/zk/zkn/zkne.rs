@@ -39,17 +39,17 @@ pub enum Rv32ZkneInstruction<Reg> {
 ///
 /// ```text
 /// [31:30] bs       - 2-bit byte select
-/// [29:25] funct5   - 0b10001 (aes32esi) / 0b10011 (aes32esmi)
+/// [29:25] funct5   - 0b1_0001 (aes32esi) / 0b1_0011 (aes32esmi)
 /// [24:20] rs2
 /// [19:15] rs1
 /// [14:12] funct3   - 0b000
 /// [11:7]  rd
-/// [6:0]   opcode   - 0b0110011 (OP)
+/// [6:0]   opcode   - 0b011_0011 (OP)
 /// ```
 ///
 /// Ratified match/mask values (from riscv-opcodes):
-///   MATCH_AES32ESI  = 0x22000033, MASK_AES32ESI  = 0x3e00707f
-///   MATCH_AES32ESMI = 0x26000033, MASK_AES32ESMI = 0x3e00707f
+///   MATCH_AES32ESI  = 0x2200_0033, MASK_AES32ESI  = 0x3e00_707f
+///   MATCH_AES32ESMI = 0x2600_0033, MASK_AES32ESMI = 0x3e00_707f
 ///
 /// `rd` and `rs1` are independent fields. The assembler convention places
 /// the accumulator in both rd and rs1 (the `rt` pattern), but the hardware
@@ -72,7 +72,7 @@ where
         let bs_bits = ((instruction >> 30) & 0b11) as u8;
 
         // R-type OP opcode only
-        if opcode != 0b0110011 {
+        if opcode != 0b011_0011 {
             None?;
         }
         if funct3 != 0b000 {
@@ -85,10 +85,10 @@ where
         let bs = Rv32AesBs::from_bits(bs_bits)?;
 
         match funct5 {
-            // aes32esi:  bs[31:30] | 0b10001[29:25]
-            0b10001 => Some(Self::Aes32Esi { rd, rs1, rs2, bs }),
-            // aes32esmi: bs[31:30] | 0b10011[29:25]
-            0b10011 => Some(Self::Aes32Esmi { rd, rs1, rs2, bs }),
+            // aes32esi:  bs[31:30] | 0b1_0001[29:25]
+            0b1_0001 => Some(Self::Aes32Esi { rd, rs1, rs2, bs }),
+            // aes32esmi: bs[31:30] | 0b1_0011[29:25]
+            0b1_0011 => Some(Self::Aes32Esmi { rd, rs1, rs2, bs }),
             _ => None,
         }
     }

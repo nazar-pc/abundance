@@ -48,7 +48,7 @@ where
     > {
         match self {
             Self::AddUw { rd, rs1: _, rs2: _ } => {
-                let rs1_val = (rs1_value as u32) as u64;
+                let rs1_val = u64::from(rs1_value as u32);
                 let value = rs1_val.wrapping_add(rs2_value);
                 Ok(ControlFlow::Continue((rd, value)))
             }
@@ -57,7 +57,7 @@ where
                 Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Sh1addUw { rd, rs1: _, rs2: _ } => {
-                let rs1_val = (rs1_value as u32) as u64;
+                let rs1_val = u64::from(rs1_value as u32);
                 let value = (rs1_val << 1).wrapping_add(rs2_value);
                 Ok(ControlFlow::Continue((rd, value)))
             }
@@ -66,7 +66,7 @@ where
                 Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Sh2addUw { rd, rs1: _, rs2: _ } => {
-                let rs1_val = (rs1_value as u32) as u64;
+                let rs1_val = u64::from(rs1_value as u32);
                 let value = (rs1_val << 2).wrapping_add(rs2_value);
                 Ok(ControlFlow::Continue((rd, value)))
             }
@@ -75,12 +75,12 @@ where
                 Ok(ControlFlow::Continue((rd, value)))
             }
             Self::Sh3addUw { rd, rs1: _, rs2: _ } => {
-                let rs1_val = (rs1_value as u32) as u64;
+                let rs1_val = u64::from(rs1_value as u32);
                 let value = (rs1_val << 3).wrapping_add(rs2_value);
                 Ok(ControlFlow::Continue((rd, value)))
             }
             Self::SlliUw { rd, rs1: _, shamt } => {
-                let rs1_val = (rs1_value as u32) as u64;
+                let rs1_val = u64::from(rs1_value as u32);
                 let value = rs1_val << (shamt & 0x3f);
                 Ok(ControlFlow::Continue((rd, value)))
             }

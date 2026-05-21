@@ -124,8 +124,8 @@ fn test_matches() {
 
     let mut bucket_ys = BTreeMap::<usize, Vec<_>>::new();
     let mut x = X::from(0);
-    for _ in 0..=1 << (K - 4) {
-        for _ in 0..16 {
+    for _ in 0..=1u32 << (K - 4) {
+        for _ in 0..16u8 {
             let y = compute_f1::<K>(x, &seed);
             let bucket_index = usize::from(y) / usize::from(PARAM_BC);
 
@@ -243,66 +243,66 @@ fn verify_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>
 fn test_verify_fn() {
     const K: u8 = 16;
 
-    verify_fn::<K, 2, 1>(0x44cb, 0x204f, 0x20a61a, 0x2af546, 0x44cb204f);
-    verify_fn::<K, 2, 1>(0x3c5f, 0xfda9, 0x3988ec, 0x15293b, 0x3c5ffda9);
+    verify_fn::<K, 2, 1>(0x44cb, 0x204f, 0x20_a61a, 0x2a_f546, 0x44cb_204f);
+    verify_fn::<K, 2, 1>(0x3c5f, 0xfda9, 0x39_88ec, 0x15_293b, 0x3c5f_fda9);
     verify_fn::<K, 3, 2>(
-        0x35bf992d,
-        0x7ce42c82,
-        0x31e541,
-        0xf73b3,
-        0x35bf992d7ce42c82,
+        0x35bf_992d,
+        0x7ce4_2c82,
+        0x31_e541,
+        0xf_73b3,
+        0x35bf_992d_7ce4_2c82,
     );
     verify_fn::<K, 3, 2>(
-        0x7204e52d,
-        0xf1fd42a2,
-        0x28a188,
-        0x3fb0b5,
-        0x7204e52df1fd42a2,
+        0x7204_e52d,
+        0xf1fd_42a2,
+        0x28_a188,
+        0x3f_b0b5,
+        0x7204_e52d_f1fd_42a2,
     );
     verify_fn::<K, 4, 3>(
-        0x5b6e6e307d4bedc,
-        0x8a9a021ea648a7dd,
-        0x30cb4c,
-        0x11ad5,
-        0xd4bd0b144fc26138,
+        0x5b6_e6e3_07d4_bedc,
+        0x8a9a_021e_a648_a7dd,
+        0x30_cb4c,
+        0x1_1ad5,
+        0xd4bd_0b14_4fc2_6138,
     );
     verify_fn::<K, 4, 3>(
-        0xb9d179e06c0fd4f5,
-        0xf06d3fef701966a0,
-        0x1dd5b6,
-        0xe69a2,
-        0xd02115f512009d4d,
+        0xb9d1_79e0_6c0f_d4f5,
+        0xf06d_3fef_7019_66a0,
+        0x1d_d5b6,
+        0xe_69a2,
+        0xd021_15f5_1200_9d4d,
     );
     verify_fn::<K, 5, 4>(
-        0xc2cd789a380208a9,
-        0x19999e3fa46d6753,
-        0x25f01e,
-        0x1f22bd,
-        0xabe423040a33,
+        0xc2cd_789a_3802_08a9,
+        0x1999_9e3f_a46d_6753,
+        0x25_f01e,
+        0x1f_22bd,
+        0xabe4_2304_0a33,
     );
     verify_fn::<K, 5, 4>(
-        0xbe3edc0a1ef2a4f0,
-        0x4da98f1d3099fdf5,
-        0x3feb18,
-        0x31501e,
-        0x7300a3a03ac5,
+        0xbe3e_dc0a_1ef2_a4f0,
+        0x4da9_8f1d_3099_fdf5,
+        0x3f_eb18,
+        0x31_501e,
+        0x7300_a3a0_3ac5,
     );
     verify_fn::<K, 6, 5>(
-        0xc965815a47c5,
-        0xf5e008d6af57,
-        0x1f121a,
-        0x1cabbe,
-        0xc8cc6947,
+        0xc965_815a_47c5,
+        0xf5e0_08d6_af57,
+        0x1f_121a,
+        0x1c_abbe,
+        0xc8cc_6947,
     );
     verify_fn::<K, 6, 5>(
-        0xd420677f6cbd,
-        0x5894aa2ca1af,
-        0x2efde9,
-        0xc2121,
-        0x421bb8ec,
+        0xd420_677f_6cbd,
+        0x5894_aa2c_a1af,
+        0x2e_fde9,
+        0xc_2121,
+        0x421b_b8ec,
     );
-    verify_fn::<K, 7, 6>(0x5fec898f, 0x82283d15, 0x14f410, 0x24c3c2, 0x0);
-    verify_fn::<K, 7, 6>(0x64ac5db9, 0x7923986, 0x590fd, 0x1c74a2, 0x0);
+    verify_fn::<K, 7, 6>(0x5fec_898f, 0x8228_3d15, 0x14_f410, 0x24_c3c2, 0x0);
+    verify_fn::<K, 7, 6>(0x64ac_5db9, 0x792_3986, 0x5_90fd, 0x1c_74a2, 0x0);
 }
 
 #[test]
@@ -330,7 +330,7 @@ fn test_proofs_lower_bound() {
         const V_FACTOR: f64 = 9.0;
 
         // Lambda is the expected number per bucket/pair, independent of `k`.
-        let lambda = f64::from(PARAM_BC) / 2u32.pow(u32::from(PARAM_EXT)) as f64;
+        let lambda = f64::from(PARAM_BC) / f64::from(2u32.pow(u32::from(PARAM_EXT)));
 
         // Rate for match truncation
         let match_truncation_rate =
@@ -390,5 +390,5 @@ fn test_proofs_lower_bound() {
             REDUCED_MATCHES_COUNT,
             REDUCED_BUCKET_SIZE
         ) >= Record::NUM_CHUNKS as u64
-    )
+    );
 }

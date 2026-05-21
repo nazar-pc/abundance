@@ -61,9 +61,9 @@ where
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
             Self::VwadduVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -73,9 +73,9 @@ where
                 let sew = vtype.vsew();
                 // Widening requires SEW < 64; 2*SEW must fit in ELEN=64
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -108,9 +108,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -127,7 +127,7 @@ where
                         sew,
                         true,
                         true,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
@@ -139,9 +139,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -150,9 +150,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -180,9 +180,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -201,16 +201,16 @@ where
                         sew,
                         true,
                         true,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
             // vwadd.vv - 2*SEW = sext(SEW) + sext(SEW)
             Self::VwaddVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -219,9 +219,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -254,9 +254,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -273,7 +273,7 @@ where
                         sew,
                         false,
                         false,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
@@ -285,9 +285,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -296,9 +296,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -326,9 +326,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -351,16 +351,16 @@ where
                         sew,
                         false,
                         false,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
             // vwsubu.vv - 2*SEW = zext(SEW) - zext(SEW)
             Self::VwsubuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -369,9 +369,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -404,9 +404,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -423,7 +423,7 @@ where
                         sew,
                         true,
                         true,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
@@ -435,9 +435,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -446,9 +446,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -476,9 +476,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -496,16 +496,16 @@ where
                         sew,
                         true,
                         true,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
             // vwsub.vv - 2*SEW = sext(SEW) - sext(SEW)
             Self::VwsubVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -514,9 +514,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -549,9 +549,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -568,7 +568,7 @@ where
                         sew,
                         false,
                         false,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
@@ -580,9 +580,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -591,9 +591,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -621,9 +621,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -645,16 +645,16 @@ where
                         sew,
                         false,
                         false,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
             // vwaddu.wv - 2*SEW = 2*SEW + zext(SEW)
             Self::VwadduWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -663,9 +663,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -699,9 +699,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -717,7 +717,7 @@ where
                         vstart,
                         sew,
                         true,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
@@ -729,9 +729,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -740,9 +740,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
@@ -767,9 +767,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -786,16 +786,16 @@ where
                         vstart,
                         sew,
                         true,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
             // vwadd.wv - 2*SEW = 2*SEW + sext(SEW)
             Self::VwaddWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -804,9 +804,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -839,9 +839,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -857,7 +857,7 @@ where
                         vstart,
                         sew,
                         false,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
@@ -869,9 +869,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -880,9 +880,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
@@ -906,9 +906,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -929,16 +929,16 @@ where
                         vstart,
                         sew,
                         false,
-                        |a, b| a.wrapping_add(b),
+                        u64::wrapping_add,
                     );
                 }
             }
             // vwsubu.wv - 2*SEW = 2*SEW - zext(SEW)
             Self::VwsubuWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -947,9 +947,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -982,9 +982,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1000,7 +1000,7 @@ where
                         vstart,
                         sew,
                         true,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
@@ -1012,9 +1012,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1023,9 +1023,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
@@ -1049,9 +1049,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1068,16 +1068,16 @@ where
                         vstart,
                         sew,
                         true,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
             // vwsub.wv - 2*SEW = 2*SEW - sext(SEW)
             Self::VwsubWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1086,9 +1086,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1121,9 +1121,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1139,7 +1139,7 @@ where
                         vstart,
                         sew,
                         false,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
@@ -1151,9 +1151,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1162,9 +1162,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
@@ -1188,9 +1188,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1211,16 +1211,16 @@ where
                         vstart,
                         sew,
                         false,
-                        |a, b| a.wrapping_sub(b),
+                        u64::wrapping_sub,
                     );
                 }
             }
             // vnsrl.wv - SEW = (2*SEW) >> SEW (logical)
             Self::VnsrlWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1230,9 +1230,9 @@ where
                 let sew = vtype.vsew();
                 // SEW must be < 64 so that 2*SEW fits in ELEN
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1262,9 +1262,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1291,9 +1291,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1302,9 +1302,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1329,9 +1329,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1354,9 +1354,9 @@ where
             // vnsrl.wi - SEW = (2*SEW) >> uimm (logical)
             Self::VnsrlWi { vd, vs2, uimm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1365,9 +1365,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1392,9 +1392,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1416,9 +1416,9 @@ where
             // vnsra.wv - SEW = (2*SEW) >> SEW (arithmetic)
             Self::VnsraWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1427,9 +1427,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1459,9 +1459,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1488,9 +1488,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1499,9 +1499,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1526,9 +1526,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1551,9 +1551,9 @@ where
             // vnsra.wi - SEW = (2*SEW) >> uimm (arithmetic)
             Self::VnsraWi { vd, vs2, uimm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1562,9 +1562,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
@@ -1589,9 +1589,9 @@ where
                     wide_group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1613,9 +1613,9 @@ where
             // vzext.vf2 - zero-extend SEW/2 -> SEW
             Self::VzextVf2 { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1625,9 +1625,9 @@ where
                 let sew = vtype.vsew();
                 // SEW must be >= 2*8 = 16
                 if u32::from(sew.bits()) < 16 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 // EMUL for source = LMUL / 2; src_group = max(1, group_regs / 2)
@@ -1645,9 +1645,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1661,9 +1661,9 @@ where
             // vzext.vf4 - zero-extend SEW/4 -> SEW
             Self::VzextVf4 { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1673,9 +1673,9 @@ where
                 let sew = vtype.vsew();
                 // SEW must be >= 4*8 = 32
                 if u32::from(sew.bits()) < 32 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(4) / 4;
@@ -1692,9 +1692,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1708,9 +1708,9 @@ where
             // vzext.vf8 - zero-extend SEW/8 -> SEW
             Self::VzextVf8 { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1720,9 +1720,9 @@ where
                 let sew = vtype.vsew();
                 // SEW must be >= 8*8 = 64; only SEW=64 qualifies in Zve64x
                 if u32::from(sew.bits()) < 64 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(8) / 8;
@@ -1739,9 +1739,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1755,9 +1755,9 @@ where
             // vsext.vf2 - sign-extend SEW/2 -> SEW
             Self::VsextVf2 { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1766,9 +1766,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) < 16 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(2) / 2;
@@ -1785,9 +1785,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1801,9 +1801,9 @@ where
             // vsext.vf4 - sign-extend SEW/4 -> SEW
             Self::VsextVf4 { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1812,9 +1812,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) < 32 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(4) / 4;
@@ -1831,9 +1831,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());
@@ -1847,9 +1847,9 @@ where
             // vsext.vf8 - sign-extend SEW/8 -> SEW
             Self::VsextVf8 { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1858,9 +1858,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 if u32::from(sew.bits()) < 64 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = group_regs.max(8) / 8;
@@ -1877,9 +1877,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vl = ext_state.vl();
                 let vstart = u32::from(ext_state.vstart());

@@ -57,8 +57,8 @@ fn test_rmap_against_reference() {
         let correct_positions = unsafe { rmap_correct.get(r) };
 
         assert_eq!(
-            (correct_positions[0] != Position::SENTINEL) as u32
-                + (correct_positions[1] != Position::SENTINEL) as u32,
+            u32::from(correct_positions[0] != Position::SENTINEL)
+                + u32::from(correct_positions[1] != Position::SENTINEL),
             // SAFETY: `r` is within `0..PARAM_BC` range
             rmap_concurrent.num_r_items(unsafe { R::new(r) }),
             "r={r:?}"

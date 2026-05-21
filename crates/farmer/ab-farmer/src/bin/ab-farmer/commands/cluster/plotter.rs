@@ -179,12 +179,13 @@ where
 
     let cpu_sector_encoding_concurrency =
         if let Some(cpu_sector_encoding_concurrency) = cpu_sector_encoding_concurrency {
-            match NonZeroUsize::new(cpu_sector_encoding_concurrency) {
-                Some(cpu_sector_encoding_concurrency) => Some(cpu_sector_encoding_concurrency),
-                None => {
-                    info!("CPU plotting was explicitly disabled");
-                    return Ok(None);
-                }
+            if let Some(cpu_sector_encoding_concurrency) =
+                NonZeroUsize::new(cpu_sector_encoding_concurrency)
+            {
+                Some(cpu_sector_encoding_concurrency)
+            } else {
+                info!("CPU plotting was explicitly disabled");
+                return Ok(None);
             }
         } else {
             None
@@ -208,11 +209,11 @@ where
         }
     }
 
-    let downloading_semaphore = Arc::new(Semaphore::new(
-        cpu_sector_downloading_concurrency
-            .map(|cpu_sector_downloading_concurrency| cpu_sector_downloading_concurrency.get())
-            .unwrap_or(plotting_thread_pool_core_indices.len() + 1),
-    ));
+    let downloading_semaphore =
+        Arc::new(Semaphore::new(cpu_sector_downloading_concurrency.map_or(
+            plotting_thread_pool_core_indices.len() + 1,
+            NonZeroUsize::get,
+        )));
 
     let cpu_record_encoding_concurrency = cpu_record_encoding_concurrency.unwrap_or_else(|| {
         let cpu_cores = plotting_thread_pool_core_indices

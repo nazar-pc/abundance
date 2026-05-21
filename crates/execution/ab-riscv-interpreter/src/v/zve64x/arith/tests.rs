@@ -8,7 +8,7 @@ use ab_riscv_primitives::prelude::*;
 
 /// Encode a raw vtype value (vta=false, vma=false)
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    (vlmul.to_bits() as u64) | ((vsew.to_bits() as u64) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
 }
 
 /// Build a fresh state with vector CSRs initialized and vtype/vl configured
@@ -345,7 +345,7 @@ fn vrsub_vi_e16_m1() {
     .unwrap();
     for i in 0..4usize {
         // 5 - i; for i > 5 this wraps mod 2^16
-        let expected = (5i64 - (i as u64).cast_signed()).rem_euclid(1 << 16) as u64;
+        let expected = (5i64 - (i as u64).cast_signed()).rem_euclid(1 << 16u8) as u64;
         assert_eq!(
             read_elem(&state, VReg::V4, i, Vsew::E16),
             expected,
@@ -506,7 +506,7 @@ fn vsll_vi_e16_m1() {
     for i in 0..4usize {
         assert_eq!(
             read_elem(&state, VReg::V4, i, Vsew::E16),
-            1 << 4,
+            1 << 4u8,
             "elem {i}"
         );
     }
@@ -1460,7 +1460,7 @@ fn vsra_all_sew_widths_sign_extends_correctly() {
         let mut state = setup(1, vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, msb_val);
         let shamt = vsew.bits() - 1;
-        state.regs.write(Reg::A0, shamt as u64);
+        state.regs.write(Reg::A0, u64::from(shamt));
         exec(
             &mut state,
             Zve64xArithInstruction::VsraVx {
@@ -1480,8 +1480,7 @@ fn vsra_all_sew_widths_sign_extends_correctly() {
         assert_eq!(
             read_elem(&state, VReg::V4, 0, vsew),
             sew_mask,
-            "SEW={:?}",
-            vsew
+            "SEW={vsew:?}"
         );
     }
 }

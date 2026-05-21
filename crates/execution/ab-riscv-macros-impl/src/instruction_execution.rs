@@ -58,21 +58,21 @@ pub(super) fn instruction_execution(
         .expect("Path is never empty; qed");
 
     if last_trait_segment_path.ident == "ExecutableInstructionOperands" {
-        let enum_file_path = format!("/{}_operands_impl.rs", enum_name);
+        let enum_file_path = format!("/{enum_name}_operands_impl.rs");
 
         // Replace enum implementation with a processed impl stored in a Rust file
         Ok(quote! {
             include!(concat!(env!("OUT_DIR"), #enum_file_path));
         })
     } else if last_trait_segment_path.ident == "ExecutableInstructionCsr" {
-        let enum_file_path = format!("/{}_csr_impl.rs", enum_name);
+        let enum_file_path = format!("/{enum_name}_csr_impl.rs");
 
         // Replace enum implementation with a processed impl stored in a Rust file
         Ok(quote! {
             include!(concat!(env!("OUT_DIR"), #enum_file_path));
         })
     } else if last_trait_segment_path.ident == "ExecutableInstruction" {
-        let enum_file_path = format!("/{}_execution_impl.rs", enum_name);
+        let enum_file_path = format!("/{enum_name}_execution_impl.rs");
 
         // Replace enum implementation with a processed impl stored in a Rust file
         Ok(quote! {

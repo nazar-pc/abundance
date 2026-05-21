@@ -21,7 +21,6 @@ use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 use anyhow::Context;
 use quote::ToTokens;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::{env, fs, io, iter};
 use syn::Item;
 
@@ -59,8 +58,7 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
 
     for maybe_rust_file in rust_files_in(Path::new(&manifest_dir).join("src")) {
         let rust_file = maybe_rust_file.context("Failed to collect Rust files")?;
-        let rust_file = Rc::<Path>::from(rust_file.into_boxed_path());
-        process_rust_file(rust_file.clone(), out_dir, &mut state)
+        process_rust_file(&rust_file, out_dir, &mut state)
             .with_context(|| format!("Failed to process Rust file `{}`", rust_file.display()))?;
     }
 
@@ -105,8 +103,8 @@ fn rust_files_in(dir: PathBuf) -> Box<dyn Iterator<Item = io::Result<PathBuf>>> 
     walk(dir)
 }
 
-fn process_rust_file(source: Rc<Path>, out_dir: &Path, state: &mut State) -> anyhow::Result<()> {
-    let mut file_contents = fs::read_to_string(&source).context("Failed to read Rust file")?;
+fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow::Result<()> {
+    let mut file_contents = fs::read_to_string(source).context("Failed to read Rust file")?;
     if !file_contents.contains("#[instruction") {
         // Quickly skip files without instruction macro calls. This helps to ignore the files that
         // may use Rust nightly syntax features not supported by `syn`, which is limited to stable
@@ -156,7 +154,6 @@ fn process_rust_file(source: Rc<Path>, out_dir: &Path, state: &mut State) -> any
                             source.display()
                         )
                     })?;
-                    continue;
                 }
             }
             _ => {

@@ -46,11 +46,11 @@ impl Encode for ClusterCacheId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
         match self {
             ClusterCacheId::Ulid(ulid) => {
-                output.push_byte(0);
-                Encode::encode_to(&ulid.0, output);
+                dest.push_byte(0);
+                Encode::encode_to(&ulid.0, dest);
             }
         }
     }

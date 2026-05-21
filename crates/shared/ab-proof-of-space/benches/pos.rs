@@ -40,7 +40,7 @@ where
     #[cfg(feature = "parallel")]
     {
         // Repeated initialization is not supported, we just ignore errors here because of it
-        let _ = ThreadPoolBuilder::new()
+        let _: Result<(), _> = ThreadPoolBuilder::new()
             // Change number of threads if necessary
             // .num_threads(4)
             .build_global();
@@ -63,7 +63,7 @@ where
             group.bench_function("proofs/single/2x", |b| {
                 b.iter(|| {
                     rayon::scope(|scope| {
-                        for _ in 0..2 {
+                        for _ in 0..2u8 {
                             scope.spawn(|_scope| {
                                 generator.create_proofs(black_box(&seed));
                             });
@@ -78,7 +78,7 @@ where
             group.bench_function("proofs/single/4x", |b| {
                 b.iter(|| {
                     rayon::scope(|scope| {
-                        for _ in 0..4 {
+                        for _ in 0..4u8 {
                             scope.spawn(|_scope| {
                                 generator.create_proofs(black_box(&seed));
                             });
@@ -93,7 +93,7 @@ where
             group.bench_function("proofs/single/8x", |b| {
                 b.iter(|| {
                     rayon::scope(|scope| {
-                        for _ in 0..8 {
+                        for _ in 0..8u8 {
                             scope.spawn(|_scope| {
                                 generator.create_proofs(black_box(&seed));
                             });
@@ -108,7 +108,7 @@ where
             group.bench_function("proofs/single/16x", |b| {
                 b.iter(|| {
                     rayon::scope(|scope| {
-                        for _ in 0..16 {
+                        for _ in 0..16u8 {
                             scope.spawn(|_scope| {
                                 generator.create_proofs(black_box(&seed));
                             });
@@ -132,7 +132,7 @@ where
         group.bench_function("proofs/parallel/2x", |b| {
             b.iter(|| {
                 rayon::scope(|scope| {
-                    for _ in 0..2 {
+                    for _ in 0..2u8 {
                         scope.spawn(|_scope| {
                             generator.create_proofs_parallel(black_box(&seed));
                         });
@@ -145,7 +145,7 @@ where
         group.bench_function("proofs/parallel/4x", |b| {
             b.iter(|| {
                 rayon::scope(|scope| {
-                    for _ in 0..4 {
+                    for _ in 0..4u8 {
                         scope.spawn(|_scope| {
                             generator.create_proofs_parallel(black_box(&seed));
                         });
@@ -158,7 +158,7 @@ where
         group.bench_function("proofs/parallel/8x", |b| {
             b.iter(|| {
                 rayon::scope(|scope| {
-                    for _ in 0..8 {
+                    for _ in 0..8u8 {
                         scope.spawn(|_scope| {
                             generator.create_proofs_parallel(black_box(&seed));
                         });
@@ -171,7 +171,7 @@ where
         group.bench_function("proofs/parallel/16x", |b| {
             b.iter(|| {
                 rayon::scope(|scope| {
-                    for _ in 0..16 {
+                    for _ in 0..16u8 {
                         scope.spawn(|_scope| {
                             generator.create_proofs_parallel(black_box(&seed));
                         });
@@ -202,13 +202,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         // This challenge index with the above seed is known to have a solution
         let s_bucket_with_proof = SBucket::from(31500);
 
-        pos_bench::<ab_proof_of_space::chia::ChiaTable>(c, "chia", s_bucket_with_proof)
+        pos_bench::<ab_proof_of_space::chia::ChiaTable>(c, "chia", s_bucket_with_proof);
     }
     {
         // This challenge index with above seed is known to have a solution
         let s_bucket_with_proof = SBucket::from(0);
 
-        pos_bench::<ab_proof_of_space::shim::ShimTable>(c, "shim", s_bucket_with_proof)
+        pos_bench::<ab_proof_of_space::shim::ShimTable>(c, "shim", s_bucket_with_proof);
     }
 }
 

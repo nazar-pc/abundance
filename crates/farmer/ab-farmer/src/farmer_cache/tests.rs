@@ -635,7 +635,7 @@ fn decode_piece_index_from_record_key_test() {
     let decode_0 = decode_piece_index_from_record_key(&record_0);
     assert_eq!(decode_0, piece_index_0);
 
-    let piece_index_123456 = PieceIndex::from(123456);
+    let piece_index_123456 = PieceIndex::from(123_456);
     let record_123456 = RecordKey::from(piece_index_123456.to_multihash());
     let decode_123456 = decode_piece_index_from_record_key(&record_123456);
     assert_eq!(decode_123456, piece_index_123456);

@@ -38,14 +38,14 @@ use futures::stream::FuturesUnordered;
 use futures::task::noop_waker_ref;
 use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
-use std::fs;
 use std::net::SocketAddr;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::pin::pin;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
+use std::{fs, iter};
 use tracing::{Instrument, error, info, info_span, warn};
 
 /// Get piece retry attempts number.
@@ -259,7 +259,7 @@ where
 {
     let mut shutdown_signal_fut = pin!(shutdown_signal());
     // Poll once to register signal handlers and ensure a graceful shutdown later
-    let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
+    let _: Poll<()> = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
 
     let FarmingArgs {
         node_rpc_url,
@@ -456,8 +456,7 @@ where
     };
 
     let farming_thread_pool_size = farming_thread_pool_size
-        .map(|farming_thread_pool_size| farming_thread_pool_size.get())
-        .unwrap_or_else(recommended_number_of_farming_threads);
+        .map_or_else(recommended_number_of_farming_threads, NonZeroUsize::get);
     let global_mutex = Arc::default();
 
     let mut plotters = Vec::<Box<dyn Plotter + Send + Sync>>::new();
@@ -498,9 +497,10 @@ where
 
     let (farms, plotting_delay_senders) = {
         let info_mutex = &AsyncMutex::new(());
-        let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
-            .map(|_| oneshot::channel())
-            .unzip::<_, _, Vec<_>, Vec<_>>();
+        let (plotting_delay_senders, plotting_delay_receivers) =
+            iter::repeat_with(oneshot::channel)
+                .take(disk_farms.len())
+                .unzip::<_, _, Vec<_>, Vec<_>>();
         let registry = &Mutex::new(&mut registry);
 
         let mut farms = Vec::with_capacity(disk_farms.len());
@@ -618,7 +618,7 @@ where
                 move |_progress| {
                     for plotting_delay_sender in plotting_delay_senders.lock().drain(..) {
                         // Doesn't matter if receiver is gone
-                        let _ = plotting_delay_sender.send(());
+                        let _: Result<(), ()> = plotting_delay_sender.send(());
                     }
 
                     // Unsubscribe from this event
@@ -671,7 +671,7 @@ where
                         "Failed reading plotted sector on startup for farm {farm_index}: {error}"
                     )
                 })?,
-            )
+            );
         }
     }
 
@@ -739,22 +739,22 @@ where
 
                         if farms_stream.is_empty() || exit_on_farm_error {
                             return Err(error);
-                        } else {
-                            farm_errors.push(AsyncJoinOnDrop::new(
-                                tokio::spawn(async move {
-                                    loop {
-                                        tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
-
-                                        error!(
-                                            %farm_index,
-                                            %error,
-                                            "Farm errored and stopped"
-                                        );
-                                    }
-                                }),
-                                true,
-                            ))
                         }
+
+                        farm_errors.push(AsyncJoinOnDrop::new(
+                            tokio::spawn(async move {
+                                loop {
+                                    tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
+
+                                    error!(
+                                        %farm_index,
+                                        %error,
+                                        "Farm errored and stopped"
+                                    );
+                                }
+                            }),
+                            true,
+                        ));
                     }
                 }
             }
@@ -783,7 +783,7 @@ where
 
         // Networking future
         Ok(()) | Err(oneshot::Canceled) = networking_fut.fuse() => {
-            info!("Node runner exited")
+            info!("Node runner exited");
         },
 
         // Farm future
@@ -793,7 +793,7 @@ where
 
         // Piece cache worker future
         Ok(()) | Err(oneshot::Canceled) = farmer_cache_worker_fut.fuse() => {
-            info!("Farmer cache worker exited")
+            info!("Farmer cache worker exited");
         },
     }
 
@@ -824,12 +824,13 @@ where
 
     let cpu_sector_encoding_concurrency =
         if let Some(cpu_sector_encoding_concurrency) = cpu_sector_encoding_concurrency {
-            match NonZeroUsize::new(cpu_sector_encoding_concurrency) {
-                Some(cpu_sector_encoding_concurrency) => Some(cpu_sector_encoding_concurrency),
-                None => {
-                    info!("CPU plotting was explicitly disabled");
-                    return Ok(None);
-                }
+            if let Some(cpu_sector_encoding_concurrency) =
+                NonZeroUsize::new(cpu_sector_encoding_concurrency)
+            {
+                Some(cpu_sector_encoding_concurrency)
+            } else {
+                info!("CPU plotting was explicitly disabled");
+                return Ok(None);
             }
         } else {
             None
@@ -865,9 +866,9 @@ where
             if cpu_replotting_thread_pool_size.is_none() {
                 // The default behavior is to use all CPU cores, but for replotting we just want
                 // half
-                replotting_thread_pool_core_indices
-                    .iter_mut()
-                    .for_each(|set| set.truncate(set.cpu_cores().len() / 2));
+                for set in &mut replotting_thread_pool_core_indices {
+                    set.truncate(set.cpu_cores().len() / 2);
+                }
             }
             replotting_thread_pool_core_indices
         };
@@ -880,11 +881,11 @@ where
         }
     }
 
-    let cpu_downloading_semaphore = Arc::new(Semaphore::new(
-        cpu_sector_downloading_concurrency
-            .map(|cpu_sector_downloading_concurrency| cpu_sector_downloading_concurrency.get())
-            .unwrap_or(plotting_thread_pool_core_indices.len() * 3),
-    ));
+    let cpu_downloading_semaphore =
+        Arc::new(Semaphore::new(cpu_sector_downloading_concurrency.map_or(
+            plotting_thread_pool_core_indices.len() * 3,
+            NonZeroUsize::get,
+        )));
 
     let cpu_record_encoding_concurrency = cpu_record_encoding_concurrency.unwrap_or_else(|| {
         let cpu_cores = plotting_thread_pool_core_indices

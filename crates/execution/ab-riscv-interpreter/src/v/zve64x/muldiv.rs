@@ -61,9 +61,9 @@ where
             // vmul.vv / vmul.vx - signed multiply, low half
             Self::VmulVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -87,9 +87,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -116,9 +116,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -137,9 +137,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -163,9 +163,9 @@ where
             // vmulh.vv / vmulh.vx - signed×signed multiply, high half; illegal for SEW=64
             Self::VmulhVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -174,9 +174,9 @@ where
                     })?;
                 // vmulh is not supported for SEW=64 in Zve64x (would need 128-bit result)
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -195,9 +195,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -224,9 +224,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -234,9 +234,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -250,9 +250,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -276,9 +276,9 @@ where
             // vmulhu.vv / vmulhu.vx - unsigned×unsigned multiply, high half; illegal for SEW=64
             Self::VmulhuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -286,9 +286,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -307,9 +307,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -336,9 +336,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -346,9 +346,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -362,9 +362,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -388,9 +388,9 @@ where
             // vmulhsu.vv / vmulhsu.vx - signed×unsigned multiply, high half; illegal for SEW=64
             Self::VmulhsuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -398,9 +398,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -419,9 +419,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -449,9 +449,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -459,9 +459,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -475,9 +475,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -503,9 +503,9 @@ where
             // vdivu.vv / vdivu.vx - unsigned divide
             Self::VdivuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -529,9 +529,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -564,9 +564,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -585,9 +585,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -616,9 +616,9 @@ where
             // vdiv.vv / vdiv.vx - signed divide
             Self::VdivVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -642,9 +642,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -671,9 +671,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -692,9 +692,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -718,9 +718,9 @@ where
             // vremu.vv / vremu.vx - unsigned remainder
             Self::VremuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -744,9 +744,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -783,9 +783,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -804,9 +804,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -839,9 +839,9 @@ where
             // vrem.vv / vrem.vx - signed remainder
             Self::VremVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -865,9 +865,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -894,9 +894,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -915,9 +915,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -941,9 +941,9 @@ where
             // vwmulu.vv / vwmulu.vx - unsigned widening multiply; illegal for SEW=64
             Self::VwmuluVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -952,9 +952,9 @@ where
                     })?;
                 // Widening produces 2*SEW result; SEW=64 would require 128-bit output
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 // dest_group_regs encodes EMUL=2*LMUL; None means EMUL>8, which is illegal
@@ -980,9 +980,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // vd and vs2/vs1 must not overlap
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
@@ -1027,9 +1027,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1037,9 +1037,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1059,9 +1059,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1095,9 +1095,9 @@ where
             // vwmulsu.vv / vwmulsu.vx - signed×unsigned widening multiply; illegal for SEW=64
             Self::VwmulsuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1105,9 +1105,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1132,9 +1132,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1180,9 +1180,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1190,9 +1190,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1212,9 +1212,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1250,9 +1250,9 @@ where
             // vwmul.vv / vwmul.vx - signed widening multiply; illegal for SEW=64
             Self::VwmulVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1260,9 +1260,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1287,9 +1287,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1335,9 +1335,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1345,9 +1345,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1367,9 +1367,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1405,9 +1405,9 @@ where
             // vmacc.vv / vmacc.vx - vd = vd + vs1 * vs2
             Self::VmaccVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1431,9 +1431,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1461,9 +1461,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1482,9 +1482,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1508,9 +1508,9 @@ where
             // vnmsac.vv / vnmsac.vx - vd = vd - vs1 * vs2
             Self::VnmsacVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1534,9 +1534,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1564,9 +1564,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1585,9 +1585,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1611,9 +1611,9 @@ where
             // vmadd.vv / vmadd.vx - vd = vs1 * vd + vs2
             Self::VmaddVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1637,9 +1637,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1667,9 +1667,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1688,9 +1688,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1715,9 +1715,9 @@ where
             // vnmsub.vv / vnmsub.vx - vd = -(vs1 * vd) + vs2
             Self::VnmsubVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1741,9 +1741,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1771,9 +1771,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1792,9 +1792,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
@@ -1819,9 +1819,9 @@ where
             // vwmaccu.vv / vwmaccu.vx - unsigned widening multiply-add; illegal for SEW=64
             Self::VwmaccuVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1829,9 +1829,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1857,9 +1857,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1904,9 +1904,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1914,9 +1914,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -1936,9 +1936,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -1972,9 +1972,9 @@ where
             // vwmacc.vv / vwmacc.vx - signed widening multiply-add; illegal for SEW=64
             Self::VwmaccVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -1982,9 +1982,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -2009,9 +2009,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -2057,9 +2057,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -2067,9 +2067,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -2089,9 +2089,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -2126,9 +2126,9 @@ where
             // vwmaccsu.vv / vwmaccsu.vx - signed×unsigned widening multiply-add; illegal for SEW=64
             Self::VwmaccsuVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -2136,9 +2136,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -2163,9 +2163,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -2211,9 +2211,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -2221,9 +2221,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -2243,9 +2243,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,
@@ -2289,9 +2289,9 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -2299,9 +2299,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(vtype.vsew().bits()) == u64::BITS {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = zve64x_muldiv_helpers::widening_dest_register_count(
@@ -2321,9 +2321,9 @@ where
                     group_regs,
                 )?;
                 if !vm && vd.bits() == 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 zve64x_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
                     program_counter,

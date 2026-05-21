@@ -11,19 +11,19 @@ pub fn zip(src: u32) -> u32 {
         }
         _ => {{
             let lo = src & 0x0000_FFFF;
-            let hi = src >> 16;
+            let hi = src >> 16u8;
 
             // Spread each 16-bit half into alternating bits.
             // Classic SWAR interleave for 16-bit -> 32-bit Morton.
             #[inline(always)]
             fn spread(mut x: u32) -> u32 {
-                x = (x | (x << 8)) & 0x00FF_00FF;
-                x = (x | (x << 4)) & 0x0F0F_0F0F;
-                x = (x | (x << 2)) & 0x3333_3333;
-                (x | (x << 1)) & 0x5555_5555
+                x = (x | (x << 8u8)) & 0x00FF_00FF;
+                x = (x | (x << 4u8)) & 0x0F0F_0F0F;
+                x = (x | (x << 2u8)) & 0x3333_3333;
+                (x | (x << 1u8)) & 0x5555_5555
             }
 
-            spread(lo) | (spread(hi) << 1)
+            spread(lo) | (spread(hi) << 1u8)
         }}
     }
 }
@@ -41,15 +41,15 @@ pub fn unzip(src: u32) -> u32 {
             #[inline(always)]
             fn compact(mut x: u32) -> u32 {
                 x &= 0x5555_5555;
-                x = (x | (x >> 1)) & 0x3333_3333;
-                x = (x | (x >> 2)) & 0x0F0F_0F0F;
-                x = (x | (x >> 4)) & 0x00FF_00FF;
-                (x | (x >> 8)) & 0x0000_FFFF
+                x = (x | (x >> 1u8)) & 0x3333_3333;
+                x = (x | (x >> 2u8)) & 0x0F0F_0F0F;
+                x = (x | (x >> 4u8)) & 0x00FF_00FF;
+                (x | (x >> 8u8)) & 0x0000_FFFF
             }
 
             let lo = compact(src);
-            let hi = compact(src >> 1);
-            lo | (hi << 16)
+            let hi = compact(src >> 1u8);
+            lo | (hi << 16u8)
         }}
     }
 }

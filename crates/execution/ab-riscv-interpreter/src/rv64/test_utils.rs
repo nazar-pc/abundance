@@ -392,19 +392,14 @@ where
 
     fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
         self.vector.vtype = vtype;
-        match vtype {
-            Some(vt) => {
-                self.vector.vtype_raw = vt.to_raw::<Reg<u64>>();
-                self.write_csr(VCsr::Vtype as u16, self.vector.vtype_raw)
-                    .expect("Implementation didn't initialize `vtype` CSR");
-            }
-            None => {
-                // vill: bit `XLEN-1` set, rest zero
-                self.vector.vtype_raw = 1u64 << (u64::BITS - 1);
-                self.write_csr(VCsr::Vtype as u16, self.vector.vtype_raw)
-                    .expect("Implementation didn't initialize `vtype` CSR");
-            }
-        }
+        self.vector.vtype_raw = if let Some(vt) = vtype {
+            vt.to_raw::<Reg<u64>>()
+        } else {
+            // vill: bit `XLEN-1` set, rest zero
+            1u64 << (u64::BITS - 1)
+        };
+        self.write_csr(VCsr::Vtype as u16, self.vector.vtype_raw)
+            .expect("Implementation didn't initialize `vtype` CSR");
     }
 
     fn vl(&self) -> u32 {
@@ -413,7 +408,7 @@ where
 
     fn set_vl(&mut self, vl: u32) {
         self.vector.vl = vl;
-        self.write_csr(VCsr::Vl as u16, vl as u64)
+        self.write_csr(VCsr::Vl as u16, u64::from(vl))
             .expect("Implementation didn't initialize `vl` CSR");
     }
 
@@ -541,7 +536,6 @@ where
         )? {
             ControlFlow::Continue((rd, rd_value)) => {
                 state.regs.write(rd, rd_value);
-                continue;
             }
             ControlFlow::Break(()) => {
                 break;

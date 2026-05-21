@@ -24,7 +24,7 @@ fn hash_chunk(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
     let mut cv = key;
     let platform = Platform::detect();
     let (blocks, remainder) = input.as_chunks();
-    let num_blocks = blocks.len() + (!remainder.is_empty()) as usize;
+    let num_blocks = blocks.len() + usize::from(!remainder.is_empty());
 
     for (block_index, block) in blocks.iter().enumerate() {
         let mut block_flags = flags;

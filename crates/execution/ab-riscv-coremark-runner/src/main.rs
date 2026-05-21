@@ -94,7 +94,6 @@ where
         ) {
             Ok(ControlFlow::Continue((rd, rd_value))) => {
                 state.regs.write(rd, rd_value);
-                continue;
             }
             Ok(ControlFlow::Break(())) => {
                 cold_path();

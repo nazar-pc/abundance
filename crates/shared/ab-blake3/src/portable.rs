@@ -10,6 +10,7 @@ use crate::{BlockWords, CVWords, IV, MSG_SCHEDULE};
 use blake3::IncrementCounter;
 
 #[inline(always)]
+#[expect(clippy::many_single_char_names, reason = "Fine for internal use")]
 const fn g(state: &mut BlockWords, a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
     state[a] = state[a].wrapping_add(state[b]).wrapping_add(x);
     state[d] = (state[d] ^ state[a]).rotate_right(16);

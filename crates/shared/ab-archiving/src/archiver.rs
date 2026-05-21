@@ -153,7 +153,7 @@ impl Decode for BlockBytes {
 impl BlockBytes {
     #[inline(always)]
     fn truncate(&mut self, size: usize) {
-        self.0.truncate(size)
+        self.0.truncate(size);
     }
 }
 
@@ -414,16 +414,13 @@ impl Archiver {
         // 6 bytes is just large enough to encode a segment item (1 byte for enum variant, 4 bytes
         // for length and 1 for the actual data, while segment header item is never the last one)
         while RecordedHistorySegment::SIZE.saturating_sub(segment_size) >= 6 {
-            let segment_item = match self.buffer.pop_front() {
-                Some(segment_item) => segment_item,
-                None => {
-                    // Push all the items back into the buffer, we don't have enough data yet
-                    for segment_item in segment.items.into_iter().rev() {
-                        self.buffer.push_front(segment_item);
-                    }
-
-                    return None;
+            let Some(segment_item) = self.buffer.pop_front() else {
+                // Push all the items back into the buffer, we don't have enough data yet
+                for segment_item in segment.items.into_iter().rev() {
+                    self.buffer.push_front(segment_item);
                 }
+
+                return None;
             };
 
             let segment_item_encoded_size = segment_item.encoded_size();

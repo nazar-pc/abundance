@@ -157,7 +157,7 @@ impl State {
                 enum_name.clone(),
                 KnownOriginalEnumDecodingImpl {
                     item_impl: item_impl.clone(),
-                    source: source.clone(),
+                    source: Rc::clone(&source),
                 },
             )
             && entry.get().item_impl != value.item_impl
@@ -187,7 +187,7 @@ impl State {
             enum_name.clone(),
             KnownEnumCsrImpl {
                 item_impl,
-                source: source.clone(),
+                source: Rc::clone(&source),
             },
         ) && entry.get().item_impl != value.item_impl
         {
@@ -214,7 +214,7 @@ impl State {
             enum_name.clone(),
             KnownEnumExecutionImpl {
                 item_impl,
-                source: source.clone(),
+                source: Rc::clone(&source),
             },
         ) && entry.get().item_impl != value.item_impl
         {

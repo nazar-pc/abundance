@@ -207,7 +207,9 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
             found_first = true;
         }
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
-        unsafe { write_mask_bit(ext_state.write_vreg(), vd, i, result) };
+        unsafe {
+            write_mask_bit(ext_state.write_vreg(), vd, i, result);
+        }
     }
     ext_state.mark_vs_dirty();
     // vstart is already zero, doesn't need to be reset
@@ -252,7 +254,9 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
             found_first = true;
         }
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
-        unsafe { write_mask_bit(ext_state.write_vreg(), vd, i, result) };
+        unsafe {
+            write_mask_bit(ext_state.write_vreg(), vd, i, result);
+        }
     }
     ext_state.mark_vs_dirty();
     // vstart is already zero, doesn't need to be reset
@@ -298,7 +302,9 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
             found_first = true;
         }
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
-        unsafe { write_mask_bit(ext_state.write_vreg(), vd, i, result) };
+        unsafe {
+            write_mask_bit(ext_state.write_vreg(), vd, i, result);
+        }
     }
     ext_state.mark_vs_dirty();
     // vstart is already zero, doesn't need to be reset

@@ -137,7 +137,7 @@ impl Behaviour {
 
     fn wake(&self) {
         if let Some(waker) = &self.waker {
-            waker.wake_by_ref()
+            waker.wake_by_ref();
         }
     }
 }
@@ -149,22 +149,22 @@ impl NetworkBehaviour for Behaviour {
     fn handle_established_inbound_connection(
         &mut self,
         _: ConnectionId,
-        peer_id: PeerId,
+        peer: PeerId,
         _: &Multiaddr,
         _: &Multiaddr,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        Ok(self.new_reserved_peers_handler(&peer_id))
+        Ok(self.new_reserved_peers_handler(&peer))
     }
 
     fn handle_established_outbound_connection(
         &mut self,
         _: ConnectionId,
-        peer_id: PeerId,
+        peer: PeerId,
         _: &Multiaddr,
         _: Endpoint,
         _: PortUse,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        Ok(self.new_reserved_peers_handler(&peer_id))
+        Ok(self.new_reserved_peers_handler(&peer))
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
@@ -198,7 +198,7 @@ impl NetworkBehaviour for Behaviour {
                 if let Some(state) = self.reserved_peers_state.get_mut(&peer_id) {
                     if state.connection_status == ConnectionStatus::PendingConnection {
                         state.connection_status = ConnectionStatus::NotConnected;
-                    };
+                    }
 
                     debug!(peer_id=%state.peer_id, "Reserved peer dialing failed.");
                     self.wake();
@@ -226,8 +226,8 @@ impl NetworkBehaviour for Behaviour {
             Poll::Ready(()) => {
                 self.dialing_delay.reset(self.config.dialing_interval);
 
-                for (_, state) in self.reserved_peers_state.iter_mut() {
-                    trace!(?state, "Reserved peer state.");
+                for state in self.reserved_peers_state.values_mut() {
+                    trace!(?state, "Reserved peer state");
 
                     if let ConnectionStatus::NotConnected = state.connection_status {
                         state.connection_status = ConnectionStatus::PendingConnection;

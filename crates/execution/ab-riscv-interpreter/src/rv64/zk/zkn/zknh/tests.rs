@@ -10,12 +10,12 @@ fn test_sha256_sig0_simple() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x1234_5678u64);
+    state.regs.write(Reg::A0, 0x1234_5678_u64);
 
     execute(&mut state).unwrap();
 
     // sha256sig0 on lower 32 bits 0x12345678 -> 0xe7fce6ee (bit 31 set -> sign-extended)
-    assert_eq!(state.regs.read(Reg::A2), 0xffff_ffff_e7fc_e6eeu64);
+    assert_eq!(state.regs.read(Reg::A2), 0xffff_ffff_e7fc_e6ee_u64);
 }
 
 #[test]
@@ -41,12 +41,12 @@ fn test_sha256_sig0_high_bits_ignored() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0xabcdef01_12345678u64);
+    state.regs.write(Reg::A0, 0xabcd_ef01_1234_5678_u64);
 
     execute(&mut state).unwrap();
 
     // Same result as previous test (high 32 bits ignored)
-    assert_eq!(state.regs.read(Reg::A2), 0xffff_ffff_e7fc_e6eeu64);
+    assert_eq!(state.regs.read(Reg::A2), 0xffff_ffff_e7fc_e6ee_u64);
 }
 
 #[test]
@@ -57,12 +57,12 @@ fn test_sha256_sig1_sign_extend() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x1234_5678u64);
+    state.regs.write(Reg::A0, 0x1234_5678_u64);
 
     execute(&mut state).unwrap();
 
     // sha256sig1 on 0x12345678 -> 0xa1f78649 (bit 31 set -> sign-extended)
-    assert_eq!(state.regs.read(Reg::A2), 0xffff_ffff_a1f7_8649u64);
+    assert_eq!(state.regs.read(Reg::A2), 0xffff_ffff_a1f7_8649_u64);
 }
 
 #[test]
@@ -73,12 +73,12 @@ fn test_sha512_sig0_simple() {
         rs2: Reg::Zero,
     }]);
 
-    state.regs.write(Reg::A0, 0x1234_5678_90ab_cdefu64);
+    state.regs.write(Reg::A0, 0x1234_5678_90ab_cdef_u64);
 
     execute(&mut state).unwrap();
 
-    // sha512sig0(0x1234567890abcdef) -> 0x662c77c6c1e41aa1
-    assert_eq!(state.regs.read(Reg::A2), 0x662c_77c6_c1e4_1aa1u64);
+    // sha512sig0(0x1234_5678_90ab_cdef) -> 0x662c_77c6_c1e4_1aa1
+    assert_eq!(state.regs.read(Reg::A2), 0x662c_77c6_c1e4_1aa1_u64);
 }
 
 #[test]
@@ -111,8 +111,8 @@ fn test_zknh_combination() {
         },
     ]);
 
-    state.regs.write(Reg::A0, 0x1234_5678u64);
-    state.regs.write(Reg::A1, 0x1234_5678_90ab_cdefu64);
+    state.regs.write(Reg::A0, 0x1234_5678_u64);
+    state.regs.write(Reg::A1, 0x1234_5678_90ab_cdef_u64);
 
     execute(&mut state).unwrap();
 

@@ -66,7 +66,14 @@ type BlockBytes = [u8; BLOCK_LEN];
 type BlockWords = [u32; 16];
 
 const IV: &CVWords = &[
-    0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
+    0x6A09_E667,
+    0xBB67_AE85,
+    0x3C6E_F372,
+    0xA54F_F53A,
+    0x510E_527F,
+    0x9B05_688C,
+    0x1F83_D9AB,
+    0x5BE0_CD19,
 ];
 
 const MSG_SCHEDULE: [[usize; 16]; 7] = [

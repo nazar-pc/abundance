@@ -205,7 +205,7 @@ impl Plotter for ClusterPlotter {
             pieces_in_sector,
             progress_sender,
         )
-        .await
+        .await;
     }
 
     async fn try_plot_sector(
@@ -341,21 +341,20 @@ impl ClusterPlotter {
         let plotting_fut = async move {
             'outer: loop {
                 // Take free instance that was found earlier if available or try to find a new one
-                let free_instance = match maybe_free_instance.take() {
-                    Some(free_instance) => free_instance,
-                    None => {
-                        let free_plotter_instance_fut = get_free_plotter_instance(
-                            &nats_client,
-                            &progress_updater,
-                            &mut progress_sender,
-                            &mut retry_backoff_policy,
-                        );
-                        let Some(free_instance) = free_plotter_instance_fut.await else {
-                            break;
-                        };
-                        trace!("Got plotting permit #2");
-                        free_instance
-                    }
+                let free_instance = if let Some(free_instance) = maybe_free_instance.take() {
+                    free_instance
+                } else {
+                    let free_plotter_instance_fut = get_free_plotter_instance(
+                        &nats_client,
+                        &progress_updater,
+                        &mut progress_sender,
+                        &mut retry_backoff_policy,
+                    );
+                    let Some(free_instance) = free_plotter_instance_fut.await else {
+                        break;
+                    };
+                    trace!("Got plotting permit #2");
+                    free_instance
                 };
 
                 let response_stream_result = nats_client
@@ -484,12 +483,7 @@ where
                 return Some(free_instance);
             }
             Ok(None) => {
-                if let Some(delay) = retry_backoff_policy.next() {
-                    debug!("Instance was occupied, retrying #1");
-
-                    tokio::time::sleep(delay).await;
-                    continue;
-                } else {
+                let Some(delay) = retry_backoff_policy.next() else {
                     progress_updater
                         .update_progress_and_events(
                             progress_sender,
@@ -499,16 +493,15 @@ where
                         )
                         .await;
                     return None;
-                }
+                };
+
+                debug!("Instance was occupied, retrying #1");
+
+                tokio::time::sleep(delay).await;
             }
             Err(error) => match error.kind() {
                 RequestErrorKind::TimedOut => {
-                    if let Some(delay) = retry_backoff_policy.next() {
-                        debug!("Plotter request timed out, retrying");
-
-                        tokio::time::sleep(delay).await;
-                        continue;
-                    } else {
+                    let Some(delay) = retry_backoff_policy.next() else {
                         progress_updater
                             .update_progress_and_events(
                                 progress_sender,
@@ -518,15 +511,14 @@ where
                             )
                             .await;
                         return None;
-                    }
+                    };
+
+                    debug!("Plotter request timed out, retrying");
+
+                    tokio::time::sleep(delay).await;
                 }
                 RequestErrorKind::NoResponders => {
-                    if let Some(delay) = retry_backoff_policy.next() {
-                        debug!("No plotters, retrying");
-
-                        tokio::time::sleep(delay).await;
-                        continue;
-                    } else {
+                    let Some(delay) = retry_backoff_policy.next() else {
                         progress_updater
                             .update_progress_and_events(
                                 progress_sender,
@@ -536,7 +528,11 @@ where
                             )
                             .await;
                         return None;
-                    }
+                    };
+
+                    debug!("No plotters, retrying");
+
+                    tokio::time::sleep(delay).await;
                 }
                 RequestErrorKind::InvalidSubject | RequestErrorKind::Other => {
                     progress_updater
@@ -550,7 +546,7 @@ where
                     return None;
                 }
             },
-        };
+        }
     }
 }
 
@@ -575,25 +571,25 @@ where
     PS: Sink<SectorPlottingProgress> + Unpin + Send + 'static,
     PS::Error: Error,
 {
-    if !matches!(response, ClusterSectorPlottingProgress::SectorChunk(_)) {
-        trace!(?response, "Processing plotting response notification");
-    } else {
+    if matches!(response, ClusterSectorPlottingProgress::SectorChunk(_)) {
         trace!("Processing plotting response notification (sector chunk)");
+    } else {
+        trace!(?response, "Processing plotting response notification");
     }
 
     match response {
         ClusterSectorPlottingProgress::Occupied => {
             debug!(%free_instance, "Instance was occupied, retrying #2");
 
-            if let Some(delay) = retry_backoff_policy.next() {
+            return if let Some(delay) = retry_backoff_policy.next() {
                 debug!("Instance was occupied, retrying #2");
 
                 tokio::time::sleep(delay).await;
-                return ResponseProcessingResult::Retry;
+                ResponseProcessingResult::Retry
             } else {
                 debug!("Instance was occupied, exiting #2");
-                return ResponseProcessingResult::Abort;
-            }
+                ResponseProcessingResult::Abort
+            };
         }
         ClusterSectorPlottingProgress::Ping => {
             // Expected
@@ -819,7 +815,7 @@ where
                     stream::poll_fn(move |cx| {
                         if !fut.is_terminated() {
                             // Result doesn't matter, we'll need to poll stream below anyway
-                            let _ = fut.poll_unpin(cx);
+                            let _: Poll<()> = fut.poll_unpin(cx);
                         }
 
                         if let Poll::Ready(maybe_result) = progress_receiver.poll_next_unpin(cx) {
@@ -926,7 +922,7 @@ async fn process_plot_sector_request<P>(
 
     inner_fut
         .instrument(info_span!("", %public_key, %sector_index))
-        .await
+        .await;
 }
 
 async fn send_publish_progress(

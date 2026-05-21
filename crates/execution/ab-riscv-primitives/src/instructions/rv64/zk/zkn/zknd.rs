@@ -111,10 +111,10 @@ where
 
         match opcode {
             // R-type: OP opcode (0x33)
-            //   aes64ds:  funct7=0b0011101, funct3=0 -> MATCH=0x3a000033
-            //   aes64dsm: funct7=0b0011111, funct3=0 -> MATCH=0x3e000033
-            //   aes64ks2: funct7=0b0111111, funct3=0 -> MATCH=0x7e000033
-            0b0110011 => {
+            //   aes64ds:  funct7=0b001_1101, funct3=0 -> MATCH=0x3a00_0033
+            //   aes64dsm: funct7=0b001_1111, funct3=0 -> MATCH=0x3e00_0033
+            //   aes64ks2: funct7=0b011_1111, funct3=0 -> MATCH=0x7e00_0033
+            0b011_0011 => {
                 if funct3 != 0b000 {
                     None?;
                 }
@@ -122,16 +122,16 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match funct7 {
-                    0b0011101 => Some(Self::Aes64Ds { rd, rs1, rs2 }),
-                    0b0011111 => Some(Self::Aes64Dsm { rd, rs1, rs2 }),
-                    0b0111111 => Some(Self::Aes64Ks2 { rd, rs1, rs2 }),
+                    0b001_1101 => Some(Self::Aes64Ds { rd, rs1, rs2 }),
+                    0b001_1111 => Some(Self::Aes64Dsm { rd, rs1, rs2 }),
+                    0b011_1111 => Some(Self::Aes64Ks2 { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
             // I-type: OP-IMM opcode (0x13), funct3=0b001
-            //   aes64im:   imm[11:0]=0x300  (funct7=0b0011000, rs2=0b00000) -> MATCH=0x30001013
-            //   aes64ks1i: imm[11:5]=0b0011000, imm[4]=1, imm[3:0]=rnum     -> MATCH=0x31001013+
-            0b0010011 => {
+            //   aes64im:   imm[11:0]=0x300  (funct7=0b001_1000, rs2=0b0_0000) -> MATCH=0x3000_1013
+            //   aes64ks1i: imm[11:5]=0b001_1000, imm[4]=1, imm[3:0]=rnum     -> MATCH=0x3100_1013+
+            0b001_0011 => {
                 if funct3 != 0b001 {
                     None?;
                 }
@@ -140,7 +140,7 @@ where
                 let imm12 = instruction >> 20;
                 if imm12 == 0x300 {
                     Some(Self::Aes64Im { rd, rs1 })
-                } else if (imm12 >> 5) == 0b0011000 && (imm12 & 0b1_0000) != 0 {
+                } else if (imm12 >> 5) == 0b001_1000 && (imm12 & 0b1_0000) != 0 {
                     // bits[11:5]=0b0011000, bit[4]=1, bits[3:0]=rnum
                     let rnum = Rv64ZkndKsRnum::from_bits((imm12 & 0xf) as u8)?;
                     Some(Self::Aes64Ks1i { rd, rs1, rnum })

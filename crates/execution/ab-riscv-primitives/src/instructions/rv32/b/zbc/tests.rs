@@ -5,7 +5,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_clmul() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b000_0101);
     let decoded = Rv32ZbcInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -19,7 +19,7 @@ fn test_clmul() {
 
 #[test]
 fn test_clmulh() {
-    let inst = make_r_type(0b0110011, 1, 0b011, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b011, 2, 3, 0b000_0101);
     let decoded = Rv32ZbcInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -33,7 +33,7 @@ fn test_clmulh() {
 
 #[test]
 fn test_clmulr() {
-    let inst = make_r_type(0b0110011, 1, 0b010, 2, 3, 0b0000101);
+    let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b000_0101);
     let decoded = Rv32ZbcInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,

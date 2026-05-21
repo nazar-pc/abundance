@@ -73,7 +73,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // STORE-FP major opcode
-        if opcode != 0b0100111 {
+        if opcode != 0b010_0111 {
             None?;
         }
 
@@ -101,7 +101,7 @@ where
                 let sumop = rs2_bits;
                 match sumop {
                     // Regular unit-stride store
-                    0b00000 => {
+                    0b0_0000 => {
                         let eew = Eew::from_width(width)?;
                         if nf == 0 {
                             Some(Self::Vse { vs3, rs1, vm, eew })
@@ -116,7 +116,7 @@ where
                         }
                     }
                     // Whole-register store
-                    0b01000 => {
+                    0b0_1000 => {
                         // vm must be 1, width must be e8 (0b000)
                         if !vm || width != 0b000 {
                             None?;
@@ -132,7 +132,7 @@ where
                         }
                     }
                     // Mask store
-                    0b01011 => {
+                    0b0_1011 => {
                         // Must be eew=e8, vm=1, nf=0
                         if width != 0b000 || !vm || nf != 0 {
                             None?;
@@ -234,12 +234,12 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]
        match self {
-            Self::Vse { vs3, rs1, vm, eew } => write!(f, "vse{}.v {}, ({}){}", eew, vs3, rs1, mask_suffix(vm)),
-            Self::Vsm { vs3, rs1 } => write!(f, "vsm.v {}, ({})", vs3, rs1),
+            Self::Vse { vs3, rs1, vm, eew } => write!(f, "vse{eew}.v {vs3}, ({rs1}){}", mask_suffix(vm)),
+            Self::Vsm { vs3, rs1 } => write!(f, "vsm.v {vs3}, ({rs1})"),
             Self::Vsse { vs3, rs1, rs2, vm, eew } => write!(f, "vsse{eew}.v {vs3}, ({rs1}), {rs2}{}", mask_suffix(vm)),
             Self::Vsuxei { vs3, rs1, vs2, vm, eew } => write!(f, "vsuxei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),
             Self::Vsoxei { vs3, rs1, vs2, vm, eew } => write!(f, "vsoxei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),
-            Self::Vsr { vs3, rs1, nreg } => write!(f, "vs{}r.v {}, ({})", nreg, vs3, rs1),
+            Self::Vsr { vs3, rs1, nreg } => write!(f, "vs{nreg}r.v {vs3}, ({rs1})"),
             Self::Vsseg { vs3, rs1, vm, eew, nf } => write!(f, "vsseg{nf}e{eew}.v {vs3}, ({rs1}){}", mask_suffix(vm)),
             Self::Vssseg { vs3, rs1, rs2, vm, eew, nf } => write!(f, "vssseg{nf}e{eew}.v {vs3}, ({rs1}), {rs2}{}", mask_suffix(vm)),
             Self::Vsuxseg { vs3, rs1, vs2, vm, eew, nf } => write!(f, "vsuxseg{nf}ei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),

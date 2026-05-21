@@ -7,9 +7,9 @@ use ab_farmer::single_disk_farm::{ScrubTarget, SingleDiskFarm};
 use ab_proof_of_space::chia::ChiaTable;
 use ab_proof_of_space_gpu::{Device, DeviceType};
 use clap::Parser;
+use std::fs;
 use std::num::NonZeroU8;
 use std::path::PathBuf;
-use std::{fs, panic};
 use tracing::info;
 
 #[cfg(not(miri))]
@@ -128,15 +128,17 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Wipe { disk_farms } => {
             for disk_farm in &disk_farms {
-                if !disk_farm.exists() {
-                    panic!("Directory {} doesn't exist", disk_farm.display());
-                }
+                assert!(
+                    disk_farm.exists(),
+                    "Directory {} doesn't exist",
+                    disk_farm.display()
+                );
             }
 
             for disk_farm in &disk_farms {
                 if disk_farm.join("known_addresses.bin").exists() {
                     info!("Wiping known addresses");
-                    let _ = fs::remove_file(disk_farm.join("known_addresses.bin"));
+                    let _: Result<(), _> = fs::remove_file(disk_farm.join("known_addresses.bin"));
                 }
 
                 SingleDiskFarm::wipe(disk_farm)?;

@@ -87,7 +87,7 @@ cfg_select! {
                 let r1 = s0 ^ gmul(s1, 0x02) ^ gmul(s2, 0x03) ^ s3;
                 let r2 = s0 ^ s1 ^ gmul(s2, 0x02) ^ gmul(s3, 0x03);
                 let r3 = gmul(s0, 0x03) ^ s1 ^ s2 ^ gmul(s3, 0x02);
-                (r0 as u32) | ((r1 as u32) << 8) | ((r2 as u32) << 16) | ((r3 as u32) << 24)
+                u32::from(r0) | (u32::from(r1) << 8) | (u32::from(r2) << 16) | (u32::from(r3) << 24)
             }
 
             /// Apply ShiftRows + SubBytes to the full 128-bit state `(rs1, rs2)` and return the
@@ -108,7 +108,7 @@ cfg_select! {
                     for r in 0..4usize {
                         let src_col = (c + r) & 3;
                         let b = SBOX[state_byte(src_col, r) as usize];
-                        out |= (b as u64) << (c * 32 + r * 8);
+                        out |= u64::from(b) << (c * 32 + r * 8);
                     }
                 }
                 out
@@ -119,7 +119,7 @@ cfg_select! {
                 let lo = aes64es(rs1, rs2);
                 let col0 = mix_col(lo as u32);
                 let col1 = mix_col((lo >> 32) as u32);
-                (col0 as u64) | ((col1 as u64) << 32)
+                u64::from(col0) | (u64::from(col1) << 32)
             }
         }
     }

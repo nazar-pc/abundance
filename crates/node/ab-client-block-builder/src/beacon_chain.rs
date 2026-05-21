@@ -125,7 +125,7 @@ where
                 .map(|super_segment| super_segment.header.root),
         )?;
 
-        let (state_root, system_contract_states) = self.execute_block(parent_block_details)?;
+        let (state_root, system_contract_states) = self.execute_block(parent_block_details);
 
         let block_builder = OwnedBeaconChainBlock::init(
             self.chain_info
@@ -242,7 +242,7 @@ where
     fn execute_block(
         &self,
         parent_block_details: &BlockDetails,
-    ) -> Result<(Blake3Hash, StdArc<[ContractSlotState]>), BeaconChainBlockBuilderError> {
+    ) -> (Blake3Hash, StdArc<[ContractSlotState]>) {
         let global_state = GlobalState::new(&parent_block_details.system_contract_states);
 
         // TODO: Execute block
@@ -250,6 +250,6 @@ where
         let state_root = global_state.root();
         let system_contract_states = global_state.to_system_contract_states();
 
-        Ok((state_root, system_contract_states))
+        (state_root, system_contract_states)
     }
 }

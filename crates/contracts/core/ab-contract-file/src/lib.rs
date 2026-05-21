@@ -356,7 +356,7 @@ impl<'a> ContractFile<'a> {
             let mut contract_file_methods_metadata_iter = {
                 let mut file_contract_metadata_bytes = after_header_bytes;
 
-                (0..header.num_methods).map(move |_| {
+                iter::repeat_with(move || {
                     let contract_file_method_metadata_bytes = file_contract_metadata_bytes
                         .split_off(..size_of::<ContractFileMethodMetadata>())
                         .ok_or(ContractFileParseError::FileTooSmall {
@@ -391,6 +391,7 @@ impl<'a> ContractFile<'a> {
 
                     Ok(contract_file_method_metadata)
                 })
+                .take(usize::from(header.num_methods))
             };
 
             let mut metadata_num_methods = 0;

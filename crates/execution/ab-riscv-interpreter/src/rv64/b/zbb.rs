@@ -138,7 +138,7 @@ where
             Self::Roriw { rd, rs1: _, shamt } => {
                 let value = i64::from(
                     (rs1_value as u32)
-                        .rotate_right((shamt & 0x1f) as u32)
+                        .rotate_right(u32::from(shamt & 0x1f))
                         .cast_signed(),
                 );
                 Ok(ControlFlow::Continue((rd, value.cast_unsigned())))

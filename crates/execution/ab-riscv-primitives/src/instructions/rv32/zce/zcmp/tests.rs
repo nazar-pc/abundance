@@ -10,8 +10,12 @@ use crate::registers::general_purpose::{EReg, Reg};
 /// op_sel at bits\[10:9] (00=push, 01=pop, 10=popretz, 11=popret),
 /// urlist at bits\[7:4], spimm at bits\[3:2], quadrant=10.
 const fn make_push_pop(op_sel: u16, urlist: u16, spimm: u16) -> u32 {
-    let inst: u16 =
-        (0b101 << 13) | (0b11 << 11) | (op_sel << 9) | (urlist << 4) | (spimm << 2) | 0b10;
+    let inst: u16 = (0b101 << 13u8)
+        | (0b11 << 11u8)
+        | (op_sel << 9u8)
+        | (urlist << 4u8)
+        | (spimm << 2u8)
+        | 0b10;
     u32::from(inst)
 }
 
@@ -27,7 +31,8 @@ const OP_POPRET: u16 = 0b11;
 /// r1s' occupies bits\[9:7], r2s' occupies bits\[4:2], and the funct2 field at
 /// bits\[6:5] discriminates: 0b11 -> CM.MVA01S, 0b01 -> CM.MVSA01.
 const fn make_mv_pair(funct2: u16, r1s: u16, r2s: u16) -> u32 {
-    let inst: u16 = (0b101 << 13) | (0b011 << 10) | (r1s << 7) | (funct2 << 5) | (r2s << 2) | 0b10;
+    let inst: u16 =
+        (0b101 << 13u8) | (0b011 << 10u8) | (r1s << 7u8) | (funct2 << 5u8) | (r2s << 2u8) | 0b10;
     u32::from(inst)
 }
 
@@ -456,7 +461,7 @@ fn test_cm_mv_reserved_funct2_10() {
 fn test_cm_mv_reserved_bit10_zero() {
     // funct2_12_11=01 with bit 10 = 0 is not a defined Zcmp encoding
     // (funct6 must be 101_011 for mv-pair)
-    let inst: u16 = (0b101 << 13) | (0b01 << 11) | (0b11 << 5) | 0b10;
+    let inst: u16 = (0b101 << 13u8) | (0b01 << 11u8) | (0b11 << 5u8) | 0b10;
     assert!(Rv32ZcmpInstruction::<Reg<u32>>::try_decode(u32::from(inst)).is_none());
 }
 
@@ -465,21 +470,21 @@ fn test_cm_mv_reserved_bit10_zero() {
 #[test]
 fn test_non_zcmp_q00_returns_none() {
     // Quadrant 00 is not Zcmp
-    let inst = (0b101 << 13) | 0b00;
+    let inst = (0b101 << 13u8) | 0b00;
     assert!(Rv32ZcmpInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_non_zcmp_q01_returns_none() {
     // Quadrant 01 is not Zcmp
-    let inst = (0b101 << 13) | 0b01;
+    let inst = (0b101 << 13u8) | 0b01;
     assert!(Rv32ZcmpInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_non_zcmp_funct3_mismatch() {
     // Q10 funct3=100 (not 101) -> not Zcmp
-    let inst = (0b100 << 13) | (0b11 << 11) | (0b00 << 9) | (4 << 4) | 0b10;
+    let inst = (0b100 << 13u8) | (0b11 << 11u8) | (0b00 << 9u8) | (4 << 4u8) | 0b10;
     assert!(Rv32ZcmpInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
@@ -488,14 +493,14 @@ fn test_non_zcmp_funct3_mismatch() {
 #[test]
 fn test_reserved_funct2_00_returns_none() {
     // funct2_12_11=0b00 is not defined by Zcmp
-    let inst = (0b101 << 13) | (0b00 << 11) | 0b10;
+    let inst = (0b101 << 13u8) | (0b00 << 11u8) | 0b10;
     assert!(Rv32ZcmpInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_reserved_funct2_10_returns_none() {
     // funct2_12_11=0b10 is not defined by Zcmp
-    let inst = (0b101 << 13) | (0b10 << 11) | 0b10;
+    let inst = (0b101 << 13u8) | (0b10 << 11u8) | 0b10;
     assert!(Rv32ZcmpInstruction::<Reg<u32>>::try_decode(inst).is_none());
 }
 

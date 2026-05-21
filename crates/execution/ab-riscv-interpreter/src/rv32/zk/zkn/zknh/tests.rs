@@ -15,7 +15,7 @@ fn test_sha256_sig0_simple() {
     let x = 0x1234_5678u32;
     assert_eq!(
         state.regs.read(Reg::A2),
-        x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
+        x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3u8)
     );
 }
 
@@ -43,7 +43,7 @@ fn test_sha256_sig0_all_ones() {
     let x = u32::MAX;
     assert_eq!(
         state.regs.read(Reg::A2),
-        x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
+        x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3u8)
     );
 }
 
@@ -59,7 +59,7 @@ fn test_sha256_sig1_simple() {
     let x = 0x1234_5678u32;
     assert_eq!(
         state.regs.read(Reg::A2),
-        x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
+        x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10u8)
     );
 }
 
@@ -111,22 +111,22 @@ fn test_sha256_sum1_simple() {
 
 fn ref_sha512sig0h(rs1: u32, rs2: u32) -> u32 {
     // rs1=HIGH, rs2=LOW
-    (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7)
+    (rs1 >> 1u8) ^ (rs2 << 31) ^ (rs1 >> 8u8) ^ (rs2 << 24) ^ (rs1 >> 7u8)
 }
 
 fn ref_sha512sig0l(rs1: u32, rs2: u32) -> u32 {
     // rs1=LOW, rs2=HIGH; extra (rs2<<25) term from SHR64(x,7).lo cross-boundary bits
-    (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7) ^ (rs2 << 25)
+    (rs1 >> 1u8) ^ (rs2 << 31) ^ (rs1 >> 8u8) ^ (rs2 << 24) ^ (rs1 >> 7u8) ^ (rs2 << 25)
 }
 
 fn ref_sha512sig1h(rs1: u32, rs2: u32) -> u32 {
     // rs1=HIGH, rs2=LOW
-    (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6)
+    (rs1 >> 19u8) ^ (rs2 << 13) ^ (rs2 >> 29u8) ^ (rs1 << 3) ^ (rs1 >> 6u8)
 }
 
 fn ref_sha512sig1l(rs1: u32, rs2: u32) -> u32 {
     // rs1=LOW, rs2=HIGH; extra (rs2<<26) term from SHR64(x,6).lo cross-boundary bits
-    (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6) ^ (rs2 << 26)
+    (rs1 >> 19u8) ^ (rs2 << 13) ^ (rs2 >> 29u8) ^ (rs1 << 3) ^ (rs1 >> 6u8) ^ (rs2 << 26)
 }
 
 fn ref_sha512sum0r(rs1: u32, rs2: u32) -> u32 {
@@ -134,7 +134,7 @@ fn ref_sha512sum0r(rs1: u32, rs2: u32) -> u32 {
     // ROR64(x,28).lo = (rs1>>28)|(rs2<<4)
     // ROR64(x,34).lo = (rs2>>2) |(rs1<<30)
     // ROR64(x,39).lo = (rs2>>7) |(rs1<<25)
-    (rs1 >> 28) ^ (rs2 << 4) ^ (rs2 >> 2) ^ (rs1 << 30) ^ (rs2 >> 7) ^ (rs1 << 25)
+    (rs1 >> 28u8) ^ (rs2 << 4) ^ (rs2 >> 2u8) ^ (rs1 << 30) ^ (rs2 >> 7u8) ^ (rs1 << 25)
 }
 
 fn ref_sha512sum1r(rs1: u32, rs2: u32) -> u32 {
@@ -142,7 +142,7 @@ fn ref_sha512sum1r(rs1: u32, rs2: u32) -> u32 {
     // ROR64(x,14).lo = (rs1>>14)|(rs2<<18)
     // ROR64(x,18).lo = (rs1>>18)|(rs2<<14)
     // ROR64(x,41).lo = (rs2>>9) |(rs1<<23)
-    (rs1 >> 14) ^ (rs2 << 18) ^ (rs1 >> 18) ^ (rs2 << 14) ^ (rs2 >> 9) ^ (rs1 << 23)
+    (rs1 >> 14u8) ^ (rs2 << 18) ^ (rs1 >> 18u8) ^ (rs2 << 14) ^ (rs2 >> 9u8) ^ (rs1 << 23)
 }
 
 // sha512sig0h  (rs1=HIGH, rs2=LOW)
@@ -261,9 +261,9 @@ fn test_sha512sig0l_both_zero() {
 fn test_sha512sig0_consistent_with_u64() {
     let val: u64 = 0x1234_5678_90ab_cdef;
     let lo = val as u32;
-    let hi = (val >> 32) as u32;
-    let u64_result = val.rotate_right(1) ^ val.rotate_right(8) ^ (val >> 7);
-    assert_eq!(ref_sha512sig0h(hi, lo), (u64_result >> 32) as u32);
+    let hi = (val >> 32u8) as u32;
+    let u64_result = val.rotate_right(1) ^ val.rotate_right(8) ^ (val >> 7u8);
+    assert_eq!(ref_sha512sig0h(hi, lo), (u64_result >> 32u8) as u32);
     assert_eq!(ref_sha512sig0l(lo, hi), u64_result as u32);
 }
 
@@ -366,9 +366,9 @@ fn test_sha512sig1l_both_zero() {
 fn test_sha512sig1_consistent_with_u64() {
     let val: u64 = 0xfedc_ba98_7654_3210;
     let lo = val as u32;
-    let hi = (val >> 32) as u32;
-    let u64_result = val.rotate_right(19) ^ val.rotate_right(61) ^ (val >> 6);
-    assert_eq!(ref_sha512sig1h(hi, lo), (u64_result >> 32) as u32);
+    let hi = (val >> 32u8) as u32;
+    let u64_result = val.rotate_right(19) ^ val.rotate_right(61) ^ (val >> 6u8);
+    assert_eq!(ref_sha512sig1h(hi, lo), (u64_result >> 32u8) as u32);
     assert_eq!(ref_sha512sig1l(lo, hi), u64_result as u32);
 }
 
@@ -401,7 +401,7 @@ fn test_sha512sum0r_consistent_with_u64() {
     // With rs1=lo (LOW) and rs2=hi (HIGH), input={rs2,rs1}={hi,lo}=val exactly
     let val: u64 = 0x1234_5678_90ab_cdef;
     let lo = val as u32;
-    let hi = (val >> 32) as u32;
+    let hi = (val >> 32u8) as u32;
     let expected_lo = (val.rotate_right(28) ^ val.rotate_right(34) ^ val.rotate_right(39)) as u32;
     let mut state = initialize_state([Rv32ZknhInstruction::Sha512Sum0r {
         rd: Reg::A2,
@@ -457,7 +457,7 @@ fn test_sha512sum1r_consistent_with_u64() {
     // With rs1=lo (LOW) and rs2=hi (HIGH), input={rs2,rs1}={hi,lo}=val exactly
     let val: u64 = 0x1234_5678_90ab_cdef;
     let lo = val as u32;
-    let hi = (val >> 32) as u32;
+    let hi = (val >> 32u8) as u32;
     let expected_lo = (val.rotate_right(14) ^ val.rotate_right(18) ^ val.rotate_right(41)) as u32;
     let mut state = initialize_state([Rv32ZknhInstruction::Sha512Sum1r {
         rd: Reg::A2,

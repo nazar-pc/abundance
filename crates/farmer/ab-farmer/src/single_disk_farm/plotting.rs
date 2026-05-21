@@ -389,15 +389,15 @@ where
                 );
                 tokio::time::sleep(FARMER_APP_INFO_RETRY_INTERVAL).await;
                 continue;
-            } else {
-                debug!(
-                    current_history_size = %protocol_info.history_size,
-                    old_sector_history_size = %old_sector_metadata.history_size,
-                    "Skipped sector plotting, likely redundant due to redundant archived \
-                    segment notification"
-                );
-                return PlotSingleSectorResult::Skipped;
             }
+
+            debug!(
+                current_history_size = %protocol_info.history_size,
+                old_sector_history_size = %old_sector_metadata.history_size,
+                "Skipped sector plotting, likely redundant due to redundant archived \
+                segment notification"
+            );
+            return PlotSingleSectorResult::Skipped;
         }
 
         break protocol_info;
@@ -410,13 +410,13 @@ where
         if maybe_old_sector_metadata
             .as_ref()
             .map(|sector_metadata| sector_metadata.history_size)
-            != Some(*max_used_history_size)
+            == Some(*max_used_history_size)
         {
+            *max_used_history_size = protocol_info.history_size;
+        } else {
             // TODO: This may hypothetically result in plotting expired sectors. Add sector
             //  expiration check in the future if it ends up being a real concern.
             protocol_info.history_size = *max_used_history_size;
-        } else {
-            *max_used_history_size = protocol_info.history_size;
         }
     }
 
@@ -452,7 +452,7 @@ where
                 handlers,
                 global_mutex,
                 progress_receiver,
-                metrics,
+                metrics.as_ref(),
             )
             .await?
             {
@@ -561,7 +561,7 @@ async fn plot_single_sector_internal(
     handlers: &Handlers,
     global_mutex: &AsyncMutex<()>,
     mut progress_receiver: mpsc::Receiver<SectorPlottingProgress>,
-    metrics: &Option<Arc<SingleDiskFarmMetrics>>,
+    metrics: Option<&Arc<SingleDiskFarmMetrics>>,
 ) -> Result<Result<PlottedSector, PlottingError>, PlottingError> {
     // Process plotting progress notifications
     let progress_processor_fut = async {
@@ -787,7 +787,7 @@ where
         sectors_metadata,
         new_segment_index_receiver,
         sectors_to_plot_sender,
-        &metrics,
+        metrics.as_ref(),
     );
 
     select! {
@@ -853,7 +853,7 @@ async fn send_plotting_notifications<NC>(
     sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     mut new_segment_index_receiver: watch::Receiver<SegmentIndex>,
     mut sectors_to_plot_sender: mpsc::Sender<SectorToPlot>,
-    metrics: &Option<Arc<SingleDiskFarmMetrics>>,
+    metrics: Option<&Arc<SingleDiskFarmMetrics>>,
 ) -> Result<(), BackgroundTaskError>
 where
     NC: NodeClient,
@@ -864,7 +864,8 @@ where
         if let Err(error) = sectors_to_plot_sender
             .send(SectorToPlot {
                 sector_index,
-                progress: u16::from(sector_index) as f32 / target_sector_count as f32 * 100.0,
+                progress: f32::from(u16::from(sector_index)) / f32::from(target_sector_count)
+                    * 100.0,
                 last_queued: u16::from(sector_index) + 1 == target_sector_count,
                 acknowledgement_sender,
             })
@@ -875,7 +876,7 @@ where
         }
 
         // We do not care if message was sent back or sender was just dropped
-        let _ = acknowledgement_receiver.await;
+        let _: Result<(), _> = acknowledgement_receiver.await;
     }
 
     let mut sectors_expire_at = vec![None::<SegmentIndex>; usize::from(target_sector_count)];
@@ -1055,7 +1056,7 @@ where
             }
 
             // We do not care if message was sent back or sender was just dropped
-            let _ = acknowledgement_receiver.await;
+            let _: Result<(), _> = acknowledgement_receiver.await;
 
             if let Some(expires_at_entry) = sectors_expire_at.get_mut(usize::from(sector_index)) {
                 expires_at_entry.take();

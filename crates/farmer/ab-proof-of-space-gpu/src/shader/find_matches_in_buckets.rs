@@ -98,7 +98,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         let (m, local_matches_count) = if position == Position::SENTINEL {
             (Match::SENTINEL, 0)
         } else {
-            let m = local_invocation_id % PARAM_M as u32;
+            let m = local_invocation_id % u32::from(PARAM_M);
             let r_target = calculate_left_target_on_demand(parity, left_r, m);
 
             // SAFETY: Right targets are guaranteed to be within `0..PARAM_BC` range

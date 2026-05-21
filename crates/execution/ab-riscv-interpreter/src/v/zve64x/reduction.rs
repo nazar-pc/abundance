@@ -61,9 +61,9 @@ where
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -72,9 +72,9 @@ where
                     })?;
                 // Spec §14: reductions with vstart > 0 are reserved; raise illegal instruction
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -101,9 +101,9 @@ where
             }
             Self::Vredand { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -111,9 +111,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -139,9 +139,9 @@ where
             }
             Self::Vredor { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -149,9 +149,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -177,9 +177,9 @@ where
             }
             Self::Vredxor { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -187,9 +187,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -215,9 +215,9 @@ where
             }
             Self::Vredminu { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -225,9 +225,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -256,9 +256,9 @@ where
             }
             Self::Vredmin { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -266,9 +266,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -302,9 +302,9 @@ where
             }
             Self::Vredmaxu { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -312,9 +312,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -343,9 +343,9 @@ where
             }
             Self::Vredmax { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -353,9 +353,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -389,9 +389,9 @@ where
             }
             Self::Vwredsumu { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -399,15 +399,15 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 // Widening: 2*SEW must fit in ELEN
                 if u32::from(vtype.vsew().bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
@@ -436,9 +436,9 @@ where
             }
             Self::Vwredsum { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let vtype = ext_state
                     .vtype()
@@ -446,14 +446,14 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 if u32::from(ext_state.vstart()) != 0 {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 if u32::from(vtype.vsew().bits()) * 2 > ExtState::ELEN {
-                    Err(ExecutionError::IllegalInstruction {
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
                 }
                 let group_regs = vtype.vlmul().register_count();
                 zve64x_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(

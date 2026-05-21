@@ -146,31 +146,30 @@ where
                         let cached_pieces = farmer_caches.has_pieces(cached_pieces).await;
 
                         Some(CachedPieceByIndexResponse {
-                            result: match piece_from_cache {
-                                Some(piece) => PieceResult::Piece(piece),
-                                None => {
-                                    let maybe_node = maybe_weak_node
-                                        .lock()
-                                        .as_ref()
-                                        .expect("Always called after network instantiation; qed")
-                                        .upgrade();
+                            result: if let Some(piece) = piece_from_cache {
+                                PieceResult::Piece(piece)
+                            } else {
+                                let maybe_node = maybe_weak_node
+                                    .lock()
+                                    .as_ref()
+                                    .expect("Always called after network instantiation; qed")
+                                    .upgrade();
 
-                                    let closest_peers = if let Some(node) = maybe_node {
-                                        node.get_closest_local_peers(
-                                            piece_index.to_multihash(),
-                                            Some(peer_id),
-                                        )
-                                        .await
-                                        .inspect_err(|error| {
-                                            warn!(%error, "Failed to get closest local peers");
-                                        })
-                                        .unwrap_or_default()
-                                    } else {
-                                        Vec::new()
-                                    };
+                                let closest_peers = if let Some(node) = maybe_node {
+                                    node.get_closest_local_peers(
+                                        piece_index.to_multihash(),
+                                        Some(peer_id),
+                                    )
+                                    .await
+                                    .inspect_err(|error| {
+                                        warn!(%error, "Failed to get closest local peers");
+                                    })
+                                    .unwrap_or_default()
+                                } else {
+                                    Vec::new()
+                                };
 
-                                    PieceResult::ClosestPeers(closest_peers.into())
-                                }
+                                PieceResult::ClosestPeers(closest_peers.into())
                             },
                             cached_pieces,
                         })
@@ -185,7 +184,7 @@ where
                 } = request;
                 debug!(?piece_index, "Piece request received. Trying cache...");
 
-                let weak_plotted_pieces = weak_plotted_pieces.clone();
+                let weak_plotted_pieces = Weak::clone(&weak_plotted_pieces);
                 let farmer_caches = farmer_caches.clone();
                 let mut cached_pieces = Arc::unwrap_or_clone(cached_pieces);
 
@@ -206,16 +205,16 @@ where
                             "No piece in the cache. Trying archival storage..."
                         );
 
-                        let read_piece_fut = match weak_plotted_pieces.upgrade() {
-                            Some(plotted_pieces) => plotted_pieces
-                                .try_read()?
-                                .read_piece(piece_index)?
-                                .in_current_span(),
-                            None => {
+                        let read_piece_fut =
+                            if let Some(plotted_pieces) = weak_plotted_pieces.upgrade() {
+                                plotted_pieces
+                                    .try_read()?
+                                    .read_piece(piece_index)?
+                                    .in_current_span()
+                            } else {
                                 debug!("A readers and pieces are already dropped");
                                 return None;
-                            }
-                        };
+                            };
 
                         let piece = read_piece_fut.await;
 

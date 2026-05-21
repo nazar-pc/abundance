@@ -6,17 +6,17 @@ struct ForbiddenChecker {
 }
 
 impl Visit<'_> for ForbiddenChecker {
-    fn visit_expr(&mut self, expr: &Expr) {
+    fn visit_expr(&mut self, i: &Expr) {
         if self.found {
             return;
         }
 
-        if let Expr::Return(ExprReturn { .. }) = expr {
+        if let Expr::Return(ExprReturn { .. }) = i {
             self.found = true;
         }
 
         // Recurse
-        visit_expr(self, expr);
+        visit_expr(self, i);
     }
 }
 

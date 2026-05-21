@@ -243,7 +243,7 @@ where
                 trace!(%piece_index, "Got piece from cache successfully");
                 return Ok(Some(piece));
             }
-        };
+        }
 
         if let Some(piece) = self.get_piece_slow_internal(piece_index).await {
             return Ok(Some(piece));
@@ -382,7 +382,7 @@ where
         Ok(Box::new(stream::poll_fn(move |cx| {
             if !fut.is_terminated() {
                 // Result doesn't matter, we'll need to poll stream below anyway
-                let _ = fut.poll_unpin(cx);
+                let _: Poll<()> = fut.poll_unpin(cx);
             }
 
             if let Poll::Ready(maybe_result) = rx.poll_next_unpin(cx) {
@@ -412,7 +412,7 @@ impl<FarmIndex, PV, NC> Clone for WeakFarmerPieceGetter<FarmIndex, PV, NC> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
-            inner: self.inner.clone(),
+            inner: Weak::clone(&self.inner),
         }
     }
 }

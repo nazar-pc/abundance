@@ -46,37 +46,37 @@ where
 
         match opcode {
             // OP-IMM (I-type): brev8
-            0b0010011 => {
+            0b001_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 match funct3 {
-                    // brev8: funct12 = 0b011010000111 = 0x687
+                    // brev8: funct12 = 0b0110_1000_0111 = 0x687
                     0b101 if funct12 == 0b0110_1000_0111 => Some(Self::Brev8 { rd, rs1 }),
                     _ => None,
                 }
             }
             // OP (R-type): pack, packh
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    // pack: funct3=100, funct7=0000100
-                    (0b100, 0b0000100) => Some(Self::Pack { rd, rs1, rs2 }),
-                    // packh: funct3=111, funct7=0000100
-                    (0b111, 0b0000100) => Some(Self::Packh { rd, rs1, rs2 }),
+                    // pack: funct3=100, funct7=000_0100
+                    (0b100, 0b000_0100) => Some(Self::Pack { rd, rs1, rs2 }),
+                    // packh: funct3=111, funct7=000_0100
+                    (0b111, 0b000_0100) => Some(Self::Packh { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
             // OP-32 (R-type): packw
-            0b0111011 => {
+            0b011_1011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    // packw: funct3=100, funct7=0000100, rs2 != 0
+                    // packw: funct3=100, funct7=000_0100, rs2 != 0
                     // rs2=0 collides with inherited RV64 Zbb zext.h and must fall through.
-                    (0b100, 0b0000100) if rs2_bits != 0 => Some(Self::Packw { rd, rs1, rs2 }),
+                    (0b100, 0b000_0100) if rs2_bits != 0 => Some(Self::Packw { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
@@ -102,10 +102,10 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Pack { rd, rs1, rs2 } => write!(f, "pack {}, {}, {}", rd, rs1, rs2),
-            Self::Packh { rd, rs1, rs2 } => write!(f, "packh {}, {}, {}", rd, rs1, rs2),
-            Self::Packw { rd, rs1, rs2 } => write!(f, "packw {}, {}, {}", rd, rs1, rs2),
-            Self::Brev8 { rd, rs1 } => write!(f, "brev8 {}, {}", rd, rs1),
+            Self::Pack { rd, rs1, rs2 } => write!(f, "pack {rd}, {rs1}, {rs2}"),
+            Self::Packh { rd, rs1, rs2 } => write!(f, "packh {rd}, {rs1}, {rs2}"),
+            Self::Packw { rd, rs1, rs2 } => write!(f, "packw {rd}, {rs1}, {rs2}"),
+            Self::Brev8 { rd, rs1 } => write!(f, "brev8 {rd}, {rs1}"),
         }
     }
 }

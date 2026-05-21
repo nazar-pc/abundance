@@ -159,7 +159,7 @@ impl PeerStats {
                         acc
                     });
 
-            for (error_type, err_num) in errors.into_iter() {
+            for (error_type, err_num) in errors {
                 warn!("Failed piece request type - {} : {}", error_type, err_num);
             }
         }
@@ -213,7 +213,7 @@ struct RetryJob {
 async fn start_walking(node: Node, retries: u32, print_failed_addresses: bool) {
     let discovered_peers = Arc::new(Mutex::new(HashMap::<PeerId, PeerDiscovered>::new()));
     node.on_discovered_peer({
-        let discovered_peers = discovered_peers.clone();
+        let discovered_peers = Arc::clone(&discovered_peers);
         Arc::new(move |event| {
             discovered_peers
                 .lock()
@@ -287,7 +287,7 @@ async fn start_walking(node: Node, retries: u32, print_failed_addresses: bool) {
                             retries_left,
                             short_key: short_key.to_vec(),
                             peer_id: retry_job.peer_id,
-                        })
+                        });
                     } else if print_failed_addresses {
                         let discovered_peers = discovered_peers.lock();
                         let peer_id = retry_job.peer_id;
@@ -396,7 +396,7 @@ async fn configure_dsn(
     tokio::spawn({
         let node = node.clone();
         async move {
-            let _ = node.bootstrap().await;
+            let _: Result<(), _> = node.bootstrap().await;
 
             pending::<()>().await;
         }

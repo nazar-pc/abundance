@@ -422,16 +422,15 @@ where
     };
 
     Ok(async move {
-        let archiver = match maybe_archiver {
-            Some(archiver) => archiver,
-            None => {
-                let initialize_archiver_fut = initialize_archiver(
-                    &chain_info,
-                    consensus_constants.block_confirmation_depth,
-                    erasure_coding.clone(),
-                );
-                initialize_archiver_fut.await?
-            }
+        let archiver = if let Some(archiver) = maybe_archiver {
+            archiver
+        } else {
+            let initialize_archiver_fut = initialize_archiver(
+                &chain_info,
+                consensus_constants.block_confirmation_depth,
+                erasure_coding.clone(),
+            );
+            initialize_archiver_fut.await?
         };
 
         let InitializedArchiver {
@@ -444,14 +443,11 @@ where
             block_importing_notification_receiver.next().await
         {
             let importing_block_number = block_importing_notification.block_number;
-            let block_number_to_archive = match importing_block_number
-                .checked_sub(consensus_constants.block_confirmation_depth)
-            {
-                Some(block_number_to_archive) => block_number_to_archive,
-                None => {
-                    // Too early to archive blocks
-                    continue;
-                }
+            let Some(block_number_to_archive) =
+                importing_block_number.checked_sub(consensus_constants.block_confirmation_depth)
+            else {
+                // Too early to archive blocks
+                continue;
             };
 
             let last_archived_block_number = chain_info

@@ -74,7 +74,7 @@ where
     #[inline(always)]
     fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
         let inner = self.0;
-        inner.encode_to(dest)
+        inner.encode_to(dest);
     }
 
     #[inline(always)]

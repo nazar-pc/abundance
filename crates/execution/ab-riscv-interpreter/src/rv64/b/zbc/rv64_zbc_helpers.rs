@@ -80,12 +80,12 @@ fn clmul_internal(a: u64, b: u64) -> u128 {
         _ => {{
             // Generic implementation
             let mut result = 0u128;
-            let a = a as u128;
+            let a = u128::from(a);
             let mut b = b;
             for i in 0..u64::BITS {
-                let bit = (b & 1) as u128;
+                let bit = u128::from(b & 1);
                 result ^= a.wrapping_shl(i) & (0u128.wrapping_sub(bit));
-                b >>= 1;
+                b >>= 1u8;
             }
             result
         }}

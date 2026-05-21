@@ -7,18 +7,18 @@ use syn::{
 struct AddMissingFieldsVisitor;
 
 impl VisitMut for AddMissingFieldsVisitor {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
+    fn visit_expr_mut(&mut self, i: &mut Expr) {
         // Recurse first so inner expressions are patched before we inspect this node
-        syn::visit_mut::visit_expr_mut(self, expr);
+        syn::visit_mut::visit_expr_mut(self, i);
 
-        match expr {
+        match i {
             Expr::Struct(expr_struct) => {
                 patch_struct_expr(expr_struct);
             }
             Expr::Path(expr_path) => {
                 // Unit variant: `Self::Variant` - no braces at all
                 if let Some(converted) = try_convert_unit_to_struct(expr_path) {
-                    *expr = Expr::Struct(converted);
+                    *i = Expr::Struct(converted);
                 }
             }
             _ => {}

@@ -19,7 +19,7 @@ impl Not for Bool {
     #[inline(always)]
     fn not(self) -> Self::Output {
         Self {
-            byte: (self.byte == 0) as u8,
+            byte: u8::from(self.byte == 0),
         }
     }
 }

@@ -26,7 +26,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         length: u32,
         offset: u32,
     ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>> {
-        let offset = offset as u64 * AlignedPage::SIZE as u64;
+        let offset = u64::from(offset) * AlignedPage::SIZE as u64;
         let (sender, receiver) = oneshot::channel();
 
         tokio::task::spawn_blocking({
@@ -70,7 +70,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         buffer: Vec<AlignedPage>,
         offset: u32,
     ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>> {
-        let offset = offset as u64 * AlignedPage::SIZE as u64;
+        let offset = u64::from(offset) * AlignedPage::SIZE as u64;
         let (sender, receiver) = oneshot::channel();
 
         tokio::task::spawn_blocking({

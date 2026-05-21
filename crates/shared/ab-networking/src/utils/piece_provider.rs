@@ -128,7 +128,7 @@ where
         stream::poll_fn(move |cx| {
             if !fut.is_terminated() {
                 // Result doesn't matter, we'll need to poll stream below anyway
-                let _ = fut.poll_unpin(cx);
+                let _: Poll<()> = fut.poll_unpin(cx);
             }
 
             if let Poll::Ready(maybe_result) = rx.poll_next_unpin(cx) {
@@ -182,9 +182,9 @@ where
                     .piece_validator
                     .validate_piece(provider_id, piece_index, piece)
                     .await;
-            } else {
-                debug!(%piece_index, key, %provider_id, "Piece request returned empty piece");
             }
+
+            debug!(%piece_index, key, %provider_id, "Piece request returned empty piece");
         }
 
         None
@@ -221,9 +221,9 @@ where
                 .piece_validator
                 .validate_piece(peer_id, piece_index, piece)
                 .await;
-        } else {
-            debug!(%peer_id, %piece_index, "Piece request returned empty piece");
         }
+
+        debug!(%peer_id, %piece_index, "Piece request returned empty piece");
 
         None
     }
@@ -254,8 +254,8 @@ where
         if connected_servers.is_empty() {
             debug!(%piece_index, "Cannot acquire piece from no connected peers (DSN L1 lookup)");
         } else {
-            for peer_id in connected_servers.iter() {
-                let maybe_piece = self.get_piece_from_peer(*peer_id, piece_index).await;
+            for peer_id in connected_servers {
+                let maybe_piece = self.get_piece_from_peer(peer_id, piece_index).await;
 
                 if maybe_piece.is_some() {
                     trace!(%piece_index, %peer_id, "DSN L1 lookup from connected peers succeeded");
@@ -274,13 +274,13 @@ where
             trace!(%piece_index, "DSN L1 lookup via random walk succeeded");
 
             return random_walk_result;
-        } else {
-            debug!(
-                %piece_index,
-                %max_random_walking_rounds,
-                "Cannot acquire piece from DSN L1: random walk failed"
-            );
         }
+
+        debug!(
+            %piece_index,
+            %max_random_walking_rounds,
+            "Cannot acquire piece from DSN L1: random walk failed"
+        );
 
         None
     }
@@ -357,9 +357,9 @@ where
                     .piece_validator
                     .validate_piece(peer_id, piece_index, piece)
                     .await;
-            } else {
-                debug!(%peer_id, %piece_index, ?key, %round, "Piece request returned empty piece.");
             }
+
+            debug!(%peer_id, %piece_index, ?key, %round, "Piece request returned empty piece.");
         }
 
         None

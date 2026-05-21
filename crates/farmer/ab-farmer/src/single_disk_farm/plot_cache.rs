@@ -98,20 +98,19 @@ impl DiskPlotCache {
             let plotted_size = sector_size * sectors_metadata.len() as u64;
 
             // Step over all free potential offsets for pieces that could have been cached
-            let from_offset = (plotted_size / Self::element_size() as u64) as u32;
-            let to_offset = (file_size / Self::element_size() as u64) as u32;
+            let from_offset = (plotted_size / u64::from(Self::element_size())) as u32;
+            let to_offset = (file_size / u64::from(Self::element_size())) as u32;
             // TODO: Parallelize or read in larger batches
             for offset in (from_offset..to_offset).rev() {
                 match Self::read_piece_internal(file, offset, &mut element) {
-                    Ok(maybe_piece_index) => match maybe_piece_index {
-                        Some(piece_index) => {
+                    Ok(maybe_piece_index) => {
+                        if let Some(piece_index) = maybe_piece_index {
                             map.insert(RecordKey::from(piece_index.to_multihash()), offset);
-                        }
-                        None => {
+                        } else {
                             next_offset.replace(offset);
                             break;
                         }
-                    },
+                    }
                     Err(DiskPlotCacheError::ChecksumMismatch) => {
                         next_offset.replace(offset);
                         break;
@@ -189,7 +188,7 @@ impl DiskPlotCache {
             // immediately.
             if self.cached_pieces.read().next_offset.is_none() {
                 return Ok(false);
-            };
+            }
 
             // Then, if there was free space, acquire a write lock, and check for intervening
             // writes.

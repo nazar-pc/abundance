@@ -5,7 +5,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_aes64es() {
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0011001);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b00_11001);
     let decoded = Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -19,7 +19,7 @@ fn test_aes64es() {
 
 #[test]
 fn test_aes64esm() {
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0011011);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b00_11011);
     let decoded = Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -33,7 +33,7 @@ fn test_aes64esm() {
 
 #[test]
 fn test_wrong_funct3_rejected() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0011001);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b00_11001);
     let decoded = Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -41,7 +41,7 @@ fn test_wrong_funct3_rejected() {
 #[test]
 fn test_wrong_funct7_rejected() {
     // funct7 from aes64ds - must not match Zkne
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0011101);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b00_11101);
     let decoded = Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -49,7 +49,7 @@ fn test_wrong_funct7_rejected() {
 #[test]
 fn test_wrong_opcode_rejected() {
     // I-type opcode (0x13) must not match
-    let inst = make_r_type(0b0010011, 1, 0b000, 2, 3, 0b0011001);
+    let inst = make_r_type(0b001_0011, 1, 0b000, 2, 3, 0b00_11001);
     let decoded = Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

@@ -36,7 +36,7 @@ where
         let csr_bits = ((instruction >> 20) & 0x0fff) as u16;
 
         match opcode {
-            0b1110011 => {
+            0b111_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 match funct3 {
                     0b001 => {

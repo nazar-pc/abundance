@@ -148,11 +148,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 kademlia_mode: KademliaMode::Static(Mode::Server),
                 external_addresses,
 
-                ..Config::new(
-                    protocol_version.to_string(),
-                    keypair,
-                    maybe_registry.as_mut(),
-                )
+                ..Config::new(protocol_version, keypair, maybe_registry.as_mut())
             };
             let (node, mut node_runner) =
                 ab_networking::construct(config).expect("Networking stack creation failed.");
@@ -188,7 +184,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                    _ = prometheus_task.fuse() => {},
                 }
             } else {
-                node_runner.run().await
+                node_runner.run().await;
             }
         }
         Command::GenerateKeypair { json } => {
@@ -197,9 +193,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if json {
                 let json_output = serde_json::to_string(&output)?;
 
-                println!("{json_output}")
+                println!("{json_output}");
             } else {
-                println!("{output}")
+                println!("{output}");
             }
         }
     }

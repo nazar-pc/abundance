@@ -7,7 +7,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_sha256sig0() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00010, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0010, 0b000_1000);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -21,7 +21,7 @@ fn test_sha256sig0() {
 
 #[test]
 fn test_sha256sig1() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00011, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0011, 0b000_1000);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -35,7 +35,7 @@ fn test_sha256sig1() {
 
 #[test]
 fn test_sha256sum0() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00000, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0000, 0b000_1000);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -49,7 +49,7 @@ fn test_sha256sum0() {
 
 #[test]
 fn test_sha256sum1() {
-    let inst = make_r_type(0b0010011, 1, 0b001, 2, 0b00001, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b001, 2, 0b0_0001, 0b000_1000);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -66,7 +66,7 @@ fn test_sha256sum1() {
 #[test]
 fn test_sha512sig1h() {
     // funct7 = 0b0101111 = 47
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0101111);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_1111);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -81,7 +81,7 @@ fn test_sha512sig1h() {
 #[test]
 fn test_sha512sig1l() {
     // funct7 = 0b0101011 = 43
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0101011);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_1011);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -96,7 +96,7 @@ fn test_sha512sig1l() {
 #[test]
 fn test_sha512sum0r() {
     // funct7 = 0b0101000 = 40
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0101000);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_1000);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -111,7 +111,7 @@ fn test_sha512sum0r() {
 #[test]
 fn test_sha512sum1r() {
     // funct7 = 0b0101001 = 41
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0101001);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_1001);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -126,7 +126,7 @@ fn test_sha512sum1r() {
 #[test]
 fn test_sha512sig0h() {
     // funct7 = 0b0101110 = 46
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0101110);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_1110);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -141,7 +141,7 @@ fn test_sha512sig0h() {
 #[test]
 fn test_sha512sig0l() {
     // funct7 = 0b0101010 = 42
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0101010);
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_1010);
     let decoded = Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -158,20 +158,20 @@ fn test_sha512sig0l() {
 #[test]
 fn test_wrong_funct3_sha256() {
     // SHA-256 requires funct3 = 0b001; 0b000 must not decode
-    let inst = make_r_type(0b0010011, 1, 0b000, 2, 0b00010, 0b0001000);
+    let inst = make_r_type(0b001_0011, 1, 0b000, 2, 0b0_0010, 0b000_1000);
     assert_eq!(Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst), None);
 }
 
 #[test]
 fn test_wrong_funct3_sha512() {
     // SHA-512 R-type requires funct3 = 0b000; 0b001 must not decode
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0101110);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b010_1110);
     assert_eq!(Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst), None);
 }
 
 #[test]
 fn test_unknown_funct7_sha512() {
-    // funct7 = 0b0100000 = 32 is not assigned to any SHA-512 RV32 instruction
-    let inst = make_r_type(0b0110011, 1, 0b000, 2, 3, 0b0100000);
+    // funct7 = 0b010_0000 = 32 is not assigned to any SHA-512 RV32 instruction
+    let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b010_0000);
     assert_eq!(Rv32ZknhInstruction::<Reg<u32>>::try_decode(inst), None);
 }

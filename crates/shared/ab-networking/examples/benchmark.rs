@@ -371,7 +371,7 @@ pub async fn configure_dsn(
     tokio::spawn({
         let node = node.clone();
         async move {
-            let _ = node.bootstrap().await;
+            let _: Result<(), _> = node.bootstrap().await;
 
             pending::<()>().await;
         }

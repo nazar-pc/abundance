@@ -326,7 +326,7 @@ where
                 if let Some(metrics) = &self.metrics {
                     metrics
                         .piece_cache_capacity_total
-                        .inc_by(total_capacity as i64);
+                        .inc_by(i64::from(total_capacity));
                 }
 
                 let init_fut = async move {
@@ -434,7 +434,7 @@ where
 
                     return;
                 }
-            };
+            }
         }
 
         let mut caches = PieceCachesState::new(stored_pieces, dangling_free_offsets, backends);
@@ -540,7 +540,7 @@ where
             //  confusing error described in https://github.com/rust-lang/rust/issues/64552 and
             //  similar upstream issues
             .chunks(SYNC_BATCH_SIZE)
-            .map(|chunk| chunk.to_vec())
+            .map(<[PieceIndex]>::to_vec)
             .collect::<Vec<_>>();
 
         let downloaded_pieces_count = AtomicUsize::new(stored_count);
@@ -932,86 +932,84 @@ where
     async fn persist_piece_in_cache(&self, piece_index: PieceIndex, piece: Piece) {
         let key = KeyWithDistance::new(self.peer_id, piece_index.to_multihash());
         let mut caches = self.piece_caches.write().await;
-        match caches.should_replace(&key) {
+        if let Some((old_key, offset)) = caches.should_replace(&key) {
             // Entry is already occupied, we need to find and replace old piece with new one
-            Some((old_key, offset)) => {
-                let cache_index = offset.cache_index;
-                let piece_offset = offset.piece_offset;
-                let Some(backend) = caches.get_backend(cache_index) else {
-                    // Cache backend not exist
-                    warn!(
-                        %cache_index,
-                        %piece_index,
-                        "Should have a cached backend, but it didn't exist, this is an \
-                        implementation bug"
-                    );
-                    return;
-                };
-                if let Err(error) = backend.write_piece(piece_offset, piece_index, &piece).await {
-                    error!(
-                        %error,
-                        %cache_index,
-                        %piece_index,
-                        %piece_offset,
-                        "Failed to write piece into cache"
-                    );
-                } else {
-                    let old_piece_index = decode_piece_index_from_record_key(old_key.record_key());
-                    trace!(
-                        %cache_index,
-                        %old_piece_index,
-                        %piece_index,
-                        %piece_offset,
-                        "Successfully replaced old cached piece"
-                    );
-                    caches.push_stored_piece(key, offset);
-                }
+            let cache_index = offset.cache_index;
+            let piece_offset = offset.piece_offset;
+            let Some(backend) = caches.get_backend(cache_index) else {
+                // Cache backend not exist
+                warn!(
+                    %cache_index,
+                    %piece_index,
+                    "Should have a cached backend, but it didn't exist, this is an \
+                    implementation bug"
+                );
+                return;
+            };
+            if let Err(error) = backend.write_piece(piece_offset, piece_index, &piece).await {
+                error!(
+                    %error,
+                    %cache_index,
+                    %piece_index,
+                    %piece_offset,
+                    "Failed to write piece into cache"
+                );
+            } else {
+                let old_piece_index = decode_piece_index_from_record_key(old_key.record_key());
+                trace!(
+                    %cache_index,
+                    %old_piece_index,
+                    %piece_index,
+                    %piece_offset,
+                    "Successfully replaced old cached piece"
+                );
+                caches.push_stored_piece(key, offset);
             }
+        } else {
             // There is free space in cache, need to find a free spot and place piece there
-            None => {
-                let Some(offset) = caches.pop_free_offset() else {
-                    warn!(
-                        %piece_index,
-                        "Should have inserted piece into cache, but it didn't happen, this is an \
-                        implementation bug"
-                    );
-                    return;
-                };
-                let cache_index = offset.cache_index;
-                let piece_offset = offset.piece_offset;
-                let Some(backend) = caches.get_backend(cache_index) else {
-                    // Cache backend not exist
-                    warn!(
-                        %cache_index,
-                        %piece_index,
-                        "Should have a cached backend, but it didn't exist, this is an \
-                        implementation bug"
-                    );
-                    return;
-                };
 
-                if let Err(error) = backend.write_piece(piece_offset, piece_index, &piece).await {
-                    error!(
-                        %error,
-                        %cache_index,
-                        %piece_index,
-                        %piece_offset,
-                        "Failed to write piece into cache"
-                    );
-                } else {
-                    trace!(
-                        %cache_index,
-                        %piece_index,
-                        %piece_offset,
-                        "Successfully stored piece in cache"
-                    );
-                    if let Some(metrics) = &self.metrics {
-                        metrics.piece_cache_capacity_used.inc();
-                    }
-                    caches.push_stored_piece(key, offset);
+            let Some(offset) = caches.pop_free_offset() else {
+                warn!(
+                    %piece_index,
+                    "Should have inserted piece into cache, but it didn't happen, this is an \
+                    implementation bug"
+                );
+                return;
+            };
+            let cache_index = offset.cache_index;
+            let piece_offset = offset.piece_offset;
+            let Some(backend) = caches.get_backend(cache_index) else {
+                // Cache backend not exist
+                warn!(
+                    %cache_index,
+                    %piece_index,
+                    "Should have a cached backend, but it didn't exist, this is an \
+                    implementation bug"
+                );
+                return;
+            };
+
+            if let Err(error) = backend.write_piece(piece_offset, piece_index, &piece).await {
+                error!(
+                    %error,
+                    %cache_index,
+                    %piece_index,
+                    %piece_offset,
+                    "Failed to write piece into cache"
+                );
+            } else {
+                trace!(
+                    %cache_index,
+                    %piece_index,
+                    %piece_offset,
+                    "Successfully stored piece in cache"
+                );
+                if let Some(metrics) = &self.metrics {
+                    metrics.piece_cache_capacity_used.inc();
                 }
+                caches.push_stored_piece(key, offset);
             }
-        };
+        }
     }
 }
 
@@ -1076,7 +1074,7 @@ impl PlotCaches {
                     return true;
                 }
                 Ok(false) => {
-                    continue;
+                    // Nothing
                 }
                 Err(error) => {
                     error!(
@@ -1085,7 +1083,6 @@ impl PlotCaches {
                         %plot_cache_index,
                         "Failed to store additional piece in cache"
                     );
-                    continue;
                 }
             }
         }
@@ -1185,25 +1182,22 @@ impl FarmerCache {
         if let Some((piece_offset, cache_index, backend)) = maybe_piece_found {
             match backend.read_piece(piece_offset).await {
                 Ok(maybe_piece) => {
-                    return match maybe_piece {
-                        Some((_piece_index, piece)) => {
-                            if let Some(metrics) = &self.metrics {
-                                metrics.cache_get_hit.inc();
-                            }
-                            Some(piece)
+                    return if let Some((_piece_index, piece)) = maybe_piece {
+                        if let Some(metrics) = &self.metrics {
+                            metrics.cache_get_hit.inc();
                         }
-                        None => {
-                            error!(
-                                %cache_index,
-                                %piece_offset,
-                                ?key,
-                                "Piece was expected to be in cache, but wasn't found there"
-                            );
-                            if let Some(metrics) = &self.metrics {
-                                metrics.cache_get_error.inc();
-                            }
-                            None
+                        Some(piece)
+                    } else {
+                        error!(
+                            %cache_index,
+                            %piece_offset,
+                            ?key,
+                            "Piece was expected to be in cache, but wasn't found there"
+                        );
+                        if let Some(metrics) = &self.metrics {
+                            metrics.cache_get_error.inc();
                         }
+                        None
                     };
                 }
                 Err(error) => {
@@ -1268,15 +1262,12 @@ impl FarmerCache {
             for piece_index in piece_indices {
                 let key = RecordKey::from(piece_index.to_multihash());
 
-                let offset = match caches.get_stored_piece(&KeyWithDistance::new_with_record_key(
+                let Some(offset) = caches.get_stored_piece(&KeyWithDistance::new_with_record_key(
                     self.peer_id,
                     key.clone(),
-                )) {
-                    Some(offset) => offset,
-                    None => {
-                        pieces_to_get_from_plot_cache.push((piece_index, key));
-                        continue;
-                    }
+                )) else {
+                    pieces_to_get_from_plot_cache.push((piece_index, key));
+                    continue;
                 };
 
                 let cache_index = offset.cache_index;
@@ -1288,12 +1279,11 @@ impl FarmerCache {
                         pieces.insert(piece_offset, (piece_index, key));
                     }
                     Entry::Vacant(entry) => {
-                        let backend = match caches.get_backend(cache_index) {
-                            Some(backend) => backend.clone(),
-                            None => {
-                                pieces_to_get_from_plot_cache.push((piece_index, key));
-                                continue;
-                            }
+                        let backend = if let Some(backend) = caches.get_backend(cache_index) {
+                            backend.clone()
+                        } else {
+                            pieces_to_get_from_plot_cache.push((piece_index, key));
+                            continue;
                         };
                         entry
                             .insert((backend, HashMap::from([(piece_offset, (piece_index, key))])));
@@ -1476,7 +1466,7 @@ impl FarmerCache {
         stream::poll_fn(move |cx| {
             if !fut.is_terminated() {
                 // Result doesn't matter, we'll need to poll stream below anyway
-                let _ = fut.poll_unpin(cx);
+                let _: Poll<_> = fut.poll_unpin(cx);
             }
 
             if let Poll::Ready(maybe_result) = rx.poll_next_unpin(cx) {

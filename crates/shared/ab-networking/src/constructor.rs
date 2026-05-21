@@ -48,7 +48,7 @@ const GOSSIPSUB_PROTOCOL_PREFIX: &str = "subspace/gossipsub";
 
 /// Defines max_negotiating_inbound_streams constant for the swarm.
 /// It must be set for large plots.
-const SWARM_MAX_NEGOTIATING_INBOUND_STREAMS: usize = 100000;
+const SWARM_MAX_NEGOTIATING_INBOUND_STREAMS: usize = 100_000;
 /// How long will connection be allowed to be open without any usage
 const IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(3);
 /// The default maximum established incoming connection number for the swarm.
@@ -69,7 +69,7 @@ const ENABLE_GOSSIP_PROTOCOL: bool = false;
 const TEMPORARY_BANS_CACHE_SIZE: u32 = 10_000;
 const TEMPORARY_BANS_DEFAULT_BACKOFF_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
 const TEMPORARY_BANS_DEFAULT_BACKOFF_MULTIPLIER: f64 = 1.5;
-const TEMPORARY_BANS_DEFAULT_MAX_INTERVAL: Duration = Duration::from_secs(30 * 60);
+const TEMPORARY_BANS_DEFAULT_MAX_INTERVAL: Duration = Duration::from_mins(30);
 
 /// We pause between reserved peers dialing otherwise we could do multiple dials to offline peers
 /// wasting resources and producing a ton of log records.
@@ -85,7 +85,7 @@ const YAMUX_MAX_STREAMS: usize = 256;
 /// Max confidence for autonat protocol. Could affect Kademlia mode change.
 pub(crate) const AUTONAT_MAX_CONFIDENCE: usize = 3;
 /// We set a very long pause before autonat initialization (Duration::Max panics).
-const AUTONAT_SERVER_PROBE_DELAY: Duration = Duration::from_secs(3600 * 24 * 365);
+const AUTONAT_SERVER_PROBE_DELAY: Duration = Duration::from_days(365);
 
 /// Defines Kademlia mode
 #[derive(Clone, Debug)]
@@ -252,14 +252,12 @@ impl Config {
         keypair: identity::Keypair,
         prometheus_registry: Option<&mut Registry>,
     ) -> Self {
-        let (libp2p_metrics, metrics) = prometheus_registry
-            .map(|registry| {
-                (
-                    Some(Metrics::new(registry)),
-                    Some(SubspaceMetrics::new(registry)),
-                )
-            })
-            .unwrap_or((None, None));
+        let (libp2p_metrics, metrics) = prometheus_registry.map_or((None, None), |registry| {
+            (
+                Some(Metrics::new(registry)),
+                Some(SubspaceMetrics::new(registry)),
+            )
+        });
 
         let mut kademlia = KademliaConfig::new(
             StreamProtocol::try_from_owned(KADEMLIA_PROTOCOL.to_owned())
@@ -457,7 +455,7 @@ pub fn construct(config: Config) -> Result<(Node, NodeRunner), CreationError> {
         _ => {
             // Autonat will figure it out
         }
-    };
+    }
 
     let temporary_bans = Arc::new(Mutex::new(TemporaryBans::new(
         temporary_bans_cache_size,

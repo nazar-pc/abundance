@@ -29,7 +29,7 @@ use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
 use std::num::{NonZeroU16, NonZeroU64};
-use std::{env, fs, slice};
+use std::{env, fs, iter, slice};
 
 type PosTable = ChiaTable;
 
@@ -37,18 +37,18 @@ const MAX_PIECES_IN_SECTOR: u16 = 1000;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     println!("Initializing...");
-    let base_path = env::var("BASE_PATH")
-        .map(|base_path| base_path.parse().unwrap())
-        .unwrap_or_else(|_error| env::temp_dir());
-    let pieces_in_sector = env::var("PIECES_IN_SECTOR")
-        .map(|base_path| base_path.parse().unwrap())
-        .unwrap_or_else(|_error| MAX_PIECES_IN_SECTOR);
+    let base_path = env::var("BASE_PATH").map_or_else(
+        |_error| env::temp_dir(),
+        |base_path| base_path.parse().unwrap(),
+    );
+    let pieces_in_sector = env::var("PIECES_IN_SECTOR").map_or_else(
+        |_error| MAX_PIECES_IN_SECTOR,
+        |base_path| base_path.parse().unwrap(),
+    );
     let persist_sector = env::var("PERSIST_SECTOR")
-        .map(|persist_sector| persist_sector == "1")
-        .unwrap_or_else(|_error| false);
-    let sectors_count = env::var("SECTORS_COUNT")
-        .map(|sectors_count| sectors_count.parse().unwrap())
-        .unwrap_or(10);
+        .map_or_else(|_error| false, |persist_sector| persist_sector == "1");
+    let sectors_count =
+        env::var("SECTORS_COUNT").map_or(10, |sectors_count| sectors_count.parse().unwrap());
 
     let public_key = &Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
@@ -161,7 +161,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             "Writing persisted sector into {}...",
             persisted_sector.display()
         );
-        fs::write(persisted_sector, &plotted_sector_bytes).unwrap()
+        fs::write(persisted_sector, &plotted_sector_bytes).unwrap();
     }
 
     let mut group = c.benchmark_group("auditing");
@@ -182,7 +182,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 )
                 .unwrap(),
             );
-        })
+        });
     });
 
     {
@@ -209,9 +209,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 .unwrap();
         }
 
-        let sectors_metadata = (0..sectors_count)
-            .map(|_| plotted_sector.sector_metadata.clone())
-            .collect::<Vec<_>>();
+        let sectors_metadata = iter::repeat_n(
+            plotted_sector.sector_metadata.clone(),
+            sectors_count as usize,
+        )
+        .collect::<Vec<_>>();
 
         group.throughput(Throughput::Elements(sectors_count));
         group.bench_function("disk/sync", |b| {

@@ -34,11 +34,11 @@ const ADDRESSES_CACHE_SIZE: u32 = 30;
 /// Pause duration between network parameters save.
 const DATA_FLUSH_DURATION_SECS: u64 = 5;
 /// Defines an expiration period for the peer marked for the removal.
-const REMOVE_KNOWN_PEERS_GRACE_PERIOD: Duration = Duration::from_secs(24 * 3600);
+const REMOVE_KNOWN_PEERS_GRACE_PERIOD: Duration = Duration::from_days(1);
 /// Defines an expiration period for the peer marked for the removal for Kademlia DHT.
-const REMOVE_KNOWN_PEERS_GRACE_PERIOD_FOR_KADEMLIA: Duration = Duration::from_secs(3600);
+const REMOVE_KNOWN_PEERS_GRACE_PERIOD_FOR_KADEMLIA: Duration = Duration::from_hours(1);
 /// Defines an expiration period for the peer marked for the removal for Kademlia DHT.
-const STALE_KNOWN_PEERS_TIMEOUT: Duration = Duration::from_secs(24 * 3600);
+const STALE_KNOWN_PEERS_TIMEOUT: Duration = Duration::from_days(1);
 
 /// Defines the event triggered when the peer address is removed from the permanent storage.
 #[derive(Debug, Clone)]
@@ -240,7 +240,7 @@ impl KnownPeersRegistry for StubNetworkingParametersManager {
 
     async fn run(&mut self) {
         // Never resolves
-        futures::future::pending().await
+        futures::future::pending::<()>().await;
     }
 
     fn on_unreachable_address(
@@ -400,7 +400,9 @@ impl KnownPeersManager {
         }
 
         // *2 because we have a/b parts of the file
-        let file_resized = if file.seek(SeekFrom::End(0))? != file_size as u64 {
+        let file_resized = if file.seek(SeekFrom::End(0))? == file_size as u64 {
+            false
+        } else {
             // Allocating the whole file (`set_len` below can create a sparse file, which will cause
             // writes to fail later)
             file.allocate(file_size as u64)
@@ -408,8 +410,6 @@ impl KnownPeersManager {
             // Truncating file (if necessary)
             file.set_len(file_size as u64)?;
             true
-        } else {
-            false
         };
 
         // SAFETY: Mapping disjoint sections of the file only for non-conflicting writes
@@ -464,8 +464,10 @@ impl KnownPeersManager {
 
                 known_peers_age <= config.stale_known_peers_timeout
             })
-            .map(EncodableKnownPeers::into_cache)
-            .unwrap_or_else(|| LruMap::new(ByLength::new(config.cache_size)));
+            .map_or_else(
+                || LruMap::new(ByLength::new(config.cache_size)),
+                EncodableKnownPeers::into_cache,
+            );
 
         Ok(Self {
             cache_need_saving: false,
@@ -535,8 +537,7 @@ impl KnownPeersManager {
     pub(crate) fn contains_address(&self, peer_id: &PeerId, address: &Multiaddr) -> bool {
         self.known_peers
             .peek(peer_id)
-            .map(|addresses| addresses.peek(address).is_some())
-            .unwrap_or_default()
+            .is_some_and(|addresses| addresses.peek(address).is_some())
     }
 }
 
@@ -577,7 +578,7 @@ impl KnownPeersRegistry for KnownPeersManager {
                     .get_or_insert(peer_id, || LruMap::new(ByLength::new(ADDRESSES_CACHE_SIZE)));
 
                 if let Some(addresses) = self.known_peers.get(&peer_id) {
-                    let previous_entry = addresses.peek(&addr).cloned().flatten();
+                    let previous_entry = addresses.peek(&addr).copied().flatten();
                     addresses.insert(addr, None);
                     if let Some(previous_entry) = previous_entry {
                         trace!(%peer_id, "Address cache entry replaced: {:?}", previous_entry);
@@ -635,7 +636,7 @@ impl KnownPeersRegistry for KnownPeersManager {
 
     async fn run(&mut self) {
         if !self.persistent_enabled() {
-            pending().await
+            pending::<()>().await;
         }
 
         loop {
@@ -683,7 +684,7 @@ pub(crate) fn remove_p2p_suffix(mut address: Multiaddr) -> Multiaddr {
     }
 
     if let Some(protocol) = last_protocol {
-        address.push(protocol)
+        address.push(protocol);
     }
 
     address
@@ -696,7 +697,7 @@ pub(crate) fn append_p2p_suffix(peer_id: PeerId, mut address: Multiaddr) -> Mult
     if let Some(protocol) = last_protocol
         && !matches!(protocol, Protocol::P2p(..))
     {
-        address.push(protocol)
+        address.push(protocol);
     }
     address.push(Protocol::P2p(peer_id));
 

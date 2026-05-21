@@ -154,7 +154,7 @@ fn output_processed_enum_decoding_impl(
     state: &mut State,
 ) -> anyhow::Result<()> {
     {
-        let enum_file_path = out_dir.join(format!("{}_decoding_impl.rs", enum_name));
+        let enum_file_path = out_dir.join(format!("{enum_name}_decoding_impl.rs"));
         let code = item_impl.to_token_stream().to_string();
         // Format
         let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
@@ -172,7 +172,7 @@ fn output_processed_enum_decoding_impl(
     }
     {
         let original_enum_file_path =
-            out_dir.join(format!("{}_original_decoding_impl.rs", enum_name));
+            out_dir.join(format!("{enum_name}_original_decoding_impl.rs"));
         let code = original_item_impl.to_token_stream().to_string();
         // Format
         let mut code = unparse(&parse_file(&code).expect("Original code is valid; qed"));
@@ -207,7 +207,7 @@ fn output_processed_enum_display_impl(
     item_impl: ItemImpl,
     out_dir: &Path,
 ) -> anyhow::Result<()> {
-    let enum_file_path = out_dir.join(format!("{}_display_impl.rs", enum_name));
+    let enum_file_path = out_dir.join(format!("{enum_name}_display_impl.rs"));
     let code = item_impl.to_token_stream().to_string();
     // Format
     let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
@@ -274,20 +274,19 @@ pub(super) fn process_enum_decoding_impl(
     let mut item_impl = original_item_impl.clone();
 
     let Some(blocks) = extract_instruction_blocks_from_impl_mut(&mut item_impl.items) else {
-        Err(anyhow::anyhow!(
+        return Err(anyhow::anyhow!(
             "Expected `#[instruction] impl Instruction for {}` to contain `try_decode`, \
             `alignment`, and `size` methods, but at least one was not found",
             item_impl.self_ty.to_token_stream()
-        ))?
+        ));
     };
     let try_decode_block = blocks.try_decode;
     let alignment_block = blocks.alignment;
     let size_block = blocks.size;
     (!block_contains_forbidden_syntax(try_decode_block, &enum_name)).ok_or_else(|| {
         anyhow::anyhow!(
-            "Expected `#[instruction] impl Instruction for {}` must not have `return` or enum \
-            construction other than through `Self::` in `try_decode` method",
-            enum_name
+            "Expected `#[instruction] impl Instruction for {enum_name}` must not have `return` or \
+            enum construction other than through `Self::` in `try_decode` method"
         )
     })?;
 
@@ -383,6 +382,11 @@ pub(super) fn process_enum_decoding_impl(
         #[expect(clippy::allow_attributes, reason = "Attribute below")]
         #[allow(
             clippy::if_same_then_else,
+            reason = "In presence of ignored instructions, simple replacement sometimes results in \
+            redundant code like `Some(None?)`"
+        )]
+        #[allow(
+            clippy::same_functions_in_if_condition,
             reason = "In presence of ignored instructions, simple replacement sometimes results in \
             redundant code like `Some(None?)`"
         )]

@@ -88,9 +88,9 @@ unsafe fn compute_f2_into_buckets_inner(
             if right_position_or_skip == 0 {
                 right_position_or_skip = position_r.position;
                 break;
-            } else {
-                right_position_or_skip -= 1;
             }
+
+            right_position_or_skip -= 1;
         }
     }
     let right_position = right_position_or_skip;

@@ -12,7 +12,7 @@ use core::fmt;
 /// RISC-V Zve64x fixed-point arithmetic instruction.
 ///
 /// Includes saturating add/subtract, averaging add/subtract, fractional multiply, scaling shifts,
-/// and narrowing clips. All use the OP-V major opcode (0b1010111).
+/// and narrowing clips. All use the OP-V major opcode (0b101_0111).
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
@@ -100,7 +100,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -116,8 +116,8 @@ where
 
         match funct6 {
             // Saturating add/sub - OPIVV / OPIVX / OPIVI
-            // vsaddu: funct6=100000
-            0b100000 => match funct3 {
+            // vsaddu: funct6=10_0000
+            0b10_0000 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -135,8 +135,8 @@ where
                 }
                 _ => None,
             },
-            // vsadd: funct6=100001
-            0b100001 => match funct3 {
+            // vsadd: funct6=10_0001
+            0b10_0001 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -154,8 +154,8 @@ where
                 }
                 _ => None,
             },
-            // vssubu: funct6=100010 (VV/VX only)
-            0b100010 => match funct3 {
+            // vssubu: funct6=10_0010 (VV/VX only)
+            0b10_0010 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -168,8 +168,8 @@ where
                 }
                 _ => None,
             },
-            // vssub: funct6=100011 (VV/VX only)
-            0b100011 => match funct3 {
+            // vssub: funct6=10_0011 (VV/VX only)
+            0b10_0011 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -184,8 +184,8 @@ where
             },
 
             // Averaging add/sub - OPMVV / OPMVX
-            // vaaddu: funct6=001000
-            0b001000 => match funct3 {
+            // vaaddu: funct6=00_1000
+            0b00_1000 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -198,8 +198,8 @@ where
                 }
                 _ => None,
             },
-            // vaadd: funct6=001001
-            0b001001 => match funct3 {
+            // vaadd: funct6=00_1001
+            0b00_1001 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -212,8 +212,8 @@ where
                 }
                 _ => None,
             },
-            // vasubu: funct6=001010
-            0b001010 => match funct3 {
+            // vasubu: funct6=00_1010
+            0b00_1010 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -227,7 +227,7 @@ where
                 _ => None,
             },
             // vasub: funct6=001011
-            0b001011 => match funct3 {
+            0b00_1011 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -242,8 +242,8 @@ where
             },
 
             // Fractional multiply - OPMVV / OPMVX
-            // vsmul: funct6=100111
-            0b100111 => match funct3 {
+            // vsmul: funct6=10_0111
+            0b10_0111 => match funct3 {
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -258,8 +258,8 @@ where
             },
 
             // Scaling shifts - OPIVV / OPIVX / OPIVI
-            // vssrl: funct6=101000
-            0b101000 => match funct3 {
+            // vssrl: funct6=10_1000
+            0b10_1000 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -277,8 +277,8 @@ where
                 }
                 _ => None,
             },
-            // vssra: funct6=101001
-            0b101001 => match funct3 {
+            // vssra: funct6=10_1001
+            0b10_1001 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -298,8 +298,8 @@ where
             },
 
             // Narrowing clips - OPIVV / OPIVX / OPIVI
-            // vnclipu: funct6=101110
-            0b101110 => match funct3 {
+            // vnclipu: funct6=10_1110
+            0b10_1110 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -317,8 +317,8 @@ where
                 }
                 _ => None,
             },
-            // vnclip: funct6=101111
-            0b101111 => match funct3 {
+            // vnclip: funct6=10_1111
+            0b10_1111 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;

@@ -5,6 +5,10 @@ use core::ops::{Deref, DerefMut};
 const EXPECTED_ALIGNMENT: usize = align_of::<u128>();
 
 #[test]
+#[expect(
+    clippy::explicit_deref_methods,
+    reason = "Intentionally explicit for testing"
+)]
 fn basic() {
     for capacity in 0..=EXPECTED_ALIGNMENT as u32 {
         let mut owned = OwnedAlignedBuffer::with_capacity(capacity);
@@ -171,7 +175,9 @@ fn basic() {
 
             let shorter_len = owned2.len() - 1;
             // SAFETY: length is guaranteed to be within stored bytes
-            unsafe { owned2.set_len(shorter_len) };
+            unsafe {
+                owned2.set_len(shorter_len);
+            }
             assert_eq!(&owned.as_slice()[..shorter_len as usize], owned2.as_slice());
         }
 

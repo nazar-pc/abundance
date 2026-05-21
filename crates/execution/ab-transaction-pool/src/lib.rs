@@ -194,7 +194,7 @@ impl TransactionPool {
         Txs: Iterator<Item = &'a TransactionHash>,
     {
         for tx_hash in tx_hashes {
-            self.remove_single_tx(tx_hash)
+            self.remove_single_tx(tx_hash);
         }
     }
 

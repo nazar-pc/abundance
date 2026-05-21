@@ -7,7 +7,7 @@ use crate::{
 use ab_riscv_primitives::prelude::*;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    (vlmul.to_bits() as u64) | ((vsew.to_bits() as u64) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 fn setup(

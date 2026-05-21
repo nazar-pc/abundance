@@ -165,7 +165,7 @@ where
     #[inline(always)]
     fn set_vstart(&mut self, vstart: u16) {
         self.write_csr(VCsr::Vstart as u16, Reg::Type::from(vstart))
-            .expect("Implementation didn't initialize `vstart` CSR")
+            .expect("Implementation didn't initialize `vstart` CSR");
     }
 
     /// Reset `vstart` to zero.
@@ -194,7 +194,7 @@ where
             .expect("Implementation didn't initialize `vxrm` CSR");
         // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
         let old_vcsr = self.read_csr(VCsr::Vcsr as u16).unwrap_or_default();
-        let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1);
+        let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
         self.write_csr(VCsr::Vcsr as u16, new_vcsr)
             .expect("Implementation didn't initialize `vcsr` CSR");
     }

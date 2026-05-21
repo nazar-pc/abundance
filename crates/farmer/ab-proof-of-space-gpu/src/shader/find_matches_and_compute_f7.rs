@@ -59,8 +59,8 @@ const fn proofs_bucket_upper_bound(security_bits: u8) -> u64 {
     const LAMBDA: u64 = 1;
     // Approximation of ln(2) as a fraction: `ln(2) ≈ LN2_NUM / LN2_DEN`.
     // This allows integer-only computation of the square root term involving ln(2).
-    const LN2_NUM: u128 = 693147;
-    const LN2_DEN: u128 = 1000000;
+    const LN2_NUM: u128 = 693_147;
+    const LN2_DEN: u128 = 1_000_000;
 
     // `log2(NUM_S_BUCKETS) + security_bits` for the union bound over `NUM_S_BUCKETS` buckets
     let ks = NUM_S_BUCKETS.ilog2() as u128 + security_bits as u128;
@@ -154,9 +154,9 @@ unsafe fn compute_f7_into_buckets_inner(
             if right_position_or_skip == 0 {
                 right_position_or_skip = position_r.position;
                 break;
-            } else {
-                right_position_or_skip -= 1;
             }
+
+            right_position_or_skip -= 1;
         }
     }
     let right_position = right_position_or_skip;

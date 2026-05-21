@@ -18,7 +18,7 @@ use ab_riscv_primitives::prelude::*;
 //   E8/M4  -> VLMAX=64, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=4 at E32/M1)
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    (vlmul.to_bits() as u64) | ((vsew.to_bits() as u64) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
 }
 
 fn setup(
@@ -374,7 +374,7 @@ fn vmulhu_vv_e8() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E8), 40000u64 >> 8);
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E8), 40000 >> 8u8);
 }
 
 #[test]
@@ -769,7 +769,7 @@ fn vrem_vv_e32_basic() {
         VReg::V2,
         0,
         Vsew::E32,
-        (-13i32).cast_unsigned() as u64,
+        u64::from((-13i32).cast_unsigned()),
     );
     write_elem(&mut state, VReg::V4, 0, Vsew::E32, 5);
     // 13 % -5 = 3
@@ -779,7 +779,7 @@ fn vrem_vv_e32_basic() {
         VReg::V4,
         1,
         Vsew::E32,
-        (-5i32).cast_unsigned() as u64,
+        u64::from((-5i32).cast_unsigned()),
     );
     exec(
         &mut state,
@@ -1142,7 +1142,7 @@ fn vwmul_vv_e8_signed() {
     // -256 as u16
     assert_eq!(
         read_wide_elem(&state, VReg::V8, 1, Vsew::E8),
-        (-256i16).cast_unsigned() as u64
+        u64::from((-256i16).cast_unsigned())
     );
     assert_eq!(read_wide_elem(&state, VReg::V8, 2, Vsew::E8), 16129u64);
 }
@@ -1156,7 +1156,7 @@ fn vwmul_vx_e16_signed() {
         VReg::V2,
         0,
         Vsew::E16,
-        (-100i16).cast_unsigned() as u64,
+        u64::from((-100i16).cast_unsigned()),
     );
     state.regs.write(Reg::A0, 3u64);
     exec(
@@ -1320,7 +1320,7 @@ fn vnmsac_vx_e8_wraps() {
     // 0 - 3*5 = -15 wraps to 241 as u8
     assert_eq!(
         read_elem(&state, VReg::V8, 0, Vsew::E8),
-        0u8.wrapping_sub(15) as u64
+        u64::from(0u8.wrapping_sub(15))
     );
 }
 
@@ -1482,9 +1482,9 @@ fn vwmaccu_vx_e16() {
     )
     .unwrap();
     // 500 + 3*1000 = 3500
-    assert_eq!(read_wide_elem(&state, VReg::V8, 0, Vsew::E16), 3500u64);
+    assert_eq!(read_wide_elem(&state, VReg::V8, 0, Vsew::E16), 3_500);
     // 0 + 3*65535 = 196605
-    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E16), 196605u64);
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E16), 196_605);
 }
 
 // vwmacc (signed widening multiply-add)

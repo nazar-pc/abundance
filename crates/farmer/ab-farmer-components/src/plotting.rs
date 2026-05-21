@@ -542,7 +542,7 @@ pub fn write_sector(
             .encode_into(sector_contents_map_region)
             .expect("Chunked into correct size above; qed");
 
-        let mut next_record_chunks_offset = vec![0_usize; pieces_in_sector.into()];
+        let mut next_record_chunks_offset = vec![0usize; pieces_in_sector.into()];
         // Write record chunks, one s-bucket at a time
         for (piece_offset, output) in (SBucket::ZERO..=SBucket::MAX)
             .flat_map(|s_bucket| {

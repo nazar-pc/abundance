@@ -11,7 +11,7 @@ use core::fmt;
 /// RISC-V Zve64x configuration instruction.
 ///
 /// These instructions set the vector type (`vtype`) and vector length (`vl`) registers. They use
-/// the OP-V major opcode (0b1010111) with funct3=0b111 (OPCFG).
+/// the OP-V major opcode (0b101_0111) with funct3=0b111 (OPCFG).
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
@@ -46,7 +46,7 @@ where
         let opcode = (instruction & 0b111_1111) as u8;
 
         // OP-V major opcode
-        if opcode != 0b1010111 {
+        if opcode != 0b101_0111 {
             None?;
         }
 
@@ -63,37 +63,35 @@ where
 
         let rd = Reg::from_bits(rd_bits)?;
 
-        match bit31 {
+        if bit31 == 0 {
             // vsetvli: bit31=0
-            // [0|zimm[10:0]|rs1|111|rd|1010111]
-            0 => {
-                let rs1 = Reg::from_bits(rs1_bits)?;
-                let vtypei = ((instruction >> 20) & 0x7ff) as u16;
-                Some(Self::Vsetvli { rd, rs1, vtypei })
-            }
+            // [0|zimm[10:0]|rs1|111|rd|1010_111]
+            let rs1 = Reg::from_bits(rs1_bits)?;
+            let vtypei = ((instruction >> 20) & 0x7ff) as u16;
+            Some(Self::Vsetvli { rd, rs1, vtypei })
+        } else {
             // bit31=1: vsetivli or vsetvl
-            _ => match bit30 {
+            if bit30 == 1 {
                 // vsetivli: bits[31:30]=11
-                // [11|zimm[9:0]|uimm[4:0]|111|rd|1010111]
-                1 => {
-                    let uimm = rs1_bits;
-                    let vtypei = ((instruction >> 20) & 0x3ff) as u16;
-                    Some(Self::Vsetivli { rd, uimm, vtypei })
-                }
+                // [11|zimm[9:0]|uimm[4:0]|111|rd|101_0111]
+
+                let uimm = rs1_bits;
+                let vtypei = ((instruction >> 20) & 0x3ff) as u16;
+                Some(Self::Vsetivli { rd, uimm, vtypei })
+            } else {
                 // vsetvl: bit31=1, bit30=0
-                // [1000000|rs2|rs1|111|rd|1010111]
-                _ => {
-                    // bits[29:25] must be 0b00000
-                    let bits_29_25 = ((instruction >> 25) & 0b1_1111) as u8;
-                    if bits_29_25 != 0 {
-                        None?;
-                    }
-                    let rs1 = Reg::from_bits(rs1_bits)?;
-                    let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
-                    let rs2 = Reg::from_bits(rs2_bits)?;
-                    Some(Self::Vsetvl { rd, rs1, rs2 })
+                // [1000000|rs2|rs1|111|rd|101_0111]
+
+                // bits[29:25] must be 0b0_0000
+                let bits_29_25 = ((instruction >> 25) & 0b1_1111) as u8;
+                if bits_29_25 != 0 {
+                    None?;
                 }
-            },
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
+                let rs2 = Reg::from_bits(rs2_bits)?;
+                Some(Self::Vsetvl { rd, rs1, rs2 })
+            }
         }
     }
 

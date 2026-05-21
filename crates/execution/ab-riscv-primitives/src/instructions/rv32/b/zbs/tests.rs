@@ -5,7 +5,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_bset() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0010100);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b001_0100);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -19,7 +19,7 @@ fn test_bset() {
 
 #[test]
 fn test_bseti() {
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 5, 0b001010);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 5, 0b00_1010);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -34,7 +34,7 @@ fn test_bseti() {
 
 #[test]
 fn test_bclr() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0100100);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b010_0100);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -48,7 +48,7 @@ fn test_bclr() {
 
 #[test]
 fn test_bclri() {
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 10, 0b010010);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 10, 0b01_0010);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -63,7 +63,7 @@ fn test_bclri() {
 
 #[test]
 fn test_binv() {
-    let inst = make_r_type(0b0110011, 1, 0b001, 2, 3, 0b0110100);
+    let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b011_0100);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -77,7 +77,7 @@ fn test_binv() {
 
 #[test]
 fn test_binvi() {
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b001, 2, 31, 0b011010);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b001, 2, 31, 0b01_1010);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -92,7 +92,7 @@ fn test_binvi() {
 
 #[test]
 fn test_bext() {
-    let inst = make_r_type(0b0110011, 1, 0b101, 2, 3, 0b0100100);
+    let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b010_0100);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -106,7 +106,7 @@ fn test_bext() {
 
 #[test]
 fn test_bexti() {
-    let inst = make_i_type_with_shamt(0b0010011, 1, 0b101, 2, 31, 0b010010);
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 31, 0b01_0010);
     let decoded = Rv32ZbsInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,

@@ -79,19 +79,18 @@ where
                 .then_some(piece)
         });
 
-        match is_valid_fut.await.unwrap_or_default() {
-            Some(piece) => Some(piece),
-            None => {
-                warn!(
-                    %piece_index,
-                    %source_peer_id,
-                    "Received invalid piece from peer"
-                );
+        if let Some(piece) = is_valid_fut.await.unwrap_or_default() {
+            Some(piece)
+        } else {
+            warn!(
+                %piece_index,
+                %source_peer_id,
+                "Received invalid piece from peer"
+            );
 
-                // We don't care about result here
-                let _ = self.dsn_node.ban_peer(source_peer_id).await;
-                None
-            }
+            // We don't care about result here
+            let _: Result<(), _> = self.dsn_node.ban_peer(source_peer_id).await;
+            None
         }
     }
 }

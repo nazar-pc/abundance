@@ -23,7 +23,7 @@ use spirv_std::spirv;
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
 pub const WORKGROUP_SIZE: u32 = 256;
-const PROOF_X_SOURCES: usize = 2_usize.pow(NUM_TABLES as u32 - 1);
+const PROOF_X_SOURCES: usize = 2usize.pow(NUM_TABLES as u32 - 1);
 const PROOF_BITS: usize = PROOF_X_SOURCES * K as usize;
 const PROOF_BYTES: usize = PROOF_BITS.div_ceil(u8::BITS as usize);
 pub const PROOF_U32_WORDS: usize = PROOF_BYTES.div_ceil(size_of::<u32>());
@@ -289,7 +289,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         };
 
         // Reading positions from table 5
-        chunk_index <<= 1;
+        chunk_index <<= 1u8;
         loop {
             let table_5_proof_targets = subgroup_shuffle(
                 table_5_proof_targets,
@@ -304,7 +304,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
             };
 
             // Reading positions from table 4
-            chunk_index <<= 1;
+            chunk_index <<= 1u8;
             loop {
                 let table_4_proof_targets = subgroup_shuffle(
                     table_4_proof_targets,
@@ -319,7 +319,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                 };
 
                 // Reading positions from table 3
-                chunk_index <<= 1;
+                chunk_index <<= 1u8;
                 loop {
                     let table_3_proof_targets = subgroup_shuffle(
                         table_3_proof_targets,
@@ -334,7 +334,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                     };
 
                     // Reading positions from table 2
-                    chunk_index <<= 1;
+                    chunk_index <<= 1u8;
                     loop {
                         let table_2_proof_targets = subgroup_shuffle(
                             table_2_proof_targets,
@@ -393,7 +393,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             local_proof_words[local_proof_words_index] |= first_word;
                             local_proof_words[local_proof_words_index + 1] = second_word;
 
-                            local_proof_words_index + (second_word != 0) as usize
+                            local_proof_words_index + usize::from(second_word != 0)
                         };
 
                         // The first word is written unconditionally
@@ -458,28 +458,28 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                         }
                         chunk_index += 1;
                     }
-                    chunk_index >>= 1;
+                    chunk_index >>= 1u8;
 
                     if chunk_index & 1 == 1 {
                         break;
                     }
                     chunk_index += 1;
                 }
-                chunk_index >>= 1;
+                chunk_index >>= 1u8;
 
                 if chunk_index & 1 == 1 {
                     break;
                 }
                 chunk_index += 1;
             }
-            chunk_index >>= 1;
+            chunk_index >>= 1u8;
 
             if chunk_index & 1 == 1 {
                 break;
             }
             chunk_index += 1;
         }
-        chunk_index >>= 1;
+        chunk_index >>= 1u8;
 
         if chunk_index & 1 == 1 {
             break;

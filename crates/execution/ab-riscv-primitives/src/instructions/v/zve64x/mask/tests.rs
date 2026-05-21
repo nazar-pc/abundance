@@ -14,8 +14,8 @@ use alloc::format;
 ///
 /// This maps to R-type with `funct7 = (funct6 << 1) | vm`.
 fn make_vop(funct6: u8, vm: u8, vs2: u8, vs1: u8, funct3: u8, vd: u8) -> u32 {
-    let funct7 = (funct6 << 1) | (vm & 1);
-    make_r_type(0b1010111, vd, funct3, vs1, vs2, funct7)
+    let funct7 = (funct6 << 1u8) | (vm & 1);
+    make_r_type(0b101_0111, vd, funct3, vs1, vs2, funct7)
 }
 
 // Mask-register logical instructions (Section 16.1)
@@ -23,7 +23,7 @@ fn make_vop(funct6: u8, vm: u8, vs2: u8, vs1: u8, funct3: u8, vd: u8) -> u32 {
 
 #[test]
 fn test_vmandn() {
-    let inst = make_vop(0b011000, 1, 2, 3, 0b010, 1);
+    let inst = make_vop(0b01_1000, 1, 2, 3, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -39,7 +39,7 @@ fn test_vmandn() {
 
 #[test]
 fn test_vmand() {
-    let inst = make_vop(0b011001, 1, 4, 5, 0b010, 6);
+    let inst = make_vop(0b01_1001, 1, 4, 5, 0b010, 6);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -55,7 +55,7 @@ fn test_vmand() {
 
 #[test]
 fn test_vmor() {
-    let inst = make_vop(0b011010, 1, 8, 9, 0b010, 10);
+    let inst = make_vop(0b01_1010, 1, 8, 9, 0b010, 10);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -71,7 +71,7 @@ fn test_vmor() {
 
 #[test]
 fn test_vmxor() {
-    let inst = make_vop(0b011011, 1, 12, 13, 0b010, 14);
+    let inst = make_vop(0b01_1011, 1, 12, 13, 0b010, 14);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -87,7 +87,7 @@ fn test_vmxor() {
 
 #[test]
 fn test_vmorn() {
-    let inst = make_vop(0b011100, 1, 16, 17, 0b010, 18);
+    let inst = make_vop(0b01_1100, 1, 16, 17, 0b010, 18);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -103,7 +103,7 @@ fn test_vmorn() {
 
 #[test]
 fn test_vmnand() {
-    let inst = make_vop(0b011101, 1, 20, 21, 0b010, 22);
+    let inst = make_vop(0b01_1101, 1, 20, 21, 0b010, 22);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -119,7 +119,7 @@ fn test_vmnand() {
 
 #[test]
 fn test_vmnor() {
-    let inst = make_vop(0b011110, 1, 24, 25, 0b010, 26);
+    let inst = make_vop(0b01_1110, 1, 24, 25, 0b010, 26);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -135,7 +135,7 @@ fn test_vmnor() {
 
 #[test]
 fn test_vmxnor() {
-    let inst = make_vop(0b011111, 1, 28, 29, 0b010, 30);
+    let inst = make_vop(0b01_1111, 1, 28, 29, 0b010, 30);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -152,7 +152,7 @@ fn test_vmxnor() {
 #[test]
 fn test_vmand_v0() {
     // Use v0 as operand
-    let inst = make_vop(0b011001, 1, 0, 1, 0b010, 2);
+    let inst = make_vop(0b01_1001, 1, 0, 1, 0b010, 2);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -169,7 +169,7 @@ fn test_vmand_v0() {
 #[test]
 fn test_mask_logical_rejects_vm0() {
     // Mask-register logical instructions must have vm=1
-    let inst = make_vop(0b011001, 0, 2, 3, 0b010, 1);
+    let inst = make_vop(0b01_1001, 0, 2, 3, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -180,7 +180,7 @@ fn test_mask_logical_rejects_vm0() {
 #[test]
 fn test_vcpop_unmasked() {
     // vcpop.m rd, vs2  (vm=1 = unmasked)
-    let inst = make_vop(0b010000, 1, 4, 0b10000, 0b010, 1);
+    let inst = make_vop(0b01_0000, 1, 4, 0b1_0000, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -197,7 +197,7 @@ fn test_vcpop_unmasked() {
 #[test]
 fn test_vcpop_masked() {
     // vcpop.m rd, vs2, v0.t  (vm=0 = masked)
-    let inst = make_vop(0b010000, 0, 8, 0b10000, 0b010, 10);
+    let inst = make_vop(0b01_0000, 0, 8, 0b1_0000, 0b010, 10);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -215,7 +215,7 @@ fn test_vcpop_masked() {
 
 #[test]
 fn test_vfirst_unmasked() {
-    let inst = make_vop(0b010000, 1, 5, 0b10001, 0b010, 2);
+    let inst = make_vop(0b01_0000, 1, 5, 0b1_0001, 0b010, 2);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -231,7 +231,7 @@ fn test_vfirst_unmasked() {
 
 #[test]
 fn test_vfirst_masked() {
-    let inst = make_vop(0b010000, 0, 12, 0b10001, 0b010, 5);
+    let inst = make_vop(0b01_0000, 0, 12, 0b1_0001, 0b010, 5);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -249,7 +249,7 @@ fn test_vfirst_masked() {
 
 #[test]
 fn test_vmsbf_unmasked() {
-    let inst = make_vop(0b010100, 1, 3, 0b00001, 0b010, 1);
+    let inst = make_vop(0b01_0100, 1, 3, 0b0_0001, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -265,7 +265,7 @@ fn test_vmsbf_unmasked() {
 
 #[test]
 fn test_vmsbf_masked() {
-    let inst = make_vop(0b010100, 0, 7, 0b00001, 0b010, 2);
+    let inst = make_vop(0b01_0100, 0, 7, 0b0_0001, 0b010, 2);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -283,7 +283,7 @@ fn test_vmsbf_masked() {
 
 #[test]
 fn test_vmsof_unmasked() {
-    let inst = make_vop(0b010100, 1, 6, 0b00010, 0b010, 4);
+    let inst = make_vop(0b01_0100, 1, 6, 0b0_0010, 0b010, 4);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -299,7 +299,7 @@ fn test_vmsof_unmasked() {
 
 #[test]
 fn test_vmsof_masked() {
-    let inst = make_vop(0b010100, 0, 10, 0b00010, 0b010, 8);
+    let inst = make_vop(0b01_0100, 0, 10, 0b0_0010, 0b010, 8);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -317,7 +317,7 @@ fn test_vmsof_masked() {
 
 #[test]
 fn test_vmsif_unmasked() {
-    let inst = make_vop(0b010100, 1, 9, 0b00011, 0b010, 5);
+    let inst = make_vop(0b01_0100, 1, 9, 0b0_0011, 0b010, 5);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -333,7 +333,7 @@ fn test_vmsif_unmasked() {
 
 #[test]
 fn test_vmsif_masked() {
-    let inst = make_vop(0b010100, 0, 15, 0b00011, 0b010, 11);
+    let inst = make_vop(0b01_0100, 0, 15, 0b0_0011, 0b010, 11);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -351,7 +351,7 @@ fn test_vmsif_masked() {
 
 #[test]
 fn test_viota_unmasked() {
-    let inst = make_vop(0b010100, 1, 2, 0b10000, 0b010, 4);
+    let inst = make_vop(0b01_0100, 1, 2, 0b1_0000, 0b010, 4);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -367,7 +367,7 @@ fn test_viota_unmasked() {
 
 #[test]
 fn test_viota_masked() {
-    let inst = make_vop(0b010100, 0, 6, 0b10000, 0b010, 8);
+    let inst = make_vop(0b01_0100, 0, 6, 0b1_0000, 0b010, 8);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -385,7 +385,7 @@ fn test_viota_masked() {
 
 #[test]
 fn test_vid_unmasked() {
-    let inst = make_vop(0b010100, 1, 0, 0b10001, 0b010, 3);
+    let inst = make_vop(0b01_0100, 1, 0, 0b1_0001, 0b010, 3);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -400,7 +400,7 @@ fn test_vid_unmasked() {
 
 #[test]
 fn test_vid_masked() {
-    let inst = make_vop(0b010100, 0, 0, 0b10001, 0b010, 16);
+    let inst = make_vop(0b01_0100, 0, 0, 0b1_0001, 0b010, 16);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -417,9 +417,9 @@ fn test_vid_masked() {
 
 #[test]
 fn test_wrong_opcode() {
-    // Use OP (0b0110011) instead of OP-V
-    let funct7 = (0b011001u8 << 1) | 1;
-    let inst = make_r_type(0b0110011, 1, 0b010, 2, 3, funct7);
+    // Use OP (0b011_0011) instead of OP-V
+    let funct7 = (0b01_1001 << 1u8) | 1;
+    let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, funct7);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -427,7 +427,7 @@ fn test_wrong_opcode() {
 #[test]
 fn test_wrong_funct3_for_mask_logical() {
     // OPIVV (funct3=0b000) instead of OPMVV (0b010) for vmand
-    let inst = make_vop(0b011001, 1, 2, 3, 0b000, 1);
+    let inst = make_vop(0b01_1001, 1, 2, 3, 0b000, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -435,7 +435,7 @@ fn test_wrong_funct3_for_mask_logical() {
 #[test]
 fn test_wrong_funct3_opivx() {
     // OPIVX (funct3=0b100) for vcpop
-    let inst = make_vop(0b010000, 1, 4, 0b10000, 0b100, 1);
+    let inst = make_vop(0b01_0000, 1, 4, 0b1_0000, 0b100, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -443,7 +443,7 @@ fn test_wrong_funct3_opivx() {
 #[test]
 fn test_vwxunary0_invalid_vs1() {
     // funct6=010000 with vs1=00001 is not vcpop or vfirst
-    let inst = make_vop(0b010000, 1, 4, 0b00001, 0b010, 1);
+    let inst = make_vop(0b01_0000, 1, 4, 0b0_0001, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -451,7 +451,7 @@ fn test_vwxunary0_invalid_vs1() {
 #[test]
 fn test_vmunary0_invalid_vs1() {
     // funct6=010100 with vs1=00000 is reserved
-    let inst = make_vop(0b010100, 1, 4, 0b00000, 0b010, 1);
+    let inst = make_vop(0b01_0100, 1, 4, 0b0_0000, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -459,7 +459,7 @@ fn test_vmunary0_invalid_vs1() {
 #[test]
 fn test_vmunary0_invalid_vs1_gap() {
     // funct6=010100 with vs1=01000 falls in the gap between known encodings
-    let inst = make_vop(0b010100, 1, 4, 0b01000, 0b010, 1);
+    let inst = make_vop(0b01_0100, 1, 4, 0b0_1000, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -467,7 +467,7 @@ fn test_vmunary0_invalid_vs1_gap() {
 #[test]
 fn test_unrelated_funct6() {
     // funct6=000000 (vadd) should not decode as mask instruction
-    let inst = make_vop(0b000000, 1, 2, 3, 0b010, 1);
+    let inst = make_vop(0b00_0000, 1, 2, 3, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -476,93 +476,93 @@ fn test_unrelated_funct6() {
 
 #[test]
 fn test_display_vmand() {
-    let inst = make_vop(0b011001, 1, 2, 3, 0b010, 1);
+    let inst = make_vop(0b01_1001, 1, 2, 3, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmand.mm v1, v2, v3");
+    assert_eq!(format!("{decoded}"), "vmand.mm v1, v2, v3");
 }
 
 #[test]
 fn test_display_vmandn() {
-    let inst = make_vop(0b011000, 1, 4, 5, 0b010, 6);
+    let inst = make_vop(0b01_1000, 1, 4, 5, 0b010, 6);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmandn.mm v6, v4, v5");
+    assert_eq!(format!("{decoded}"), "vmandn.mm v6, v4, v5");
 }
 
 #[test]
 fn test_display_vmxnor() {
-    let inst = make_vop(0b011111, 1, 0, 0, 0b010, 0);
+    let inst = make_vop(0b01_1111, 1, 0, 0, 0b010, 0);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmxnor.mm v0, v0, v0");
+    assert_eq!(format!("{decoded}"), "vmxnor.mm v0, v0, v0");
 }
 
 #[test]
 fn test_display_vcpop_unmasked() {
-    let inst = make_vop(0b010000, 1, 4, 0b10000, 0b010, 1);
+    let inst = make_vop(0b01_0000, 1, 4, 0b1_0000, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vcpop.m ra, v4");
+    assert_eq!(format!("{decoded}"), "vcpop.m ra, v4");
 }
 
 #[test]
 fn test_display_vcpop_masked() {
-    let inst = make_vop(0b010000, 0, 4, 0b10000, 0b010, 1);
+    let inst = make_vop(0b01_0000, 0, 4, 0b1_0000, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vcpop.m ra, v4, v0.t");
+    assert_eq!(format!("{decoded}"), "vcpop.m ra, v4, v0.t");
 }
 
 #[test]
 fn test_display_vfirst_unmasked() {
-    let inst = make_vop(0b010000, 1, 8, 0b10001, 0b010, 10);
+    let inst = make_vop(0b01_0000, 1, 8, 0b1_0001, 0b010, 10);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vfirst.m a0, v8");
+    assert_eq!(format!("{decoded}"), "vfirst.m a0, v8");
 }
 
 #[test]
 fn test_display_vmsbf_unmasked() {
-    let inst = make_vop(0b010100, 1, 3, 0b00001, 0b010, 1);
+    let inst = make_vop(0b01_0100, 1, 3, 0b0_0001, 0b010, 1);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmsbf.m v1, v3");
+    assert_eq!(format!("{decoded}"), "vmsbf.m v1, v3");
 }
 
 #[test]
 fn test_display_vmsof_masked() {
-    let inst = make_vop(0b010100, 0, 6, 0b00010, 0b010, 4);
+    let inst = make_vop(0b01_0100, 0, 6, 0b0_0010, 0b010, 4);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmsof.m v4, v6, v0.t");
+    assert_eq!(format!("{decoded}"), "vmsof.m v4, v6, v0.t");
 }
 
 #[test]
 fn test_display_vmsif_unmasked() {
-    let inst = make_vop(0b010100, 1, 9, 0b00011, 0b010, 5);
+    let inst = make_vop(0b01_0100, 1, 9, 0b0_0011, 0b010, 5);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vmsif.m v5, v9");
+    assert_eq!(format!("{decoded}"), "vmsif.m v5, v9");
 }
 
 #[test]
 fn test_display_viota_masked() {
-    let inst = make_vop(0b010100, 0, 2, 0b10000, 0b010, 4);
+    let inst = make_vop(0b01_0100, 0, 2, 0b1_0000, 0b010, 4);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "viota.m v4, v2, v0.t");
+    assert_eq!(format!("{decoded}"), "viota.m v4, v2, v0.t");
 }
 
 #[test]
 fn test_display_vid_unmasked() {
-    let inst = make_vop(0b010100, 1, 0, 0b10001, 0b010, 3);
+    let inst = make_vop(0b01_0100, 1, 0, 0b1_0001, 0b010, 3);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vid.v v3");
+    assert_eq!(format!("{decoded}"), "vid.v v3");
 }
 
 #[test]
 fn test_display_vid_masked() {
-    let inst = make_vop(0b010100, 0, 0, 0b10001, 0b010, 16);
+    let inst = make_vop(0b01_0100, 0, 0, 0b1_0001, 0b010, 16);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{}", decoded), "vid.v v16, v0.t");
+    assert_eq!(format!("{decoded}"), "vid.v v16, v0.t");
 }
 
 // Edge cases: high-numbered vector registers
 
 #[test]
 fn test_vmand_v31() {
-    let inst = make_vop(0b011001, 1, 31, 31, 0b010, 31);
+    let inst = make_vop(0b01_1001, 1, 31, 31, 0b010, 31);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -579,7 +579,7 @@ fn test_vmand_v31() {
 #[test]
 fn test_vcpop_rd_zero() {
     // vcpop.m x0, vs2 - result discarded
-    let inst = make_vop(0b010000, 1, 4, 0b10000, 0b010, 0);
+    let inst = make_vop(0b01_0000, 1, 4, 0b1_0000, 0b010, 0);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -596,7 +596,7 @@ fn test_vcpop_rd_zero() {
 #[test]
 fn test_vcpop_high_rd() {
     // vcpop.m t6, v31
-    let inst = make_vop(0b010000, 1, 31, 0b10000, 0b010, 31);
+    let inst = make_vop(0b01_0000, 1, 31, 0b1_0000, 0b010, 31);
     let decoded = Zve64xMaskInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,

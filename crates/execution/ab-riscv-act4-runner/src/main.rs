@@ -40,7 +40,7 @@ type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
 const RAM_SIZE: usize = 4 * 1024 * 1024;
-const MRET_INSTRUCTION: u32 = 0x30200073;
+const MRET_INSTRUCTION: u32 = 0x3020_0073;
 
 /// RISC-V ISA
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -667,7 +667,7 @@ fn collect_elf_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
             // Recurse and extend with all .elf files from the subdirectory
             let sub_paths = collect_elf_files(&path)?;
             elf_paths.extend(sub_paths);
-        } else if path.extension().map(|e| e == "elf").unwrap_or_default() {
+        } else if path.extension().is_some_and(|e| e == "elf") {
             elf_paths.push(path);
         }
     }
@@ -738,8 +738,7 @@ fn main() {
         elf_paths.retain(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.contains(filter.as_str()))
-                .unwrap_or_default()
+                .is_some_and(|n| n.contains(filter.as_str()))
         });
     }
 

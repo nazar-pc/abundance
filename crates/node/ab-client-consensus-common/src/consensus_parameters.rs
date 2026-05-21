@@ -441,9 +441,9 @@ where
     #[inline(always)]
     fn previous_super_segment_header(
         &self,
-        target_block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> Option<SuperSegmentHeader> {
-        BeaconChainInfo::previous_super_segment_header(self, target_block_number)
+        BeaconChainInfo::previous_super_segment_header(self, block_number)
     }
 
     #[inline(always)]

@@ -87,7 +87,7 @@ pub trait ExecutorContext: core::fmt::Debug {
     fn call(
         &self,
         previous_env_state: &EnvState,
-        prepared_methods: &mut PreparedMethod<'_>,
+        prepared_method: &mut PreparedMethod<'_>,
     ) -> Result<(), ContractError>;
 }
 
@@ -218,7 +218,7 @@ impl<'a> Env<'a> {
                 __ab_host_call(&method).into()
             }
             _ => {
-                let _ = method;
+                let _: PreparedMethod<'_> = method;
                 Err(ContractError::InternalError)
             }
         }

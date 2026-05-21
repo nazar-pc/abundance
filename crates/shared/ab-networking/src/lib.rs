@@ -1,7 +1,7 @@
 //! Networking functionality for Abundance, primarily used for DSN (Distributed Storage
 //! Network).
 
-#![feature(exact_size_is_empty, ip, trivial_bounds)]
+#![feature(duration_constructors, exact_size_is_empty, ip, trivial_bounds)]
 #![warn(missing_docs)]
 
 mod behavior;

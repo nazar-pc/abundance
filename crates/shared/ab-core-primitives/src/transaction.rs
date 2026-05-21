@@ -196,6 +196,10 @@ impl<'a> Transaction<'a> {
     /// Caller must ensure provided bytes are 16-bytes aligned and of sufficient length. Extra bytes
     /// beyond necessary are silently ignored if provided.
     #[inline]
+    #[expect(
+        clippy::cast_ptr_alignment,
+        reason = "Unchecked method contract guarantees size and alignment"
+    )]
     pub unsafe fn from_bytes_unchecked(bytes: &'a [u8]) -> Transaction<'a> {
         // SAFETY: Method contract guarantees size and alignment
         let lengths = unsafe {
@@ -215,7 +219,7 @@ impl<'a> Transaction<'a> {
 
         Self {
             // SAFETY: Any bytes are valid for `TransactionHeader` and all method contract
-            // guarantees there are enough bytes for header in the buffer
+            // guarantees there are enough correctly aligned bytes for header in the buffer
             header: unsafe {
                 bytes
                     .as_ptr()
@@ -223,7 +227,7 @@ impl<'a> Transaction<'a> {
                     .as_ref_unchecked()
             },
             // SAFETY: Any bytes are valid for `TransactionSlot` and all method contract guarantees
-            // there are enough bytes for read slots in the buffer
+            // there are enough correctly aligned bytes for read slots in the buffer
             read_slots: unsafe {
                 slice::from_raw_parts(
                     bytes
@@ -235,7 +239,7 @@ impl<'a> Transaction<'a> {
                 )
             },
             // SAFETY: Any bytes are valid for `TransactionSlot` and all method contract guarantees
-            // there are enough bytes for write slots in the buffer
+            // there are enough correctly aligned bytes for write slots in the buffer
             write_slots: unsafe {
                 slice::from_raw_parts(
                     bytes
@@ -248,7 +252,7 @@ impl<'a> Transaction<'a> {
                 )
             },
             // SAFETY: Any bytes are valid for `payload` and all method contract guarantees there
-            // are enough bytes for payload in the buffer
+            // are enough correctly aligned bytes for payload in the buffer
             payload: unsafe {
                 slice::from_raw_parts(
                     bytes

@@ -59,41 +59,41 @@ where
 
         match opcode {
             // SHA-256: I-type format (OP-IMM)
-            0b0010011 => {
-                if funct3 != 0b001 || funct7 != 0b0001000 {
+            0b001_0011 => {
+                if funct3 != 0b001 || funct7 != 0b000_1000 {
                     None
                 } else {
                     let rd = Reg::from_bits(rd_bits)?;
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     match funct5 {
-                        0b00010 => Some(Self::Sha256Sig0 { rd, rs1 }),
-                        0b00011 => Some(Self::Sha256Sig1 { rd, rs1 }),
-                        0b00000 => Some(Self::Sha256Sum0 { rd, rs1 }),
-                        0b00001 => Some(Self::Sha256Sum1 { rd, rs1 }),
+                        0b0_0010 => Some(Self::Sha256Sig0 { rd, rs1 }),
+                        0b0_0011 => Some(Self::Sha256Sig1 { rd, rs1 }),
+                        0b0_0000 => Some(Self::Sha256Sum0 { rd, rs1 }),
+                        0b0_0001 => Some(Self::Sha256Sum1 { rd, rs1 }),
                         _ => None,
                     }
                 }
             }
             // SHA-512: R-type format (OP)
             // RV32-only two-register instructions.
-            0b0110011 => {
+            0b011_0011 => {
                 if funct3 == 0b000 {
                     let rd = Reg::from_bits(rd_bits)?;
                     let rs1 = Reg::from_bits(rs1_bits)?;
                     let rs2 = Reg::from_bits(rs2_bits)?;
                     match funct7 {
-                        // 0b0101000 = 40
-                        0b0101000 => Some(Self::Sha512Sum0r { rd, rs1, rs2 }),
-                        // 0b0101001 = 41
-                        0b0101001 => Some(Self::Sha512Sum1r { rd, rs1, rs2 }),
-                        // 0b0101010 = 42
-                        0b0101010 => Some(Self::Sha512Sig0l { rd, rs1, rs2 }),
-                        // 0b0101011 = 43
-                        0b0101011 => Some(Self::Sha512Sig1l { rd, rs1, rs2 }),
-                        // 0b0101110 = 46
-                        0b0101110 => Some(Self::Sha512Sig0h { rd, rs1, rs2 }),
-                        // 0b0101111 = 47
-                        0b0101111 => Some(Self::Sha512Sig1h { rd, rs1, rs2 }),
+                        // 0b010_1000 = 40
+                        0b010_1000 => Some(Self::Sha512Sum0r { rd, rs1, rs2 }),
+                        // 0b010_1001 = 41
+                        0b010_1001 => Some(Self::Sha512Sum1r { rd, rs1, rs2 }),
+                        // 0b010_1010 = 42
+                        0b010_1010 => Some(Self::Sha512Sig0l { rd, rs1, rs2 }),
+                        // 0b010_1011 = 43
+                        0b010_1011 => Some(Self::Sha512Sig1l { rd, rs1, rs2 }),
+                        // 0b010_1110 = 46
+                        0b010_1110 => Some(Self::Sha512Sig0h { rd, rs1, rs2 }),
+                        // 0b010_1111 = 47
+                        0b010_1111 => Some(Self::Sha512Sig1h { rd, rs1, rs2 }),
                         _ => None,
                     }
                 } else {
@@ -122,16 +122,16 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Sha256Sig0 { rd, rs1 } => write!(f, "sha256sig0 {}, {}", rd, rs1),
-            Self::Sha256Sig1 { rd, rs1 } => write!(f, "sha256sig1 {}, {}", rd, rs1),
-            Self::Sha256Sum0 { rd, rs1 } => write!(f, "sha256sum0 {}, {}", rd, rs1),
-            Self::Sha256Sum1 { rd, rs1 } => write!(f, "sha256sum1 {}, {}", rd, rs1),
-            Self::Sha512Sig0h { rd, rs1, rs2 } => write!(f, "sha512sig0h {}, {}, {}", rd, rs1, rs2),
-            Self::Sha512Sig0l { rd, rs1, rs2 } => write!(f, "sha512sig0l {}, {}, {}", rd, rs1, rs2),
-            Self::Sha512Sig1h { rd, rs1, rs2 } => write!(f, "sha512sig1h {}, {}, {}", rd, rs1, rs2),
-            Self::Sha512Sig1l { rd, rs1, rs2 } => write!(f, "sha512sig1l {}, {}, {}", rd, rs1, rs2),
-            Self::Sha512Sum0r { rd, rs1, rs2 } => write!(f, "sha512sum0r {}, {}, {}", rd, rs1, rs2),
-            Self::Sha512Sum1r { rd, rs1, rs2 } => write!(f, "sha512sum1r {}, {}, {}", rd, rs1, rs2),
+            Self::Sha256Sig0 { rd, rs1 } => write!(f, "sha256sig0 {rd}, {rs1}"),
+            Self::Sha256Sig1 { rd, rs1 } => write!(f, "sha256sig1 {rd}, {rs1}"),
+            Self::Sha256Sum0 { rd, rs1 } => write!(f, "sha256sum0 {rd}, {rs1}"),
+            Self::Sha256Sum1 { rd, rs1 } => write!(f, "sha256sum1 {rd}, {rs1}"),
+            Self::Sha512Sig0h { rd, rs1, rs2 } => write!(f, "sha512sig0h {rd}, {rs1}, {rs2}"),
+            Self::Sha512Sig0l { rd, rs1, rs2 } => write!(f, "sha512sig0l {rd}, {rs1}, {rs2}"),
+            Self::Sha512Sig1h { rd, rs1, rs2 } => write!(f, "sha512sig1h {rd}, {rs1}, {rs2}"),
+            Self::Sha512Sig1l { rd, rs1, rs2 } => write!(f, "sha512sig1l {rd}, {rs1}, {rs2}"),
+            Self::Sha512Sum0r { rd, rs1, rs2 } => write!(f, "sha512sum0r {rd}, {rs1}, {rs2}"),
+            Self::Sha512Sum1r { rd, rs1, rs2 } => write!(f, "sha512sum1r {rd}, {rs1}, {rs2}"),
         }
     }
 }

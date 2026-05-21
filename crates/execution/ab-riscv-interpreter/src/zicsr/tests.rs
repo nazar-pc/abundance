@@ -42,10 +42,12 @@ const UNKNOWN_CSR: u16 = 0x7FF;
 // Helper closures passed to `set_prepare_csr_read_write`.
 // These model identity-passthrough transforms (no WARL masking).
 
+#[expect(clippy::unnecessary_wraps, reason = "Required by the call site")]
 fn allow_read(_csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
     Ok(raw_value)
 }
 
+#[expect(clippy::unnecessary_wraps, reason = "Required by the call site")]
 fn allow_write(_csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
     Ok(write_value)
 }
@@ -1261,7 +1263,7 @@ fn test_priv_check_fires_before_csr_is_read_or_written() {
     state.ext_state.set_privilege_level(PrivilegeLevel::User);
     state.regs.write(Reg::A0, 0x1234u64);
 
-    let _ = execute(&mut state);
+    execute(&mut state).unwrap_err();
 
     // Neither the general-purpose register nor the CSR must have been modified.
     assert_eq!(state.regs.read(Reg::A2), 0);

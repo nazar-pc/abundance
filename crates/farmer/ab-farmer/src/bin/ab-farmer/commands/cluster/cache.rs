@@ -160,15 +160,16 @@ pub(super) async fn cache(
     let caches = disk_caches
         .iter()
         .map(|disk_cache| {
-            let capacity =
-                u32::try_from(disk_cache.allocated_space / DiskPieceCache::element_size() as u64)
-                    .map_err(|error| {
-                    anyhow!(
-                        "Unsupported cache #1 size {} at {}: {error}",
-                        disk_cache.allocated_space,
-                        disk_cache.directory.display()
-                    )
-                })?;
+            let capacity = u32::try_from(
+                disk_cache.allocated_space / u64::from(DiskPieceCache::element_size()),
+            )
+            .map_err(|error| {
+                anyhow!(
+                    "Unsupported cache #1 size {} at {}: {error}",
+                    disk_cache.allocated_space,
+                    disk_cache.directory.display()
+                )
+            })?;
             let capacity = NonZeroU32::try_from(capacity).map_err(|error| {
                 anyhow!(
                     "Unsupported cache #2 size {} at {}: {error}",

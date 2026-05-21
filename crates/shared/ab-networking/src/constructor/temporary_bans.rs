@@ -71,10 +71,7 @@ impl TemporaryBans {
     /// `false` means peer either is not banned at all or previous temporary ban has expired and
     /// new connection attempt is allowed to be made.
     pub(crate) fn is_banned(&self, peer_id: &PeerId) -> bool {
-        self.list
-            .peek(peer_id)
-            .map(TemporaryBan::is_active)
-            .unwrap_or_default()
+        self.list.peek(peer_id).is_some_and(TemporaryBan::is_active)
     }
 
     /// Create temporary ban for peer or extend existing ban

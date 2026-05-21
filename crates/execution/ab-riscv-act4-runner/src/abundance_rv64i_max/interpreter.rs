@@ -125,7 +125,7 @@ where
     }
     fn set_vl(&mut self, vl: u32) {
         self.vl = vl;
-        self.write_csr(VCsr::Vl as u16, vl as u64)
+        self.write_csr(VCsr::Vl as u16, u64::from(vl))
             .expect("vl CSR not initialized");
     }
     fn vector_instructions_allowed(&self) -> bool {

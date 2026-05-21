@@ -62,7 +62,7 @@ impl SolutionDistance {
         // TODO: Is keyed hash really needed here?
         let audit_chunk = single_block_keyed_hash(sector_slot_challenge, chunk)
             .expect("Less than a single block worth of bytes; qed");
-        let audit_chunk_as_solution_range: SolutionRange = SolutionRange::from_bytes([
+        let audit_chunk_as_solution_range = SolutionRange::from_bytes([
             audit_chunk[0],
             audit_chunk[1],
             audit_chunk[2],
@@ -72,7 +72,7 @@ impl SolutionDistance {
             audit_chunk[6],
             audit_chunk[7],
         ]);
-        let global_challenge_as_solution_range: SolutionRange =
+        let global_challenge_as_solution_range =
             SolutionRange::from_bytes(global_challenge.as_chunks().0[0]);
 
         global_challenge_as_solution_range.bidirectional_distance(audit_chunk_as_solution_range)
@@ -798,7 +798,7 @@ pub struct SolutionShardCommitment {
 
 impl SolutionShardCommitment {
     /// Number of leaves in a Merkle Tree of shard commitments
-    pub const NUM_LEAVES: usize = 2_u32.pow(20) as usize;
+    pub const NUM_LEAVES: usize = 2u32.pow(20) as usize;
 }
 
 /// Farmer solution for slot challenge.
@@ -936,7 +936,7 @@ impl Solution {
 
         let shard_kind = shard_index
             .shard_kind()
-            .and_then(|shard_kind| shard_kind.to_real())
+            .and_then(ShardKind::to_real)
             .ok_or(SolutionVerifyError::InvalidInputShard {
                 shard_index: *shard_index,
                 shard_kind: shard_index.shard_kind(),
@@ -980,12 +980,12 @@ impl Solution {
         };
 
         // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
-        //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
-        //  to succeed.
+        //  allows the code to compile. Constant 1_048_576 is hardcoded here and below for
+        // compilation  to succeed.
         const {
-            assert!(SolutionShardCommitment::NUM_LEAVES == 1048576);
+            assert!(SolutionShardCommitment::NUM_LEAVES == 1_048_576);
         }
-        if !BalancedMerkleTree::<1048576>::verify(
+        if !BalancedMerkleTree::<1_048_576>::verify(
             &self.shard_commitment.root,
             &ShardCommitmentHash::repr_from_array(self.shard_commitment.proof),
             shard_commitment_index as usize,
@@ -1005,7 +1005,7 @@ impl Solution {
             &self.proof_of_space,
         ) {
             return Err(SolutionVerifyError::InvalidProofOfSpace);
-        };
+        }
 
         let masked_chunk =
             (Simd::from(*self.chunk) ^ Simd::from(*self.proof_of_space.hash())).to_array();
@@ -1087,15 +1087,12 @@ impl Solution {
         if let Some(sector_expiration_check_super_segment_root) =
             sector_expiration_check_super_segment_root
         {
-            let expiration_history_size = match sector_id.derive_expiration_history_size(
+            let Some(expiration_history_size) = sector_id.derive_expiration_history_size(
                 self.history_size,
                 sector_expiration_check_super_segment_root,
                 *min_sector_lifetime,
-            ) {
-                Some(expiration_history_size) => expiration_history_size,
-                None => {
-                    return Err(SolutionVerifyError::InvalidHistorySize);
-                }
+            ) else {
+                return Err(SolutionVerifyError::InvalidHistorySize);
             };
 
             if expiration_history_size <= *current_history_size {

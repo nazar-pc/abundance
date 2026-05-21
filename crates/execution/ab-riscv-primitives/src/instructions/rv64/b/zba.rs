@@ -41,58 +41,58 @@ where
 
         match opcode {
             // R-type
-            0b0110011 => {
+            0b011_0011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b010, 0b0010000) => Some(Self::Sh1add { rd, rs1, rs2 }),
-                    (0b100, 0b0010000) => Some(Self::Sh2add { rd, rs1, rs2 }),
-                    (0b110, 0b0010000) => Some(Self::Sh3add { rd, rs1, rs2 }),
+                    (0b010, 0b001_0000) => Some(Self::Sh1add { rd, rs1, rs2 }),
+                    (0b100, 0b001_0000) => Some(Self::Sh2add { rd, rs1, rs2 }),
+                    (0b110, 0b001_0000) => Some(Self::Sh3add { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
             // I-type W (OP-IMM-32)
-            0b0011011 => {
+            0b001_1011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 // shamt is 6 bits: [25:20]
                 let shamt = ((instruction >> 20) & 0x3f) as u8;
                 match (funct3, funct6) {
-                    (0b001, 0b000010) => Some(Self::SlliUw { rd, rs1, shamt }),
+                    (0b001, 0b00_0010) => Some(Self::SlliUw { rd, rs1, shamt }),
                     _ => None,
                 }
             }
             // R-type W (OP-32)
-            0b0111011 => {
+            0b011_1011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 match funct3 {
                     0b000 => {
                         let rs2 = Reg::from_bits(rs2_bits)?;
                         match funct7 {
-                            0b0000100 => Some(Self::AddUw { rd, rs1, rs2 }),
+                            0b000_0100 => Some(Self::AddUw { rd, rs1, rs2 }),
                             _ => None,
                         }
                     }
                     0b010 => {
                         let rs2 = Reg::from_bits(rs2_bits)?;
                         match funct7 {
-                            0b0010000 => Some(Self::Sh1addUw { rd, rs1, rs2 }),
+                            0b001_0000 => Some(Self::Sh1addUw { rd, rs1, rs2 }),
                             _ => None,
                         }
                     }
                     0b100 => {
                         let rs2 = Reg::from_bits(rs2_bits)?;
                         match funct7 {
-                            0b0010000 => Some(Self::Sh2addUw { rd, rs1, rs2 }),
+                            0b001_0000 => Some(Self::Sh2addUw { rd, rs1, rs2 }),
                             _ => None,
                         }
                     }
                     0b110 => {
                         let rs2 = Reg::from_bits(rs2_bits)?;
                         match funct7 {
-                            0b0010000 => Some(Self::Sh3addUw { rd, rs1, rs2 }),
+                            0b001_0000 => Some(Self::Sh3addUw { rd, rs1, rs2 }),
                             _ => None,
                         }
                     }
@@ -121,14 +121,14 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AddUw { rd, rs1, rs2 } => write!(f, "add.uw {}, {}, {}", rd, rs1, rs2),
-            Self::Sh1add { rd, rs1, rs2 } => write!(f, "sh1add {}, {}, {}", rd, rs1, rs2),
-            Self::Sh1addUw { rd, rs1, rs2 } => write!(f, "sh1add.uw {}, {}, {}", rd, rs1, rs2),
-            Self::Sh2add { rd, rs1, rs2 } => write!(f, "sh2add {}, {}, {}", rd, rs1, rs2),
-            Self::Sh2addUw { rd, rs1, rs2 } => write!(f, "sh2add.uw {}, {}, {}", rd, rs1, rs2),
-            Self::Sh3add { rd, rs1, rs2 } => write!(f, "sh3add {}, {}, {}", rd, rs1, rs2),
-            Self::Sh3addUw { rd, rs1, rs2 } => write!(f, "sh3add.uw {}, {}, {}", rd, rs1, rs2),
-            Self::SlliUw { rd, rs1, shamt } => write!(f, "slli.uw {}, {}, {}", rd, rs1, shamt),
+            Self::AddUw { rd, rs1, rs2 } => write!(f, "add.uw {rd}, {rs1}, {rs2}"),
+            Self::Sh1add { rd, rs1, rs2 } => write!(f, "sh1add {rd}, {rs1}, {rs2}"),
+            Self::Sh1addUw { rd, rs1, rs2 } => write!(f, "sh1add.uw {rd}, {rs1}, {rs2}"),
+            Self::Sh2add { rd, rs1, rs2 } => write!(f, "sh2add {rd}, {rs1}, {rs2}"),
+            Self::Sh2addUw { rd, rs1, rs2 } => write!(f, "sh2add.uw {rd}, {rs1}, {rs2}"),
+            Self::Sh3add { rd, rs1, rs2 } => write!(f, "sh3add {rd}, {rs1}, {rs2}"),
+            Self::Sh3addUw { rd, rs1, rs2 } => write!(f, "sh3add.uw {rd}, {rs1}, {rs2}"),
+            Self::SlliUw { rd, rs1, shamt } => write!(f, "slli.uw {rd}, {rs1}, {shamt}"),
         }
     }
 }

@@ -408,13 +408,13 @@ impl DirectIoFile {
                     }
                 }
 
-                if !buf.is_empty() {
+                if buf.is_empty() {
+                    Ok(())
+                } else {
                     Err(io::Error::new(
                         io::ErrorKind::UnexpectedEof,
                         "failed to fill the whole buffer",
                     ))
-                } else {
-                    Ok(())
                 }
             }}
             _ => {

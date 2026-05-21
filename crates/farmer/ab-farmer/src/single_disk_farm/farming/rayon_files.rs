@@ -3,8 +3,8 @@
 use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use std::fs::{File, OpenOptions};
-use std::io;
 use std::path::Path;
+use std::{io, iter};
 
 /// Wrapper data structure for multiple files to be used with [`rayon`] thread pool, where the same
 /// file is opened multiple times, once for each thread for faster concurrent reads
@@ -45,17 +45,17 @@ impl RayonFiles<File> {
     where
         P: AsRef<Path>,
     {
-        let files = (0..rayon::current_num_threads())
-            .map(|_| {
-                let file = OpenOptions::new()
-                    .read(true)
-                    .advise_random_access()
-                    .open(path.as_ref())?;
-                file.advise_random_access()?;
+        let files = iter::repeat_with(|| {
+            let file = OpenOptions::new()
+                .read(true)
+                .advise_random_access()
+                .open(path.as_ref())?;
+            file.advise_random_access()?;
 
-                Ok::<_, io::Error>(file)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            Ok::<_, io::Error>(file)
+        })
+        .take(rayon::current_num_threads())
+        .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self { files })
     }
@@ -71,8 +71,8 @@ where
     where
         P: AsRef<Path>,
     {
-        let files = (0..rayon::current_num_threads())
-            .map(|_| open(path.as_ref()))
+        let files = iter::repeat_with(|| open(path.as_ref()))
+            .take(rayon::current_num_threads())
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self { files })

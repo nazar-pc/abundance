@@ -100,7 +100,7 @@ impl PosProof {
     const NUM_TABLES: u8 = 7;
     /// Size of proof of space proof in bytes
     pub const SIZE: usize =
-        usize::from(Self::K) * 2_usize.pow(u32::from(Self::NUM_TABLES - 1)) / u8::BITS as usize;
+        usize::from(Self::K) * 2usize.pow(u32::from(Self::NUM_TABLES - 1)) / u8::BITS as usize;
 
     /// Proof hash.
     pub fn hash(&self) -> Blake3Hash {

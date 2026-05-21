@@ -158,7 +158,7 @@ fn output_processed_enum_operands_impl(
     item_impl: ItemImpl,
     out_dir: &Path,
 ) -> anyhow::Result<()> {
-    let enum_file_path = out_dir.join(format!("{}_operands_impl.rs", enum_name));
+    let enum_file_path = out_dir.join(format!("{enum_name}_operands_impl.rs"));
     let code = item_impl.to_token_stream().to_string();
     // Format
     let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
@@ -185,7 +185,7 @@ fn output_processed_enum_csr_impl(
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
-    let enum_file_path = out_dir.join(format!("{}_csr_impl.rs", enum_name));
+    let enum_file_path = out_dir.join(format!("{enum_name}_csr_impl.rs"));
     let code = item_impl.to_token_stream().to_string();
     // Format
     let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
@@ -217,7 +217,7 @@ fn output_processed_enum_execution_impl(
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
-    let enum_file_path = out_dir.join(format!("{}_execution_impl.rs", enum_name));
+    let enum_file_path = out_dir.join(format!("{enum_name}_execution_impl.rs"));
     let code = item_impl.to_token_stream().to_string();
     // Format
     let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
@@ -461,6 +461,12 @@ pub(super) fn process_enum_csr_impl(
             .iter()
             .map(|impl_item_fn| &impl_item_fn.block)
             .chain(iter::once(&prepare_csr_read_fn.block));
+        prepare_csr_read_fn.attrs.push(parse_quote! {
+            #[expect(clippy::allow_attributes, reason = "Attribute below")]
+        });
+        prepare_csr_read_fn.attrs.push(parse_quote! {
+            #[allow(clippy::try_err, reason = "Macro requirement")]
+        });
         prepare_csr_read_fn.block = parse_quote! {{
             let mut accepted_by_at_least_one = false;
             #( if #all_prepare_csr_read_blocks? { accepted_by_at_least_one = true; } )*
@@ -495,6 +501,12 @@ pub(super) fn process_enum_csr_impl(
             .iter()
             .map(|impl_item_fn| &impl_item_fn.block)
             .chain(iter::once(&prepare_csr_write_fn.block));
+        prepare_csr_write_fn.attrs.push(parse_quote! {
+            #[expect(clippy::allow_attributes, reason = "Attribute below")]
+        });
+        prepare_csr_write_fn.attrs.push(parse_quote! {
+            #[allow(clippy::try_err, reason = "Macro requirement")]
+        });
         prepare_csr_write_fn.block = parse_quote! {{
             let mut accepted_by_at_least_one = false;
             #( if #all_prepare_csr_write_blocks? { accepted_by_at_least_one = true; } )*
@@ -536,11 +548,11 @@ pub(super) fn process_enum_execution_impl(
     let enum_name = enum_name_from_impl(&item_impl);
 
     let Some(execute_fn) = extract_execute_fn_from_impl_mut(&mut item_impl.items) else {
-        Err(anyhow::anyhow!(
+        return Err(anyhow::anyhow!(
             "Unexpected `impl` for `{}`, `#[instruction_execution]` attribute must be added to a \
             trait implementation, but no `execute` method was found",
             item_impl.self_ty.to_token_stream()
-        ))?
+        ));
     };
     let execute_block = &mut execute_fn.block;
 
@@ -603,10 +615,10 @@ pub(super) fn process_enum_execution_impl(
             where_clause.predicates.push(predicate);
         }
     } else {
-        Err(anyhow::anyhow!(
+        return Err(anyhow::anyhow!(
             "Missing where clause on `#[instruction_execution] impl ExecutableInstruction for \
             {enum_name}`"
-        ))?;
+        ));
     }
 
     let all_execute_blocks = all_execute_blocks

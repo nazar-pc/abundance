@@ -5,7 +5,7 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_sh1add() {
-    let inst = make_r_type(0b0110011, 1, 0b010, 2, 3, 0b0010000);
+    let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b001_0000);
     let decoded = Rv32ZbaInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -19,7 +19,7 @@ fn test_sh1add() {
 
 #[test]
 fn test_sh2add() {
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0010000);
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b001_0000);
     let decoded = Rv32ZbaInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -33,7 +33,7 @@ fn test_sh2add() {
 
 #[test]
 fn test_sh3add() {
-    let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0010000);
+    let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b001_0000);
     let decoded = Rv32ZbaInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -47,8 +47,8 @@ fn test_sh3add() {
 
 #[test]
 fn test_rv64_only_opcode_returns_none() {
-    // OP-32 (0b0111011) is RV64-only; must not decode in RV32 Zba
-    let inst = make_r_type(0b0111011, 1, 0b000, 2, 3, 0b0000100);
+    // OP-32 (0b011_1011) is RV64-only; must not decode in RV32 Zba
+    let inst = make_r_type(0b011_1011, 1, 0b000, 2, 3, 0b000_0100);
     let decoded = Rv32ZbaInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

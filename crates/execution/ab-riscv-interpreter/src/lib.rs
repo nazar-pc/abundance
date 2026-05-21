@@ -435,8 +435,8 @@ where
     /// Handle a `fence` instruction
     #[inline(always)]
     fn handle_fence(&mut self, pred: u8, succ: u8) {
-        let _ = pred;
-        let _ = succ;
+        let _: u8 = pred;
+        let _: u8 = succ;
         // NOP by default
     }
 
@@ -462,9 +462,9 @@ where
     #[inline(always)]
     fn handle_ebreak(&mut self, regs: &mut Regs, memory: &mut Memory, pc: Reg::Type) {
         // These are for cleaner trait API without leading `_` on arguments
-        let _ = regs;
-        let _ = memory;
-        let _ = pc;
+        let _: &Regs = regs;
+        let _: &mut Memory = memory;
+        let _: Reg::Type = pc;
         // NOP by default
     }
 }
@@ -533,10 +533,10 @@ where
         output_value: &mut RegisterType<Self>,
     ) -> Result<bool, CsrError<CustomError>> {
         // These are for cleaner trait API without leading `_` on arguments
-        let _ = ext_state;
-        let _ = csr_index;
-        let _ = raw_value;
-        let _ = output_value;
+        let _: &ExtState = ext_state;
+        let _: u16 = csr_index;
+        let _: RegisterType<Self> = raw_value;
+        let _: &mut RegisterType<Self> = output_value;
         // The default implementation is to not allow anything
         Ok(false)
     }
@@ -562,10 +562,10 @@ where
         output_value: &mut RegisterType<Self>,
     ) -> Result<bool, CsrError<CustomError>> {
         // These are for cleaner trait API without leading `_` on arguments
-        let _ = ext_state;
-        let _ = csr_index;
-        let _ = write_value;
-        let _ = output_value;
+        let _: &mut ExtState = ext_state;
+        let _: u16 = csr_index;
+        let _: RegisterType<Self> = write_value;
+        let _: &mut RegisterType<Self> = output_value;
         // The default implementation is to not allow anything
         Ok(false)
     }

@@ -7,8 +7,8 @@ use crate::registers::general_purpose::Reg;
 
 #[test]
 fn test_pack() {
-    // pack: opcode=0b0110011, funct3=0b100, funct7=0b0000100
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000100);
+    // pack: opcode=0b011_0011, funct3=0b100, funct7=0b000_0100
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0100);
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -22,8 +22,8 @@ fn test_pack() {
 
 #[test]
 fn test_packh() {
-    // packh: opcode=0b0110011, funct3=0b111, funct7=0b0000100
-    let inst = make_r_type(0b0110011, 1, 0b111, 2, 3, 0b0000100);
+    // packh: opcode=0b011_0011, funct3=0b111, funct7=0b000_0100
+    let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0100);
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -37,8 +37,8 @@ fn test_packh() {
 
 #[test]
 fn test_packw() {
-    // packw: opcode=0b0111011, funct3=0b100, funct7=0b0000100
-    let inst = make_r_type(0b0111011, 1, 0b100, 2, 3, 0b0000100);
+    // packw: opcode=0b011_1011, funct3=0b100, funct7=0b000_0100
+    let inst = make_r_type(0b011_1011, 1, 0b100, 2, 3, 0b000_0100);
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -53,7 +53,7 @@ fn test_packw() {
 #[test]
 fn test_packw_rs2_zero_returns_none() {
     // rs2=0 with packw encoding is zext.h (Zbb); must not decode as packw
-    let inst = make_r_type(0b0111011, 1, 0b100, 2, 0, 0b0000100);
+    let inst = make_r_type(0b011_1011, 1, 0b100, 2, 0, 0b000_0100);
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -75,15 +75,15 @@ fn test_brev8() {
 
 #[test]
 fn test_pack_wrong_funct7_returns_none() {
-    // funct7=0b0000000 with pack's funct3=100 is just XOR; should not decode as pack
-    let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0000000);
+    // funct7=0b000_0000 with pack's funct3=100 is just XOR; should not decode as pack
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0000);
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_unknown_opcode_returns_none() {
-    let inst = make_r_type(0b0100011, 1, 0b100, 2, 3, 0b0000100);
+    let inst = make_r_type(0b010_0011, 1, 0b100, 2, 3, 0b000_0100);
     let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

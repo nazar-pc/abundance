@@ -197,7 +197,7 @@ impl Address {
         };
 
         // Copy human-readable part + `1`
-        scratch.buffer[..hrp.len() + 1].copy_from_slice(&s.as_bytes()[..hrp.len() + 1]);
+        scratch.buffer[..=hrp.len()].copy_from_slice(&s.as_bytes()[..=hrp.len()]);
         // Set length to full
         scratch.length = hrp.len() + FormattedAddress::MAX_ENCODING_WITHOUT_HRP_NO_SEPARATOR;
 
@@ -310,7 +310,7 @@ impl Address {
         {
             let mut finished_trimming = false;
 
-            for &chunk_size in Self::FORMAT_SEPARATOR_INTERVAL[1..].iter() {
+            for &chunk_size in &Self::FORMAT_SEPARATOR_INTERVAL[1..] {
                 let mut chunk;
                 (chunk, address_within_shard) = address_within_shard.split_at(chunk_size);
 

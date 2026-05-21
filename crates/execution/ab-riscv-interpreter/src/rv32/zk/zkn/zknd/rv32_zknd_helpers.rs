@@ -81,16 +81,16 @@ pub(crate) const INV_SBOX: [u8; 256] = [
 #[inline(always)]
 pub(crate) fn gmul(mut a: u8, mut b: u8) -> u8 {
     let mut p = 0u8;
-    for _ in 0..8 {
+    for _ in 0..8u8 {
         if b & 1 != 0 {
             p ^= a;
         }
-        let carry = a >> 7;
-        a <<= 1;
+        let carry = a >> 7u8;
+        a <<= 1u8;
         if carry != 0 {
             a ^= 0x1b;
         }
-        b >>= 1;
+        b >>= 1u8;
     }
     p
 }

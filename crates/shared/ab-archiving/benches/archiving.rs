@@ -22,7 +22,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             archiver
                 .clone()
                 .add_block(black_box(input.clone()), black_box(Default::default()));
-        })
+        });
     });
 
     c.bench_function("segment-archiving-small-blocks", |b| {
@@ -31,7 +31,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             for chunk in input.chunks(SMALL_BLOCK_SIZE) {
                 archiver.add_block(black_box(chunk.to_vec()), black_box(Default::default()));
             }
-        })
+        });
     });
 }
 

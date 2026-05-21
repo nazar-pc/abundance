@@ -95,10 +95,7 @@ where
     // Ensure the number of proofs (declared and actual) is what it is expected to be
     assert_eq!(tree.all_proofs().len(), N);
     assert_eq!(tree.all_proofs().count(), N);
-    assert_eq!(
-        tree.all_proofs().fold(0_usize, |acc, _proof| { acc + 1 }),
-        N
-    );
+    assert_eq!(tree.all_proofs().fold(0usize, |acc, _proof| { acc + 1 }), N);
 
     let mut mmr = MerkleMountainRange::<N_U64>::new();
     assert_eq!(

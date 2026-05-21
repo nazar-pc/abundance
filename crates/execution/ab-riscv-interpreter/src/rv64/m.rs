@@ -115,7 +115,7 @@ where
             // RV64 R-type W
             Self::Mulw { rd, rs1: _, rs2: _ } => {
                 let prod = (rs1_value as i32).wrapping_mul(rs2_value as i32);
-                Ok(ControlFlow::Continue((rd, (prod as i64).cast_unsigned())))
+                Ok(ControlFlow::Continue((rd, i64::from(prod).cast_unsigned())))
             }
             Self::Divw { rd, rs1: _, rs2: _ } => {
                 let dividend = rs1_value as i32;
@@ -141,11 +141,11 @@ where
                 let dividend = rs1_value as i32;
                 let divisor = rs2_value as i32;
                 let value = if divisor == 0 {
-                    (dividend as i64).cast_unsigned()
+                    i64::from(dividend).cast_unsigned()
                 } else if dividend == i32::MIN && divisor == -1 {
                     0
                 } else {
-                    ((dividend % divisor) as i64).cast_unsigned()
+                    i64::from(dividend % divisor).cast_unsigned()
                 };
                 Ok(ControlFlow::Continue((rd, value)))
             }
@@ -153,11 +153,14 @@ where
                 let dividend = rs1_value as u32;
                 let divisor = rs2_value as u32;
                 let value = if divisor == 0 {
-                    dividend.cast_signed() as i64
+                    dividend.cast_signed()
                 } else {
-                    (dividend % divisor).cast_signed() as i64
+                    (dividend % divisor).cast_signed()
                 };
-                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+                Ok(ControlFlow::Continue((
+                    rd,
+                    i64::from(value).cast_unsigned(),
+                )))
             }
         }
     }

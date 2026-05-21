@@ -223,8 +223,7 @@ where
     };
 
     let farming_thread_pool_size = farming_thread_pool_size
-        .map(|farming_thread_pool_size| farming_thread_pool_size.get())
-        .unwrap_or_else(recommended_number_of_farming_threads);
+        .map_or_else(recommended_number_of_farming_threads, NonZeroUsize::get);
 
     let global_mutex = Arc::default();
     let plotter = Arc::new(ClusterPlotter::new(
@@ -380,22 +379,22 @@ where
 
                         if farms_stream.is_empty() || exit_on_farm_error {
                             return Err(error);
-                        } else {
-                            farm_errors.push(AsyncJoinOnDrop::new(
-                                tokio::spawn(async move {
-                                    loop {
-                                        tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
-
-                                        error!(
-                                            %farm_index,
-                                            %error,
-                                            "Farm errored and stopped"
-                                        );
-                                    }
-                                }),
-                                true,
-                            ))
                         }
+
+                        farm_errors.push(AsyncJoinOnDrop::new(
+                            tokio::spawn(async move {
+                                loop {
+                                    tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
+
+                                    error!(
+                                        %farm_index,
+                                        %error,
+                                        "Farm errored and stopped"
+                                    );
+                                }
+                            }),
+                            true,
+                        ));
                     }
                 }
             }

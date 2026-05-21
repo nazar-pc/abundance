@@ -156,7 +156,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number(), BlockNumber::ONE);
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(67108854).unwrap())
+            Some(NonZeroU32::new(67_108_854).unwrap())
         );
     }
     assert!(
@@ -288,7 +288,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number(), BlockNumber::from(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(111848003).unwrap())
+            Some(NonZeroU32::new(111_848_003).unwrap())
         );
         assert!(
             archived_segment
@@ -310,7 +310,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number(), BlockNumber::from(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(246065641).unwrap())
+            Some(NonZeroU32::new(246_065_641).unwrap())
         );
         assert!(
             archived_segment
@@ -399,7 +399,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369914];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22_369_914];
         rng.fill_bytes(block.as_mut_slice());
         block
     };

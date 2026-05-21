@@ -87,19 +87,19 @@ impl Add for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn add(self, other: Self) -> Self {
+    fn add(self, rhs: Self) -> Self {
         let mut result = [0u32; 2];
         let mut carry = false;
-        (result[0], carry) = self.0[0].carrying_add(other.0[0], carry);
-        (result[1], _) = self.0[1].carrying_add(other.0[1], carry);
+        (result[0], carry) = self.0[0].carrying_add(rhs.0[0], carry);
+        (result[1], _) = self.0[1].carrying_add(rhs.0[1], carry);
         Self(result)
     }
 }
 
 impl AddAssign for U32N<2> {
     #[inline(always)]
-    fn add_assign(&mut self, other: Self) {
-        *self = *self + other;
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -107,19 +107,19 @@ impl Sub for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn sub(self, other: Self) -> Self {
+    fn sub(self, rhs: Self) -> Self {
         let mut result = [0u32; 2];
         let mut borrow = false;
-        (result[0], borrow) = self.0[0].borrowing_sub(other.0[0], borrow);
-        (result[1], _) = self.0[1].borrowing_sub(other.0[1], borrow);
+        (result[0], borrow) = self.0[0].borrowing_sub(rhs.0[0], borrow);
+        (result[1], _) = self.0[1].borrowing_sub(rhs.0[1], borrow);
         Self(result)
     }
 }
 
 impl SubAssign for U32N<2> {
     #[inline(always)]
-    fn sub_assign(&mut self, other: Self) {
-        *self = *self - other;
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -127,8 +127,8 @@ impl BitAnd for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitand(self, other: Self) -> Self {
-        Self([self.0[0] & other.0[0], self.0[1] & other.0[1]])
+    fn bitand(self, rhs: Self) -> Self {
+        Self([self.0[0] & rhs.0[0], self.0[1] & rhs.0[1]])
     }
 }
 
@@ -143,8 +143,8 @@ impl BitXor for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitxor(self, other: Self) -> Self {
-        Self([self.0[0] ^ other.0[0], self.0[1] ^ other.0[1]])
+    fn bitxor(self, rhs: Self) -> Self {
+        Self([self.0[0] ^ rhs.0[0], self.0[1] ^ rhs.0[1]])
     }
 }
 
@@ -159,8 +159,8 @@ impl BitOr for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitor(self, other: Self) -> Self {
-        Self([self.0[0] | other.0[0], self.0[1] | other.0[1]])
+    fn bitor(self, rhs: Self) -> Self {
+        Self([self.0[0] | rhs.0[0], self.0[1] | rhs.0[1]])
     }
 }
 
@@ -175,13 +175,13 @@ impl Shl<u32> for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn shl(mut self, shift: u32) -> Self {
-        if shift == 0 {
+    fn shl(mut self, rhs: u32) -> Self {
+        if rhs == 0 {
             return self;
         }
 
-        let bit_shift = shift % u32::BITS;
-        match shift / u32::BITS {
+        let bit_shift = rhs % u32::BITS;
+        match rhs / u32::BITS {
             0 => {
                 self.0[1] =
                     (self.0[1] << bit_shift) | (self.0[0].unbounded_shr(u32::BITS - bit_shift));
@@ -200,8 +200,8 @@ impl Shl<u32> for U32N<2> {
 
 impl ShlAssign<u32> for U32N<2> {
     #[inline(always)]
-    fn shl_assign(&mut self, shift: u32) {
-        *self = *self << shift;
+    fn shl_assign(&mut self, rhs: u32) {
+        *self = *self << rhs;
     }
 }
 
@@ -209,13 +209,13 @@ impl Shr<u32> for U32N<2> {
     type Output = Self;
 
     #[inline(always)]
-    fn shr(mut self, shift: u32) -> Self {
-        if shift == 0 {
+    fn shr(mut self, rhs: u32) -> Self {
+        if rhs == 0 {
             return self;
         }
 
-        let bit_shift = shift % u32::BITS;
-        match shift / u32::BITS {
+        let bit_shift = rhs % u32::BITS;
+        match rhs / u32::BITS {
             0 => {
                 self.0[0] =
                     (self.0[0] >> bit_shift) | (self.0[1].unbounded_shl(u32::BITS - bit_shift));
@@ -234,8 +234,8 @@ impl Shr<u32> for U32N<2> {
 
 impl ShrAssign<u32> for U32N<2> {
     #[inline(always)]
-    fn shr_assign(&mut self, shift: u32) {
-        *self = *self >> shift;
+    fn shr_assign(&mut self, rhs: u32) {
+        *self = *self >> rhs;
     }
 }
 
@@ -250,20 +250,20 @@ impl Add for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn add(self, other: Self) -> Self {
+    fn add(self, rhs: Self) -> Self {
         let mut result = [0u32; 3];
         let mut carry = false;
-        (result[0], carry) = self.0[0].carrying_add(other.0[0], carry);
-        (result[1], carry) = self.0[1].carrying_add(other.0[1], carry);
-        (result[2], _) = self.0[2].carrying_add(other.0[2], carry);
+        (result[0], carry) = self.0[0].carrying_add(rhs.0[0], carry);
+        (result[1], carry) = self.0[1].carrying_add(rhs.0[1], carry);
+        (result[2], _) = self.0[2].carrying_add(rhs.0[2], carry);
         Self(result)
     }
 }
 
 impl AddAssign for U32N<3> {
     #[inline(always)]
-    fn add_assign(&mut self, other: Self) {
-        *self = *self + other;
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -271,20 +271,20 @@ impl Sub for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn sub(self, other: Self) -> Self {
+    fn sub(self, rhs: Self) -> Self {
         let mut result = [0u32; 3];
         let mut borrow = false;
-        (result[0], borrow) = self.0[0].borrowing_sub(other.0[0], borrow);
-        (result[1], borrow) = self.0[1].borrowing_sub(other.0[1], borrow);
-        (result[2], _) = self.0[2].borrowing_sub(other.0[2], borrow);
+        (result[0], borrow) = self.0[0].borrowing_sub(rhs.0[0], borrow);
+        (result[1], borrow) = self.0[1].borrowing_sub(rhs.0[1], borrow);
+        (result[2], _) = self.0[2].borrowing_sub(rhs.0[2], borrow);
         Self(result)
     }
 }
 
 impl SubAssign for U32N<3> {
     #[inline(always)]
-    fn sub_assign(&mut self, other: Self) {
-        *self = *self - other;
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -292,11 +292,11 @@ impl BitAnd for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitand(self, other: Self) -> Self {
+    fn bitand(self, rhs: Self) -> Self {
         Self([
-            self.0[0] & other.0[0],
-            self.0[1] & other.0[1],
-            self.0[2] & other.0[2],
+            self.0[0] & rhs.0[0],
+            self.0[1] & rhs.0[1],
+            self.0[2] & rhs.0[2],
         ])
     }
 }
@@ -312,11 +312,11 @@ impl BitXor for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitxor(self, other: Self) -> Self {
+    fn bitxor(self, rhs: Self) -> Self {
         Self([
-            self.0[0] ^ other.0[0],
-            self.0[1] ^ other.0[1],
-            self.0[2] ^ other.0[2],
+            self.0[0] ^ rhs.0[0],
+            self.0[1] ^ rhs.0[1],
+            self.0[2] ^ rhs.0[2],
         ])
     }
 }
@@ -332,11 +332,11 @@ impl BitOr for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitor(self, other: Self) -> Self {
+    fn bitor(self, rhs: Self) -> Self {
         Self([
-            self.0[0] | other.0[0],
-            self.0[1] | other.0[1],
-            self.0[2] | other.0[2],
+            self.0[0] | rhs.0[0],
+            self.0[1] | rhs.0[1],
+            self.0[2] | rhs.0[2],
         ])
     }
 }
@@ -352,13 +352,13 @@ impl Shl<u32> for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn shl(mut self, shift: u32) -> Self {
-        if shift == 0 {
+    fn shl(mut self, rhs: u32) -> Self {
+        if rhs == 0 {
             return self;
         }
 
-        let bit_shift = shift % u32::BITS;
-        match shift / u32::BITS {
+        let bit_shift = rhs % u32::BITS;
+        match rhs / u32::BITS {
             0 => {
                 self.0[2] =
                     (self.0[2] << bit_shift) | (self.0[1].unbounded_shr(u32::BITS - bit_shift));
@@ -386,8 +386,8 @@ impl Shl<u32> for U32N<3> {
 
 impl ShlAssign<u32> for U32N<3> {
     #[inline(always)]
-    fn shl_assign(&mut self, shift: u32) {
-        *self = *self << shift;
+    fn shl_assign(&mut self, rhs: u32) {
+        *self = *self << rhs;
     }
 }
 
@@ -395,13 +395,13 @@ impl Shr<u32> for U32N<3> {
     type Output = Self;
 
     #[inline(always)]
-    fn shr(mut self, shift: u32) -> Self {
-        if shift == 0 {
+    fn shr(mut self, rhs: u32) -> Self {
+        if rhs == 0 {
             return self;
         }
 
-        let bit_shift = shift % u32::BITS;
-        match shift / u32::BITS {
+        let bit_shift = rhs % u32::BITS;
+        match rhs / u32::BITS {
             0 => {
                 self.0[0] =
                     (self.0[0] >> bit_shift) | (self.0[1].unbounded_shl(u32::BITS - bit_shift));
@@ -429,8 +429,8 @@ impl Shr<u32> for U32N<3> {
 
 impl ShrAssign<u32> for U32N<3> {
     #[inline(always)]
-    fn shr_assign(&mut self, shift: u32) {
-        *self = *self >> shift;
+    fn shr_assign(&mut self, rhs: u32) {
+        *self = *self >> rhs;
     }
 }
 
@@ -467,21 +467,21 @@ impl Add for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn add(self, other: Self) -> Self {
+    fn add(self, rhs: Self) -> Self {
         let mut result = [0u32; 4];
         let mut carry = false;
-        (result[0], carry) = self.0[0].carrying_add(other.0[0], carry);
-        (result[1], carry) = self.0[1].carrying_add(other.0[1], carry);
-        (result[2], carry) = self.0[2].carrying_add(other.0[2], carry);
-        (result[3], _) = self.0[3].carrying_add(other.0[3], carry);
+        (result[0], carry) = self.0[0].carrying_add(rhs.0[0], carry);
+        (result[1], carry) = self.0[1].carrying_add(rhs.0[1], carry);
+        (result[2], carry) = self.0[2].carrying_add(rhs.0[2], carry);
+        (result[3], _) = self.0[3].carrying_add(rhs.0[3], carry);
         Self(result)
     }
 }
 
 impl AddAssign for U32N<4> {
     #[inline(always)]
-    fn add_assign(&mut self, other: Self) {
-        *self = *self + other;
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -489,21 +489,21 @@ impl Sub for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn sub(self, other: Self) -> Self {
+    fn sub(self, rhs: Self) -> Self {
         let mut result = [0u32; 4];
         let mut borrow = false;
-        (result[0], borrow) = self.0[0].borrowing_sub(other.0[0], borrow);
-        (result[1], borrow) = self.0[1].borrowing_sub(other.0[1], borrow);
-        (result[2], borrow) = self.0[2].borrowing_sub(other.0[2], borrow);
-        (result[3], _) = self.0[3].borrowing_sub(other.0[3], borrow);
+        (result[0], borrow) = self.0[0].borrowing_sub(rhs.0[0], borrow);
+        (result[1], borrow) = self.0[1].borrowing_sub(rhs.0[1], borrow);
+        (result[2], borrow) = self.0[2].borrowing_sub(rhs.0[2], borrow);
+        (result[3], _) = self.0[3].borrowing_sub(rhs.0[3], borrow);
         Self(result)
     }
 }
 
 impl SubAssign for U32N<4> {
     #[inline(always)]
-    fn sub_assign(&mut self, other: Self) {
-        *self = *self - other;
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -511,12 +511,12 @@ impl BitAnd for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitand(self, other: Self) -> Self {
+    fn bitand(self, rhs: Self) -> Self {
         Self([
-            self.0[0] & other.0[0],
-            self.0[1] & other.0[1],
-            self.0[2] & other.0[2],
-            self.0[3] & other.0[3],
+            self.0[0] & rhs.0[0],
+            self.0[1] & rhs.0[1],
+            self.0[2] & rhs.0[2],
+            self.0[3] & rhs.0[3],
         ])
     }
 }
@@ -532,12 +532,12 @@ impl BitXor for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitxor(self, other: Self) -> Self {
+    fn bitxor(self, rhs: Self) -> Self {
         Self([
-            self.0[0] ^ other.0[0],
-            self.0[1] ^ other.0[1],
-            self.0[2] ^ other.0[2],
-            self.0[3] ^ other.0[3],
+            self.0[0] ^ rhs.0[0],
+            self.0[1] ^ rhs.0[1],
+            self.0[2] ^ rhs.0[2],
+            self.0[3] ^ rhs.0[3],
         ])
     }
 }
@@ -553,12 +553,12 @@ impl BitOr for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn bitor(self, other: Self) -> Self {
+    fn bitor(self, rhs: Self) -> Self {
         Self([
-            self.0[0] | other.0[0],
-            self.0[1] | other.0[1],
-            self.0[2] | other.0[2],
-            self.0[3] | other.0[3],
+            self.0[0] | rhs.0[0],
+            self.0[1] | rhs.0[1],
+            self.0[2] | rhs.0[2],
+            self.0[3] | rhs.0[3],
         ])
     }
 }
@@ -574,13 +574,13 @@ impl Shl<u32> for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn shl(mut self, shift: u32) -> Self {
-        if shift == 0 {
+    fn shl(mut self, rhs: u32) -> Self {
+        if rhs == 0 {
             return self;
         }
 
-        let bit_shift = shift % u32::BITS;
-        match shift / u32::BITS {
+        let bit_shift = rhs % u32::BITS;
+        match rhs / u32::BITS {
             0 => {
                 self.0[3] =
                     (self.0[3] << bit_shift) | (self.0[2].unbounded_shr(u32::BITS - bit_shift));
@@ -620,8 +620,8 @@ impl Shl<u32> for U32N<4> {
 
 impl ShlAssign<u32> for U32N<4> {
     #[inline(always)]
-    fn shl_assign(&mut self, shift: u32) {
-        *self = *self << shift;
+    fn shl_assign(&mut self, rhs: u32) {
+        *self = *self << rhs;
     }
 }
 
@@ -629,13 +629,13 @@ impl Shr<u32> for U32N<4> {
     type Output = Self;
 
     #[inline(always)]
-    fn shr(mut self, shift: u32) -> Self {
-        if shift == 0 {
+    fn shr(mut self, rhs: u32) -> Self {
+        if rhs == 0 {
             return self;
         }
 
-        let bit_shift = shift % u32::BITS;
-        match shift / u32::BITS {
+        let bit_shift = rhs % u32::BITS;
+        match rhs / u32::BITS {
             0 => {
                 self.0[0] =
                     (self.0[0] >> bit_shift) | (self.0[1].unbounded_shl(u32::BITS - bit_shift));
@@ -675,7 +675,7 @@ impl Shr<u32> for U32N<4> {
 
 impl ShrAssign<u32> for U32N<4> {
     #[inline(always)]
-    fn shr_assign(&mut self, shift: u32) {
-        *self = *self >> shift;
+    fn shr_assign(&mut self, rhs: u32) {
+        *self = *self >> rhs;
     }
 }

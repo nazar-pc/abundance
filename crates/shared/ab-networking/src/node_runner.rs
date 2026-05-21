@@ -177,8 +177,8 @@ impl NodeRunner {
         if let Some(handler_id) = known_peers_registry.on_unreachable_address({
             Arc::new(move |event| {
                 if let Err(error) = removed_addresses_tx.unbounded_send(event.clone()) {
-                    debug!(?error, ?event, "Cannot send PeerAddressRemovedEvent")
-                };
+                    debug!(?error, ?event, "Cannot send PeerAddressRemovedEvent");
+                }
             })
         }) {
             address_removal_task_handler_id.replace(handler_id);
@@ -238,11 +238,11 @@ impl NodeRunner {
             futures::select! {
                 _ = &mut self.random_query_timeout => {
                     self.handle_random_query_interval();
-                    // Increase interval 2x, but to at most 60 seconds.
+                    // Increase interval 2x, but to at most 1 minute.
                     self.random_query_timeout =
                         Box::pin(tokio::time::sleep(self.next_random_query_interval).fuse());
                     self.next_random_query_interval =
-                        (self.next_random_query_interval * 2).min(Duration::from_secs(60));
+                        (self.next_random_query_interval * 2).min(Duration::from_mins(1));
                 },
                 swarm_event = self.swarm.next() => {
                     if let Some(swarm_event) = swarm_event {
@@ -260,7 +260,7 @@ impl NodeRunner {
                     }
                 },
                 _ = self.known_peers_registry.run().fuse() => {
-                    trace!("Network parameters registry runner exited.")
+                    trace!("Network parameters registry runner exited");
                 },
                 _ = &mut self.periodical_tasks_interval => {
                     self.handle_periodical_tasks().await;
@@ -321,7 +321,7 @@ impl NodeRunner {
             return;
         }
 
-        let bootstrap_command_state = self.bootstrap_command_state.clone();
+        let bootstrap_command_state = Arc::clone(&self.bootstrap_command_state);
         let mut bootstrap_command_state = bootstrap_command_state.lock().await;
         let bootstrap_command_receiver = match &mut *bootstrap_command_state {
             BootstrapCommandState::NotStarted => {
@@ -352,7 +352,7 @@ impl NodeRunner {
             }
         };
 
-        let mut bootstrap_step = 0;
+        let mut bootstrap_step = 0usize;
         loop {
             futures::select! {
                 swarm_event = self.swarm.next() => {
@@ -441,11 +441,8 @@ impl NodeRunner {
     }
 
     fn handle_remove_listeners(&mut self, removed_listeners: &[Multiaddr]) {
-        let shared = match self.shared_weak.upgrade() {
-            Some(shared) => shared,
-            None => {
-                return;
-            }
+        let Some(shared) = self.shared_weak.upgrade() else {
+            return;
         };
 
         // Remove both versions of the address
@@ -476,11 +473,8 @@ impl NodeRunner {
             ref event @ SwarmEvent::NewListenAddr { ref address, .. } => {
                 trace!(?event, "New local listener  event.");
 
-                let shared = match self.shared_weak.upgrade() {
-                    Some(shared) => shared,
-                    None => {
-                        return;
-                    }
+                let Some(shared) = self.shared_weak.upgrade() else {
+                    return;
                 };
                 shared.listeners.lock().push(address.clone());
                 shared.handlers.new_listener.call_simple(address);
@@ -507,13 +501,10 @@ impl NodeRunner {
                             .add_known_peer(peer_id, vec![address.clone()])
                             .await;
                     }
-                };
+                }
 
-                let shared = match self.shared_weak.upgrade() {
-                    Some(shared) => shared,
-                    None => {
-                        return;
-                    }
+                let Some(shared) = self.shared_weak.upgrade() else {
+                    return;
                 };
 
                 let is_reserved_peer = self.reserved_peers.contains_key(&peer_id);
@@ -559,7 +550,7 @@ impl NodeRunner {
                 }
 
                 if let Some(metrics) = self.metrics.as_ref() {
-                    metrics.inc_established_connections()
+                    metrics.inc_established_connections();
                 }
             }
             SwarmEvent::ConnectionClosed {
@@ -568,11 +559,8 @@ impl NodeRunner {
                 cause,
                 ..
             } => {
-                let shared = match self.shared_weak.upgrade() {
-                    Some(shared) => shared,
-                    None => {
-                        return;
-                    }
+                let Some(shared) = self.shared_weak.upgrade() else {
+                    return;
                 };
 
                 debug!(
@@ -602,8 +590,8 @@ impl NodeRunner {
                 }
 
                 if let Some(metrics) = self.metrics.as_ref() {
-                    metrics.dec_established_connections()
-                };
+                    metrics.dec_established_connections();
+                }
             }
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 if let Some(peer_id) = &peer_id {
@@ -640,7 +628,7 @@ impl NodeRunner {
 
                         if let Some(ref peer_id) = peer_id {
                             let kademlia = &mut self.swarm.behaviour_mut().kademlia;
-                            let _ = kademlia.remove_peer(peer_id);
+                            let _: Option<_> = kademlia.remove_peer(peer_id);
                         }
                     }
                     _ => {
@@ -748,7 +736,7 @@ impl NodeRunner {
 
                 self.temporary_bans.lock().create_or_extend(&peer_id);
                 // Forget about this peer until they upgrade
-                let _ = self.swarm.disconnect_peer_id(peer_id);
+                let _: Result<(), ()> = self.swarm.disconnect_peer_id(peer_id);
                 self.swarm.behaviour_mut().kademlia.remove_peer(&peer_id);
                 self.known_peers_registry
                     .remove_all_known_peer_addresses(peer_id);
@@ -1086,7 +1074,7 @@ impl NodeRunner {
                     self.query_id_receivers.get(&id)
                 {
                     match result {
-                        Ok(PutRecordOk { key, .. }) => {
+                        Ok(PutRecordOk { key }) => {
                             trace!("Put record query for {} succeeded", hex::encode(&key));
 
                             cancelled = Self::unbounded_send_and_cancel_on_error(
@@ -1179,7 +1167,7 @@ impl NodeRunner {
 
             for sender in senders.values() {
                 // Doesn't matter if receiver is still listening for messages or not.
-                let _ = sender.unbounded_send(bytes.clone());
+                let _: Result<(), _> = sender.unbounded_send(bytes.clone());
             }
         }
     }
@@ -1319,9 +1307,10 @@ impl NodeRunner {
                 topic,
                 result_sender,
             } => {
-                if !self.swarm.behaviour().gossipsub.is_enabled() {
-                    panic!("Gossipsub protocol is disabled.");
-                }
+                assert!(
+                    self.swarm.behaviour().gossipsub.is_enabled(),
+                    "Gossipsub protocol is disabled."
+                );
 
                 let topic_hash = topic.hash();
                 let (sender, receiver) = mpsc::unbounded();
@@ -1360,7 +1349,7 @@ impl NodeRunner {
                                     );
                                 }
                                 Err(error) => {
-                                    let _ = result_sender.send(Err(error));
+                                    let _: Result<(), _> = result_sender.send(Err(error));
                                 }
                             }
                         }
@@ -1371,9 +1360,10 @@ impl NodeRunner {
                 topic,
                 subscription_id,
             } => {
-                if !self.swarm.behaviour().gossipsub.is_enabled() {
-                    panic!("Gossipsub protocol is disabled.");
-                }
+                assert!(
+                    self.swarm.behaviour().gossipsub.is_enabled(),
+                    "Gossipsub protocol is disabled."
+                );
 
                 if let Entry::Occupied(mut entry) =
                     self.topic_subscription_senders.entry(topic.hash())
@@ -1405,13 +1395,14 @@ impl NodeRunner {
                 message,
                 result_sender,
             } => {
-                if !self.swarm.behaviour().gossipsub.is_enabled() {
-                    panic!("Gossipsub protocol is disabled.");
-                }
+                assert!(
+                    self.swarm.behaviour().gossipsub.is_enabled(),
+                    "Gossipsub protocol is disabled"
+                );
 
                 if let Some(gossipsub) = self.swarm.behaviour_mut().gossipsub.as_mut() {
                     // Doesn't matter if receiver still waits for response.
-                    let _ =
+                    let _: Result<(), _> =
                         result_sender.send(gossipsub.publish(topic, message).map(|_message_id| ()));
                 }
             }
@@ -1446,7 +1437,7 @@ impl NodeRunner {
                     .collect();
 
                 // Doesn't matter if receiver still waits for response.
-                let _ = result_sender.send(result);
+                let _: Result<(), _> = result_sender.send(result);
             }
             Command::GenericRequest {
                 peer_id,
@@ -1488,17 +1479,17 @@ impl NodeRunner {
                 self.ban_peer(peer_id);
             }
             Command::Dial { address } => {
-                let _ = self.swarm.dial(address);
+                let _: Result<(), _> = self.swarm.dial(address);
             }
             Command::ConnectedPeers { result_sender } => {
-                let connected_peers = self.swarm.connected_peers().cloned().collect();
+                let connected_peers = self.swarm.connected_peers().copied().collect();
 
-                let _ = result_sender.send(connected_peers);
+                let _: Result<(), _> = result_sender.send(connected_peers);
             }
             Command::ConnectedServers { result_sender } => {
-                let connected_servers = self.connected_servers.iter().cloned().collect();
+                let connected_servers = self.connected_servers.iter().copied().collect();
 
-                let _ = result_sender.send(connected_servers);
+                let _: Result<(), _> = result_sender.send(connected_servers);
             }
             Command::Bootstrap { result_sender } => {
                 let kademlia = &mut self.swarm.behaviour_mut().kademlia;
@@ -1561,8 +1552,8 @@ impl NodeRunner {
     }
 
     fn log_kademlia_stats(&mut self) {
-        let mut peer_counter = 0;
-        let mut peer_with_no_address_counter = 0;
+        let mut peer_counter = 0usize;
+        let mut peer_with_no_address_counter = 0usize;
         for kbucket in self.swarm.behaviour_mut().kademlia.kbuckets() {
             for entry in kbucket.iter() {
                 peer_counter += 1;
