@@ -71,25 +71,25 @@ where
 /// # Safety
 /// `base_reg + elem_i / (VLENB / sew_bytes) < 32` must hold.
 #[inline(always)]
-pub(crate) unsafe fn read_element_u64<const VLENB: usize>(
+pub(crate) unsafe fn read_element_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes_width());
+    let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = vregs
         .get(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
     // SAFETY: `byte_off + sew_bytes <= VLENB` because `byte_off` is at most
     // `(elems_per_reg - 1) * sew_bytes = VLENB - sew_bytes`
-    let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
+    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + sew_bytes) as usize) };
     let mut buf = [0u8; 8];
     // SAFETY: `sew_bytes <= 8` for all `Vsew` variants
-    unsafe { buf.get_unchecked_mut(..sew_bytes) }.copy_from_slice(src);
+    unsafe { buf.get_unchecked_mut(..sew_bytes as usize) }.copy_from_slice(src);
     u64::from_le_bytes(buf)
 }
 
@@ -99,26 +99,26 @@ pub(crate) unsafe fn read_element_u64<const VLENB: usize>(
 /// # Safety
 /// `base_reg + elem_i / (VLENB / sew_bytes) < 32` must hold.
 #[inline(always)]
-pub(crate) unsafe fn write_element_u64<const VLENB: usize>(
+pub(crate) unsafe fn write_element_u64<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes_width());
+    let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = vregs
         .get_mut(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
     // SAFETY: `byte_off + sew_bytes <= VLENB` - same argument as `read_element_u64`.
     // `sew_bytes <= 8` for all `Vsew` variants.
-    let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
+    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + sew_bytes) as usize) };
     // SAFETY: `sew_bytes <= 8` for all `Vsew` variants
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes) });
+    dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes as usize) });
 }
 
 /// Write one mask bit (the comparison result for element `elem_i`) into register `vd`.
@@ -131,7 +131,7 @@ pub(crate) unsafe fn write_element_u64<const VLENB: usize>(
 /// `elem_i / 8 < VLENB` must hold, i.e. `elem_i < VLEN`. This is guaranteed when
 /// `elem_i < vl <= VLMAX <= VLEN`.
 #[inline(always)]
-pub(in super::super) unsafe fn write_mask_bit<const VLENB: usize>(
+pub(in super::super) unsafe fn write_mask_bit<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     vd: VReg,
     elem_i: u32,
@@ -181,9 +181,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -248,9 +245,6 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> bool,
 {

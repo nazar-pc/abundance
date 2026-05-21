@@ -81,7 +81,7 @@ pub enum ZvkbInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for ZvkbInstruction<Reg>
+const impl<Reg> Instruction for ZvkbInstruction<Reg>
 where
     Reg: [const] Register,
 {

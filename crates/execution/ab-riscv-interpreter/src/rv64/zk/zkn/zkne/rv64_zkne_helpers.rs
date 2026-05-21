@@ -10,6 +10,10 @@ cfg_select! {
     }
     all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
         /// x86-64 AES-NI implementation
+        #[expect(
+            clippy::inline_modules,
+            reason = "Small internal API, it is more readable this way"
+        )]
         mod x86_64 {
             use core::arch::x86_64::{
                 _mm_aesenclast_si128, _mm_aesenc_si128, _mm_extract_epi64,
@@ -45,6 +49,10 @@ cfg_select! {
         /// AESE XORs the round key first, then applies SubBytes + ShiftRows (note: ARM ShiftRows
         /// direction matches the forward cipher). With a zero round key the XOR is a no-op,
         /// leaving pure SubBytes + ShiftRows - identical to what `aes64es` requires.
+        #[expect(
+            clippy::inline_modules,
+            reason = "Small internal API, it is more readable this way"
+        )]
         mod aarch64 {
             use core::arch::aarch64::{
                 vaeseq_u8, vaesmcq_u8, vcombine_u64, vcreate_u64, vdupq_n_u8, vgetq_lane_u64,
@@ -74,6 +82,10 @@ cfg_select! {
     }
     _ => {
         /// Software fallback for aes64es, aes64esm
+        #[expect(
+            clippy::inline_modules,
+            reason = "Small internal API, it is more readable this way"
+        )]
         mod soft {
             use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{SBOX, gmul};
 

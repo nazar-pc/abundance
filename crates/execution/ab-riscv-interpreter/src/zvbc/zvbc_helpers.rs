@@ -67,9 +67,6 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -122,9 +119,6 @@ pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();

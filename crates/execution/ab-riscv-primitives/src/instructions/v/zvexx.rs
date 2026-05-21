@@ -67,7 +67,7 @@ use core::fmt;
 pub enum ZveXxInstruction<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for ZveXxInstruction<Reg>
+const impl<Reg> Instruction for ZveXxInstruction<Reg>
 where
     Reg: [const] Register,
 {

@@ -84,7 +84,7 @@ pub enum ZveXxMaskInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for ZveXxMaskInstruction<Reg>
+const impl<Reg> Instruction for ZveXxMaskInstruction<Reg>
 where
     Reg: [const] Register,
 {

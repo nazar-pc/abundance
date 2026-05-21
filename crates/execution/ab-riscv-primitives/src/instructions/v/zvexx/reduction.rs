@@ -43,7 +43,7 @@ pub enum ZveXxReductionInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for ZveXxReductionInstruction<Reg>
+const impl<Reg> Instruction for ZveXxReductionInstruction<Reg>
 where
     Reg: [const] Register,
 {

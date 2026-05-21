@@ -105,26 +105,26 @@ where
 /// # Safety
 /// `base_reg + elem_i / (VLENB / (2*sew_bytes)) < 32` must hold.
 #[inline(always)]
-unsafe fn write_wide_element_u64<const VLENB: usize>(
+unsafe fn write_wide_element_u64<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
     value: u64,
 ) {
-    let wide_bytes = usize::from(sew.bytes_width()) * 2;
+    let wide_bytes = u32::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / wide_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * wide_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = unsafe {
         vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
     // SAFETY: `byte_off + wide_bytes <= VLENB`; `wide_bytes <= 8` for SEW < 64
-    let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + wide_bytes) };
+    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + wide_bytes) as usize) };
     // SAFETY: `wide_bytes <= 8` because SEW < 64 is enforced before widening ops are called
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..wide_bytes) });
+    dst.copy_from_slice(unsafe { buf.get_unchecked(..wide_bytes as usize) });
 }
 
 /// Execute a single-width element-wise arithmetic operation over `vstart..vl`.
@@ -149,9 +149,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -206,9 +203,6 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -263,9 +257,6 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
@@ -317,9 +308,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
@@ -375,9 +363,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
@@ -431,9 +416,6 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {

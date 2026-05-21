@@ -67,7 +67,7 @@ impl TimeCsrState {
 pub(crate) enum TimeCsrInstruction<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for TimeCsrInstruction<Reg>
+const impl<Reg> Instruction for TimeCsrInstruction<Reg>
 where
     Reg: [const] Register,
 {
