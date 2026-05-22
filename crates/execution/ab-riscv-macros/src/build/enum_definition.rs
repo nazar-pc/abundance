@@ -307,19 +307,6 @@ pub(super) fn process_enum_definition(
         }
     };
 
-    if instruction_definition.items.iter().any(|item| match item {
-        InstructionDefinitionItem::Reorder(_) | InstructionDefinitionItem::Ignore(_) => false,
-        InstructionDefinitionItem::Inherit(enums) => enums
-            .iter()
-            .any(|enum_name| state.get_known_enum_definition(enum_name).is_none()),
-    }) {
-        state.add_pending_enum_definition(PendingEnumDefinition {
-            instruction_definition,
-            item_enum,
-        });
-        return Ok(());
-    }
-
     let Some(result) = process_enum_definition_inherited(instruction_definition, item_enum, state)?
     else {
         return Ok(());
