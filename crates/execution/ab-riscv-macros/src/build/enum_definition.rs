@@ -68,6 +68,11 @@ struct KnownInstruction {
     source: Rc<Path>,
 }
 
+struct ProcessedEnumDefinition {
+    item_enum: ItemEnum,
+    dependencies: Vec<Ident>,
+}
+
 pub(super) fn collect_enum_definitions_from_dependencies()
 -> impl Iterator<Item = anyhow::Result<(ItemEnum, Vec<Ident>, Rc<Path>)>> {
     // Collect exported instruction enums from dependencies
@@ -139,11 +144,15 @@ pub(super) fn collect_enum_definitions_from_dependencies()
 }
 
 fn output_processed_enum_definition(
-    mut item_enum: ItemEnum,
-    dependencies: Vec<Ident>,
+    processed_enum_definition: ProcessedEnumDefinition,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
+    let ProcessedEnumDefinition {
+        mut item_enum,
+        dependencies,
+    } = processed_enum_definition;
+
     for variant in &mut item_enum.variants {
         let mut sorted_fields: FieldsNamed = parse_quote! {{
             #[
@@ -307,20 +316,20 @@ pub(super) fn process_enum_definition(
         }
     };
 
-    let Some(result) = process_enum_definition_inherited(instruction_definition, item_enum, state)?
+    let Some(processed_enum_definition) =
+        process_enum_definition_inherited(instruction_definition, item_enum, state)?
     else {
         return Ok(());
     };
-    let (item_enum, dependencies) = result;
 
-    output_processed_enum_definition(item_enum, dependencies, out_dir, state)
+    output_processed_enum_definition(processed_enum_definition, out_dir, state)
 }
 
 fn process_enum_definition_inherited(
     instruction_definition: InstructionDefinition,
     mut item_enum: ItemEnum,
     state: &mut State,
-) -> anyhow::Result<Option<(ItemEnum, Vec<Ident>)>> {
+) -> anyhow::Result<Option<ProcessedEnumDefinition>> {
     let mut all_known_instructions = HashMap::<Ident, KnownInstruction>::new();
     let mut dependencies = Vec::new();
 
@@ -475,7 +484,10 @@ fn process_enum_definition_inherited(
             .map(|instruction| instruction.as_ref().clone()),
     );
 
-    Ok(Some((item_enum, dependencies)))
+    Ok(Some(ProcessedEnumDefinition {
+        item_enum,
+        dependencies,
+    }))
 }
 
 /// Process remaining enums that were waiting for dependencies
@@ -508,10 +520,10 @@ pub(super) fn process_pending_enum_definitions(
             item_enum,
         } in pending_enums
         {
-            if let Some((item_enum, dependencies)) =
+            if let Some(processed_enum_definition) =
                 process_enum_definition_inherited(instruction_definition, item_enum, state)?
             {
-                output_processed_enum_definition(item_enum, dependencies, out_dir, state)?;
+                output_processed_enum_definition(processed_enum_definition, out_dir, state)?;
             }
         }
     }
