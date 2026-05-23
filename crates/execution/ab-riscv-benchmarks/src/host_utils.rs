@@ -358,9 +358,9 @@ impl LazyInstructionFetcher {
 #[repr(C, align(16))]
 pub struct EagerTestInstructionFetcher {
     instructions: Box<[ContractInstruction]>,
-    instruction_offset: usize,
-    return_trap_address: u64,
+    decoded_instruction_byte_offset: usize,
     base_addr: u64,
+    return_trap_address: u64,
 }
 
 impl<Memory> ProgramCounter<u64, Memory> for EagerTestInstructionFetcher
@@ -369,7 +369,9 @@ where
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
-        self.base_addr + self.instruction_offset as u64 * size_of::<u16>() as u64
+        self.base_addr
+            + self.decoded_instruction_byte_offset as u64 * size_of::<u16>() as u64
+                / size_of::<ContractInstruction>() as u64
     }
 
     #[inline]
@@ -404,7 +406,8 @@ where
             return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
         }
 
-        self.instruction_offset = instruction_offset;
+        self.decoded_instruction_byte_offset =
+            instruction_offset * size_of::<ContractInstruction>();
 
         Ok(ControlFlow::Continue(()))
     }
@@ -422,8 +425,16 @@ where
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
-        let instruction = *unsafe { self.instructions.get_unchecked(self.instruction_offset) };
-        self.instruction_offset += usize::from(instruction.size()) / size_of::<u16>();
+        let instruction = unsafe {
+            // Reading through byte offset rather than index to avoid extra computation (converting
+            // an index to a byte offset) on each fetch
+            self.instructions
+                .as_ptr()
+                .byte_add(self.decoded_instruction_byte_offset)
+                .read()
+        };
+        self.decoded_instruction_byte_offset +=
+            usize::from(instruction.size()) / size_of::<u16>() * size_of::<ContractInstruction>();
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
@@ -522,9 +533,10 @@ impl EagerTestInstructionFetcher {
 
         Self {
             instructions: decoded_instructions.into_boxed_slice(),
-            instruction_offset: (pc - base_addr) as usize / size_of::<u16>(),
-            return_trap_address,
+            decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
+                * size_of::<ContractInstruction>(),
             base_addr,
+            return_trap_address,
         }
     }
 }
