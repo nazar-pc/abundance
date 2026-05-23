@@ -137,8 +137,8 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Default for GuestMemory<BASE_ADDR,
 pub(crate) struct EagerInstructionFetcher {
     instructions: Box<[CoremarkInstruction]>,
     decoded_instruction_byte_offset: usize,
-    return_trap_address: u64,
     base_addr: u64,
+    return_trap_address: u64,
 }
 
 impl<Memory> ProgramCounter<u64, Memory> for EagerInstructionFetcher
@@ -310,8 +310,8 @@ impl EagerInstructionFetcher {
             instructions: decoded_instructions.into_boxed_slice(),
             decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
                 * size_of::<CoremarkInstruction>(),
-            return_trap_address,
             base_addr,
+            return_trap_address,
         }
     }
 }

@@ -359,8 +359,8 @@ impl LazyInstructionFetcher {
 pub struct EagerTestInstructionFetcher {
     instructions: Box<[ContractInstruction]>,
     decoded_instruction_byte_offset: usize,
-    return_trap_address: u64,
     base_addr: u64,
+    return_trap_address: u64,
 }
 
 impl<Memory> ProgramCounter<u64, Memory> for EagerTestInstructionFetcher
@@ -535,8 +535,8 @@ impl EagerTestInstructionFetcher {
             instructions: decoded_instructions.into_boxed_slice(),
             decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
                 * size_of::<ContractInstruction>(),
-            return_trap_address,
             base_addr,
+            return_trap_address,
         }
     }
 }
