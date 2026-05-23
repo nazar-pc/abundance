@@ -13,6 +13,7 @@ use alloc::vec::Vec;
 use core::hint::cold_path;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
+use replace_with::replace_with_or_abort_and_return;
 
 /// Contract file bytes
 pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
@@ -357,8 +358,10 @@ impl LazyInstructionFetcher {
 #[derive(Debug, Clone)]
 #[repr(C, align(16))]
 pub struct EagerTestInstructionFetcher {
-    instructions: Box<[ContractInstruction]>,
     decoded_instruction_byte_offset: usize,
+    // A simple raw pointer separate field helps LLVM with SROA and aliasing analysis, so it can
+    // retain this pointer in the native register
+    instructions: Box<[ContractInstruction]>,
     base_addr: u64,
     return_trap_address: u64,
 }
@@ -532,9 +535,9 @@ impl EagerTestInstructionFetcher {
         }
 
         Self {
-            instructions: decoded_instructions.into_boxed_slice(),
             decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
                 * size_of::<ContractInstruction>(),
+            instructions: decoded_instructions.into_boxed_slice(),
             base_addr,
             return_trap_address,
         }
@@ -550,50 +553,56 @@ where
     Memory: VirtualMemory,
     IF: InstructionFetcher<ContractInstruction, Memory>,
 {
-    loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
-            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
-                cold_path();
-                continue;
-            }
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
-                cold_path();
-                break;
-            }
-            Err(error) => {
-                cold_path();
-                return Err(error);
-            }
-        };
+    replace_with_or_abort_and_return(
+        &mut state.instruction_fetcher,
+        #[inline(always)]
+        |mut instruction_fetcher| {
+            loop {
+                let instruction = match instruction_fetcher.fetch_instruction(&state.memory) {
+                    Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
+                    Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+                        cold_path();
+                        continue;
+                    }
+                    Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+                        cold_path();
+                        break;
+                    }
+                    Err(error) => {
+                        cold_path();
+                        return (Err(error), instruction_fetcher);
+                    }
+                };
 
-        let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
-        let rs1rs2_values = Rs1Rs2OperandValues {
-            rs1_value: state.regs.read(rs1),
-            rs2_value: state.regs.read(rs2),
-        };
+                let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
+                let rs1rs2_values = Rs1Rs2OperandValues {
+                    rs1_value: state.regs.read(rs1),
+                    rs2_value: state.regs.read(rs2),
+                };
 
-        match instruction.execute(
-            rs1rs2_values,
-            &mut state.regs,
-            &mut state.ext_state,
-            &mut state.memory,
-            &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
-        ) {
-            Ok(ControlFlow::Continue((rd, rd_value))) => {
-                state.regs.write(rd, rd_value);
+                match instruction.execute(
+                    rs1rs2_values,
+                    &mut state.regs,
+                    &mut state.ext_state,
+                    &mut state.memory,
+                    &mut instruction_fetcher,
+                    &mut state.system_instruction_handler,
+                ) {
+                    Ok(ControlFlow::Continue((rd, rd_value))) => {
+                        state.regs.write(rd, rd_value);
+                    }
+                    Ok(ControlFlow::Break(())) => {
+                        cold_path();
+                        break;
+                    }
+                    Err(error) => {
+                        cold_path();
+                        return (Err(error), instruction_fetcher);
+                    }
+                }
             }
-            Ok(ControlFlow::Break(())) => {
-                cold_path();
-                break;
-            }
-            Err(error) => {
-                cold_path();
-                return Err(error);
-            }
-        }
-    }
 
-    Ok(())
+            (Ok(()), instruction_fetcher)
+        },
+    )
 }

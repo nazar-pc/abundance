@@ -132,11 +132,13 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Default for GuestMemory<BASE_ADDR,
 }
 
 /// Eager instruction handler eagerly decodes all instructions upfront
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C, align(16))]
 pub(crate) struct EagerInstructionFetcher {
-    instructions: Box<[CoremarkInstruction]>,
     decoded_instruction_byte_offset: usize,
+    // A simple raw pointer separate field helps LLVM with SROA and aliasing analysis, so it can
+    // retain this pointer in the native register
+    instructions: Box<[CoremarkInstruction]>,
     base_addr: u64,
     return_trap_address: u64,
 }
@@ -307,9 +309,9 @@ impl EagerInstructionFetcher {
         }
 
         Self {
-            instructions: decoded_instructions.into_boxed_slice(),
             decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
                 * size_of::<CoremarkInstruction>(),
+            instructions: decoded_instructions.into_boxed_slice(),
             base_addr,
             return_trap_address,
         }

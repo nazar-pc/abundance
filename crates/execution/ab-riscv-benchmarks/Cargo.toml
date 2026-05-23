@@ -28,6 +28,7 @@ ab-blake3 = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
+replace_with = { workspace = true }
 
 [target.'cfg(not(target_env = "abundance"))'.dependencies]
 ab-contract-file = { workspace = true }
