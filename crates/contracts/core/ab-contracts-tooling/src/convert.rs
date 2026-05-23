@@ -429,7 +429,7 @@ fn extract_host_call_fn_offset(
         return Ok(0);
     };
 
-    if host_call_fn.size != size_of::<[u32; 2]>() as u64 {
+    if ![size_of::<u16>() as u64, size_of::<u32>() as u64].contains(&host_call_fn.size) {
         return Err(anyhow::anyhow!(
             "Host call function {HOST_CALL_FN} has invalid size {}",
             host_call_fn.size
@@ -444,7 +444,7 @@ fn extract_host_call_fn_offset(
                 input_file.len()
             )
         })?
-        .get(..size_of::<[u32; 2]>())
+        .get(..host_call_fn.size as usize)
         .context("Not enough bytes to get instructions of host call function")?;
 
     Ok(host_call_fn_offset)

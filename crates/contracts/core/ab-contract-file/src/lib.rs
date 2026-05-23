@@ -55,6 +55,7 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use ab_riscv_primitives::prelude::*;
 use core::iter;
 use core::iter::TrustedLen;
@@ -207,13 +208,11 @@ pub enum ContractFileParseError {
         /// Size of the file in bytes
         file_size: u32,
     },
-    /// Host call function doesn't have auipc + jalr tailcall pattern
-    #[error("The host call function doesn't have auipc + jalr tailcall pattern: {first} {second}")]
+    /// Host call function doesn't have `jal` tailcall instruction
+    #[error("The host call function doesn't have jal tailcall instruction: {instruction}")]
     InvalidHostCallFnPattern {
-        /// First instruction of the host call function
-        first: ContractInstruction,
-        /// Second instruction of the host call function
-        second: ContractInstruction,
+        /// Instruction of the host call function
+        instruction: ContractInstruction,
     },
     /// The read-only section file size is larger than the memory size
     #[error(
@@ -476,71 +475,46 @@ impl<'a> ContractFile<'a> {
                 });
             }
 
-            let instructions_bytes = file_bytes
+            let instruction_bytes = file_bytes
                 .get(header.host_call_fn_offset as usize..)
                 .ok_or(ContractFileParseError::HostCallFnOutOfRange {
                     offset: header.host_call_fn_offset,
                     code_section_offset,
                     file_size,
-                })?
-                .get(..size_of::<[u32; 2]>())
-                .ok_or(ContractFileParseError::HostCallFnOutOfRange {
-                    offset: header.host_call_fn_offset,
-                    code_section_offset,
-                    file_size,
                 })?;
-
-            let first_instruction = u32::from_le_bytes([
-                instructions_bytes[0],
-                instructions_bytes[1],
-                instructions_bytes[2],
-                instructions_bytes[3],
-            ]);
-            let second_instruction = u32::from_le_bytes([
-                instructions_bytes[4],
-                instructions_bytes[5],
-                instructions_bytes[6],
-                instructions_bytes[7],
-            ]);
-
-            let first = ContractInstruction::try_decode(first_instruction).ok_or(
-                ContractFileParseError::InvalidInstruction {
-                    instruction: first_instruction,
-                },
-            )?;
-            let second = ContractInstruction::try_decode(second_instruction).ok_or(
-                ContractFileParseError::InvalidInstruction {
-                    instruction: second_instruction,
-                },
-            )?;
-
-            // TODO: Should it be canonicalized to a fixed immediate and temporary after conversion
-            //  from ELF?
-            // Checks if two consecutive instructions are:
-            //   auipc x?, 0x?
-            //   jalr  x0, offset(x?)
-            let matches_expected_pattern = if let (
-                ContractInstruction::Auipc {
-                    rd: auipc_rd,
-                    imm: _,
-                    rs1: _,
-                    rs2: _,
-                },
-                ContractInstruction::Jalr {
-                    rd: jalr_rd,
-                    rs1: jalr_rs1,
-                    imm: _,
-                    rs2: _,
-                },
-            ) = (first, second)
+            // SAFETY: All bit patterns are valid for u32
+            let instruction = if let Some(instruction_bytes) =
+                unsafe { <Unaligned<u32>>::from_bytes(instruction_bytes) }
             {
-                auipc_rd == jalr_rs1 && jalr_rd == Register::ZERO
+                instruction_bytes.as_inner()
             } else {
-                false
+                // SAFETY: All bit patterns are valid for u16
+                let Some(instruction_bytes) =
+                    (unsafe { <Unaligned<u16>>::from_bytes(instruction_bytes) })
+                else {
+                    return Err(ContractFileParseError::HostCallFnOutOfRange {
+                        offset: header.host_call_fn_offset,
+                        code_section_offset,
+                        file_size,
+                    });
+                };
+
+                u32::from(instruction_bytes.as_inner())
+            };
+
+            let instruction = ContractInstruction::try_decode(instruction)
+                .ok_or(ContractFileParseError::InvalidInstruction { instruction })?;
+
+            // The instruction is an unconditional relative jump:
+            //   jal x0, offset
+            let matches_expected_pattern = match instruction {
+                ContractInstruction::Jal { rd, .. } => rd == Register::ZERO,
+                ContractInstruction::CJ { .. } => true,
+                _ => false,
             };
 
             if !matches_expected_pattern {
-                return Err(ContractFileParseError::InvalidHostCallFnPattern { first, second });
+                return Err(ContractFileParseError::InvalidHostCallFnPattern { instruction });
             }
 
             let address =
