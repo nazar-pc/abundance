@@ -20,6 +20,7 @@ ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
 anyhow = { workspace = true }
 object = { workspace = true, features = ["elf", "read_core"] }
+replace_with = { workspace = true }
 
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }
