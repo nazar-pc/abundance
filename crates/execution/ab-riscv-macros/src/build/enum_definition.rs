@@ -15,6 +15,7 @@ use syn::{
     parse_quote, parse_str, parse2,
 };
 
+const ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ORIGINAL_ENUM_DEFINITION_PATH";
 const ENUM_DEFINITION_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEFINITION_PATH";
 const ENUM_DEPENDENCIES_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_DEPENDENCIES";
 
@@ -70,21 +71,50 @@ struct KnownInstruction {
 
 struct ProcessedEnumDefinition {
     item_enum: ItemEnum,
+    original_item_enum: ItemEnum,
     dependencies: Vec<Ident>,
 }
 
+// TODO: Data structures for various `collect_*()` return types
 pub(super) fn collect_enum_definitions_from_dependencies()
--> impl Iterator<Item = anyhow::Result<(ItemEnum, Vec<Ident>, Rc<Path>)>> {
+-> impl Iterator<Item = anyhow::Result<(ItemEnum, ItemEnum, Vec<Ident>, Rc<Path>)>> {
     // Collect exported instruction enums from dependencies
-    env::vars().filter_map(|(key, source)| {
-        if !key.ends_with(ENUM_DEFINITION_ENV_VAR_SUFFIX) {
+    env::vars().filter_map(|(key, original_source)| {
+        if !key.ends_with(ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX) {
             return None;
         }
 
         let result = try {
+            let definition_key = format!(
+                "{}{ENUM_DEFINITION_ENV_VAR_SUFFIX}",
+                &key[..key.len() - ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX.len()]
+            );
+            let source = env::var(&definition_key).with_context(|| {
+                format!(
+                    "Failed to read environment variable `{definition_key}` that is expected to \
+                    contain instruction enum definition"
+                )
+            })?;
+            let source = Rc::from(Path::new(&source));
+            let mut item_enum_contents = fs::read_to_string(&source).with_context(|| {
+                format!(
+                    "Failed to read Rust file `{}` that is expected to contain instruction enum \
+                    definition",
+                    source.display()
+                )
+            })?;
+            pre_process_rust_code(&mut item_enum_contents);
+            let item_enum = parse_str::<ItemEnum>(&item_enum_contents).with_context(|| {
+                format!(
+                    "Failed to parse Rust file `{}` that is expected to contain instruction enum \
+                    definition",
+                    source.display()
+                )
+            })?;
+
             let dependencies_key = format!(
                 "{}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}",
-                &key[..key.len() - ENUM_DEFINITION_ENV_VAR_SUFFIX.len()]
+                &key[..key.len() - ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX.len()]
             );
             let dependencies_string = env::var(&dependencies_key).with_context(|| {
                 format!(
@@ -106,23 +136,21 @@ pub(super) fn collect_enum_definitions_from_dependencies()
                 .map(|dependency| format_ident!("{dependency}"))
                 .collect::<Vec<_>>();
 
-            let source = Rc::from(Path::new(&source));
-
-            let mut item_enum_contents = fs::read_to_string(&source).with_context(|| {
-                format!(
-                    "Failed to read Rust file `{}` that is expected to contain instruction \
-                    enum definition",
-                    source.display()
-                )
-            })?;
-            pre_process_rust_code(&mut item_enum_contents);
-            let item_enum = parse_str::<ItemEnum>(&item_enum_contents).with_context(|| {
-                format!(
-                    "Failed to parse Rust file `{}` that is expected to contain instruction \
-                    enum definition",
-                    source.display()
-                )
-            })?;
+            let mut original_item_enum_contents = fs::read_to_string(&original_source)
+                .with_context(|| {
+                    format!(
+                        "Failed to read Rust file `{original_source}` that is expected to contain \
+                        instruction enum definition"
+                    )
+                })?;
+            pre_process_rust_code(&mut original_item_enum_contents);
+            let original_item_enum = parse_str::<ItemEnum>(&original_item_enum_contents)
+                .with_context(|| {
+                    format!(
+                        "Failed to parse Rust file `{original_source}` that is expected to contain \
+                        instruction enum definition",
+                    )
+                })?;
 
             // Re-export metadata so it is available for downstream crates even if they don't depend
             // directly on a crate where upstream instruction is defined
@@ -132,11 +160,15 @@ pub(super) fn collect_enum_definitions_from_dependencies()
                 source.display()
             );
             println!(
+                "cargo::metadata={}{ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX}={original_source}",
+                original_item_enum.ident
+            );
+            println!(
                 "cargo::metadata={}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}={dependencies_string}",
-                item_enum.ident
+                original_item_enum.ident
             );
 
-            (item_enum, dependencies, source)
+            (original_item_enum, item_enum, dependencies, source)
         };
 
         Some(result)
@@ -150,82 +182,112 @@ fn output_processed_enum_definition(
 ) -> anyhow::Result<()> {
     let ProcessedEnumDefinition {
         mut item_enum,
+        mut original_item_enum,
         dependencies,
     } = processed_enum_definition;
 
-    for variant in &mut item_enum.variants {
-        let mut sorted_fields: FieldsNamed = parse_quote! {{
-            #[
-                doc = "First register operand (placeholder, instruction doesn't have it, should be \
-                set to Reg::ZERO)"
-            ]
-            #[doc(hidden)]
-            rs1: Reg,
-            #[
-                doc = "Second register operand (placeholder, instruction doesn't have it, should \
-                be set to Reg::ZERO)"
-            ]
-            #[doc(hidden)]
-            rs2: Reg,
-        }};
-        match &mut variant.fields {
-            Fields::Named(fields) => {
-                for field in mem::take(&mut fields.named) {
-                    if let Some(ident) = &field.ident {
-                        if ident == "rs1" {
-                            sorted_fields.named[0] = field;
-                            continue;
-                        } else if ident == "rs2" {
-                            sorted_fields.named[1] = field;
-                            continue;
+    let enum_name = original_item_enum.ident.clone();
+
+    let enum_file_path = {
+        for variant in &mut item_enum.variants {
+            let mut sorted_fields: FieldsNamed = parse_quote! {{
+                #[
+                    doc = "First register operand (placeholder, instruction doesn't have it, \
+                    should be set to Reg::ZERO)"
+                ]
+                #[doc(hidden)]
+                rs1: Reg,
+                #[
+                    doc = "Second register operand (placeholder, instruction doesn't have it, \
+                    should be set to Reg::ZERO)"
+                ]
+                #[doc(hidden)]
+                rs2: Reg,
+            }};
+            match &mut variant.fields {
+                Fields::Named(fields) => {
+                    for field in mem::take(&mut fields.named) {
+                        if let Some(ident) = &field.ident {
+                            if ident == "rs1" {
+                                sorted_fields.named[0] = field;
+                                continue;
+                            } else if ident == "rs2" {
+                                sorted_fields.named[1] = field;
+                                continue;
+                            }
                         }
+                        sorted_fields.named.push(field);
                     }
-                    sorted_fields.named.push(field);
+                }
+                Fields::Unnamed(_) => {
+                    return Err(anyhow::anyhow!(
+                        "Enum variants must use named fields: {}::{}(..)",
+                        item_enum.ident,
+                        variant.ident
+                    ));
+                }
+                Fields::Unit => {
+                    // Nothing to do here
                 }
             }
-            Fields::Unnamed(_) => {
-                return Err(anyhow::anyhow!(
-                    "Enum variants must use named fields: {}::{}(..)",
-                    item_enum.ident,
-                    variant.ident
-                ));
-            }
-            Fields::Unit => {
-                // Nothing to do here
-            }
+
+            variant.fields = Fields::Named(sorted_fields);
         }
 
-        variant.fields = Fields::Named(sorted_fields);
+        let enum_file_path = out_dir.join(format!("{enum_name}_definition.rs"));
+        let code = item_enum.to_token_stream().to_string();
+        // Format
+        let code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
+        // Normalize source
+        item_enum = parse_str(&code).expect("Generated code is valid; qed");
+
+        // Avoid extra file truncation/override if it didn't change
+        if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
+            fs::write(&enum_file_path, code).with_context(|| {
+                format!("Failed to write generated Rust file with instruction enum `{enum_name}`")
+            })?;
+        }
+        println!(
+            "cargo::metadata={enum_name}{ENUM_DEFINITION_ENV_VAR_SUFFIX}={}",
+            enum_file_path.display()
+        );
+
+        enum_file_path
+    };
+    {
+        let original_enum_file_path = out_dir.join(format!("{enum_name}_original_definition.rs"));
+        let code = original_item_enum.to_token_stream().to_string();
+        // Format
+        let code = unparse(&parse_file(&code).expect("Original code is valid; qed"));
+        // Normalize source
+        original_item_enum = parse_str(&code).expect("Original code is valid; qed");
+
+        // Avoid extra file truncation/override if it didn't change
+        if fs::read_to_string(&original_enum_file_path).ok().as_ref() != Some(&code) {
+            fs::write(&original_enum_file_path, code).with_context(|| {
+                format!("Failed to write original Rust file with instruction enum `{enum_name}`")
+            })?;
+        }
+        println!(
+            "cargo::metadata={enum_name}{ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX}={}",
+            original_enum_file_path.display()
+        );
+        println!(
+            "cargo::metadata={enum_name}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}={enum_name}={}",
+            dependencies
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(","),
+        );
     }
 
-    let enum_name = item_enum.ident.clone();
-    let enum_file_path = out_dir.join(format!("{enum_name}_definition.rs"));
-    let code = item_enum.to_token_stream().to_string();
-    // Format
-    let code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
-    // Normalize source
-    let item_enum = parse_str(&code).expect("Generated code is valid; qed");
-
-    // Avoid extra file truncation/override if it didn't change
-    if fs::read_to_string(&enum_file_path).ok().as_ref() != Some(&code) {
-        fs::write(&enum_file_path, code).with_context(|| {
-            format!("Failed to write generated Rust file with instruction enum `{enum_name}`")
-        })?;
-    }
-    println!(
-        "cargo::metadata={enum_name}{ENUM_DEFINITION_ENV_VAR_SUFFIX}={}",
-        enum_file_path.display()
-    );
-    println!(
-        "cargo::metadata={enum_name}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}={enum_name}={}",
-        dependencies
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(","),
-    );
-
-    state.insert_known_enum_definition(item_enum, dependencies, Rc::from(enum_file_path))
+    state.insert_known_enum_definition(
+        original_item_enum,
+        item_enum,
+        dependencies,
+        Rc::from(enum_file_path),
+    )
 }
 
 /// Identify enums with an `#[instruction]` attribute and generate Rust files with the enum
@@ -327,10 +389,10 @@ pub(super) fn process_enum_definition(
 
 fn process_enum_definition_inherited(
     instruction_definition: InstructionDefinition,
-    mut item_enum: ItemEnum,
+    item_enum: ItemEnum,
     state: &mut State,
 ) -> anyhow::Result<Option<ProcessedEnumDefinition>> {
-    let mut all_known_instructions = HashMap::<Ident, KnownInstruction>::new();
+    let mut all_inherited_instructions = HashMap::<Ident, KnownInstruction>::new();
     let mut dependencies = Vec::new();
 
     for item in &instruction_definition.items {
@@ -350,7 +412,7 @@ fn process_enum_definition_inherited(
                     };
 
                     for known_instruction in &known_enum.instructions {
-                        match all_known_instructions.entry(known_instruction.ident.clone()) {
+                        match all_inherited_instructions.entry(known_instruction.ident.clone()) {
                             Entry::Occupied(entry) => {
                                 let existing_known_instruction = entry.get();
                                 if &existing_known_instruction.instruction != known_instruction {
@@ -410,18 +472,19 @@ fn process_enum_definition_inherited(
                     }
                     processed_instructions.insert(reorder_variant.clone());
 
-                    let instruction = if let Some(instruction) =
-                        own_instructions.remove(reorder_variant)
-                    {
-                        instruction
-                    } else if let Some(instruction) = all_known_instructions.get(reorder_variant) {
-                        Rc::clone(&instruction.instruction)
-                    } else {
-                        return Err(anyhow::anyhow!(
-                            "Unknown reorder instruction `{reorder_variant}` in \
-                            `#[instruction(...)]` attribute"
-                        ));
-                    };
+                    let instruction =
+                        if let Some(instruction) = own_instructions.remove(reorder_variant) {
+                            instruction
+                        } else if let Some(instruction) =
+                            all_inherited_instructions.get(reorder_variant)
+                        {
+                            Rc::clone(&instruction.instruction)
+                        } else {
+                            return Err(anyhow::anyhow!(
+                                "Unknown reorder instruction `{reorder_variant}` in \
+                                `#[instruction(...)]` attribute"
+                            ));
+                        };
 
                     instructions.push(instruction);
                 }
@@ -429,7 +492,7 @@ fn process_enum_definition_inherited(
             InstructionDefinitionItem::Ignore(ignore_items) => {
                 for ignore_item in ignore_items {
                     if own_instructions.contains_key(ignore_item)
-                        || all_known_instructions.contains_key(ignore_item)
+                        || all_inherited_instructions.contains_key(ignore_item)
                     {
                         if !all_reordered_instructions.contains(ignore_item) {
                             processed_instructions.insert(ignore_item.clone());
@@ -478,6 +541,8 @@ fn process_enum_definition_inherited(
         }
     }
 
+    let original_item_enum = item_enum;
+    let mut item_enum = original_item_enum.clone();
     item_enum.variants = Punctuated::from_iter(
         instructions
             .into_iter()
@@ -486,6 +551,7 @@ fn process_enum_definition_inherited(
 
     Ok(Some(ProcessedEnumDefinition {
         item_enum,
+        original_item_enum,
         dependencies,
     }))
 }
