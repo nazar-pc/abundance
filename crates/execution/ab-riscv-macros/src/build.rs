@@ -1,7 +1,7 @@
 mod enum_definition;
 mod enum_impl;
 mod execution_impl;
-mod shared_impl;
+mod shared;
 mod state;
 
 use crate::build::enum_definition::{
@@ -39,9 +39,23 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
     let mut state = State::new();
 
     for maybe_enum_definition in collect_enum_definitions_from_dependencies() {
-        let (item_enum, dependencies, source) = maybe_enum_definition?;
+        let (
+            original_item_enum,
+            item_enum,
+            ignored_instructions,
+            direct_dependencies,
+            dependencies_for_enablement,
+            source,
+        ) = maybe_enum_definition?;
 
-        state.insert_known_enum_definition(item_enum, dependencies, source)?;
+        state.insert_known_enum_definition(
+            original_item_enum,
+            item_enum,
+            ignored_instructions,
+            direct_dependencies,
+            dependencies_for_enablement,
+            source,
+        )?;
     }
     for maybe_enum_impl in collect_original_enum_decoding_impls_from_dependencies() {
         let (item_impl, source) = maybe_enum_impl?;

@@ -5,7 +5,7 @@ mod ignored_variants_remover;
 use crate::build::enum_impl::add_missing_fields::add_missing_rs_fields;
 use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
-use crate::build::shared_impl::collect_all_dependencies;
+use crate::build::shared::collect_all_dependencies;
 use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
@@ -295,15 +295,17 @@ pub(super) fn process_enum_decoding_impl(
         return Ok(());
     };
 
-    let all_dependencies =
-        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
-            Ok(all_dependencies) => all_dependencies,
-            Err(dependency_enum_name) => {
-                eprintln!("{enum_name} decoding is waiting on {dependency_enum_name} definition");
-                state.add_pending_enum_impl(PendingEnumImpl { item_impl });
-                return Ok(());
-            }
-        };
+    let all_dependencies = match collect_all_dependencies(
+        state,
+        enum_definition.direct_dependencies.iter().cloned(),
+    ) {
+        Ok(all_dependencies) => all_dependencies,
+        Err(dependency_enum_name) => {
+            eprintln!("{enum_name} decoding is waiting on {dependency_enum_name} definition");
+            state.add_pending_enum_impl(PendingEnumImpl { item_impl });
+            return Ok(());
+        }
+    };
 
     let mut all_try_decode_blocks = Vec::new();
     let mut all_dependency_alignment_blocks = Vec::new();
@@ -494,15 +496,17 @@ pub(super) fn process_enum_display_impl(
         return Ok(());
     };
 
-    let all_dependencies =
-        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
-            Ok(all_dependencies) => all_dependencies,
-            Err(dependency_enum_name) => {
-                eprintln!("{enum_name} display is waiting on {dependency_enum_name} definition");
-                state.add_pending_enum_display_impl(PendingEnumDisplayImpl { item_impl });
-                return Ok(());
-            }
-        };
+    let all_dependencies = match collect_all_dependencies(
+        state,
+        enum_definition.direct_dependencies.iter().cloned(),
+    ) {
+        Ok(all_dependencies) => all_dependencies,
+        Err(dependency_enum_name) => {
+            eprintln!("{enum_name} display is waiting on {dependency_enum_name} definition");
+            state.add_pending_enum_display_impl(PendingEnumDisplayImpl { item_impl });
+            return Ok(());
+        }
+    };
 
     let mut variants_from_dependencies = HashMap::new();
 

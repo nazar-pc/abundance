@@ -7,7 +7,7 @@ use ab_riscv_primitives::prelude::*;
 #[test]
 fn test_cm_push_ra_only_decrements_sp() {
     // urlist=4 ({ra}), stack_adj=16 -> base=16
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -28,7 +28,7 @@ fn test_cm_push_ra_only_decrements_sp() {
 #[test]
 fn test_cm_push_stack_adj_adds_extra() {
     // urlist=4 ({ra}), stack_adj=32 -> base=16 + 16 extra
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 32,
         rs1: Reg::Zero,
@@ -50,7 +50,7 @@ fn test_cm_push_stack_adj_adds_extra() {
 #[test]
 fn test_cm_push_ra_s0() {
     // urlist=5 ({ra, s0}), stack_adj=16
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -76,7 +76,7 @@ fn test_cm_push_ra_s0() {
 #[test]
 fn test_cm_push_ra_s0_s1() {
     // urlist=6 ({ra, s0, s1}), stack_adj=16
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -106,7 +106,7 @@ fn test_cm_push_ra_s0_s1() {
 #[test]
 fn test_cm_push_max_urlist() {
     // urlist=15 ({ra, s0-s11}), stack_adj=64
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(15).unwrap(),
         stack_adj: 64,
         rs1: Reg::Zero,
@@ -124,7 +124,7 @@ fn test_cm_push_max_urlist() {
 #[test]
 fn test_cm_pop_restores_and_increments_sp() {
     // urlist=4 ({ra}), stack_adj=16
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPop {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -145,7 +145,7 @@ fn test_cm_pop_restores_and_increments_sp() {
 #[test]
 fn test_cm_pop_ra_s0() {
     // urlist=5, stack_adj=16
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPop {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -171,7 +171,7 @@ fn test_cm_pop_ra_s0() {
 #[test]
 fn test_cm_pop_stack_adj_extra() {
     // urlist=4, stack_adj=32 -> base=16 + 16 extra
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPop {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 32,
         rs1: Reg::Zero,
@@ -193,7 +193,7 @@ fn test_cm_pop_stack_adj_extra() {
 
 #[test]
 fn test_cm_popretz_zeros_a0_and_jumps() {
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPopretz {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPopretz {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -216,7 +216,7 @@ fn test_cm_popretz_zeros_a0_and_jumps() {
 
 #[test]
 fn test_cm_popretz_clears_lsb_of_return_addr() {
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPopretz {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPopretz {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -238,7 +238,7 @@ fn test_cm_popretz_clears_lsb_of_return_addr() {
 
 #[test]
 fn test_cm_popret_restores_and_jumps() {
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPopret {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPopret {
         urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -265,7 +265,7 @@ fn test_cm_popret_restores_and_jumps() {
 
 #[test]
 fn test_cm_popret_clears_lsb_of_return_addr() {
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPopret {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPopret {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -287,7 +287,7 @@ fn test_cm_popret_clears_lsb_of_return_addr() {
 
 #[test]
 fn test_cm_mva01s_copies_to_a0_a1() {
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmMva01s {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmMva01s {
         rs1: Reg::S2,
         rs2: Reg::S3,
     }]);
@@ -304,7 +304,7 @@ fn test_cm_mva01s_copies_to_a0_a1() {
 #[test]
 fn test_cm_mva01s_reads_before_write() {
     // If rs1 or rs2 alias a0/a1, reads must occur before writes
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmMva01s {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmMva01s {
         rs1: Reg::S0,
         rs2: Reg::S1,
     }]);
@@ -319,7 +319,7 @@ fn test_cm_mva01s_reads_before_write() {
 
 #[test]
 fn test_cm_mvsa01_copies_a0_a1_to_s_regs() {
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmMvsa01 {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmMvsa01 {
         rs1: Reg::S4,
         rs2: Reg::S5,
     }]);
@@ -340,7 +340,7 @@ fn test_push_pop_round_trip_ra_s0_s1() {
     let sp_start = TEST_BASE_ADDR + 0x800;
 
     // PUSH {ra, s0, s1}
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -355,7 +355,7 @@ fn test_push_pop_round_trip_ra_s0_s1() {
     assert_eq!(sp_after_push, sp_start - 16);
 
     // POP from the same memory
-    let mut state2 = initialize_state([Rv32ZcmpInstruction::CmPop {
+    let mut state2 = initialize_state([Rv32ZcmpOnlyInstruction::CmPop {
         urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,
@@ -380,7 +380,7 @@ fn test_push_pop_round_trip_ra_s0_s1() {
 #[test]
 fn test_cm_push_oob_memory() {
     // sp very low -> sp-4 underflows into unmapped memory
-    let mut state = initialize_state([Rv32ZcmpInstruction::CmPush {
+    let mut state = initialize_state([Rv32ZcmpOnlyInstruction::CmPush {
         urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
         stack_adj: 16,
         rs1: Reg::Zero,

@@ -6,7 +6,7 @@ use ab_riscv_primitives::prelude::*;
 
 #[test]
 fn test_clbu_zero_extends() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLbu {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLbu {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -22,7 +22,7 @@ fn test_clbu_zero_extends() {
 
 #[test]
 fn test_clbu_with_uimm_offset() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLbu {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLbu {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 3,
@@ -37,7 +37,7 @@ fn test_clbu_with_uimm_offset() {
 
 #[test]
 fn test_clbu_oob() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLbu {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLbu {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -54,7 +54,7 @@ fn test_clbu_oob() {
 
 #[test]
 fn test_clhu_zero_extends() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLhu {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLhu {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -69,7 +69,7 @@ fn test_clhu_zero_extends() {
 
 #[test]
 fn test_clhu_with_uimm2() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLhu {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLhu {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 2,
@@ -87,7 +87,7 @@ fn test_clhu_with_uimm2() {
 
 #[test]
 fn test_clhu_oob() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLhu {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLhu {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -104,7 +104,7 @@ fn test_clhu_oob() {
 
 #[test]
 fn test_clh_sign_extends() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLh {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLh {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -119,7 +119,7 @@ fn test_clh_sign_extends() {
 
 #[test]
 fn test_clh_sign_extends_positive() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLh {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLh {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -134,7 +134,7 @@ fn test_clh_sign_extends_positive() {
 
 #[test]
 fn test_clh_oob() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CLh {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CLh {
         rd: Reg::A1,
         rs1: Reg::A0,
         uimm: 0,
@@ -151,7 +151,7 @@ fn test_clh_oob() {
 
 #[test]
 fn test_csb() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSb {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSb {
         rs1: Reg::A0,
         rs2: Reg::A1,
         uimm: 0,
@@ -165,7 +165,7 @@ fn test_csb() {
 
 #[test]
 fn test_csb_with_uimm_offset() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSb {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSb {
         rs1: Reg::A0,
         rs2: Reg::A1,
         uimm: 1,
@@ -179,7 +179,7 @@ fn test_csb_with_uimm_offset() {
 
 #[test]
 fn test_csb_oob() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSb {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSb {
         rs1: Reg::A0,
         rs2: Reg::A1,
         uimm: 0,
@@ -193,7 +193,7 @@ fn test_csb_oob() {
 
 #[test]
 fn test_csh() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSh {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSh {
         rs1: Reg::A0,
         rs2: Reg::A1,
         uimm: 0,
@@ -207,7 +207,7 @@ fn test_csh() {
 
 #[test]
 fn test_csh_oob() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSh {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSh {
         rs1: Reg::A0,
         rs2: Reg::A1,
         uimm: 0,
@@ -223,7 +223,7 @@ fn test_csh_oob() {
 
 #[test]
 fn test_czext_b() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CZextB {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CZextB {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -235,7 +235,7 @@ fn test_czext_b() {
 
 #[test]
 fn test_czext_b_zero() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CZextB {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CZextB {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -247,7 +247,7 @@ fn test_czext_b_zero() {
 
 #[test]
 fn test_csext_b_negative() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSextB {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSextB {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -259,7 +259,7 @@ fn test_csext_b_negative() {
 
 #[test]
 fn test_csext_b_positive() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSextB {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSextB {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -271,7 +271,7 @@ fn test_csext_b_positive() {
 
 #[test]
 fn test_czext_h() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CZextH {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CZextH {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -283,7 +283,7 @@ fn test_czext_h() {
 
 #[test]
 fn test_csext_h_negative() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSextH {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSextH {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -295,7 +295,7 @@ fn test_csext_h_negative() {
 
 #[test]
 fn test_csext_h_positive() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CSextH {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CSextH {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -307,7 +307,7 @@ fn test_csext_h_positive() {
 
 #[test]
 fn test_cnot() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CNot {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CNot {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -319,7 +319,7 @@ fn test_cnot() {
 
 #[test]
 fn test_cnot_all_zeros() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CNot {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CNot {
         rd: Reg::A0,
         rs1: Reg::Zero,
         rs2: Reg::Zero,
@@ -331,7 +331,7 @@ fn test_cnot_all_zeros() {
 
 #[test]
 fn test_cmul() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CMul {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CMul {
         rd: Reg::S0,
         rs2: Reg::S1,
         rs1: Reg::Zero,
@@ -344,7 +344,7 @@ fn test_cmul() {
 
 #[test]
 fn test_cmul_wraps_32bit() {
-    let mut state = initialize_state([Rv32ZcbInstruction::CMul {
+    let mut state = initialize_state([Rv32ZcbOnlyInstruction::CMul {
         rd: Reg::S0,
         rs2: Reg::S1,
         rs1: Reg::Zero,

@@ -1,7 +1,6 @@
-use crate::build::enum_definition::InstructionDefinition;
 use crate::build::enum_impl::enum_name_from_impl;
-use std::collections::HashMap;
 use std::collections::hash_map::OccupiedError;
+use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::path::Path;
 use std::rc::Rc;
@@ -9,15 +8,17 @@ use syn::{Ident, ItemEnum, ItemImpl, Variant};
 
 #[derive(Debug)]
 pub(super) struct KnownEnumDefinition {
+    pub(super) own_instructions: Vec<Rc<Variant>>,
     pub(super) instructions: Vec<Rc<Variant>>,
-    pub(super) dependencies: Vec<Ident>,
+    pub(super) ignored_instructions: Rc<HashSet<Ident>>,
+    pub(super) direct_dependencies: Rc<[Ident]>,
+    pub(super) dependencies_for_enablement: HashSet<Rc<[Ident]>>,
     pub(super) source: Rc<Path>,
 }
 
 #[derive(Debug)]
 pub(super) struct PendingEnumDefinition {
-    pub(super) instruction_definition: InstructionDefinition,
-    pub(super) item_enum: ItemEnum,
+    pub(super) original_item_enum: ItemEnum,
 }
 
 #[derive(Debug)]
@@ -119,24 +120,34 @@ impl State {
 
     pub(super) fn insert_known_enum_definition(
         &mut self,
+        original_item_enum: ItemEnum,
         item_enum: ItemEnum,
-        dependencies: Vec<Ident>,
+        ignored_instructions: HashSet<Ident>,
+        direct_dependencies: Rc<[Ident]>,
+        dependencies_for_enablement: HashSet<Rc<[Ident]>>,
         source: Rc<Path>,
     ) -> anyhow::Result<()> {
         let known_enum_definition = KnownEnumDefinition {
+            own_instructions: original_item_enum
+                .variants
+                .into_iter()
+                .map(Rc::new)
+                .collect(),
             instructions: item_enum.variants.into_iter().map(Rc::new).collect(),
-            dependencies,
+            ignored_instructions: Rc::new(ignored_instructions),
+            direct_dependencies,
+            dependencies_for_enablement,
             source,
         };
         if let Err(OccupiedError { entry, value }) = self
             .known_enum_definitions
-            .try_insert(item_enum.ident.clone(), known_enum_definition)
-            && entry.get().instructions != value.instructions
+            .try_insert(original_item_enum.ident.clone(), known_enum_definition)
+            && entry.get().own_instructions != value.own_instructions
         {
             return Err(anyhow::anyhow!(
                 "Instruction enum `{}` is already defined in `{}`, a different duplicate found in \
                 `{}`",
-                item_enum.ident,
+                original_item_enum.ident,
                 entry.get().source.display(),
                 value.source.display(),
             ));

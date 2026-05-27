@@ -1,7 +1,7 @@
 #![expect(clippy::identity_op, reason = "Test readability")]
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::zce::zcmp::{Rv64ZcmpInstruction, ZcmpUrlist};
+use crate::instructions::rv64::zce::zcmp::{Rv64ZcmpOnlyInstruction, ZcmpUrlist};
 use crate::registers::general_purpose::{EReg, Reg};
 
 /// Build a Zcmp push/pop instruction word.
@@ -53,10 +53,10 @@ fn expected_stack_adj(urlist_raw: u8, spimm: u8) -> u8 {
 fn test_cm_push_ra_only() {
     // urlist=4 = {ra}, spimm=0 -> stack_adj = 16 + 0 = 16
     let inst = make_push_pop(OP_PUSH, 4, 0);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPush {
+        Rv64ZcmpOnlyInstruction::CmPush {
             urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
             stack_adj: 16,
             rs1: Reg::Zero,
@@ -69,10 +69,10 @@ fn test_cm_push_ra_only() {
 fn test_cm_push_ra_s0_s11() {
     // urlist=15 = {ra, s0-s11}, spimm=3 -> stack_adj = 112 + 48 = 160
     let inst = make_push_pop(OP_PUSH, 15, 3);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPush {
+        Rv64ZcmpOnlyInstruction::CmPush {
             urlist: ZcmpUrlist::try_from_raw(15).unwrap(),
             stack_adj: 160,
             rs1: Reg::Zero,
@@ -85,10 +85,10 @@ fn test_cm_push_ra_s0_s11() {
 fn test_cm_push_all_valid_urlists() {
     for urlist in 4u16..=15 {
         let inst = make_push_pop(OP_PUSH, urlist, 0);
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmPush {
+            Rv64ZcmpOnlyInstruction::CmPush {
                 urlist: ZcmpUrlist::try_from_raw(urlist as u8).unwrap(),
                 stack_adj: expected_stack_adj(urlist as u8, 0),
                 rs1: Reg::Zero,
@@ -105,7 +105,7 @@ fn test_cm_push_reserved_urlist() {
     for urlist in 0u16..4 {
         let inst = make_push_pop(OP_PUSH, urlist, 0);
         assert!(
-            Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none(),
+            Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none(),
             "urlist={urlist} should be reserved"
         );
     }
@@ -125,10 +125,10 @@ fn test_cm_push_binutils_reference_encodings() {
         (0xb8fe, 15, 160),
     ];
     for &(raw, urlist_raw, stack_adj) in cases {
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(raw).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmPush {
+            Rv64ZcmpOnlyInstruction::CmPush {
                 urlist: ZcmpUrlist::try_from_raw(urlist_raw).unwrap(),
                 stack_adj,
                 rs1: Reg::Zero,
@@ -145,10 +145,10 @@ fn test_cm_push_binutils_reference_encodings() {
 fn test_cm_pop_basic() {
     // urlist=5 = {ra, s0}, spimm=1 -> stack_adj = 16 + 16 = 32
     let inst = make_push_pop(OP_POP, 5, 1);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPop {
+        Rv64ZcmpOnlyInstruction::CmPop {
             urlist: ZcmpUrlist::try_from_raw(5).unwrap(),
             stack_adj: 32,
             rs1: Reg::Zero,
@@ -161,10 +161,10 @@ fn test_cm_pop_basic() {
 fn test_cm_pop_ra_s0_s9() {
     // urlist=14 = {ra, s0-s9}, spimm=2 -> stack_adj = 96 + 32 = 128
     let inst = make_push_pop(OP_POP, 14, 2);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPop {
+        Rv64ZcmpOnlyInstruction::CmPop {
             urlist: ZcmpUrlist::try_from_raw(14).unwrap(),
             stack_adj: 128,
             rs1: Reg::Zero,
@@ -178,10 +178,10 @@ fn test_cm_pop_ra_s0_s9() {
 fn test_cm_pop_binutils_reference_encodings() {
     let cases = &[(0xba56u32, 5, 32), (0xbaea, 14, 128)];
     for &(raw, urlist_raw, stack_adj) in cases {
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(raw).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmPop {
+            Rv64ZcmpOnlyInstruction::CmPop {
                 urlist: ZcmpUrlist::try_from_raw(urlist_raw).unwrap(),
                 stack_adj,
                 rs1: Reg::Zero,
@@ -198,10 +198,10 @@ fn test_cm_pop_binutils_reference_encodings() {
 fn test_cm_popretz_basic() {
     // urlist=4 = {ra}, spimm=0 -> stack_adj = 16
     let inst = make_push_pop(OP_POPRETZ, 4, 0);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPopretz {
+        Rv64ZcmpOnlyInstruction::CmPopretz {
             urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
             stack_adj: 16,
             rs1: Reg::Zero,
@@ -213,10 +213,10 @@ fn test_cm_popretz_basic() {
 /// Reference encoding anchored to binutils MATCH_CM_POPRETZ=0xbc02.
 #[test]
 fn test_cm_popretz_binutils_reference_encodings() {
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(0xbc42).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(0xbc42).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPopretz {
+        Rv64ZcmpOnlyInstruction::CmPopretz {
             urlist: ZcmpUrlist::try_from_raw(4).unwrap(),
             stack_adj: 16,
             rs1: Reg::Zero,
@@ -231,10 +231,10 @@ fn test_cm_popretz_binutils_reference_encodings() {
 fn test_cm_popret_basic() {
     // urlist=6 = {ra, s0-s1}, spimm=0 -> stack_adj = 32
     let inst = make_push_pop(OP_POPRET, 6, 0);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmPopret {
+        Rv64ZcmpOnlyInstruction::CmPopret {
             urlist: ZcmpUrlist::try_from_raw(6).unwrap(),
             stack_adj: 32,
             rs1: Reg::Zero,
@@ -250,10 +250,10 @@ fn test_cm_popret_all_spimm_values() {
     let expected_adjs = [48, 64, 80, 96];
     for (spimm, &expected) in expected_adjs.iter().enumerate() {
         let inst = make_push_pop(OP_POPRET, 8, spimm as u16);
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmPopret {
+            Rv64ZcmpOnlyInstruction::CmPopret {
                 urlist: ZcmpUrlist::try_from_raw(8).unwrap(),
                 stack_adj: expected,
                 rs1: Reg::Zero,
@@ -277,10 +277,10 @@ fn test_cm_popret_binutils_reference_encodings() {
         (0xbe8e, 8, 96),
     ];
     for &(raw, urlist_raw, stack_adj) in cases {
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(raw).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmPopret {
+            Rv64ZcmpOnlyInstruction::CmPopret {
                 urlist: ZcmpUrlist::try_from_raw(urlist_raw).unwrap(),
                 stack_adj,
                 rs1: Reg::Zero,
@@ -300,22 +300,24 @@ fn test_push_pop_op_sel_distinct_variants() {
     let spimm = 0u16;
 
     assert!(matches!(
-        Rv64ZcmpInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_PUSH, urlist, spimm)).unwrap(),
-        Rv64ZcmpInstruction::CmPush { .. }
-    ));
-    assert!(matches!(
-        Rv64ZcmpInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_POP, urlist, spimm)).unwrap(),
-        Rv64ZcmpInstruction::CmPop { .. }
-    ));
-    assert!(matches!(
-        Rv64ZcmpInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_POPRETZ, urlist, spimm))
+        Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_PUSH, urlist, spimm))
             .unwrap(),
-        Rv64ZcmpInstruction::CmPopretz { .. }
+        Rv64ZcmpOnlyInstruction::CmPush { .. }
     ));
     assert!(matches!(
-        Rv64ZcmpInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_POPRET, urlist, spimm))
+        Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_POP, urlist, spimm))
             .unwrap(),
-        Rv64ZcmpInstruction::CmPopret { .. }
+        Rv64ZcmpOnlyInstruction::CmPop { .. }
+    ));
+    assert!(matches!(
+        Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_POPRETZ, urlist, spimm))
+            .unwrap(),
+        Rv64ZcmpOnlyInstruction::CmPopretz { .. }
+    ));
+    assert!(matches!(
+        Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(make_push_pop(OP_POPRET, urlist, spimm))
+            .unwrap(),
+        Rv64ZcmpOnlyInstruction::CmPopret { .. }
     ));
 }
 
@@ -325,10 +327,10 @@ fn test_push_pop_op_sel_distinct_variants() {
 fn test_cm_mva01s_s0_s1() {
     // r1s field=0 -> s0(x8), r2s field=1 -> s1(x9)
     let inst = make_mv_pair(MV_FUNCT2_MVA01S, 0, 1);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmMva01s {
+        Rv64ZcmpOnlyInstruction::CmMva01s {
             rs1: Reg::S0,
             rs2: Reg::S1,
         }
@@ -339,10 +341,10 @@ fn test_cm_mva01s_s0_s1() {
 fn test_cm_mva01s_same_reg() {
     // r1s == r2s is allowed for CM.MVA01S
     let inst = make_mv_pair(MV_FUNCT2_MVA01S, 2, 2);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmMva01s {
+        Rv64ZcmpOnlyInstruction::CmMva01s {
             rs1: Reg::S2,
             rs2: Reg::S2,
         }
@@ -364,8 +366,8 @@ fn test_cm_mva01s_all_s_regs() {
     ];
     for (field, &expected) in expected_regs.iter().enumerate() {
         let inst = make_mv_pair(MV_FUNCT2_MVA01S, field as u16, 0);
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-        if let Rv64ZcmpInstruction::CmMva01s { rs1, .. } = decoded {
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+        if let Rv64ZcmpOnlyInstruction::CmMva01s { rs1, .. } = decoded {
             assert_eq!(rs1, expected, "field={field}");
         } else {
             panic!("wrong variant for field={field}");
@@ -388,10 +390,10 @@ fn test_cm_mva01s_binutils_reference_encodings() {
         (0xaefa, Reg::S5, Reg::S6),
     ];
     for &(raw, r1s, r2s) in cases {
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(raw).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmMva01s { rs1: r1s, rs2: r2s },
+            Rv64ZcmpOnlyInstruction::CmMva01s { rs1: r1s, rs2: r2s },
             "raw={raw:#06x}"
         );
     }
@@ -403,10 +405,10 @@ fn test_cm_mva01s_binutils_reference_encodings() {
 fn test_cm_mvsa01_distinct_regs() {
     // r1s=s0, r2s=s2 (distinct)
     let inst = make_mv_pair(MV_FUNCT2_MVSA01, 0, 2);
-    let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
-        Rv64ZcmpInstruction::CmMvsa01 {
+        Rv64ZcmpOnlyInstruction::CmMvsa01 {
             rs1: Reg::S0,
             rs2: Reg::S2,
         }
@@ -417,7 +419,7 @@ fn test_cm_mvsa01_distinct_regs() {
 fn test_cm_mvsa01_reserved_same_reg() {
     // r1s == r2s is reserved for CM.MVSA01; decoder must return None
     let inst = make_mv_pair(MV_FUNCT2_MVSA01, 3, 3);
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 /// Reference encodings from the binutils gas test suite (zcmp-mv.d).
@@ -434,10 +436,10 @@ fn test_cm_mvsa01_binutils_reference_encodings() {
         (0xaeba, Reg::S5, Reg::S6),
     ];
     for &(raw, r1s, r2s) in cases {
-        let decoded = Rv64ZcmpInstruction::<Reg<u64>>::try_decode(raw).unwrap();
+        let decoded = Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(raw).unwrap();
         assert_eq!(
             decoded,
-            Rv64ZcmpInstruction::CmMvsa01 { rs1: r1s, rs2: r2s },
+            Rv64ZcmpOnlyInstruction::CmMvsa01 { rs1: r1s, rs2: r2s },
             "raw={raw:#06x}"
         );
     }
@@ -447,14 +449,14 @@ fn test_cm_mvsa01_binutils_reference_encodings() {
 fn test_cm_mv_reserved_funct2_00() {
     // funct2[6:5]=00 is reserved for the mv-pair family
     let inst = make_mv_pair(0b00, 0, 1);
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_cm_mv_reserved_funct2_10() {
     // funct2[6:5]=10 is reserved for the mv-pair family
     let inst = make_mv_pair(0b10, 0, 1);
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
@@ -462,7 +464,7 @@ fn test_cm_mv_reserved_bit10_zero() {
     // funct2_12_11=01 with bit 10 = 0 is not a defined Zcmp encoding
     // (funct6 must be 101_011 for mv-pair)
     let inst: u16 = (0b101 << 13u8) | (0b01 << 11u8) | (0b11 << 5u8) | 0b10;
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
 }
 
 // Wrong quadrant / funct3
@@ -471,21 +473,21 @@ fn test_cm_mv_reserved_bit10_zero() {
 fn test_non_zcmp_q00_returns_none() {
     // Quadrant 00 is not Zcmp
     let inst = (0b101 << 13u8) | 0b00;
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_non_zcmp_q01_returns_none() {
     // Quadrant 01 is not Zcmp
     let inst = (0b101 << 13u8) | 0b01;
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_non_zcmp_funct3_mismatch() {
     // Q10 funct3=100 (not 101) -> not Zcmp
     let inst = (0b100 << 13u8) | (0b11 << 11u8) | (0b00 << 9u8) | (4 << 4u8) | 0b10;
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 // Reserved funct2_12_11 values
@@ -494,14 +496,14 @@ fn test_non_zcmp_funct3_mismatch() {
 fn test_reserved_funct2_00_returns_none() {
     // funct2_12_11=0b00 is not defined by Zcmp
     let inst = (0b101 << 13u8) | (0b00 << 11u8) | 0b10;
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_reserved_funct2_10_returns_none() {
     // funct2_12_11=0b10 is not defined by Zcmp
     let inst = (0b101 << 13u8) | (0b10 << 11u8) | 0b10;
-    assert!(Rv64ZcmpInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
 }
 
 // ZcmpUrlist::stack_adj_base (RV64)
@@ -584,14 +586,14 @@ fn test_rve_urlist_max_is_ra_s0_s1() {
 fn test_rve_push_reserved_urlist() {
     // urlist=7 names s2(x18) which does not exist in RVE
     let inst = make_push_pop(OP_PUSH, 7, 0);
-    assert!(Rv64ZcmpInstruction::<EReg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<EReg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_rve_mva01s_accessible_regs() {
     // Under RVE only s0(field=0) and s1(field=1) are accessible
     let inst = make_mv_pair(MV_FUNCT2_MVA01S, 0, 1);
-    assert!(Rv64ZcmpInstruction::<EReg<u64>>::try_decode(inst).is_some());
+    assert!(Rv64ZcmpOnlyInstruction::<EReg<u64>>::try_decode(inst).is_some());
 }
 
 #[test]
@@ -599,14 +601,14 @@ fn test_rve_mva01s_inaccessible_reg_returns_none() {
     // field=2 maps to s2(x18) which does not exist in RVE;
     // corresponds to r1sc > 1 in the spec reserved() pseudocode
     let inst = make_mv_pair(MV_FUNCT2_MVA01S, 2, 0);
-    assert!(Rv64ZcmpInstruction::<EReg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<EReg<u64>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_rve_mvsa01_accessible_regs() {
     // Under RVE, s0 and s1 are distinct and accessible
     let inst = make_mv_pair(MV_FUNCT2_MVSA01, 0, 1);
-    assert!(Rv64ZcmpInstruction::<EReg<u64>>::try_decode(inst).is_some());
+    assert!(Rv64ZcmpOnlyInstruction::<EReg<u64>>::try_decode(inst).is_some());
 }
 
 #[test]
@@ -614,5 +616,5 @@ fn test_rve_mvsa01_inaccessible_reg_returns_none() {
     // field=2 maps to s2(x18) which does not exist in RVE;
     // corresponds to r2sc > 1 in the spec reserved() pseudocode
     let inst = make_mv_pair(MV_FUNCT2_MVSA01, 0, 2);
-    assert!(Rv64ZcmpInstruction::<EReg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcmpOnlyInstruction::<EReg<u64>>::try_decode(inst).is_none());
 }
