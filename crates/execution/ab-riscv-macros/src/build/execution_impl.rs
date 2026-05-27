@@ -4,7 +4,7 @@ mod forbidden_checker;
 use crate::build::enum_impl::enum_name_from_impl;
 use crate::build::execution_impl::extract_matches::extract_variant_arms;
 use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_syntax;
-use crate::build::shared_impl::collect_all_dependencies;
+use crate::build::shared::collect_all_dependencies;
 use crate::build::state::{
     PendingEnumCsrImpl, PendingEnumExecutionImpl, PendingEnumOperandsImpl, State,
 };
@@ -305,15 +305,17 @@ pub(super) fn process_enum_operands_impl(
         return Ok(());
     };
 
-    let all_dependencies =
-        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
-            Ok(all_dependencies) => all_dependencies,
-            Err(dependency_enum_name) => {
-                eprintln!("{enum_name} operands is waiting on {dependency_enum_name} definition");
-                state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
-                return Ok(());
-            }
-        };
+    let all_dependencies = match collect_all_dependencies(
+        state,
+        enum_definition.direct_dependencies.iter().cloned(),
+    ) {
+        Ok(all_dependencies) => all_dependencies,
+        Err(dependency_enum_name) => {
+            eprintln!("{enum_name} operands is waiting on {dependency_enum_name} definition");
+            state.add_pending_enum_operands_impl(PendingEnumOperandsImpl { item_impl });
+            return Ok(());
+        }
+    };
 
     let mut all_where_predicates = Vec::new();
 
@@ -388,15 +390,17 @@ pub(super) fn process_enum_csr_impl(
         return Ok(());
     };
 
-    let all_dependencies =
-        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
-            Ok(all_dependencies) => all_dependencies,
-            Err(dependency_enum_name) => {
-                eprintln!("{enum_name} CSR is waiting on {dependency_enum_name} definition");
-                state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
-                return Ok(());
-            }
-        };
+    let all_dependencies = match collect_all_dependencies(
+        state,
+        enum_definition.direct_dependencies.iter().cloned(),
+    ) {
+        Ok(all_dependencies) => all_dependencies,
+        Err(dependency_enum_name) => {
+            eprintln!("{enum_name} CSR is waiting on {dependency_enum_name} definition");
+            state.add_pending_enum_csr_impl(PendingEnumCsrImpl { item_impl });
+            return Ok(());
+        }
+    };
 
     let mut all_prepare_csr_read_fns = Vec::new();
     let mut all_prepare_csr_write_fns = Vec::new();
@@ -562,15 +566,17 @@ pub(super) fn process_enum_execution_impl(
         return Ok(());
     };
 
-    let all_dependencies =
-        match collect_all_dependencies(state, enum_definition.dependencies.clone()) {
-            Ok(all_dependencies) => all_dependencies,
-            Err(dependency_enum_name) => {
-                eprintln!("{enum_name} execution is waiting on {dependency_enum_name} definition");
-                state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
-                return Ok(());
-            }
-        };
+    let all_dependencies = match collect_all_dependencies(
+        state,
+        enum_definition.direct_dependencies.iter().cloned(),
+    ) {
+        Ok(all_dependencies) => all_dependencies,
+        Err(dependency_enum_name) => {
+            eprintln!("{enum_name} execution is waiting on {dependency_enum_name} definition");
+            state.add_pending_enum_execution_impl(PendingEnumExecutionImpl { item_impl });
+            return Ok(());
+        }
+    };
 
     let mut all_execute_blocks = Vec::new();
     let mut all_where_predicates = Vec::new();

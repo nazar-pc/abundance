@@ -33,6 +33,47 @@ impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for Rv64ZcmpInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u64>,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        regs: &mut Regs,
+        _ext_state: &mut ExtState,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+        system_instruction_handler: &mut InstructionHandler,
+    ) -> Result<
+        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
+        ExecutionError<Reg::Type, CustomError>,
+    > {
+        Ok(ControlFlow::Continue(Default::default()))
+    }
+}
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for Rv64ZcmpOnlyInstruction<Reg> where
+    Reg: ZcmpRegister<Type = u64>
+{
+}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for Rv64ZcmpOnlyInstruction<Reg>
+where
+    Reg: ZcmpRegister<Type = u64>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Rv64ZcmpOnlyInstruction<Reg>
+where
+    Reg: ZcmpRegister<Type = u64>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,

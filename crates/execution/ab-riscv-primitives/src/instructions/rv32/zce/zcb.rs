@@ -4,6 +4,8 @@
 mod tests;
 
 use crate::instructions::Instruction;
+use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
+use crate::instructions::utils::I24;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -11,9 +13,51 @@ use core::fmt;
 /// RISC-V RV32 Zcb compressed instruction set.
 ///
 /// All register operands are prime-field (x8–x15) registers.
+#[instruction(
+    inherit = [Rv32ZcaInstruction, Rv32ZcbOnlyInstruction],
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Rv32ZcbInstruction<Reg> {}
+
+#[instruction]
+impl<Reg> const Instruction for Rv32ZcbInstruction<Reg>
+where
+    Reg: [const] Register<Type = u32>,
+{
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn alignment() -> u8 {
+        align_of::<u16>() as u8
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u16>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv32ZcbInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+/// Instruction that contains isolated Zcb instructions without inheriting Zca for testing purposes
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rv32ZcbInstruction<Reg> {
+#[rustfmt::skip]
+#[doc(hidden)]
+pub enum Rv32ZcbOnlyInstruction<Reg> {
     // Q00 loads / stores
     /// C.LBU  rd' = zero_extend(mem8\[rs1' + uimm])  uimm ∈ {0,1,2,3}
     CLbu { rd: Reg, rs1: Reg, uimm: u8 },
@@ -30,21 +74,28 @@ pub enum Rv32ZcbInstruction<Reg> {
     /// C.ZEXT.B  rd' = rd' & 0xff
     CZextB { rd: Reg },
     /// C.SEXT.B  rd' = sext(rd'\[7:0])  (requires Zbb)
+    #[instruction(if = [Rv32ZbbInstruction])]
     CSextB { rd: Reg },
     /// C.ZEXT.H  rd' = rd' & 0xffff  (requires Zbb)
+    #[instruction(if = [Rv32ZbbInstruction])]
     CZextH { rd: Reg },
     /// C.SEXT.H  rd' = sext(rd'\[15:0])  (requires Zbb)
+    #[instruction(if = [Rv32ZbbInstruction])]
     CSextH { rd: Reg },
     /// C.NOT  rd' = ~rd'
     CNot { rd: Reg },
 
     // Q01 binary
     /// C.MUL  rd' = (rd' * rs2')\[31:0]  (requires M or Zmmul)
+    #[instruction(
+        if = [Rv32MInstruction],
+        if = [Rv32ZmmulInstruction]
+    )]
     CMul { rd: Reg, rs2: Reg },
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv32ZcbInstruction<Reg>
+impl<Reg> const Instruction for Rv32ZcbOnlyInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
@@ -170,9 +221,9 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZcbInstruction<Reg>
+impl<Reg> fmt::Display for Rv32ZcbOnlyInstruction<Reg>
 where
-    Reg: fmt::Display,
+    Reg: fmt::Display + Copy,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -4,6 +4,8 @@
 mod tests;
 
 use crate::instructions::Instruction;
+use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
+use crate::instructions::utils::I24;
 use crate::registers::general_purpose::{EReg, Reg, Register};
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -242,9 +244,50 @@ impl<Reg> fmt::Display for ZcmpUrlist<Reg> {
 }
 
 /// Zcmp compressed instruction set
+#[instruction(
+    inherit = [Rv32ZcaInstruction, Rv32ZcmpOnlyInstruction],
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Rv32ZcmpInstruction<Reg> {}
+
+#[instruction]
+impl<Reg> const Instruction for Rv32ZcmpInstruction<Reg>
+where
+    Reg: [const] Register<Type = u32>,
+{
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn alignment() -> u8 {
+        align_of::<u16>() as u8
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u16>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv32ZcmpInstruction<Reg>
+where
+    Reg: Register,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+/// Instruction that contains isolated Zcmp instructions without inheriting Zca for testing purposes
 #[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rv32ZcmpInstruction<Reg> {
+#[doc(hidden)]
+pub enum Rv32ZcmpOnlyInstruction<Reg> {
     /// CM.PUSH - push reg_list, decrement sp by `stack_adj`
     ///
     /// `stack_adj = urlist.stack_adj_base() + spimm * 16` from the encoding.
@@ -280,7 +323,7 @@ pub enum Rv32ZcmpInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv32ZcmpInstruction<Reg>
+impl<Reg> const Instruction for Rv32ZcmpOnlyInstruction<Reg>
 where
     Reg: [const] ZcmpRegister<Type = u32>,
 {
@@ -372,7 +415,7 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZcmpInstruction<Reg>
+impl<Reg> fmt::Display for Rv32ZcmpOnlyInstruction<Reg>
 where
     Reg: Register,
 {

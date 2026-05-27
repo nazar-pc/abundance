@@ -5,6 +5,7 @@ mod instruction_execution;
 
 use proc_macro::TokenStream;
 
+// TODO: Support `conflict` (`Zcmp` conflicts with `Zcd` for example)
 /// Processes `#[instruction]` attribute on both enum definitions and implementations.
 ///
 /// # Enum definition
@@ -25,11 +26,16 @@ use proc_macro::TokenStream;
 ///     ignore = [E],
 ///     inherit = [BaseInstruction],
 ///     reorder = [D, A],
+///     if = [OptionalX]
 /// )]
 /// struct Extended<Reg> {
 ///     A(Reg),
 ///     B(Reg),
 ///     C(Reg),
+///     #[instruction(
+///         if = [OptionalY],
+///         if = [OptionalZ1, OptionalZ2],
+///     )]
 ///     D(Reg),
 ///     E(Reg),
 /// }
@@ -48,8 +54,8 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// Note that both `reorder`, `ignore` and `inherit` attributes can be specified multiple times, and
-/// reordering can reference any variant from both the `BaseInstruction` and `Extended` enums.
+/// Note that all attribute parameters can be specified multiple times, and reordering can reference
+/// any variant from both the `BaseInstruction` and `Extended` enums.
 ///
 /// This, of course, only works when enums have compatible generics.
 ///
@@ -68,6 +74,26 @@ use proc_macro::TokenStream;
 ///   * `inherit` includes all remaining variants of the corresponding enum that were not explicitly
 ///     reordered or ignored anywhere in the definition
 ///   * own variants that were not explicitly reordered or ignored are placed at the end of the enum
+///
+/// `reorder` is a niche feature that physically moves the variants, allowing certain variants to be
+/// next to each other for more efficient code generation (enum discriminant and execution code
+/// locality).
+///
+/// `inherit` is used both for dependencies (`Zve64x` depends on `Zicsr`) and for direct inclusion
+/// during composition (`B` contains `Zba`, `Zbb` and `Zbs`).
+///
+/// `ignore` can be used to create subsets of extensions (`Zmmul` is a multiply-only subset of `M`).
+///
+/// `if` on both enum and variant levels specifies soft optional dependencies on other instructions
+/// or variants when this instruction is inherited further up the chain. Variants are always present
+/// in the enum where they are defined, such that tests can be written against them without extra
+/// effort. In this example above, all instructions require `OptionalX` enum or variant to be
+/// included alongside `Extended` itself, while variant `D` specifically requires either `OptionalY`
+/// or `OptionalZ1` + `OptionalZ2` to be present.
+///
+/// These `if` conditions allow modeling things like `Zcf` part of `C` extension only being
+/// available when `F` extension is also available or `Zcb`'s `c.sext.b` only present when `Zbb`
+/// extension is also available.
 ///
 /// # Enum decoding implementation
 ///
