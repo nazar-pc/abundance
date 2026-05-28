@@ -312,55 +312,16 @@ where
 
     /// Iterator over proofs in the same order as provided leaf hashes
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn all_proofs(
-        &self,
-    ) -> impl ExactSizeIterator<Item = [[u8; OUT_LEN]; N.ilog2() as usize]> + TrustedLen
+    pub fn all_proofs(&self) -> ProofsIterator<'_, N>
     where
         [(); N.ilog2() as usize]:,
     {
-        let iter = self.leaves.as_chunks().0.iter().enumerate().flat_map(
-            |(pair_index, &[left_hash, right_hash])| {
-                let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
-                left_proof[0].write(right_hash);
-
-                let left_proof = {
-                    let shared_proof = &mut left_proof[1..];
-
-                    let mut tree_hashes = self.tree.as_slice();
-                    let mut parent_position = pair_index;
-                    let mut parent_level_size = N / 2;
-
-                    for hash in shared_proof {
-                        // The line below is a more efficient branchless version of this:
-                        // let parent_other_position = if parent_position % 2 == 0 {
-                        //     parent_position + 1
-                        // } else {
-                        //     parent_position - 1
-                        // };
-                        let parent_other_position = parent_position ^ 1;
-
-                        // SAFETY: Statically guaranteed to be present by constructor
-                        let other_hash =
-                            unsafe { tree_hashes.get_unchecked(parent_other_position) };
-                        hash.write(*other_hash);
-                        tree_hashes = &tree_hashes[parent_level_size..];
-
-                        parent_position /= 2;
-                        parent_level_size /= 2;
-                    }
-
-                    // SAFETY: Just initialized
-                    unsafe { left_proof.transpose().assume_init() }
-                };
-
-                let mut right_proof = left_proof;
-                right_proof[0] = left_hash;
-
-                [left_proof, right_proof]
-            },
-        );
-
-        ProofsIterator { iter, len: N }
+        ProofsIterator {
+            leaves: self.leaves,
+            tree: &self.tree,
+            leaf_index: 0,
+            len: N,
+        }
     }
 
     /// Verify previously generated proof
@@ -396,23 +357,72 @@ where
     }
 }
 
-struct ProofsIterator<Iter> {
-    iter: Iter,
-    len: usize,
+/// Iterator over proofs for a balanced Merkle tree
+#[derive(Debug)]
+pub struct ProofsIterator<'a, const N: usize>
+where
+    [(); N.ilog2() as usize]:,
+    [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
+{
+    pub(super) leaves: &'a [[u8; OUT_LEN]],
+    pub(super) tree: &'a [[u8; OUT_LEN]; N - 1],
+    pub(super) leaf_index: usize,
+    pub(super) len: usize,
 }
 
-impl<Iter> Iterator for ProofsIterator<Iter>
+impl<'a, const N: usize> Iterator for ProofsIterator<'a, N>
 where
-    Iter: Iterator,
+    [(); N.ilog2() as usize]:,
+    [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
 {
-    type Item = Iter::Item;
+    type Item = [[u8; OUT_LEN]; N.ilog2() as usize];
 
-    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn next(&mut self) -> Option<Self::Item> {
-        let item = self.iter.next();
-        self.len = self.len.saturating_sub(1);
-        item
+        if self.len == 0 {
+            return None;
+        }
+        self.len -= 1;
+
+        let index = self.leaf_index;
+        self.leaf_index += 1;
+
+        // The line below is a more efficient branchless version of this:
+        // let sibling_index = if index % 2 == 0 {
+        //     index + 1
+        // } else {
+        //     index - 1
+        // };
+        let sibling_index = index ^ 1;
+        // SAFETY: `index < N` guaranteed by `len` tracking
+        let sibling_hash = *unsafe { self.leaves.get_unchecked(sibling_index) };
+
+        let mut proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
+        proof[0].write(sibling_hash);
+
+        // Part that is shared between left and right leaf proofs
+        let shared_proof = &mut proof[1..];
+
+        let mut tree_hashes = self.tree.as_slice();
+        let mut parent_position = index / 2;
+        let mut parent_level_size = N / 2;
+
+        for hash in shared_proof {
+            let parent_other_position = parent_position ^ 1;
+
+            // SAFETY: Statically guaranteed to be present by constructor
+            let other_hash = unsafe { tree_hashes.get_unchecked(parent_other_position) };
+            hash.write(*other_hash);
+            tree_hashes = &tree_hashes[parent_level_size..];
+
+            parent_position /= 2;
+            parent_level_size /= 2;
+        }
+
+        // SAFETY: Just initialized
+        Some(unsafe { proof.transpose().assume_init() })
     }
 
     #[inline(always)]
@@ -421,37 +431,42 @@ where
     }
 
     #[inline(always)]
-    fn count(self) -> usize
-    where
-        Self: Sized,
-    {
+    fn count(self) -> usize {
         self.len
     }
 
-    #[inline(always)]
-    fn last(self) -> Option<Self::Item>
-    where
-        Self: Sized,
-    {
-        self.iter.last()
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn last(mut self) -> Option<Self::Item> {
+        if self.len == 0 {
+            return None;
+        }
+        self.leaf_index = N - 1;
+        self.len = 1;
+        self.next()
     }
 
     #[inline(always)]
     fn advance_by(&mut self, n: usize) -> Result<(), NonZero<usize>> {
-        self.len = self.len.saturating_sub(n);
-        self.iter.advance_by(n)
+        let advance = n.min(self.len);
+        self.leaf_index += advance;
+        self.len -= advance;
+        NonZero::new(n - advance).map_or(Ok(()), Err)
     }
 
     #[inline(always)]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.len = self.len.saturating_sub(n.saturating_add(1));
-        self.iter.nth(n)
+        match self.advance_by(n) {
+            Ok(()) => self.next(),
+            Err(_) => None,
+        }
     }
 }
 
-impl<Iter> ExactSizeIterator for ProofsIterator<Iter>
+impl<'a, const N: usize> ExactSizeIterator for ProofsIterator<'a, N>
 where
-    Iter: Iterator,
+    [(); N.ilog2() as usize]:,
+    [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
 {
     #[inline(always)]
     fn len(&self) -> usize {
@@ -459,5 +474,11 @@ where
     }
 }
 
-// SAFETY: The length is always exact and correct here
-unsafe impl<Iter> TrustedLen for ProofsIterator<Iter> where Iter: Iterator {}
+// SAFETY: size_hint is always exact
+unsafe impl<'a, const N: usize> TrustedLen for ProofsIterator<'a, N>
+where
+    [(); N.ilog2() as usize]:,
+    [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
+{
+}
