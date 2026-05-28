@@ -13,20 +13,20 @@
 mod abundance_rv32i_max;
 mod abundance_rv64i_max;
 mod instruction;
-mod interpreter;
 
 use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
 use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
-use crate::interpreter::Act4SystemHandler;
-use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicInterpreterState, BasicRegisters};
+use ab_riscv_interpreter::basic::{
+    BasicInstructionFetcher, BasicInterpreterState, BasicMemory, BasicRegisters,
+    IllegalEcallSystemInstructionHandler,
+};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use colored::Colorize;
-use interpreter::Act4Memory;
 use object::{Object, ObjectSegment, ObjectSymbol};
 use std::ffi::CStr;
 use std::fs;
@@ -39,7 +39,7 @@ compile_error!("Only little-endian platforms are supported");
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
-const RAM_SIZE: usize = 4 * 1024 * 1024;
+const RAM_SIZE: usize = 0x80000;
 const MRET_INSTRUCTION: u32 = 0x3020_0073;
 
 /// RISC-V ISA
@@ -229,7 +229,7 @@ where
 }
 
 fn read_cstring<const RAM_BASE: u64, const RAM_SIZE: usize>(
-    memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
+    memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
     addr: u64,
 ) -> Option<&str> {
     let slice = memory.read_slice_up_to(addr, 512);
@@ -237,7 +237,7 @@ fn read_cstring<const RAM_BASE: u64, const RAM_SIZE: usize>(
 }
 
 fn read_failure_info<const RAM_BASE: u64, const RAM_SIZE: usize, RT>(
-    memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
+    memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
     begin_failure_scratch: u64,
 ) -> Option<String>
 where
@@ -319,7 +319,7 @@ fn run_rv32i_max_test(
 ) -> Result<(), TestError<RegisterType<AbundanceRv32IMaxInstruction>>> {
     let elf = ParsedElf::<<AbundanceRv32IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
 
-    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new();
+    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::default();
     for (vaddr, data) in &elf.segments {
         ram.write_slice(*vaddr, data)
             .map_err(ExecutionError::from)?;
@@ -333,7 +333,7 @@ fn run_rv32i_max_test(
             // Not used, setting to something that is unlikely to be used
             0, elf.entry,
         ),
-        system_instruction_handler: Act4SystemHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     loop {
@@ -452,7 +452,7 @@ fn run_rv64i_max_test(
 ) -> Result<(), TestError<RegisterType<AbundanceRv64IMaxInstruction>>> {
     let elf = ParsedElf::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
 
-    let mut ram = Act4Memory::<RAM_BASE, RAM_SIZE>::new();
+    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::default();
     for (vaddr, data) in &elf.segments {
         ram.write_slice(*vaddr, data)
             .map_err(ExecutionError::from)?;
@@ -466,7 +466,7 @@ fn run_rv64i_max_test(
             // Not used, setting to something that is unlikely to be used
             0, elf.entry,
         ),
-        system_instruction_handler: Act4SystemHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     loop {
@@ -581,7 +581,7 @@ fn run_rv64i_max_test(
 
 fn check_signature<const RAM_BASE: u64, const RAM_SIZE: usize, Reg>(
     elf: &ParsedElf<Reg>,
-    memory: &Act4Memory<RAM_BASE, RAM_SIZE>,
+    memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
 ) -> Result<(), TestError<Reg::Type>>
 where
     Reg: Register<Type: BasicInt>,

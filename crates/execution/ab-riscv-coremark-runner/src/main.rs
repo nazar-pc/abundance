@@ -17,19 +17,15 @@ mod interpreter;
 mod time_csr;
 
 use crate::elf::{LoadedElf, load_elf};
-use crate::instruction::CoremarkInstruction;
 use crate::interpreter::{EagerInstructionFetcher, GuestMemory};
 use crate::time_csr::TimeCsrState;
 use ab_riscv_interpreter::basic::{
-    BasicInterpreterState, BasicRegisters, IgnoreEcallSystemInstructionHandler,
+    BasicInterpreterState, BasicRegisters, IllegalEcallSystemInstructionHandler,
 };
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
-use core::ops::ControlFlow;
-use replace_with::replace_with_or_abort_and_return;
 use std::ffi::CStr;
-use std::hint::cold_path;
 
 /// Coremark ELF binary compiled by build.rs for the RISC-V guest
 const COREMARK_ELF: &[u8] = include_bytes!(env!("COREMARK_ELF"));
@@ -47,74 +43,6 @@ const MEMORY_BASE_ADDRESS: u64 = 0x0;
 ///
 /// Must be large enough to hold the ELF segments, stack, and output buffer.
 const MEMORY_SIZE: usize = 512 * 1024;
-
-fn execute<Regs, Memory, IF>(
-    state: &mut BasicInterpreterState<
-        Regs,
-        TimeCsrState,
-        Memory,
-        IF,
-        IgnoreEcallSystemInstructionHandler,
-    >,
-) -> Result<(), ExecutionError<u64>>
-where
-    Regs: RegisterFile<<CoremarkInstruction as Instruction>::Reg>,
-    Memory: VirtualMemory,
-    IF: InstructionFetcher<CoremarkInstruction, Memory> + ProgramCounter<u64, Memory>,
-{
-    replace_with_or_abort_and_return(
-        &mut state.instruction_fetcher,
-        #[inline(always)]
-        |mut instruction_fetcher| {
-            loop {
-                let instruction = match instruction_fetcher.fetch_instruction(&state.memory) {
-                    Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-                    Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
-                        cold_path();
-                        continue;
-                    }
-                    Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
-                        cold_path();
-                        break;
-                    }
-                    Err(error) => {
-                        cold_path();
-                        return (Err(error), instruction_fetcher);
-                    }
-                };
-
-                let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
-                let rs1rs2_values = Rs1Rs2OperandValues {
-                    rs1_value: state.regs.read(rs1),
-                    rs2_value: state.regs.read(rs2),
-                };
-
-                match instruction.execute(
-                    rs1rs2_values,
-                    &mut state.regs,
-                    &mut state.ext_state,
-                    &mut state.memory,
-                    &mut instruction_fetcher,
-                    &mut state.system_instruction_handler,
-                ) {
-                    Ok(ControlFlow::Continue((rd, rd_value))) => {
-                        state.regs.write(rd, rd_value);
-                    }
-                    Ok(ControlFlow::Break(())) => {
-                        cold_path();
-                        break;
-                    }
-                    Err(error) => {
-                        cold_path();
-                        return (Err(error), instruction_fetcher);
-                    }
-                }
-            }
-
-            (Ok(()), instruction_fetcher)
-        },
-    )
-}
 
 /// Read the null-terminated Coremark output string from the output buffer
 fn read_output<Memory>(memory: &Memory, addr: u64, size: u32) -> Option<&str>
@@ -171,10 +99,10 @@ fn main() -> anyhow::Result<()> {
         ext_state: TimeCsrState::default(),
         memory,
         instruction_fetcher,
-        system_instruction_handler: IgnoreEcallSystemInstructionHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
-    execute(&mut state).context("Coremark execution failed")?;
+    state.execute().context("Coremark execution failed")?;
 
     let host_elapsed = host_start.elapsed();
 

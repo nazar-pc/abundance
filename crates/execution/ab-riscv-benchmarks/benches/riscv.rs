@@ -10,9 +10,9 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory, execute,
+    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
 };
-use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstructionHandler};
+use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::Register;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -130,7 +130,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         instruction_fetcher: unsafe {
             LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
         },
-        system_instruction_handler: IgnoreEcallSystemInstructionHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     let mut eager_state = BasicInterpreterState {
@@ -147,7 +147,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 benchmarks_blake3_hash_chunk_addr,
             )
         },
-        system_instruction_handler: IgnoreEcallSystemInstructionHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     {
@@ -196,7 +196,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 lazy_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut lazy_state))).unwrap();
+                black_box(black_box(&mut lazy_state).execute()).unwrap();
             });
         });
 
@@ -212,7 +212,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 eager_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut eager_state))).unwrap();
+                black_box(black_box(&mut eager_state).execute()).unwrap();
             });
         });
     }
@@ -270,7 +270,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 lazy_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut lazy_state))).unwrap();
+                black_box(black_box(&mut lazy_state).execute()).unwrap();
             });
         });
 
@@ -286,7 +286,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 eager_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut eager_state))).unwrap();
+                black_box(black_box(&mut eager_state).execute()).unwrap();
             });
         });
     }
