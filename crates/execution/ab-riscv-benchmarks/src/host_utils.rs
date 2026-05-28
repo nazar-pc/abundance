@@ -3,7 +3,6 @@ extern crate alloc;
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
-use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
@@ -256,12 +255,16 @@ impl<const BASE_ADDR: u64, const SIZE: usize> TestMemory<BASE_ADDR, SIZE> {
         };
         let offset = offset as usize;
 
-        if offset + size > self.data.len() {
+        let Some(slice) = self
+            .data
+            .get_mut(offset..)
+            .and_then(|data| data.get_mut(..size))
+        else {
             cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
-        }
+        };
 
-        Ok(&mut self.data[offset..][..size])
+        Ok(slice)
     }
 }
 
