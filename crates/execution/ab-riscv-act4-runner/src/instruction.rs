@@ -78,14 +78,16 @@ where
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        if let Some(
-            MCsr::Mstatus | MCsr::Mtvec | MCsr::Mscratch | MCsr::Mepc | MCsr::Mcause | MCsr::Mtval,
-        ) = MCsr::from_index(csr_index)
-        {
-            *output_value = write_value;
-            Ok(true)
-        } else {
-            Ok(false)
+        match MCsr::from_index(csr_index) {
+            Some(MCsr::Mstatus | MCsr::Mtvec | MCsr::Mscratch | MCsr::Mcause | MCsr::Mtval) => {
+                *output_value = write_value;
+                Ok(true)
+            }
+            Some(MCsr::Mepc) => {
+                *output_value = write_value & !Reg::Type::from(1u32);
+                Ok(true)
+            }
+            _ => Ok(false),
         }
     }
 }

@@ -64,6 +64,10 @@ where
 impl<Reg> ExecutableInstructionOperands for AbundanceRv32IMaxInstructionPrototype<Reg> {}
 
 #[instruction_execution]
+#[expect(
+    clippy::useless_conversion,
+    reason = "https://github.com/rust-lang/rust-clippy/issues/17083"
+)]
 impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for AbundanceRv32IMaxInstructionPrototype<Reg>
 {

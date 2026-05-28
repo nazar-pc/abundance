@@ -584,7 +584,7 @@ jobs:
 
       - name: Clone ACT4 repo
         run: |
-          git clone --depth 1 --revision=a79564408b94ac7ee3541486e7d4becd32544cfa \
+          git clone --depth 1 --revision=d33252a6f0de859fe16273a730d068fd7cc7ad8e \
             https://github.com/riscv/riscv-arch-test \
             riscv-arch-test
 

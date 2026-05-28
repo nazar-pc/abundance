@@ -80,41 +80,7 @@ params:
   TRAP_ON_RESERVED_INSTRUCTION: true
 
   # --- mcountinhibit ---
-  # 32-element list: one boolean per counter (indices 0..31).
-  # All false = no counters inhibited.
-  COUNTINHIBIT_EN:
-    - false # CY
-    - false # empty
-    - false # IR
-    - false # HPM3
-    - false # HPM4
-    - false # HPM5
-    - false # HPM6
-    - false # HPM7
-    - false # HPM8
-    - false # HPM9
-    - false # HPM10
-    - false # HPM11
-    - false # HPM12
-    - false # HPM13
-    - false # HPM14
-    - false # HPM15
-    - false # HPM16
-    - false # HPM17
-    - false # HPM18
-    - false # HPM19
-    - false # HPM20
-    - false # HPM21
-    - false # HPM22
-    - false # HPM23
-    - false # HPM24
-    - false # HPM25
-    - false # HPM26
-    - false # HPM27
-    - false # HPM28
-    - false # HPM29
-    - false # HPM30
-    - false # HPM31
+  MCOUNTINHIBIT_IMPLEMENTED: false
 
   MSTATUS_VS_LEGAL_VALUES: [ 0, 1, 3 ]
 
