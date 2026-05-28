@@ -19,8 +19,10 @@ use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
 use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
 use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
 use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
-use crate::interpreter::Act4SystemHandler;
-use ab_riscv_interpreter::basic::{BasicInstructionFetcher, BasicInterpreterState, BasicRegisters};
+use ab_riscv_interpreter::basic::{
+    BasicInstructionFetcher, BasicInterpreterState, BasicRegisters,
+    IllegalEcallSystemInstructionHandler,
+};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -333,7 +335,7 @@ fn run_rv32i_max_test(
             // Not used, setting to something that is unlikely to be used
             0, elf.entry,
         ),
-        system_instruction_handler: Act4SystemHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     loop {
@@ -466,7 +468,7 @@ fn run_rv64i_max_test(
             // Not used, setting to something that is unlikely to be used
             0, elf.entry,
         ),
-        system_instruction_handler: Act4SystemHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     loop {

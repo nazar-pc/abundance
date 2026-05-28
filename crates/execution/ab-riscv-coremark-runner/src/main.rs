@@ -21,7 +21,7 @@ use crate::instruction::CoremarkInstruction;
 use crate::interpreter::{EagerInstructionFetcher, GuestMemory};
 use crate::time_csr::TimeCsrState;
 use ab_riscv_interpreter::basic::{
-    BasicInterpreterState, BasicRegisters, IgnoreEcallSystemInstructionHandler,
+    BasicInterpreterState, BasicRegisters, IllegalEcallSystemInstructionHandler,
 };
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
@@ -54,7 +54,7 @@ fn execute<Regs, Memory, IF>(
         TimeCsrState,
         Memory,
         IF,
-        IgnoreEcallSystemInstructionHandler,
+        IllegalEcallSystemInstructionHandler,
     >,
 ) -> Result<(), ExecutionError<u64>>
 where
@@ -171,7 +171,7 @@ fn main() -> anyhow::Result<()> {
         ext_state: TimeCsrState::default(),
         memory,
         instruction_fetcher,
-        system_instruction_handler: IgnoreEcallSystemInstructionHandler,
+        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     execute(&mut state).context("Coremark execution failed")?;

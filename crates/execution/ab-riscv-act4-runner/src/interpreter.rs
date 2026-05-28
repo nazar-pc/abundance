@@ -1,6 +1,4 @@
 use ab_riscv_interpreter::prelude::*;
-use ab_riscv_primitives::prelude::*;
-use std::ops::ControlFlow;
 
 pub(crate) struct Act4Memory<const BASE_ADDR: u64, const SIZE: usize> {
     data: Box<[u8; SIZE]>,
@@ -124,23 +122,5 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Act4Memory<BASE_ADDR, SIZE> {
             // SAFETY: Data structure filled with zeroes is a valid invariant
             data: unsafe { Box::new_zeroed().assume_init() },
         }
-    }
-}
-
-pub(crate) struct Act4SystemHandler;
-
-impl<Reg, Regs, Memory, PC> SystemInstructionHandler<Reg, Regs, Memory, PC> for Act4SystemHandler
-where
-    Reg: Register,
-    Regs: RegisterFile<Reg>,
-    Memory: VirtualMemory,
-{
-    fn handle_ecall(
-        &mut self,
-        _regs: &mut Regs,
-        _memory: &mut Memory,
-        _pc: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
-        Ok(ControlFlow::Continue(()))
     }
 }

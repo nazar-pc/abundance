@@ -5,7 +5,7 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::basic::{BasicInterpreterState, IgnoreEcallSystemInstructionHandler};
+use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use alloc::boxed::Box;
@@ -546,7 +546,7 @@ impl EagerTestInstructionFetcher {
 
 /// Execute [`ContractInstruction`]s
 pub fn execute<Regs, Memory, IF>(
-    state: &mut BasicInterpreterState<Regs, (), Memory, IF, IgnoreEcallSystemInstructionHandler>,
+    state: &mut BasicInterpreterState<Regs, (), Memory, IF, IllegalEcallSystemInstructionHandler>,
 ) -> Result<(), ExecutionError<u64>>
 where
     Regs: RegisterFile<<ContractInstruction as Instruction>::Reg>,
