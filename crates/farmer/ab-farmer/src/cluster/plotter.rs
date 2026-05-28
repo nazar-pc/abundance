@@ -534,7 +534,9 @@ where
 
                     tokio::time::sleep(delay).await;
                 }
-                RequestErrorKind::InvalidSubject | RequestErrorKind::Other => {
+                RequestErrorKind::InvalidSubject
+                | RequestErrorKind::MaxPayloadExceeded
+                | RequestErrorKind::Other => {
                     progress_updater
                         .update_progress_and_events(
                             progress_sender,
