@@ -6,6 +6,15 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
+/// Number of elements in a proof for a tree with `MAX_N` leaves
+pub const PROOF_ELEMENTS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
+const STACK_SIZE<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize + 1;
+const SUPPORTED_LEAVES_ARRAY_SIZE<const N: usize>: usize = {
+    assert!(N != 0, "Number of leaves must be greater than 0");
+    0
+};
+const USIZE_TO_U64<const N: usize>: u64 = N as u64;
+
 /// Merkle Tree variant that has pre-hashed leaves with arbitrary number of elements.
 ///
 /// This can be considered a general case of [`BalancedMerkleTree`]. The root and proofs are
@@ -46,12 +55,11 @@ impl UnbalancedMerkleTree {
         leaves: Iter,
     ) -> Option<[u8; OUT_LEN]>
     where
-        [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; STACK_SIZE::<MAX_N>];
         let mut num_leaves = 0u64;
 
         for hash in leaves {
@@ -110,6 +118,23 @@ impl UnbalancedMerkleTree {
         Some(stack[0])
     }
 
+    /// Compute Merkle Tree Root for an array of leaves.
+    ///
+    /// Similar to [`Self::compute_root_only()`], but for inputs that are small arrays where `MAX_N`
+    /// is the same as the array length.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn compute_root_only_array<const N: usize, Item>(leaves: &[Item; N]) -> [u8; OUT_LEN]
+    where
+        Item: Into<[u8; OUT_LEN]> + Copy,
+        [(); SUPPORTED_LEAVES_ARRAY_SIZE::<N>]:,
+    {
+        let maybe_root =
+            Self::compute_root_only::<{ USIZE_TO_U64::<N> }, _, _>(leaves.iter().copied());
+        // SAFETY: Fixed array length matching `MAX_N` always succeeds
+        unsafe { maybe_root.unwrap_unchecked() }
+    }
+
     /// Compute Merkle Tree root and generate a proof for the `leaf` at `target_index`.
     ///
     /// Returns `Some((root, proof))` on success, `None` if index is outside of list of leaves.
@@ -123,19 +148,21 @@ impl UnbalancedMerkleTree {
         target_index: usize,
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
     where
-        [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; _];
         // SAFETY: Inner value is `MaybeUninit`
-        let mut proof = unsafe {
-            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize]>::new_uninit().assume_init()
-        };
+        let mut proof =
+            unsafe { Box::<[MaybeUninit<[u8; OUT_LEN]>; _]>::new_uninit().assume_init() };
 
-        let (root, proof_length) =
-            Self::compute_root_and_proof_inner(leaves, target_index, &mut stack, &mut proof)?;
+        let (root, proof_length) = Self::compute_root_and_proof_inner::<MAX_N, _, _>(
+            leaves,
+            target_index,
+            &mut stack,
+            &mut proof,
+        )?;
 
         let proof_capacity = proof.len();
         let proof = Box::into_raw(proof);
@@ -159,18 +186,21 @@ impl UnbalancedMerkleTree {
     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
+        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
     ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])>
     where
-        [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; _];
 
-        let (root, proof_length) =
-            Self::compute_root_and_proof_inner(leaves, target_index, &mut stack, proof)?;
+        let (root, proof_length) = Self::compute_root_and_proof_inner::<MAX_N, _, _>(
+            leaves,
+            target_index,
+            &mut stack,
+            proof,
+        )?;
         // SAFETY: Just correctly initialized `proof_length` elements
         let proof = unsafe { proof.get_unchecked_mut(..proof_length).assume_init_mut() };
 
@@ -181,8 +211,8 @@ impl UnbalancedMerkleTree {
     fn compute_root_and_proof_inner<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        stack: &mut [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
+        stack: &mut [[u8; OUT_LEN]; STACK_SIZE::<MAX_N>],
+        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
     ) -> Option<([u8; OUT_LEN], usize)>
     where
         Item: Into<[u8; OUT_LEN]>,

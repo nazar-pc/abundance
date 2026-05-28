@@ -9,26 +9,36 @@ use core::mem;
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 
+/// Number of peaks in MMR with `MAX_N` leaves
+pub const NUM_PEAKS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
+/// Max number of elements in a proof for MMR with `MAX_N` leaves
+pub const MAX_PROOF_ELEMENTS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
+const STACK_SIZE<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize + 1;
+
+/// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
+const MERKLE_MOUNTAIN_RANGE_BYTES_SIZE<const MAX_N: u64>: usize =
+    size_of::<u64>() + OUT_LEN * (MAX_N.ilog2() as usize + 1);
+
+const {
+    assert!(size_of::<MerkleMountainRangeBytes<2>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2>);
+    assert!(size_of::<MerkleMountainRange<2>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2>);
+    assert!(align_of::<MerkleMountainRangeBytes<2>>() == align_of::<MerkleMountainRange<2>>());
+}
+
 /// MMR peaks for [`MerkleMountainRange`].
 ///
 /// Primarily intended to be used with [`MerkleMountainRange::from_peaks()`], can be sent over the
 /// network, etc.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct MmrPeaks<const MAX_N: u64>
-where
-    [(); MAX_N.next_power_of_two().ilog2() as usize]:,
-{
+pub struct MmrPeaks<const MAX_N: u64> {
     /// Number of leaves in MMR
     pub num_leaves: u64,
     /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are
     /// ignored and do not need to be retained.
-    pub peaks: [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize],
+    pub peaks: [[u8; OUT_LEN]; NUM_PEAKS::<MAX_N>],
 }
 
-impl<const MAX_N: u64> MmrPeaks<MAX_N>
-where
-    [(); MAX_N.next_power_of_two().ilog2() as usize]:,
-{
+impl<const MAX_N: u64> MmrPeaks<MAX_N> {
     /// Number of peaks stored in [`Self::peaks`] that are occupied by actual values
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -43,46 +53,34 @@ where
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(8))]
 pub struct MerkleMountainRangeBytes<const MAX_N: u64>(
-    [u8; merkle_mountain_range_bytes_size(MAX_N)],
-)
-where
-    [(); merkle_mountain_range_bytes_size(MAX_N)]:;
+    [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>],
+);
 
-impl<const MAX_N: u64> Default for MerkleMountainRangeBytes<MAX_N>
-where
-    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
-{
+impl<const MAX_N: u64> Default for MerkleMountainRangeBytes<MAX_N> {
     #[inline(always)]
     fn default() -> Self {
         Self([0; _])
     }
 }
 
-impl<const MAX_N: u64> From<[u8; merkle_mountain_range_bytes_size(MAX_N)]>
+impl<const MAX_N: u64> From<[u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>]>
     for MerkleMountainRangeBytes<MAX_N>
-where
-    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
 {
-    fn from(value: [u8; merkle_mountain_range_bytes_size(MAX_N)]) -> Self {
+    fn from(value: [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>]) -> Self {
         Self(value)
     }
 }
 
 impl<const MAX_N: u64> From<MerkleMountainRangeBytes<MAX_N>>
-    for [u8; merkle_mountain_range_bytes_size(MAX_N)]
-where
-    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+    for [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>]
 {
     fn from(value: MerkleMountainRangeBytes<MAX_N>) -> Self {
         value.0
     }
 }
 
-impl<const MAX_N: u64> Deref for MerkleMountainRangeBytes<MAX_N>
-where
-    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
-{
-    type Target = [u8; merkle_mountain_range_bytes_size(MAX_N)];
+impl<const MAX_N: u64> Deref for MerkleMountainRangeBytes<MAX_N> {
+    type Target = [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>];
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -90,25 +88,11 @@ where
     }
 }
 
-impl<const MAX_N: u64> DerefMut for MerkleMountainRangeBytes<MAX_N>
-where
-    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
-{
+impl<const MAX_N: u64> DerefMut for MerkleMountainRangeBytes<MAX_N> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
-}
-
-/// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
-pub const fn merkle_mountain_range_bytes_size(max_n: u64) -> usize {
-    size_of::<u64>() + OUT_LEN * (max_n.ilog2() as usize + 1)
-}
-
-const {
-    assert!(size_of::<MerkleMountainRangeBytes<2>>() == merkle_mountain_range_bytes_size(2));
-    assert!(size_of::<MerkleMountainRange<2>>() == merkle_mountain_range_bytes_size(2));
-    assert!(align_of::<MerkleMountainRangeBytes<2>>() == align_of::<MerkleMountainRange<2>>());
 }
 
 /// Merkle Mountain Range variant that has pre-hashed leaves with arbitrary number of elements.
@@ -122,19 +106,13 @@ const {
 /// usage.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
-pub struct MerkleMountainRange<const MAX_N: u64>
-where
-    [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
-{
+pub struct MerkleMountainRange<const MAX_N: u64> {
     num_leaves: u64,
     // Stack of intermediate nodes per tree level
-    stack: [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
+    stack: [[u8; OUT_LEN]; STACK_SIZE::<MAX_N>],
 }
 
-impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N>
-where
-    [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
-{
+impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn default() -> Self {
@@ -143,17 +121,14 @@ where
 }
 
 // TODO: Think harder about proof generation and verification API here
-impl<const MAX_N: u64> MerkleMountainRange<MAX_N>
-where
-    [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
-{
+impl<const MAX_N: u64> MerkleMountainRange<MAX_N> {
     /// Create an empty instance
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new() -> Self {
         Self {
             num_leaves: 0,
-            stack: [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
+            stack: [[0u8; OUT_LEN]; _],
         }
     }
 
@@ -165,7 +140,7 @@ where
     pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
         let mut result = Self {
             num_leaves: peaks.num_leaves,
-            stack: [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
+            stack: [[0u8; OUT_LEN]; _],
         };
 
         // Convert peaks (where all occupied entries are all at the beginning of the list instead)
@@ -189,10 +164,7 @@ where
     /// Get byte representation of Merkle Mountain Range
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn as_bytes(&self) -> &MerkleMountainRangeBytes<MAX_N>
-    where
-        [(); merkle_mountain_range_bytes_size(MAX_N)]:,
-    {
+    pub fn as_bytes(&self) -> &MerkleMountainRangeBytes<MAX_N> {
         // SAFETY: Both are `#[repr(C)]`, the same size and alignment as `Self`, all bit patterns
         // are valid
         unsafe { mem::transmute(self) }
@@ -204,10 +176,7 @@ where
     /// Bytes must be previously created by [`Self::as_bytes()`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub unsafe fn from_bytes(bytes: &MerkleMountainRangeBytes<MAX_N>) -> &Self
-    where
-        [(); merkle_mountain_range_bytes_size(MAX_N)]:,
-    {
+    pub unsafe fn from_bytes(bytes: &MerkleMountainRangeBytes<MAX_N>) -> &Self {
         // SAFETY: Both are `#[repr(C)]`, the same size and alignment as `Self`, all bit patterns
         // are valid. `::from_bytes()` is an `unsafe` function with correct invariant being a
         // prerequisite of calling it.
@@ -269,7 +238,7 @@ where
     pub fn peaks(&self) -> MmrPeaks<MAX_N> {
         let mut result = MmrPeaks {
             num_leaves: self.num_leaves,
-            peaks: [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize],
+            peaks: [[0u8; OUT_LEN]; _],
         };
 
         // Convert stack (where occupied entries are at corresponding offsets) to peaks (where all
@@ -373,9 +342,8 @@ where
         leaf: &[u8; OUT_LEN],
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)> {
         // SAFETY: Inner value is `MaybeUninit`
-        let mut proof = unsafe {
-            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize]>::new_uninit().assume_init()
-        };
+        let mut proof =
+            unsafe { Box::<[MaybeUninit<[u8; OUT_LEN]>; _]>::new_uninit().assume_init() };
 
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, &mut proof)?;
 
@@ -398,7 +366,7 @@ where
     pub fn add_leaf_and_compute_proof_in<'proof>(
         &mut self,
         leaf: &[u8; OUT_LEN],
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
+        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
     ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])> {
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, proof)?;
 
@@ -413,7 +381,7 @@ where
     pub fn add_leaf_and_compute_proof_inner(
         &mut self,
         leaf: &[u8; OUT_LEN],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
+        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
     ) -> Option<([u8; OUT_LEN], usize)> {
         let mut proof_length = 0;
 
