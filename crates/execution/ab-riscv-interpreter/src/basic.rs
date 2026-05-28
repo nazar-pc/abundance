@@ -105,7 +105,10 @@ where
     }
 }
 
-/// Basic interpreter state
+/// Basic interpreter state.
+///
+/// This is a simple container, which is not required to be used, is helpful for storing the whole
+/// state related to the interpreter together.
 #[derive(Debug)]
 pub struct BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler> {
     /// General purpose registers
@@ -125,6 +128,10 @@ pub struct BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler>
 }
 
 /// Basic instruction fetcher implementation.
+///
+/// This implementation is intentionally basic and correct, but not the most performant. It is
+/// possible to have a more efficient implementation that skips certain checks by placing additional
+/// constraints on the constructor.
 ///
 /// Note that it loads instructions from anywhere in memory. This works, but it is likely that you
 /// want to restrict this to a specific executable region of memory.
