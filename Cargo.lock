@@ -770,7 +770,6 @@ dependencies = [
  "ab-riscv-primitives",
  "anyhow",
  "object",
- "replace_with",
 ]
 
 [[package]]
@@ -779,6 +778,7 @@ version = "0.0.4"
 dependencies = [
  "ab-riscv-macros",
  "ab-riscv-primitives",
+ "replace_with",
  "thiserror 2.0.18",
 ]
 

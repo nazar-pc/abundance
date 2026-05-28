@@ -10,7 +10,7 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory, execute,
+    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
 };
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
@@ -96,7 +96,7 @@ where
                 instruction_fetcher,
                 system_instruction_handler: IllegalEcallSystemInstructionHandler,
             };
-            execute(&mut state).unwrap();
+            state.execute().unwrap();
 
             state.memory
         }
@@ -119,7 +119,7 @@ where
                 instruction_fetcher,
                 system_instruction_handler: IllegalEcallSystemInstructionHandler,
             };
-            execute(&mut state).unwrap();
+            state.execute().unwrap();
 
             state.memory
         }

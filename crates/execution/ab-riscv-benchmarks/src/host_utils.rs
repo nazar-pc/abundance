@@ -4,7 +4,6 @@ use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use alloc::boxed::Box;
@@ -12,7 +11,6 @@ use alloc::vec::Vec;
 use core::hint::cold_path;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
-use replace_with::replace_with_or_abort_and_return;
 
 /// Contract file bytes
 pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
@@ -545,67 +543,4 @@ impl EagerTestInstructionFetcher {
             return_trap_address,
         }
     }
-}
-
-/// Execute [`ContractInstruction`]s
-pub fn execute<Regs, Memory, IF>(
-    state: &mut BasicInterpreterState<Regs, (), Memory, IF, IllegalEcallSystemInstructionHandler>,
-) -> Result<(), ExecutionError<u64>>
-where
-    Regs: RegisterFile<<ContractInstruction as Instruction>::Reg>,
-    Memory: VirtualMemory,
-    IF: InstructionFetcher<ContractInstruction, Memory>,
-{
-    replace_with_or_abort_and_return(
-        &mut state.instruction_fetcher,
-        #[inline(always)]
-        |mut instruction_fetcher| {
-            loop {
-                let instruction = match instruction_fetcher.fetch_instruction(&state.memory) {
-                    Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-                    Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
-                        cold_path();
-                        continue;
-                    }
-                    Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
-                        cold_path();
-                        break;
-                    }
-                    Err(error) => {
-                        cold_path();
-                        return (Err(error), instruction_fetcher);
-                    }
-                };
-
-                let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
-                let rs1rs2_values = Rs1Rs2OperandValues {
-                    rs1_value: state.regs.read(rs1),
-                    rs2_value: state.regs.read(rs2),
-                };
-
-                match instruction.execute(
-                    rs1rs2_values,
-                    &mut state.regs,
-                    &mut state.ext_state,
-                    &mut state.memory,
-                    &mut instruction_fetcher,
-                    &mut state.system_instruction_handler,
-                ) {
-                    Ok(ControlFlow::Continue((rd, rd_value))) => {
-                        state.regs.write(rd, rd_value);
-                    }
-                    Ok(ControlFlow::Break(())) => {
-                        cold_path();
-                        break;
-                    }
-                    Err(error) => {
-                        cold_path();
-                        return (Err(error), instruction_fetcher);
-                    }
-                }
-            }
-
-            (Ok(()), instruction_fetcher)
-        },
-    )
 }

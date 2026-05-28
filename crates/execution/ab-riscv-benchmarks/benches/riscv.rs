@@ -10,7 +10,7 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory, execute,
+    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
 };
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
@@ -196,7 +196,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 lazy_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut lazy_state))).unwrap();
+                black_box(black_box(&mut lazy_state).execute()).unwrap();
             });
         });
 
@@ -212,7 +212,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 eager_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut eager_state))).unwrap();
+                black_box(black_box(&mut eager_state).execute()).unwrap();
             });
         });
     }
@@ -270,7 +270,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 lazy_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut lazy_state))).unwrap();
+                black_box(black_box(&mut lazy_state).execute()).unwrap();
             });
         });
 
@@ -286,7 +286,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // Stack is between internal arguments and contract memory
                 eager_state.regs.write(Register::SP, stack_pointer);
 
-                black_box(execute(black_box(&mut eager_state))).unwrap();
+                black_box(black_box(&mut eager_state).execute()).unwrap();
             });
         });
     }

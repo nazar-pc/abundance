@@ -4,14 +4,16 @@
 mod tests;
 
 use crate::{
-    Address, BasicInt, CustomErrorPlaceholder, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
+use replace_with::replace_with_or_abort_and_return;
 
 /// Basic general purpose register to be used with [`BasicRegisters`]
 ///
@@ -126,6 +128,76 @@ pub struct BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler>
     pub instruction_fetcher: IF,
     /// System instruction handler
     pub system_instruction_handler: InstructionHandler,
+}
+
+impl<Regs, ExtState, Memory, IF, InstructionHandler>
+    BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler>
+{
+    /// Execute the program with a given basic interpreter state.
+    ///
+    /// The implementation is designed to be efficient with little left to optimize further. Though
+    /// it is still possible to improve performance by applying additional constraints on the
+    /// program.
+    pub fn execute<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
+    where
+        Regs: RegisterFile<<I as Instruction>::Reg>,
+        I: ExecutableInstruction<Regs, ExtState, Memory, IF, InstructionHandler>,
+        Memory: VirtualMemory,
+        IF: InstructionFetcher<I, Memory> + ProgramCounter<Address<I>, Memory>,
+    {
+        replace_with_or_abort_and_return(
+            &mut self.instruction_fetcher,
+            #[inline(always)]
+            |mut instruction_fetcher| {
+                loop {
+                    let instruction = match instruction_fetcher.fetch_instruction(&self.memory) {
+                        Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
+                        Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+                            cold_path();
+                            continue;
+                        }
+                        Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+                            cold_path();
+                            break;
+                        }
+                        Err(error) => {
+                            cold_path();
+                            return (Err(error), instruction_fetcher);
+                        }
+                    };
+
+                    let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
+                    let rs1rs2_values = Rs1Rs2OperandValues {
+                        rs1_value: self.regs.read(rs1),
+                        rs2_value: self.regs.read(rs2),
+                    };
+
+                    match instruction.execute(
+                        rs1rs2_values,
+                        &mut self.regs,
+                        &mut self.ext_state,
+                        &mut self.memory,
+                        &mut instruction_fetcher,
+                        &mut self.system_instruction_handler,
+                    ) {
+                        Ok(ControlFlow::Continue((rd, rd_value))) => {
+                            self.regs.write(rd, rd_value);
+                        }
+                        Ok(ControlFlow::Break(())) => {
+                            cold_path();
+                            break;
+                        }
+                        Err(error) => {
+                            cold_path();
+                            return (Err(error), instruction_fetcher);
+                        }
+                    }
+                }
+
+                (Ok(()), instruction_fetcher)
+            },
+        )
+    }
 }
 
 /// Basic memory implementation.

@@ -23,6 +23,7 @@ all-features = true
 [dependencies]
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
+replace_with = { workspace = true }
 thiserror = { workspace = true }
 
 [build-dependencies]
