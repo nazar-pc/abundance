@@ -12,35 +12,31 @@ const BATCH_HASH_NUM_BLOCKS: usize = 16;
 /// Number of leaves that corresponds to [`BATCH_HASH_NUM_BLOCKS`]
 const BATCH_HASH_NUM_LEAVES: usize = BATCH_HASH_NUM_BLOCKS * BLOCK_LEN / OUT_LEN;
 
-/// Inner function used in [`BalancedMerkleTree::compute_root_only()`] for stack allocation, only
-/// public due to use in generic bounds
-pub const fn compute_root_only_large_stack_size(n: usize) -> usize {
-    // For small trees the large stack is not used, so the returned value does not matter as long as
-    // it compiles
-    if n < BATCH_HASH_NUM_LEAVES {
-        return 1;
-    }
-
-    (n / BATCH_HASH_NUM_LEAVES).ilog2() as usize + 1
-}
-
-/// Ensuring only supported `N` can be specified for [`BalancedMerkleTree`].
-///
-/// This is essentially a workaround for the current Rust type system constraints that do not allow
-/// a nicer way to do the same thing at compile time.
-pub const fn ensure_supported_n(n: usize) -> usize {
+const TREE_SIZE_WITHOUT_LEAVES<const N: usize>: usize = {
+    // Ensuring only supported `N` can be specified for [`BalancedMerkleTree`]
     assert!(
-        n.is_power_of_two(),
+        N.is_power_of_two(),
         "Balanced Merkle Tree must have a number of leaves that is a power of 2"
     );
 
     assert!(
-        n > 1,
+        N > 1,
         "This Balanced Merkle Tree must have more than one leaf"
     );
 
-    0
-}
+    N - 1
+};
+/// Number of elements in a proof for a tree with `N` leaves
+pub const PROOF_ELEMENTS<const N: usize>: usize = N.ilog2() as usize;
+const ROOT_ONLY_LARGE_STACK_SIZE<const N: usize>: usize = {
+    // For small trees the large stack is not used, so the returned value does not matter as long as
+    // it compiles
+    if N < BATCH_HASH_NUM_LEAVES {
+        1
+    } else {
+        (N / BATCH_HASH_NUM_LEAVES).ilog2() as usize + 1
+    }
+};
 
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
@@ -60,22 +56,15 @@ pub const fn ensure_supported_n(n: usize) -> usize {
 /// With all parameters of the tree known statically, it results in the most efficient version of
 /// the code being generated for a given set of parameters.
 #[derive(Debug)]
-pub struct BalancedMerkleTree<'a, const N: usize>
-where
-    [(); N - 1]:,
-{
+pub struct BalancedMerkleTree<'a, const N: usize> {
     leaves: &'a [[u8; OUT_LEN]],
     // This tree doesn't include leaves because we have them in `leaves` field
-    tree: [[u8; OUT_LEN]; N - 1],
+    tree: [[u8; OUT_LEN]; TREE_SIZE_WITHOUT_LEAVES::<N>],
 }
 
 // TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
 //  https://github.com/BLAKE3-team/BLAKE3/issues/478
-impl<'a, const N: usize> BalancedMerkleTree<'a, N>
-where
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-{
+impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
     /// Create a new tree from a fixed set of elements.
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!
@@ -120,7 +109,7 @@ where
             // SAFETY: Allocated and correctly aligned uninitialized data
             unsafe {
                 tree_ptr
-                    .cast::<[MaybeUninit<[u8; OUT_LEN]>; N - 1]>()
+                    .cast::<[MaybeUninit<[u8; OUT_LEN]>; TREE_SIZE_WITHOUT_LEAVES::<N>]>()
                     .as_mut_unchecked()
             }
         };
@@ -149,7 +138,10 @@ where
         all(feature = "no-panic", not(target_arch = "riscv64")),
         no_panic::no_panic
     )]
-    fn init_internal(leaves: &[[u8; OUT_LEN]; N], tree: &mut [MaybeUninit<[u8; OUT_LEN]>; N - 1]) {
+    fn init_internal(
+        leaves: &[[u8; OUT_LEN]; N],
+        tree: &mut [MaybeUninit<[u8; OUT_LEN]>; TREE_SIZE_WITHOUT_LEAVES::<N>],
+    ) {
         let mut tree_hashes = tree.as_mut_slice();
         let mut level_hashes = leaves.as_slice();
 
@@ -193,9 +185,10 @@ where
                 {
                     // SAFETY: Same size and alignment
                     let pair = unsafe {
-                        mem::transmute::<&[[u8; OUT_LEN]; BLOCK_LEN / OUT_LEN], &[u8; BLOCK_LEN]>(
-                            pair,
-                        )
+                        mem::transmute::<
+                            &[[u8; OUT_LEN]; const { BLOCK_LEN / OUT_LEN }],
+                            &[u8; BLOCK_LEN],
+                        >(pair)
                     };
                     parent_hash.write(hash_pair_block(pair));
                 }
@@ -213,11 +206,7 @@ where
     /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn compute_root_only(leaves: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
-    where
-        [(); N.ilog2() as usize + 1]:,
-        [(); compute_root_only_large_stack_size(N)]:,
-    {
+    pub fn compute_root_only(leaves: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN] {
         // Special case for small trees below optimal SIMD width
         match N {
             2 => {
@@ -255,8 +244,7 @@ where
         // Stack of intermediate nodes per tree level. The logic here is the same as with a small
         // tree above, except we store `BATCH_HASH_NUM_BLOCKS` hashes per level and do a
         // post-processing step at the very end to collapse them into a single root hash.
-        let mut stack =
-            [[[0u8; OUT_LEN]; BATCH_HASH_NUM_BLOCKS]; compute_root_only_large_stack_size(N)];
+        let mut stack = [[[0u8; OUT_LEN]; BATCH_HASH_NUM_BLOCKS]; ROOT_ONLY_LARGE_STACK_SIZE::<N>];
 
         // This variable allows reusing and reducing stack usage instead of having a separate
         // `current` variable
@@ -290,13 +278,24 @@ where
             stack[lowest_active_levels].copy_from_slice(current_half);
         }
 
-        let hashes = &mut stack[compute_root_only_large_stack_size(N) - 1];
-        let hashes = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 2 }, _>(hashes);
-        let hashes = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 4 }, _>(&hashes);
-        let hashes = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 8 }, _>(&hashes);
-        let [root] = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 16 }, _>(&hashes);
+        let hashes = &stack[const { ROOT_ONLY_LARGE_STACK_SIZE::<N> - 1 }];
+        // TODO: Extracted into `Self::inner_hash_pairs()` function to allow `no-panic` crate to
+        //  parse the syntax (it only supports stable Rust syntax)
+        // let hashes = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 2 }, _>(hashes);
+        // let hashes = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 4 }, _>(&hashes);
+        // let hashes = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 8 }, _>(&hashes);
+        // let [root] = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 16 }, _>(&hashes);
+        let [root] = Self::inner_hash_pairs(hashes);
 
         root
+    }
+
+    #[inline(always)]
+    fn inner_hash_pairs(hashes: &[[u8; OUT_LEN]; BATCH_HASH_NUM_BLOCKS]) -> [[u8; OUT_LEN]; 1] {
+        let hashes = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 2 }, _>(hashes);
+        let hashes = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 4 }, _>(&hashes);
+        let hashes = hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 8 }, _>(&hashes);
+        hash_pairs::<const { BATCH_HASH_NUM_BLOCKS / 16 }, _>(&hashes)
     }
 
     /// Get the root of Merkle Tree
@@ -312,10 +311,7 @@ where
 
     /// Iterator over proofs in the same order as provided leaf hashes
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn all_proofs(&self) -> ProofsIterator<'_, N>
-    where
-        [(); N.ilog2() as usize]:,
-    {
+    pub fn all_proofs(&self) -> ProofsIterator<'_, N> {
         ProofsIterator {
             leaves: self.leaves,
             tree: &self.tree,
@@ -329,13 +325,10 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
         root: &[u8; OUT_LEN],
-        proof: &[[u8; OUT_LEN]; N.ilog2() as usize],
+        proof: &[[u8; OUT_LEN]; PROOF_ELEMENTS::<N>],
         leaf_index: usize,
         leaf: [u8; OUT_LEN],
-    ) -> bool
-    where
-        [(); N.ilog2() as usize]:,
-    {
+    ) -> bool {
         if leaf_index >= N {
             return false;
         }
@@ -359,25 +352,15 @@ where
 
 /// Iterator over proofs for a balanced Merkle tree
 #[derive(Debug)]
-pub struct ProofsIterator<'a, const N: usize>
-where
-    [(); N.ilog2() as usize]:,
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-{
-    pub(super) leaves: &'a [[u8; OUT_LEN]],
-    pub(super) tree: &'a [[u8; OUT_LEN]; N - 1],
-    pub(super) leaf_index: usize,
-    pub(super) len: usize,
+pub struct ProofsIterator<'a, const N: usize> {
+    leaves: &'a [[u8; OUT_LEN]],
+    tree: &'a [[u8; OUT_LEN]; TREE_SIZE_WITHOUT_LEAVES::<N>],
+    leaf_index: usize,
+    len: usize,
 }
 
-impl<'a, const N: usize> Iterator for ProofsIterator<'a, N>
-where
-    [(); N.ilog2() as usize]:,
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-{
-    type Item = [[u8; OUT_LEN]; N.ilog2() as usize];
+impl<'a, const N: usize> Iterator for ProofsIterator<'a, N> {
+    type Item = [[u8; OUT_LEN]; PROOF_ELEMENTS::<N>];
 
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -462,12 +445,7 @@ where
     }
 }
 
-impl<'a, const N: usize> ExactSizeIterator for ProofsIterator<'a, N>
-where
-    [(); N.ilog2() as usize]:,
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-{
+impl<'a, const N: usize> ExactSizeIterator for ProofsIterator<'a, N> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.len
@@ -475,10 +453,4 @@ where
 }
 
 // SAFETY: size_hint is always exact
-unsafe impl<'a, const N: usize> TrustedLen for ProofsIterator<'a, N>
-where
-    [(); N.ilog2() as usize]:,
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-{
-}
+unsafe impl<'a, const N: usize> TrustedLen for ProofsIterator<'a, N> {}

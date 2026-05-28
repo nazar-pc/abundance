@@ -1,5 +1,5 @@
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(generic_const_exprs)]
+#![expect(incomplete_features, reason = "generic_const_*")]
+#![feature(generic_const_args, min_generic_const_args)]
 
 use ab_blake3::OUT_LEN;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
