@@ -638,9 +638,10 @@ jobs:
       - act4
 
     steps:
-      - name: Exit failure
-        if: "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}"
-        run: exit 1
-      - name: Exit success
-        if: "${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}"
-        run: exit 0
+      - name: Job status check
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            [[ "$result" == "success" ]] || exit 1
+          done
