@@ -123,7 +123,7 @@ where
     }
 }
 
-impl const From<u128> for Balance {
+const impl From<u128> for Balance {
     #[inline(always)]
     fn from(value: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
@@ -135,7 +135,7 @@ impl const From<u128> for Balance {
     }
 }
 
-impl const From<&Balance> for u128 {
+const impl From<&Balance> for u128 {
     #[inline(always)]
     fn from(value: &Balance) -> Self {
         // SAFETY: correct size, valid pointer, and all bits are valid
@@ -143,7 +143,7 @@ impl const From<&Balance> for u128 {
     }
 }
 
-impl const From<Balance> for u128 {
+const impl From<Balance> for u128 {
     #[inline(always)]
     fn from(value: Balance) -> Self {
         Self::from(&value)

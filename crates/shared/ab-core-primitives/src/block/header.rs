@@ -514,7 +514,9 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
         // SAFETY: Valid pointer and size, no alignment requirements
         let child_shard_blocks = unsafe {
             slice::from_raw_parts(
-                child_shard_blocks.as_ptr().cast::<[u8; BlockRoot::SIZE]>(),
+                child_shard_blocks
+                    .as_ptr()
+                    .cast::<[u8; const { BlockRoot::SIZE }]>(),
                 num_blocks,
             )
         };
@@ -527,18 +529,19 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
     ///
     /// `None` is returned if there are no child shard blocks.
     pub fn root(&self) -> Option<Blake3Hash> {
-        let root = UnbalancedMerkleTree::compute_root_only::<'_, { u32::MAX as u64 }, _, _>(
-            // TODO: Keyed hash
-            self.child_shard_blocks
-                .iter()
-                .map(|child_shard_block_root| {
-                    // Hash the root again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
-                    single_block_hash(child_shard_block_root.as_ref())
-                        .expect("Less than a single block worth of bytes; qed")
-                }),
-        )?;
+        let root =
+            UnbalancedMerkleTree::compute_root_only::<'_, const { u64::from(u32::MAX) }, _, _>(
+                // TODO: Keyed hash
+                self.child_shard_blocks
+                    .iter()
+                    .map(|child_shard_block_root| {
+                        // Hash the root again so we can prove it, otherwise headers root is
+                        // indistinguishable from individual block roots and can be used to confuse
+                        // verifier
+                        single_block_hash(child_shard_block_root.as_ref())
+                            .expect("Less than a single block worth of bytes; qed")
+                    }),
+            )?;
         Some(Blake3Hash::new(root))
     }
 }
@@ -963,20 +966,14 @@ impl<'a> BeaconChainHeader<'a> {
                 seal,
             } = shared;
 
-            const MAX_N: usize = 6;
-            // TODO: separate constant should not be necessary, but
-            //  https://github.com/rust-lang/rust/issues/148596
-            const MAX_N_U64: u64 = 6;
-            let leaves: [_; MAX_N] = [
+            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 child_shard_blocks.root().unwrap_or_default(),
                 consensus_parameters.hash(),
-            ];
-            let block_root = UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(leaves)
-                .expect("The list is not empty; qed");
+            ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
         };
@@ -1258,20 +1255,14 @@ impl<'a> IntermediateShardHeader<'a> {
                 seal,
             } = shared;
 
-            const MAX_N: usize = 6;
-            // TODO: separate constant should not be necessary, but
-            //  https://github.com/rust-lang/rust/issues/148596
-            const MAX_N_U64: u64 = 6;
-            let leaves: [_; MAX_N] = [
+            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
                 child_shard_blocks.root().unwrap_or_default(),
-            ];
-            let block_root = UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(leaves)
-                .expect("The list is not empty; qed");
+            ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
         };
@@ -1532,19 +1523,13 @@ impl<'a> LeafShardHeader<'a> {
                 seal,
             } = shared;
 
-            const MAX_N: usize = 5;
-            // TODO: separate constant should not be necessary, but
-            //  https://github.com/rust-lang/rust/issues/148596
-            const MAX_N_U64: u64 = 5;
-            let leaves: [_; MAX_N] = [
+            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
-            ];
-            let block_root = UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(leaves)
-                .expect("The list is not empty; qed");
+            ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
         };

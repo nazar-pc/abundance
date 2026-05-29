@@ -123,7 +123,7 @@ impl PartialOrd for Address {
     }
 }
 
-impl const From<u128> for Address {
+const impl From<u128> for Address {
     #[inline(always)]
     fn from(value: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
@@ -135,7 +135,7 @@ impl const From<u128> for Address {
     }
 }
 
-impl const From<&Address> for u128 {
+const impl From<&Address> for u128 {
     #[inline(always)]
     fn from(value: &Address) -> Self {
         // SAFETY: correct size, valid pointer, and all bits are valid
@@ -143,7 +143,7 @@ impl const From<&Address> for u128 {
     }
 }
 
-impl const From<Address> for u128 {
+const impl From<Address> for u128 {
     #[inline(always)]
     fn from(value: Address) -> Self {
         Self::from(&value)

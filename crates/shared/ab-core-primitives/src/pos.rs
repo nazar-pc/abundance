@@ -16,7 +16,7 @@ use serde_big_array::BigArray;
 
 /// Proof of space seed.
 #[derive(Copy, Clone, Eq, PartialEq, Deref, From, Into)]
-pub struct PosSeed([u8; PosSeed::SIZE]);
+pub struct PosSeed([u8; const { PosSeed::SIZE }]);
 
 impl fmt::Debug for PosSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -36,7 +36,7 @@ impl PosSeed {
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct PosProof([u8; PosProof::SIZE]);
+pub struct PosProof([u8; const { PosProof::SIZE }]);
 
 impl fmt::Debug for PosProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -50,12 +50,12 @@ impl fmt::Debug for PosProof {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PosProofBinary(#[serde(with = "BigArray")] [u8; PosProof::SIZE]);
+struct PosProofBinary(#[serde(with = "BigArray")] [u8; const { PosProof::SIZE }]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PosProofHex(#[serde(with = "hex")] [u8; PosProof::SIZE]);
+struct PosProofHex(#[serde(with = "hex")] [u8; const { PosProof::SIZE }]);
 
 #[cfg(feature = "serde")]
 impl Serialize for PosProof {
@@ -90,8 +90,18 @@ impl<'de> Deserialize<'de> for PosProof {
 impl Default for PosProof {
     #[inline]
     fn default() -> Self {
-        Self([0; Self::SIZE])
+        Self([0; _])
     }
+}
+
+const PROOF_SIZE: usize =
+    usize::from(PosProof::K) * 2usize.pow(u32::from(PosProof::NUM_TABLES - 1)) / u8::BITS as usize;
+
+// TODO: This is a workaround for https://github.com/rust-lang/rust/issues/157097. When resolved,
+//  `PROOF_SIZE` should simply be inlined into `PosProof::SIZE`
+const PROOF_SIZE_CONST: usize = 160;
+const {
+    assert!(PROOF_SIZE == PROOF_SIZE_CONST);
 }
 
 impl PosProof {
@@ -99,8 +109,7 @@ impl PosProof {
     pub const K: u8 = 20;
     const NUM_TABLES: u8 = 7;
     /// Size of proof of space proof in bytes
-    pub const SIZE: usize =
-        usize::from(Self::K) * 2usize.pow(u32::from(Self::NUM_TABLES - 1)) / u8::BITS as usize;
+    pub const SIZE: usize = PROOF_SIZE_CONST;
 
     /// Proof hash.
     pub fn hash(&self) -> Blake3Hash {

@@ -9,15 +9,15 @@
     const_default,
     const_trait_impl,
     const_try,
+    generic_const_args,
+    inherent_associated_types,
+    min_generic_const_args,
     portable_simd,
     slice_split_once,
     step_trait,
     trusted_len
 )]
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-// TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/141492
-#![feature(generic_const_exprs)]
+#![expect(incomplete_features, reason = "generic_const_*")]
 
 pub mod address;
 pub mod balance;

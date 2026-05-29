@@ -19,7 +19,7 @@ use serde_big_array::BigArray;
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct Ed25519PublicKey([u8; Ed25519PublicKey::SIZE]);
+pub struct Ed25519PublicKey([u8; const { Ed25519PublicKey::SIZE }]);
 
 impl From<VerifyingKey> for Ed25519PublicKey {
     #[inline(always)]
@@ -40,12 +40,12 @@ impl fmt::Debug for Ed25519PublicKey {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct Ed25519PublicKeyBinary([u8; Ed25519PublicKey::SIZE]);
+struct Ed25519PublicKeyBinary([u8; const { Ed25519PublicKey::SIZE }]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct Ed25519PublicKeyHex(#[serde(with = "hex")] [u8; Ed25519PublicKey::SIZE]);
+struct Ed25519PublicKeyHex(#[serde(with = "hex")] [u8; const { Ed25519PublicKey::SIZE }]);
 
 #[cfg(feature = "serde")]
 impl Serialize for Ed25519PublicKey {
@@ -117,7 +117,7 @@ impl Ed25519PublicKey {
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct Ed25519Signature([u8; Ed25519Signature::SIZE]);
+pub struct Ed25519Signature([u8; const { Ed25519Signature::SIZE }]);
 
 impl From<Signature> for Ed25519Signature {
     #[inline(always)]
@@ -128,7 +128,7 @@ impl From<Signature> for Ed25519Signature {
 
 impl Default for Ed25519Signature {
     fn default() -> Self {
-        Self([0; Self::SIZE])
+        Self([0; _])
     }
 }
 
@@ -144,12 +144,12 @@ impl fmt::Debug for Ed25519Signature {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct Ed25519SignatureBinary(#[serde(with = "BigArray")] [u8; Ed25519Signature::SIZE]);
+struct Ed25519SignatureBinary(#[serde(with = "BigArray")] [u8; const { Ed25519Signature::SIZE }]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct Ed25519SignatureHex(#[serde(with = "hex")] [u8; Ed25519Signature::SIZE]);
+struct Ed25519SignatureHex(#[serde(with = "hex")] [u8; const { Ed25519Signature::SIZE }]);
 
 #[cfg(feature = "serde")]
 impl Serialize for Ed25519Signature {
