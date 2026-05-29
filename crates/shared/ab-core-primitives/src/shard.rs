@@ -103,14 +103,14 @@ impl From<RealShardKind> for ShardKind {
 #[repr(C)]
 pub struct ShardIndex(u32);
 
-impl const Default for ShardIndex {
+const impl Default for ShardIndex {
     #[inline(always)]
     fn default() -> Self {
         Self::BEACON_CHAIN
     }
 }
 
-impl const From<ShardIndex> for u32 {
+const impl From<ShardIndex> for u32 {
     #[inline(always)]
     fn from(shard_index: ShardIndex) -> Self {
         shard_index.0
@@ -260,7 +260,10 @@ pub struct NumShards {
 
 #[cfg(feature = "scale-codec")]
 impl Decode for NumShards {
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         let intermediate_shards = Decode::decode(input)
             .map_err(|error| error.chain("Could not decode `NumShards::intermediate_shards`"))?;
         let leaf_shards_per_intermediate_shard = Decode::decode(input).map_err(|error| {
@@ -390,9 +393,11 @@ impl NumShards {
         history_size: HistorySize,
     ) -> ShardIndex {
         let hash = single_block_keyed_hash(public_key_hash, &{
-            let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
-                + ShardMembershipEntropy::SIZE
-                + HistorySize::SIZE as usize];
+            let mut bytes_to_hash = [0u8; const {
+                ShardCommitmentHash::SIZE
+                    + ShardMembershipEntropy::SIZE
+                    + HistorySize::SIZE as usize
+            }];
             bytes_to_hash[..ShardCommitmentHash::SIZE]
                 .copy_from_slice(shard_commitments_root.as_bytes());
             bytes_to_hash[ShardCommitmentHash::SIZE..][..ShardMembershipEntropy::SIZE]
@@ -424,9 +429,11 @@ impl NumShards {
         history_size: HistorySize,
     ) -> u32 {
         let hash = single_block_keyed_hash(public_key_hash, &{
-            let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
-                + ShardMembershipEntropy::SIZE
-                + HistorySize::SIZE as usize];
+            let mut bytes_to_hash = [0u8; const {
+                ShardCommitmentHash::SIZE
+                    + ShardMembershipEntropy::SIZE
+                    + HistorySize::SIZE as usize
+            }];
             bytes_to_hash[..ShardCommitmentHash::SIZE]
                 .copy_from_slice(shard_commitments_root.as_bytes());
             bytes_to_hash[ShardCommitmentHash::SIZE..][..ShardMembershipEntropy::SIZE]
@@ -454,9 +461,11 @@ impl NumShards {
         history_size: HistorySize,
     ) -> (ShardIndex, u32) {
         let hash = single_block_keyed_hash(public_key_hash, &{
-            let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
-                + ShardMembershipEntropy::SIZE
-                + HistorySize::SIZE as usize];
+            let mut bytes_to_hash = [0u8; const {
+                ShardCommitmentHash::SIZE
+                    + ShardMembershipEntropy::SIZE
+                    + HistorySize::SIZE as usize
+            }];
             bytes_to_hash[..ShardCommitmentHash::SIZE]
                 .copy_from_slice(shard_commitments_root.as_bytes());
             bytes_to_hash[ShardCommitmentHash::SIZE..][..ShardMembershipEntropy::SIZE]

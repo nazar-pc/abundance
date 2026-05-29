@@ -29,7 +29,7 @@ impl Deref for FlatPieces {
         // are preserved
         let pieces = unsafe {
             slice::from_raw_parts(
-                bytes.as_ptr().cast::<[u8; Piece::SIZE]>(),
+                bytes.as_ptr().cast::<[u8; const { Piece::SIZE }]>(),
                 bytes.len() / Piece::SIZE,
             )
         };
@@ -45,7 +45,7 @@ impl DerefMut for FlatPieces {
         // are preserved
         let pieces = unsafe {
             slice::from_raw_parts_mut(
-                bytes.as_mut_ptr().cast::<[u8; Piece::SIZE]>(),
+                bytes.as_mut_ptr().cast::<[u8; const { Piece::SIZE }]>(),
                 bytes.len() / Piece::SIZE,
             )
         };
@@ -72,12 +72,16 @@ impl FlatPieces {
         match &self.0 {
             CowBytes::Shared(bytes) => Box::new(
                 bytes
-                    .chunks_exact(Piece::SIZE)
+                    .as_chunks::<const { Piece::SIZE }>()
+                    .0
+                    .iter()
                     .map(|slice| Piece(CowBytes::Shared(bytes.slice_ref(slice)))),
             ),
             CowBytes::Owned(bytes) => Box::new(
                 bytes
-                    .chunks_exact(Piece::SIZE)
+                    .as_chunks::<const { Piece::SIZE }>()
+                    .0
+                    .iter()
                     .map(|slice| Piece(CowBytes::Shared(Bytes::copy_from_slice(slice)))),
             ),
         }

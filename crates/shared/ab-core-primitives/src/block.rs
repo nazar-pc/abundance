@@ -69,14 +69,14 @@ impl Step for BlockNumber {
     }
 }
 
-impl const From<u64> for BlockNumber {
+const impl From<u64> for BlockNumber {
     #[inline(always)]
     fn from(value: u64) -> Self {
         Self(value)
     }
 }
 
-impl const From<BlockNumber> for u64 {
+const impl From<BlockNumber> for u64 {
     #[inline(always)]
     fn from(value: BlockNumber) -> Self {
         value.0
@@ -95,13 +95,13 @@ impl BlockNumber {
 
     /// Create block number from bytes
     #[inline(always)]
-    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
+    pub const fn from_bytes(bytes: [u8; const { Self::SIZE }]) -> Self {
         Self(u64::from_le_bytes(bytes))
     }
 
     /// Convert block number to bytes
     #[inline(always)]
-    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
+    pub const fn to_bytes(self) -> [u8; const { Self::SIZE }] {
         self.0.to_le_bytes()
     }
 
@@ -268,7 +268,7 @@ impl BlockRoot {
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
         let value = Blake3Hash::slice_from_repr(value);
         // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -276,7 +276,7 @@ impl BlockRoot {
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
         // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
         let value = unsafe { mem::transmute::<&[Self], &[Blake3Hash]>(value) };
         Blake3Hash::repr_from_slice(value)
@@ -746,14 +746,14 @@ impl<'a> Block<'a> {
 #[repr(C)]
 pub struct BlockWeight(u128);
 
-impl const From<u128> for BlockWeight {
+const impl From<u128> for BlockWeight {
     #[inline(always)]
     fn from(value: u128) -> Self {
         Self(value)
     }
 }
 
-impl const From<BlockWeight> for u128 {
+const impl From<BlockWeight> for u128 {
     #[inline(always)]
     fn from(value: BlockWeight) -> Self {
         value.0
