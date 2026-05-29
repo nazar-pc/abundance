@@ -271,13 +271,6 @@ jobs:
       - *mold-use-step
       - *lld-step
 
-      # TODO: This is a workaround for https://github.com/rust-lang/miri/issues/3172#issuecomment-2986871634
-      - name: Miri aarch64 workaround
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_backend=\"soft\"" >> $GITHUB_ENV
-        if: matrix.miri == true && runner.arch == 'ARM64'
-
       - name: Install Vulkan runtime (Linux)
         run: |
           sudo apt-get update
