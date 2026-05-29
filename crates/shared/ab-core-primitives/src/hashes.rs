@@ -28,12 +28,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct Blake3Hash([u8; Blake3Hash::SIZE]);
+pub struct Blake3Hash([u8; const { Blake3Hash::SIZE }]);
 
-impl const Default for Blake3Hash {
+const impl Default for Blake3Hash {
     #[inline(always)]
     fn default() -> Self {
-        Self([0; Self::SIZE])
+        Self([0; _])
     }
 }
 
@@ -49,12 +49,12 @@ impl fmt::Display for Blake3Hash {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct Blake3HashBinary([u8; Blake3Hash::SIZE]);
+struct Blake3HashBinary([u8; const { Blake3Hash::SIZE }]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct Blake3HashHex(#[serde(with = "hex")] [u8; Blake3Hash::SIZE]);
+struct Blake3HashHex(#[serde(with = "hex")] [u8; const { Blake3Hash::SIZE }]);
 
 #[cfg(feature = "serde")]
 impl Serialize for Blake3Hash {
@@ -128,20 +128,20 @@ impl Blake3Hash {
 
     /// Get internal representation
     #[inline(always)]
-    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+    pub const fn as_bytes(&self) -> &[u8; const { Self::SIZE }] {
         &self.0
     }
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
         // SAFETY: `Blake3Hash` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
         // SAFETY: `Blake3Hash` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }

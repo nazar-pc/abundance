@@ -514,7 +514,9 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
         // SAFETY: Valid pointer and size, no alignment requirements
         let child_shard_blocks = unsafe {
             slice::from_raw_parts(
-                child_shard_blocks.as_ptr().cast::<[u8; BlockRoot::SIZE]>(),
+                child_shard_blocks
+                    .as_ptr()
+                    .cast::<[u8; const { BlockRoot::SIZE }]>(),
                 num_blocks,
             )
         };
@@ -527,18 +529,19 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
     ///
     /// `None` is returned if there are no child shard blocks.
     pub fn root(&self) -> Option<Blake3Hash> {
-        let root = UnbalancedMerkleTree::compute_root_only::<'_, { u32::MAX as u64 }, _, _>(
-            // TODO: Keyed hash
-            self.child_shard_blocks
-                .iter()
-                .map(|child_shard_block_root| {
-                    // Hash the root again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
-                    single_block_hash(child_shard_block_root.as_ref())
-                        .expect("Less than a single block worth of bytes; qed")
-                }),
-        )?;
+        let root =
+            UnbalancedMerkleTree::compute_root_only::<'_, const { u64::from(u32::MAX) }, _, _>(
+                // TODO: Keyed hash
+                self.child_shard_blocks
+                    .iter()
+                    .map(|child_shard_block_root| {
+                        // Hash the root again so we can prove it, otherwise headers root is
+                        // indistinguishable from individual block roots and can be used to confuse
+                        // verifier
+                        single_block_hash(child_shard_block_root.as_ref())
+                            .expect("Less than a single block worth of bytes; qed")
+                    }),
+            )?;
         Some(Blake3Hash::new(root))
     }
 }
@@ -576,15 +579,58 @@ impl BlockHeaderResult {
 
 /// Block header seal type
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+// TODO: Use derives instead of expanded code below once this is merged and released:
+//  https://github.com/rodrimati1992/const_format_crates/pull/71
+// #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "scale-codec", derive(MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum BlockHeaderSealType {
     /// Ed25519 signature
-    #[cfg_attr(feature = "scale-codec", codec(index = 0))]
+    // TODO: Un-comment attribute once this is merged and released:
+    //  https://github.com/rodrimati1992/const_format_crates/pull/71
+    // #[cfg_attr(feature = "scale-codec", codec(index = 0))]
     Ed25519 = 0,
+}
+
+// TODO: Use derives instead of expanded code below once this is merged and released:
+//  https://github.com/rodrimati1992/const_format_crates/pull/71
+#[cfg(feature = "scale-codec")]
+#[expect(clippy::inline_modules, reason = "Temporary hack")]
+mod block_header_seal_type_scale {
+    use super::BlockHeaderSealType;
+
+    impl parity_scale_codec::Encode for BlockHeaderSealType {
+        fn size_hint(&self) -> usize {
+            1
+        }
+        fn encode_to<O>(&self, dest: &mut O)
+        where
+            O: parity_scale_codec::Output + ?Sized,
+        {
+            dest.push_byte(0);
+        }
+    }
+
+    impl parity_scale_codec::EncodeLike for BlockHeaderSealType {}
+
+    impl parity_scale_codec::Decode for BlockHeaderSealType {
+        fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+        where
+            I: parity_scale_codec::Input,
+        {
+            if input.read_byte().map_err(|e| {
+                e.chain("Could not decode `BlockHeaderSealType`, failed to read variant byte")
+            })? == 0
+            {
+                Ok(BlockHeaderSealType::Ed25519)
+            } else {
+                Err("Could not decode `BlockHeaderSealType`, variant doesn't exist".into())
+            }
+        }
+    }
 }
 
 impl BlockHeaderSealType {
@@ -614,13 +660,63 @@ pub struct BlockHeaderEd25519Seal {
 
 /// Owned version of [`BlockHeaderSeal`]
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+// TODO: Use derives instead of expanded code below once this is merged and released:
+//  https://github.com/rodrimati1992/const_format_crates/pull/71
+// #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+#[cfg_attr(feature = "scale-codec", derive(MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[non_exhaustive]
 pub enum OwnedBlockHeaderSeal {
     /// Ed25519 seal
     Ed25519(BlockHeaderEd25519Seal),
+}
+
+// TODO: Use derives instead of expanded code below once this is merged and released:
+//  https://github.com/rodrimati1992/const_format_crates/pull/71
+#[cfg(feature = "scale-codec")]
+#[expect(clippy::inline_modules, reason = "Temporary hack")]
+mod owned_block_header_seal_scale {
+    use super::{BlockHeaderEd25519Seal, OwnedBlockHeaderSeal};
+
+    impl parity_scale_codec::Encode for OwnedBlockHeaderSeal {
+        fn size_hint(&self) -> usize {
+            1_usize
+                + match self {
+                    OwnedBlockHeaderSeal::Ed25519(seal) => 0_usize.saturating_add(seal.size_hint()),
+                }
+        }
+        fn encode_to<O>(&self, dest: &mut O)
+        where
+            O: parity_scale_codec::Output + ?Sized,
+        {
+            let OwnedBlockHeaderSeal::Ed25519(seal) = self;
+            dest.push_byte(0);
+            parity_scale_codec::Encode::encode_to(seal, dest);
+        }
+    }
+
+    impl parity_scale_codec::EncodeLike for OwnedBlockHeaderSeal {}
+
+    impl parity_scale_codec::Decode for OwnedBlockHeaderSeal {
+        fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+        where
+            I: parity_scale_codec::Input,
+        {
+            if input.read_byte().map_err(|e| {
+                e.chain("Could not decode `OwnedBlockHeaderSeal`, failed to read variant byte")
+            })? == 0
+            {
+                Ok(OwnedBlockHeaderSeal::Ed25519(
+                    BlockHeaderEd25519Seal::decode(input).map_err(|e| {
+                        e.chain("Could not decode `OwnedBlockHeaderSeal::Ed25519.0`")
+                    })?,
+                ))
+            } else {
+                Err("Could not decode `OwnedBlockHeaderSeal`, variant doesn't exist".into())
+            }
+        }
+    }
 }
 
 impl OwnedBlockHeaderSeal {
@@ -963,20 +1059,14 @@ impl<'a> BeaconChainHeader<'a> {
                 seal,
             } = shared;
 
-            const MAX_N: usize = 6;
-            // TODO: separate constant should not be necessary, but
-            //  https://github.com/rust-lang/rust/issues/148596
-            const MAX_N_U64: u64 = 6;
-            let leaves: [_; MAX_N] = [
+            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 child_shard_blocks.root().unwrap_or_default(),
                 consensus_parameters.hash(),
-            ];
-            let block_root = UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(leaves)
-                .expect("The list is not empty; qed");
+            ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
         };
@@ -1258,20 +1348,14 @@ impl<'a> IntermediateShardHeader<'a> {
                 seal,
             } = shared;
 
-            const MAX_N: usize = 6;
-            // TODO: separate constant should not be necessary, but
-            //  https://github.com/rust-lang/rust/issues/148596
-            const MAX_N_U64: u64 = 6;
-            let leaves: [_; MAX_N] = [
+            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
                 child_shard_blocks.root().unwrap_or_default(),
-            ];
-            let block_root = UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(leaves)
-                .expect("The list is not empty; qed");
+            ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
         };
@@ -1532,19 +1616,13 @@ impl<'a> LeafShardHeader<'a> {
                 seal,
             } = shared;
 
-            const MAX_N: usize = 5;
-            // TODO: separate constant should not be necessary, but
-            //  https://github.com/rust-lang/rust/issues/148596
-            const MAX_N_U64: u64 = 5;
-            let leaves: [_; MAX_N] = [
+            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
-            ];
-            let block_root = UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(leaves)
-                .expect("The list is not empty; qed");
+            ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
         };

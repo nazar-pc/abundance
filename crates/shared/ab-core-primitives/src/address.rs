@@ -13,8 +13,9 @@ use derive_more::Deref;
 /// Formatted address
 #[derive(Copy, Clone)]
 pub struct FormattedAddress {
-    buffer:
-        [u8; ShortHrp::MAX_HRP_LENGTH + FormattedAddress::MAX_ENCODING_WITHOUT_HRP_WITH_SEPARATOR],
+    buffer: [u8; const {
+        ShortHrp::MAX_HRP_LENGTH + FormattedAddress::MAX_ENCODING_WITHOUT_HRP_WITH_SEPARATOR
+    }],
     length: usize,
 }
 
@@ -123,7 +124,7 @@ impl PartialOrd for Address {
     }
 }
 
-impl const From<u128> for Address {
+const impl From<u128> for Address {
     #[inline(always)]
     fn from(value: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
@@ -135,7 +136,7 @@ impl const From<u128> for Address {
     }
 }
 
-impl const From<&Address> for u128 {
+const impl From<&Address> for u128 {
     #[inline(always)]
     fn from(value: &Address) -> Self {
         // SAFETY: correct size, valid pointer, and all bits are valid
@@ -143,7 +144,7 @@ impl const From<&Address> for u128 {
     }
 }
 
-impl const From<Address> for u128 {
+const impl From<Address> for u128 {
     #[inline(always)]
     fn from(value: Address) -> Self {
         Self::from(&value)

@@ -107,14 +107,14 @@ impl SolutionDistance {
 #[repr(C)]
 pub struct SolutionRange(u64);
 
-impl const From<u64> for SolutionRange {
+const impl From<u64> for SolutionRange {
     #[inline(always)]
     fn from(value: u64) -> Self {
         Self(value)
     }
 }
 
-impl const From<SolutionRange> for u64 {
+const impl From<SolutionRange> for u64 {
     #[inline(always)]
     fn from(value: SolutionRange) -> Self {
         value.0
@@ -258,7 +258,7 @@ const {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct ChunkProof([[u8; OUT_LEN]; ChunkProof::NUM_HASHES]);
+pub struct ChunkProof([[u8; OUT_LEN]; const { ChunkProof::NUM_HASHES }]);
 
 impl fmt::Debug for ChunkProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -277,7 +277,9 @@ impl fmt::Debug for ChunkProof {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ChunkProofBinary(#[serde(with = "BigArray")] [[u8; OUT_LEN]; ChunkProof::NUM_HASHES]);
+struct ChunkProofBinary(
+    #[serde(with = "BigArray")] [[u8; OUT_LEN]; const { ChunkProof::NUM_HASHES }],
+);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
@@ -287,7 +289,7 @@ struct ChunkProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ChunkProofHex([ChunkProofHexHash; ChunkProof::NUM_HASHES]);
+struct ChunkProofHex([ChunkProofHexHash; const { ChunkProof::NUM_HASHES }]);
 
 #[cfg(feature = "serde")]
 impl Serialize for ChunkProof {
@@ -301,8 +303,8 @@ impl Serialize for ChunkProof {
             // same memory layout
             ChunkProofHex(unsafe {
                 mem::transmute::<
-                    [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
-                    [ChunkProofHexHash; ChunkProof::NUM_HASHES],
+                    [[u8; OUT_LEN]; const { Self::NUM_HASHES }],
+                    [ChunkProofHexHash; const { Self::NUM_HASHES }],
                 >(self.0)
             })
             .serialize(serializer)
@@ -324,8 +326,8 @@ impl<'de> Deserialize<'de> for ChunkProof {
             // same memory layout
             unsafe {
                 mem::transmute::<
-                    [ChunkProofHexHash; ChunkProof::NUM_HASHES],
-                    [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
+                    [ChunkProofHexHash; const { Self::NUM_HASHES }],
+                    [[u8; OUT_LEN]; const { Self::NUM_HASHES }],
                 >(ChunkProofHex::deserialize(deserializer)?.0)
             }
         } else {
@@ -337,7 +339,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
 impl Default for ChunkProof {
     #[inline]
     fn default() -> Self {
-        Self([[0; OUT_LEN]; ChunkProof::NUM_HASHES])
+        Self([[0; OUT_LEN]; _])
     }
 }
 
@@ -517,7 +519,7 @@ pub trait SolutionPotVerifier {
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct ShardMembershipEntropy([u8; ShardMembershipEntropy::SIZE]);
+pub struct ShardMembershipEntropy([u8; const { ShardMembershipEntropy::SIZE }]);
 
 impl fmt::Display for ShardMembershipEntropy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -531,12 +533,14 @@ impl fmt::Display for ShardMembershipEntropy {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ShardMembershipEntropyBinary([u8; ShardMembershipEntropy::SIZE]);
+struct ShardMembershipEntropyBinary([u8; const { ShardMembershipEntropy::SIZE }]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ShardMembershipEntropyHex(#[serde(with = "hex")] [u8; ShardMembershipEntropy::SIZE]);
+struct ShardMembershipEntropyHex(
+    #[serde(with = "hex")] [u8; const { ShardMembershipEntropy::SIZE }],
+);
 
 #[cfg(feature = "serde")]
 impl Serialize for ShardMembershipEntropy {
@@ -597,19 +601,19 @@ impl ShardMembershipEntropy {
 
     /// Create a new instance
     #[inline(always)]
-    pub const fn new(bytes: [u8; Self::SIZE]) -> Self {
+    pub const fn new(bytes: [u8; const { Self::SIZE }]) -> Self {
         Self(bytes)
     }
 
     /// Get internal representation
     #[inline(always)]
-    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+    pub const fn as_bytes(&self) -> &[u8; const { Self::SIZE }] {
         &self.0
     }
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
         // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -617,7 +621,7 @@ impl ShardMembershipEntropy {
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
         // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -644,7 +648,7 @@ impl ShardMembershipEntropy {
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct ShardCommitmentHash([u8; ShardCommitmentHash::SIZE]);
+pub struct ShardCommitmentHash([u8; const { ShardCommitmentHash::SIZE }]);
 
 impl fmt::Display for ShardCommitmentHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -658,12 +662,12 @@ impl fmt::Display for ShardCommitmentHash {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ShardCommitmentHashBinary([u8; ShardCommitmentHash::SIZE]);
+struct ShardCommitmentHashBinary([u8; const { ShardCommitmentHash::SIZE }]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ShardCommitmentHashHex(#[serde(with = "hex")] [u8; ShardCommitmentHash::SIZE]);
+struct ShardCommitmentHashHex(#[serde(with = "hex")] [u8; const { ShardCommitmentHash::SIZE }]);
 
 #[cfg(feature = "serde")]
 impl Serialize for ShardCommitmentHash {
@@ -736,19 +740,19 @@ impl ShardCommitmentHash {
 
     /// Create a new instance
     #[inline(always)]
-    pub const fn new(hash: [u8; Self::SIZE]) -> Self {
+    pub const fn new(hash: [u8; const { Self::SIZE }]) -> Self {
         Self(hash)
     }
 
     /// Get internal representation
     #[inline(always)]
-    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+    pub const fn as_bytes(&self) -> &[u8; const { Self::SIZE }] {
         &self.0
     }
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
         // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -756,7 +760,9 @@ impl ShardCommitmentHash {
 
     /// Convenient conversion from array of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn array_from_repr<const N: usize>(value: [[u8; Self::SIZE]; N]) -> [Self; N] {
+    pub const fn array_from_repr<const N: usize>(
+        value: [[u8; const { Self::SIZE }]; N],
+    ) -> [Self; N] {
         // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
         // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
@@ -765,7 +771,7 @@ impl ShardCommitmentHash {
 
     /// Convenient conversion to a slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
         // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -773,7 +779,9 @@ impl ShardCommitmentHash {
 
     /// Convenient conversion to an array of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_array<const N: usize>(value: [Self; N]) -> [[u8; Self::SIZE]; N] {
+    pub const fn repr_from_array<const N: usize>(
+        value: [Self; N],
+    ) -> [[u8; const { Self::SIZE }]; N] {
         // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
         // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
@@ -791,7 +799,8 @@ pub struct SolutionShardCommitment {
     /// Root of the Merkle Tree of shard commitments
     pub root: ShardCommitmentHash,
     /// Proof for the shard commitment used the solution
-    pub proof: [ShardCommitmentHash; SolutionShardCommitment::NUM_LEAVES.ilog2() as usize],
+    pub proof:
+        [ShardCommitmentHash; const { SolutionShardCommitment::NUM_LEAVES.ilog2() as usize }],
     /// Shard commitment leaf used for the solution
     pub leaf: ShardCommitmentHash,
 }
@@ -979,13 +988,7 @@ impl Solution {
             }
         };
 
-        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
-        //  allows the code to compile. Constant 1_048_576 is hardcoded here and below for
-        // compilation  to succeed.
-        const {
-            assert!(SolutionShardCommitment::NUM_LEAVES == 1_048_576);
-        }
-        if !BalancedMerkleTree::<1_048_576>::verify(
+        if !BalancedMerkleTree::<const { SolutionShardCommitment::NUM_LEAVES }>::verify(
             &self.shard_commitment.root,
             &ShardCommitmentHash::repr_from_array(self.shard_commitment.proof),
             shard_commitment_index as usize,
@@ -1020,14 +1023,8 @@ impl Solution {
             });
         }
 
-        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
-        //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
-        //  to succeed.
-        const {
-            assert!(Record::NUM_S_BUCKETS == 65536);
-        }
         // Check that chunk belongs to the record
-        if !BalancedMerkleTree::<65536>::verify(
+        if !BalancedMerkleTree::<const { Record::NUM_S_BUCKETS }>::verify(
             &self.record_root,
             &self.chunk_proof,
             usize::from(s_bucket_audit_index),
