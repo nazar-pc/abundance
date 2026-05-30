@@ -28,7 +28,6 @@ use std::simd::Simd;
 use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, iter};
-use tracing::{debug, warn};
 use wgpu::{
     AdapterInfo, Backend, BackendOptions, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferAddress,
@@ -119,23 +118,31 @@ impl Device {
             .map(|(adapter, id)| async move {
                 let adapter_info = adapter.get_info();
 
+                #[expect(
+                    clippy::manual_let_else,
+                    reason = "https://github.com/rust-lang/rust/issues/157152"
+                )]
                 let (shader, required_features, required_limits) =
                     if let Some((shader, required_features, required_limits)) =
                         select_shader_features_limits(&adapter)
                     {
-                        debug!(
-                            %id,
-                            adapter_info = ?adapter_info,
-                            "Compatible adapter found"
-                        );
+                        // TODO: Un-comment logging once it is working:
+                        //  https://github.com/rust-lang/rust/issues/157152
+                        // debug!(
+                        //     %id,
+                        //     adapter_info = ?adapter_info,
+                        //     "Compatible adapter found"
+                        // );
 
                         (shader, required_features, required_limits)
                     } else {
-                        debug!(
-                            %id,
-                            adapter_info = ?adapter_info,
-                            "Incompatible adapter found"
-                        );
+                        // TODO: Un-comment logging once it is working:
+                        //  https://github.com/rust-lang/rust/issues/157152
+                        // debug!(
+                        //     %id,
+                        //     adapter_info = ?adapter_info,
+                        //     "Incompatible adapter found"
+                        // );
 
                         return None;
                     };
@@ -151,8 +158,10 @@ impl Device {
                             ..DeviceDescriptor::default()
                         })
                         .await
-                        .inspect_err(|error| {
-                            warn!(%id, ?adapter_info, %error, "Failed to request the device");
+                        .inspect_err(|_error| {
+                            // TODO: Un-comment logging once it is working:
+                            //  https://github.com/rust-lang/rust/issues/157152
+                            // warn!(%id, ?adapter_info, %error, "Failed to request the device");
                         })?;
                     let module = if cfg!(debug_assertions) {
                         device.create_shader_module(shader.clone())
