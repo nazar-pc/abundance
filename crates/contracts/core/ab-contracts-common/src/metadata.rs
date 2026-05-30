@@ -142,7 +142,7 @@ pub enum ContractMetadataKind {
     Return,
 }
 
-impl const TryFrom<u8> for ContractMetadataKind {
+const impl TryFrom<u8> for ContractMetadataKind {
     type Error = ();
 
     #[inline(always)]

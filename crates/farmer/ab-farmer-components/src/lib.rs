@@ -147,6 +147,10 @@ pub trait ReadAtAsync {
 }
 
 impl ReadAtAsync for ! {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "https://github.com/rust-lang/rust-clippy/issues/17162"
+    )]
     async fn read_at<B>(&self, _buf: B, _offset: u64) -> io::Result<B>
     where
         AsyncReadBytes<B>: From<B>,

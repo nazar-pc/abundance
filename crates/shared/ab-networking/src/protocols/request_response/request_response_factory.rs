@@ -960,16 +960,12 @@ impl RequestResponseCodec for GenericCodec {
     type Request = Vec<u8>;
     type Response = Result<Vec<u8>, ()>;
 
-    async fn read_request<T>(
-        &mut self,
-        _: &Self::Protocol,
-        mut io: &mut T,
-    ) -> io::Result<Self::Request>
+    async fn read_request<T>(&mut self, _: &Self::Protocol, io: &mut T) -> io::Result<Self::Request>
     where
         T: AsyncRead + Unpin + Send,
     {
         // Read the length.
-        let length = unsigned_varint::aio::read_usize(&mut io)
+        let length = unsigned_varint::aio::read_usize(&mut *io)
             .await
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
         if length > usize::try_from(self.max_request_size).unwrap_or(usize::MAX) {
@@ -991,7 +987,7 @@ impl RequestResponseCodec for GenericCodec {
     async fn read_response<T>(
         &mut self,
         _: &Self::Protocol,
-        mut io: &mut T,
+        io: &mut T,
     ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
@@ -1002,7 +998,7 @@ impl RequestResponseCodec for GenericCodec {
         // that this response is an error.
 
         // Read the length.
-        let length = match unsigned_varint::aio::read_usize(&mut io).await {
+        let length = match unsigned_varint::aio::read_usize(&mut *io).await {
             Ok(l) => l,
             Err(unsigned_varint::io::ReadError::Io(err))
                 if matches!(err.kind(), io::ErrorKind::UnexpectedEof) =>

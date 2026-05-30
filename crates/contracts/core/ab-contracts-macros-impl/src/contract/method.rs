@@ -618,6 +618,7 @@ impl MethodDetails {
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote_spanned! {fn_sig.span() =>
+            #[expect(clippy::inline_modules, reason = "Macro-generated")]
             pub mod #original_method_name {
                 use super::*;
 
@@ -639,6 +640,7 @@ impl MethodDetails {
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote_spanned! {fn_sig.span() =>
+            #[expect(clippy::inline_modules, reason = "Macro-generated")]
             pub mod #original_method_name {
                 use super::*;
 
@@ -1090,6 +1092,7 @@ impl MethodDetails {
 
             quote! {
                 #[doc(hidden)]
+                #[expect(clippy::inline_modules, reason = "Macro-generated")]
                 #[expect(clippy::wildcard_imports, reason = "Macro-generated")]
                 pub mod fn_pointer {
                     use super::*;
@@ -1270,6 +1273,7 @@ impl MethodDetails {
             #[derive(::core::fmt::Debug)]
             #[repr(C)]
             #[allow(clippy::pub_underscore_fields, reason = "Comes from user-provided arguments")]
+            #[allow(rustdoc::redundant_explicit_links, reason = "Macro-generated")]
             pub struct #args_struct_name<'external_args> {
                 #( #external_args_fields )*
                 /// Lifetime of the struct

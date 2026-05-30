@@ -50,7 +50,7 @@ pub enum TransactionMethodContext {
     Wallet,
 }
 
-impl const TryFrom<u8> for TransactionMethodContext {
+const impl TryFrom<u8> for TransactionMethodContext {
     type Error = ();
 
     #[inline(always)]
