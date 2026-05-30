@@ -112,7 +112,10 @@ async fn basic() {
         disk_plot_cache.is_piece_maybe_stored(&record_key_0),
         MaybePieceStoredResult::Yes
     );
-    assert!(disk_plot_cache.read_piece(&record_key_0).await.unwrap() == piece_0);
+    #[expect(clippy::manual_assert_eq, reason = "Value is too large")]
+    {
+        assert!(disk_plot_cache.read_piece(&record_key_0).await.unwrap() == piece_0);
+    }
 
     // Store two more pieces and make sure they can be read
     assert_matches!(
@@ -129,7 +132,10 @@ async fn basic() {
         disk_plot_cache.is_piece_maybe_stored(&record_key_1),
         MaybePieceStoredResult::Yes
     );
-    assert!(disk_plot_cache.read_piece(&record_key_1).await.unwrap() == piece_1);
+    #[expect(clippy::manual_assert_eq, reason = "Value is too large")]
+    {
+        assert!(disk_plot_cache.read_piece(&record_key_1).await.unwrap() == piece_1);
+    }
 
     assert_matches!(
         disk_plot_cache.is_piece_maybe_stored(&record_key_2),
@@ -145,7 +151,10 @@ async fn basic() {
         disk_plot_cache.is_piece_maybe_stored(&record_key_2),
         MaybePieceStoredResult::Yes
     );
-    assert!(disk_plot_cache.read_piece(&record_key_2).await.unwrap() == piece_2);
+    #[expect(clippy::manual_assert_eq, reason = "Value is too large")]
+    {
+        assert!(disk_plot_cache.read_piece(&record_key_2).await.unwrap() == piece_2);
+    }
 
     // Write almost all sectors even without updating metadata, this will result in internal piece
     // read error due to checksum mismatch and eviction of the piece from cache
@@ -178,7 +187,10 @@ async fn basic() {
     );
 
     // Closing file will render cache unusable
-    assert!(disk_plot_cache.read_piece(&record_key_0).await.unwrap() == piece_0);
+    #[expect(clippy::manual_assert_eq, reason = "Value is too large")]
+    {
+        assert!(disk_plot_cache.read_piece(&record_key_0).await.unwrap() == piece_0);
+    }
     drop(file);
     assert_matches!(disk_plot_cache.read_piece(&record_key_0).await, None);
 }
