@@ -160,7 +160,7 @@ async fn find_proofs(
     bucket_sizes: &[u32; NUM_S_BUCKETS],
     buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
 ) -> Option<(
-    Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
+    Box<[u8; const { Record::NUM_S_BUCKETS / u8::BITS as usize }]>,
     Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
@@ -195,7 +195,10 @@ async fn find_proofs(
 
         match &result {
             Some(result) => {
-                assert!(result == &adapter_result);
+                #[expect(clippy::manual_assert_eq, reason = "Value is too large")]
+                {
+                    assert!(result == &adapter_result);
+                }
             }
             None => {
                 result.replace(adapter_result);
@@ -217,7 +220,7 @@ async fn find_proofs_adapter(
     buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     adapter: Adapter,
 ) -> Option<(
-    Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
+    Box<[u8; const { Record::NUM_S_BUCKETS / u8::BITS as usize }]>,
     Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
     let (shader, required_features, required_limits) = select_shader_features_limits(&adapter)?;
