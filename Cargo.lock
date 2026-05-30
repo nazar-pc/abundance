@@ -1478,8 +1478,7 @@ dependencies = [
 [[package]]
 name = "cargo-gpu-install"
 version = "0.10.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82bad075de69e455c338955b4a7d58c0ced253185ef7703a3c6a3846e2d5ee66"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=fa9fa1415700ec19817f63c134c506446ac71160#fa9fa1415700ec19817f63c134c506446ac71160"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.21.0",
@@ -2655,9 +2654,9 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.32.0"
+version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34627c5158214743a374170fed714833fdf4e4b0cbcc1ea98417866a4c5d4441"
+checksum = "898f5a568a84989b6c0f8caa50a93074b97dbdc58fc6d9543157bb4562758933"
 dependencies = [
  "libm",
 ]
@@ -5340,8 +5339,7 @@ checksum = "94300abf3f1ae2e2b8ffb7b58043de3d399c73fa6f4b73826402a5c457614dbe"
 [[package]]
 name = "rustc_codegen_spirv-types"
 version = "0.10.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ac3a589ac4bf0931b69299679803063986f280a2b82ace70e7f8b2d0db0dec2"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=fa9fa1415700ec19817f63c134c506446ac71160#fa9fa1415700ec19817f63c134c506446ac71160"
 dependencies = [
  "rspirv",
  "semver",
@@ -5853,8 +5851,7 @@ dependencies = [
 [[package]]
 name = "spirv-builder"
 version = "0.10.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b721e6d7d7bc999126e838d16b070c8beada89ff8251c3f8a9e5292102827d86"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=fa9fa1415700ec19817f63c134c506446ac71160#fa9fa1415700ec19817f63c134c506446ac71160"
 dependencies = [
  "cargo_metadata 0.21.0",
  "log",
@@ -5870,8 +5867,7 @@ dependencies = [
 [[package]]
 name = "spirv-std"
 version = "0.10.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68cdc5ca01151f2627fdf1cff34bf6452f5dc212a6d09f4aa5a9b4f17e9bc8e3"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=fa9fa1415700ec19817f63c134c506446ac71160#fa9fa1415700ec19817f63c134c506446ac71160"
 dependencies = [
  "bitflags 1.3.2",
  "glam",
@@ -5884,8 +5880,7 @@ dependencies = [
 [[package]]
 name = "spirv-std-macros"
 version = "0.10.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b8538ad79b81964125710a912c46f3ea71c4f5732bab5d24d506b86ea8fde0"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=fa9fa1415700ec19817f63c134c506446ac71160#fa9fa1415700ec19817f63c134c506446ac71160"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5896,8 +5891,7 @@ dependencies = [
 [[package]]
 name = "spirv-std-types"
 version = "0.10.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28b7ffce7843c3a9f5d5d2b9c21402d4cd026c26780b2f16a3cd6de3e6436230"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=fa9fa1415700ec19817f63c134c506446ac71160#fa9fa1415700ec19817f63c134c506446ac71160"
 
 [[package]]
 name = "spki"
