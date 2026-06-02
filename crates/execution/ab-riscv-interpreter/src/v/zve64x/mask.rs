@@ -391,8 +391,10 @@ where
             }
             // viota.m (§16.8): write prefix popcount of vs2 bits as SEW-wide elements into vd.
             // Constraints: vd must not overlap vs2 or v0 (when masked); vd alignment per LMUL;
-            // vstart must be zero (mandatory trap per spec §16.8); SEW must be wide enough
-            // to represent VLMAX-1.
+            // vstart must be zero (mandatory trap per spec §16.8). There is no SEW-width
+            // constraint: if SEW is too narrow to hold the prefix count the result simply wraps
+            // (truncates to SEW), matching the spec's "integer operations wrap around on overflow"
+            // rule rather than raising an exception.
             Self::Viota { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
@@ -431,17 +433,9 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let sew_bits = u32::from(sew.bits());
-                let vlmax = vtype.vlmul().vlmax(ExtState::VLEN, sew_bits);
-                if u64::from(vlmax).unbounded_shr(sew_bits) != 0 {
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let vl = ext_state.vl();
                 // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
                 // `vm=false` implies `vd != v0` checked above; vstart == 0 checked above;
-                // SEW wide enough to hold VLMAX-1 checked above;
                 // `vl <= VLMAX = group_regs * VLENB / sew_bytes`, all element indices valid.
                 unsafe {
                     zve64x_mask_helpers::execute_viota(ext_state, vd, vs2, vm, vl, sew);

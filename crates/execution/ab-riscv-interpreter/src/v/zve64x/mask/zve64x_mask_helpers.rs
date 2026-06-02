@@ -317,13 +317,15 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
 /// treated as zero for the prefix sum. Inactive destination elements follow the mask-agnostic
 /// policy (here implemented as undisturbed, which is a permitted realisation).
 ///
+/// If SEW is too narrow to hold the prefix count, the value wraps (truncates to SEW) via
+/// [`write_element_u64()`]; the spec does not raise an exception for this case.
+///
 /// The caller must reject `vstart != 0` before invocation (spec §16.8 mandatory trap).
 ///
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
 /// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
-/// - SEW wide enough to hold VLMAX-1 (checked by caller)
 /// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]

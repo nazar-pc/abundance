@@ -1436,8 +1436,17 @@ fn viota_misaligned_vd_illegal() {
     ));
 }
 
+/// viota.m never raises an illegal-instruction exception because of a narrow SEW. Per spec §16.8
+/// the result simply wraps (truncates to SEW) if it does not fit, matching the general "integer
+/// operations wrap around on overflow" rule. This exercises the widest element width to confirm
+/// the prefix count is written correctly and the instruction is accepted.
+///
+/// The previously-removed implementation rejected any configuration where `VLMAX >= 2^SEW`, which
+/// wrongly trapped legal instructions such as `viota.m` at `E8/M2` on `VLEN=1024` (`VLMAX=256`,
+/// whose maximum result `255` fits in 8 bits). That `VLEN=1024` boundary is covered by the ACT4
+/// differential runner; the unit harness uses `VLEN=128`, where `VLMAX` never reaches `2^SEW`.
 #[test]
-fn viota_sew64_does_not_overflow_width_check() {
+fn viota_e64_m1_no_width_trap() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let mut vs2 = [0u8; 16];
     vs2[0] = 0b11;
@@ -1455,6 +1464,34 @@ fn viota_sew64_does_not_overflow_width_check() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E64), 1);
+}
+
+/// viota.m at the largest VLMAX the harness supports (`E8/M8` -> `VLMAX=128`, an 8-register
+/// group). All mask bits are set so the prefix count climbs to 127, exercising writes across the
+/// whole register group and confirming no width-based trap fires for an in-range count.
+#[test]
+fn viota_e8_m8_max_vlmax() {
+    let mut state = setup(128, Vsew::E8, Vlmul::M8);
+    set_vreg(&mut state, VReg::V8, [0xFF; 16]);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Viota {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Element i counts the set bits strictly before i; with every bit set that is just i.
+    for i in 0..128usize {
+        assert_eq!(
+            read_elem(&state, VReg::V16, i, Vsew::E8),
+            i as u64,
+            "elem {i}"
+        );
+    }
 }
 
 // vid
@@ -1902,7 +1939,7 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             "instruction {idx}: vstart reset"
         );
     }
-    // Instructions that trap on vstart != 0 per spec (§16.4, §16.8) — checked with vstart=0
+    // Instructions that trap on vstart != 0 per spec (§16.4, §16.8) - checked with vstart=0
     let vstart_must_be_zero: &[Zve64xMaskInstruction<Reg<u64>>] = &[
         Zve64xMaskInstruction::Vmsbf {
             vd: VReg::V4,
