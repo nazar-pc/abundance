@@ -1092,9 +1092,16 @@ fn vwmulu_m1_overlap_uses_2_dest_regs() {
 }
 
 #[test]
-fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
-    // With M1, vd=V4 occupies V4+V5. vs2=V5 overlaps with upper half of vd -> illegal.
+fn vwmulu_m1_vs2_in_upper_dest_reg_is_legal() {
+    // With M1, vd=V4 occupies V4+V5 (source EMUL=1). vs2=V5 occupies exactly the
+    // highest-numbered register of the destination group, which the RISC-V "V" spec §5.2
+    // permits for widening instructions. With vl=4 the wide results land entirely in V4, so the
+    // V5 source is not clobbered before it is read.
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V5, i, Vsew::E8, (i + 1) as u64);
+        write_elem(&mut state, VReg::V2, i, Vsew::E8, 2);
+    }
     let result = exec(
         &mut state,
         Zve64xMulDivInstruction::VwmuluVv {
@@ -1106,10 +1113,109 @@ fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
             rs2: Reg::Zero,
         },
     );
+    assert!(result.is_ok());
+    for i in 0..4usize {
+        assert_eq!(
+            read_wide_elem(&state, VReg::V4, i, Vsew::E8),
+            (i + 1) as u64 * 2,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwmulu_m1_vs1_in_upper_dest_reg_is_legal() {
+    // Same legal top-overlap as above, but for vs1 (the second source operand). This mirrors the
+    // `vwmul.vv v10, v7, v11` case: vd=V10 occupies V10+V11 and vs1=V11 is the highest-numbered
+    // register of the destination group.
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V7, i, Vsew::E8, (i + 1) as u64);
+        write_elem(&mut state, VReg::V11, i, Vsew::E8, 3);
+    }
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V10,
+            vs2: VReg::V7,
+            vs1: VReg::V11,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(result.is_ok());
+    for i in 0..4usize {
+        assert_eq!(
+            read_wide_elem(&state, VReg::V10, i, Vsew::E8),
+            (i + 1) as u64 * 3,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwmulu_m1_vs2_in_lower_dest_reg_is_illegal() {
+    // With M1, vd=V4 occupies V4+V5. vs2=V4 overlaps the *lowest*-numbered register of the
+    // destination group, which is not the permitted highest-numbered overlap -> illegal.
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V4,
+            vs2: VReg::V4,
+            vs1: VReg::V2,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
     assert!(matches!(
         result,
         Err(ExecutionError::IllegalInstruction { .. })
     ));
+}
+
+#[test]
+fn vwmulu_m2_lower_half_overlap_is_illegal() {
+    // With M2, vd=V8 occupies V8..V12 (4 regs) and a source occupies 2 regs. The only legal
+    // overlap is the top half (V10+V11). vs1=V8 occupies the lowest-numbered half of the
+    // destination group, which is not the permitted highest-numbered overlap -> illegal.
+    let mut state = setup(4, Vsew::E8, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V8,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vwmulu_m2_top_half_overlap_is_legal() {
+    // With M2, vd=V8 occupies V8..V12. vs1=V10 occupies exactly the top half (V10+V11) of the
+    // destination group -> legal per spec §5.2.
+    let mut state = setup(4, Vsew::E8, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V10,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(result.is_ok());
 }
 
 // vwmul (signed widening)
