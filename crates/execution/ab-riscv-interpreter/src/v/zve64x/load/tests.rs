@@ -1050,11 +1050,29 @@ fn vluxei_index_eew_smaller_than_data_eew() {
 }
 
 #[test]
-fn vluxei_vd_vs2_overlap_is_illegal() {
-    // data_group_regs=1 (LMUL=M1), index_group_regs=1 (EMUL_index=1 for E32/E32/M1)
+fn vluxei_vd_vs2_overlap_equal_eew_is_legal() {
+    // Non-segment indexed loads permit vd/vs2 overlap when the data EEW equals the index EEW.
+    // This is the `vluxei32.v v16, (s2), v16` shape that the certification suite exercises.
+    // SEW=E32/M1: data EEW=E32 (1 reg), index EEW=E32 (EMUL=1, 1 reg); vd == vs2 == V3.
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
 
-    let err = exec_one(
+    let data_base = TEST_BASE_ADDR;
+    state.memory.write::<u32>(data_base, 0x1111_1111).unwrap();
+    state
+        .memory
+        .write::<u32>(data_base + 4, 0x2222_2222)
+        .unwrap();
+
+    // V3 holds the indices [4, 0] as u32 LE; the load overwrites V3 with the gathered data.
+    // Element i's index is consumed before element i's data is written, so the in-place overlap
+    // is well-defined.
+    let mut idx = [0u8; 16];
+    idx[0..4].copy_from_slice(&4u32.to_le_bytes());
+    idx[4..8].copy_from_slice(&0u32.to_le_bytes());
+    set_vreg(&mut state, VReg::V3, &idx);
+    state.regs.write(Reg::A0, data_base);
+
+    exec_one(
         &mut state,
         Zve64xLoadInstruction::Vluxei {
             vd: VReg::V3,
@@ -1065,8 +1083,191 @@ fn vluxei_vd_vs2_overlap_is_illegal() {
             rs2: Reg::Zero,
         },
     )
+    .unwrap();
+
+    let reg = vreg_bytes(&state, VReg::V3);
+    assert_eq!(
+        u32::from_le_bytes(reg[0..4].try_into().unwrap()),
+        0x2222_2222,
+        "elem0 at offset 4"
+    );
+    assert_eq!(
+        u32::from_le_bytes(reg[4..8].try_into().unwrap()),
+        0x1111_1111,
+        "elem1 at offset 0"
+    );
+}
+
+#[test]
+fn vluxei_vd_vs2_overlap_smaller_data_eew_is_legal() {
+    // Data EEW smaller than index EEW: overlap is legal when the data group starts at the index
+    // base register (lowest-numbered part of the source group).
+    // SEW=E16/M1: data EEW=E16 (1 reg). Index EEW=E32: EMUL=(32/16)*1=2 -> 2 regs (V4,V5).
+    // vd == vs2 == V4, so the data group is the lowest register of the index group.
+    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+
+    let data_base = TEST_BASE_ADDR;
+    state.memory.write::<u16>(data_base, 0x1111).unwrap();
+    state.memory.write::<u16>(data_base + 2, 0x2222).unwrap();
+
+    // Two u32 indices [2, 0] occupying V4 bytes [0..8].
+    let mut idx = [0u8; 16];
+    idx[0..4].copy_from_slice(&2u32.to_le_bytes());
+    idx[4..8].copy_from_slice(&0u32.to_le_bytes());
+    set_vreg(&mut state, VReg::V4, &idx);
+    state.regs.write(Reg::A0, data_base);
+
+    exec_one(
+        &mut state,
+        Zve64xLoadInstruction::Vluxei {
+            vd: VReg::V4,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+            eew: Eew::E32,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+
+    let reg = vreg_bytes(&state, VReg::V4);
+    assert_eq!(
+        u16::from_le_bytes(reg[0..2].try_into().unwrap()),
+        0x2222,
+        "elem0 at offset 2"
+    );
+    assert_eq!(
+        u16::from_le_bytes(reg[2..4].try_into().unwrap()),
+        0x1111,
+        "elem1 at offset 0"
+    );
+}
+
+#[test]
+fn vluxei_vd_vs2_overlap_larger_data_eew_top_aligned_is_legal() {
+    // Data EEW larger than index EEW: overlap is legal when the index group occupies the
+    // highest-numbered part of the data group and the index EMUL is at least one register.
+    // SEW=E32/M2: data EEW=E32 (2 regs, V4..V5). Index EEW=E16: EMUL=(16/32)*2=1 -> 1 reg.
+    // vs2 == V5 sits at the top of the data group [V4, V6).
+    let mut state = setup(2, Vsew::E32, Vlmul::M2);
+
+    let data_base = TEST_BASE_ADDR;
+    state.memory.write::<u32>(data_base, 0xAAAA_AAAA).unwrap();
+    state
+        .memory
+        .write::<u32>(data_base + 4, 0xBBBB_BBBB)
+        .unwrap();
+
+    // Two u16 indices [4, 0] in V5 bytes [0..4].
+    let mut idx = [0u8; 16];
+    idx[0..2].copy_from_slice(&4u16.to_le_bytes());
+    idx[2..4].copy_from_slice(&0u16.to_le_bytes());
+    set_vreg(&mut state, VReg::V5, &idx);
+    state.regs.write(Reg::A0, data_base);
+
+    exec_one(
+        &mut state,
+        Zve64xLoadInstruction::Vluxei {
+            vd: VReg::V4,
+            rs1: Reg::A0,
+            vs2: VReg::V5,
+            vm: true,
+            eew: Eew::E16,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+
+    let reg = vreg_bytes(&state, VReg::V4);
+    assert_eq!(
+        u32::from_le_bytes(reg[0..4].try_into().unwrap()),
+        0xBBBB_BBBB,
+        "elem0 at offset 4"
+    );
+    assert_eq!(
+        u32::from_le_bytes(reg[4..8].try_into().unwrap()),
+        0xAAAA_AAAA,
+        "elem1 at offset 0"
+    );
+}
+
+#[test]
+fn vluxei_vd_vs2_overlap_larger_data_eew_not_top_is_illegal() {
+    // Data EEW larger than index EEW but the overlap is NOT in the highest-numbered part of the
+    // data group: reserved encoding.
+    // SEW=E32/M2: data EEW=E32 (2 regs, V4..V5). Index EEW=E16: EMUL=1 -> 1 reg.
+    // vd == vs2 == V4, so the index group overlaps the *lowest* register of the data group.
+    let mut state = setup(2, Vsew::E32, Vlmul::M2);
+
+    let err = exec_one(
+        &mut state,
+        Zve64xLoadInstruction::Vluxei {
+            vd: VReg::V4,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+            eew: Eew::E16,
+            rs2: Reg::Zero,
+        },
+    )
     .unwrap_err();
     assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn vluxei_vd_vs2_overlap_larger_data_eew_fractional_index_is_illegal() {
+    // Data EEW larger than index EEW with a fractional index EMUL (< 1 register): reserved, even
+    // though both groups are clamped to a single register and appear to "end" together.
+    // SEW=E64/M1: data EEW=E64 (1 reg). Index EEW=E32: EMUL=(32/64)*1=1/2 -> clamped to 1 reg.
+    // vd == vs2 == V2.
+    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+
+    let err = exec_one(
+        &mut state,
+        Zve64xLoadInstruction::Vluxei {
+            vd: VReg::V2,
+            rs1: Reg::A0,
+            vs2: VReg::V2,
+            vm: true,
+            eew: Eew::E32,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn vluxei_vd_vs2_no_overlap_is_legal() {
+    // Disjoint data and index groups are always permitted regardless of EEW.
+    // SEW=E32/M1: data EEW=E32 (1 reg), index EEW=E32 (1 reg); vd=V1, vs2=V4.
+    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+
+    let data_base = TEST_BASE_ADDR;
+    state.memory.write::<u32>(data_base, 0xCAFE_BABE).unwrap();
+    let mut idx = [0u8; 16];
+    idx[0..4].copy_from_slice(&0u32.to_le_bytes());
+    idx[4..8].copy_from_slice(&0u32.to_le_bytes());
+    set_vreg(&mut state, VReg::V4, &idx);
+    state.regs.write(Reg::A0, data_base);
+
+    exec_one(
+        &mut state,
+        Zve64xLoadInstruction::Vluxei {
+            vd: VReg::V1,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+            eew: Eew::E32,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        u32::from_le_bytes(vreg_bytes(&state, VReg::V1)[0..4].try_into().unwrap()),
+        0xCAFE_BABE
+    );
 }
 
 #[test]

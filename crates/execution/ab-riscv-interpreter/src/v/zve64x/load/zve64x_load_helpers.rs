@@ -4,6 +4,7 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
+use core::cmp::Ordering;
 use core::fmt;
 
 #[doc(hidden)]
@@ -60,6 +61,62 @@ pub(in super::super) unsafe fn snapshot_mask<const VLENB: usize>(
 pub fn groups_overlap(a: VReg, a_regs: u8, b: VReg, b_regs: u8) -> bool {
     let (a, b) = (a.bits(), b.bits());
     a < b + b_regs && b < a + a_regs
+}
+
+/// Return whether a *non-segment* indexed load's data destination group
+/// `[vd, vd + data_regs)` may legally overlap its index source group `[vs2, vs2 + index_regs)`.
+///
+/// The data EEW equals `sew` (indexed loads take their data width from `vtype.vsew()`) with
+/// `EMUL = LMUL`, whereas the index group has EEW `index_eew` and `EMUL = (index_eew / sew) *
+/// LMUL`. Because the two groups can have different EEW, the general vector register overlap
+/// constraint applies: a destination group may overlap a source group only when one of the
+/// following holds:
+///
+/// - the EEWs are equal (the groups coincide); or
+/// - the destination EEW is smaller and the overlap is in the lowest-numbered part of the source
+///   group, i.e. the destination starts at the source's base register (`vd == vs2`); or
+/// - the destination EEW is larger, the source EMUL is at least one register, and the overlap is in
+///   the highest-numbered part of the destination group, i.e. both groups end at the same register
+///   (`vd + data_regs == vs2 + index_regs`).
+///
+/// Groups that do not overlap at all are always permitted. Any other overlap is reserved.
+///
+/// Unlike indexed *segment* loads (which forbid any `vd`/`vs2` overlap to remain restartable),
+/// these relaxed rules are what allow encodings such as `vluxei32.v v16, (s2), v16` when the data
+/// and index EEW match.
+#[inline(always)]
+#[doc(hidden)]
+pub fn indexed_load_overlap_allowed(
+    vd: VReg,
+    data_regs: u8,
+    vs2: VReg,
+    index_regs: u8,
+    index_eew: Eew,
+    sew: Vsew,
+    vlmul: Vlmul,
+) -> bool {
+    if !groups_overlap(vd, data_regs, vs2, index_regs) {
+        return true;
+    }
+
+    match sew.bytes().cmp(&index_eew.bytes()) {
+        // Equal EEW: the two groups coincide, overlap is permitted.
+        Ordering::Equal => true,
+        // Smaller data EEW: overlap must be in the lowest-numbered part of the index group, which
+        // (given both groups are alignment-checked) means the data group starts at the index base.
+        Ordering::Less => vd == vs2,
+        // Larger data EEW: overlap must be in the highest-numbered part of the data group, and the
+        // index EMUL must be at least one full register. `index_regs` alone cannot distinguish a
+        // whole-register EMUL from a fractional one clamped to a single register, so the EMUL is
+        // recomputed here as `(index_eew / sew) * LMUL >= 1`.
+        Ordering::Greater => {
+            let (lmul_num, lmul_den) = vlmul.as_fraction();
+            let index_emul_at_least_one = u16::from(index_eew.bits()) * u16::from(lmul_num)
+                >= u16::from(sew.bits()) * u16::from(lmul_den);
+            let (vd, vs2) = (vd.bits(), vs2.bits());
+            index_emul_at_least_one && vd + data_regs == vs2 + index_regs
+        }
+    }
 }
 
 /// Check that `vd` is aligned to `group_regs` and that the group fits within `[0, 32)`.
