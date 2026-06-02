@@ -1464,7 +1464,8 @@ where
                 zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
-                    group_regs,
+                    vtype.vlmul(),
+                    sew,
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
                 zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
@@ -1526,7 +1527,8 @@ where
                 zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
-                    group_regs,
+                    vtype.vlmul(),
+                    sew,
                 )?;
                 if !vm && vd.bits() == 0 {
                     return Err(ExecutionError::IllegalInstruction {
@@ -1578,7 +1580,8 @@ where
                 zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
-                    group_regs,
+                    vtype.vlmul(),
+                    sew,
                 )?;
                 if !vm && vd.bits() == 0 {
                     return Err(ExecutionError::IllegalInstruction {
@@ -1631,7 +1634,8 @@ where
                 zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
-                    group_regs,
+                    vtype.vlmul(),
+                    sew,
                 )?;
                 zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
                     program_counter,
@@ -1692,7 +1696,8 @@ where
                 zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
-                    group_regs,
+                    vtype.vlmul(),
+                    sew,
                 )?;
                 if !vm && vd.bits() == 0 {
                     return Err(ExecutionError::IllegalInstruction {
@@ -1744,7 +1749,8 @@ where
                 zve64x_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
-                    group_regs,
+                    vtype.vlmul(),
+                    sew,
                 )?;
                 if !vm && vd.bits() == 0 {
                     return Err(ExecutionError::IllegalInstruction {

@@ -241,16 +241,16 @@ where
                 _ => None,
             },
 
-            // Fractional multiply - OPMVV / OPMVX
+            // Fractional multiply - OPIVV / OPIVX
             // vsmul: funct6=10_0111
             0b10_0111 => match funct3 {
-                // OPMVV
-                0b010 => {
+                // OPIVV
+                0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
                     Some(Self::VsmulVv { vd, vs2, vs1, vm })
                 }
-                // OPMVX
-                0b110 => {
+                // OPIVX
+                0b100 => {
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::VsmulVx { vd, vs2, rs1, vm })
                 }
@@ -258,8 +258,8 @@ where
             },
 
             // Scaling shifts - OPIVV / OPIVX / OPIVI
-            // vssrl: funct6=10_1000
-            0b10_1000 => match funct3 {
+            // vssrl: funct6=10_1010
+            0b10_1010 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -277,8 +277,8 @@ where
                 }
                 _ => None,
             },
-            // vssra: funct6=10_1001
-            0b10_1001 => match funct3 {
+            // vssra: funct6=10_1011
+            0b10_1011 => match funct3 {
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
