@@ -1842,3 +1842,227 @@ fn vwaddu_wv_vd_aliases_vs2_legal() {
         );
     }
 }
+
+// Widening destination overlapping the highest-numbered part of a narrow source
+
+#[test]
+fn vwsubu_wv_e32_m1_vd_aliases_vs1_high_part_legal() {
+    // Spec §5.2: a widening destination (EEW=2*SEW) may overlap a narrow source (EEW=SEW) when the
+    // source EMUL >= 1 and the overlap is in the highest-numbered part of the destination group.
+    // vwsubu.wv v2, v14, v3: vd={v2,v3} (E64,M2), vs2={v14,v15} (E64,M2 wide), vs1=v3 (E32,M1)
+    // which aliases the high register of the destination group.
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V14, i, Vsew::E64, 0x1_0000_0000u64);
+    }
+    // Narrow source lives in v3, the high register of the {v2,v3} destination group.
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V3, i, Vsew::E32, (i as u64) + 1);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuWv {
+            vd: VReg::V2,
+            vs2: VReg::V14,
+            vs1: VReg::V3,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Each source element i is read before the destination element i overwrites it (elements are
+    // processed in increasing order), so the aliasing produces correct results.
+    for i in 0..4usize {
+        assert_eq!(
+            read_elem(&state, VReg::V2, i, Vsew::E64),
+            0x1_0000_0000u64 - (i as u64 + 1),
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwadd_wv_e8_m2_vs1_high_part_overlap_legal() {
+    // LMUL=2: narrow group=2 regs, wide dest=4 regs. vd={v8,v9,v10,v11}; vs1={v10,v11} occupies the
+    // highest-numbered part of the destination, which is legal.
+    let mut state = setup(4, Vsew::E8, Vlmul::M2);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V16, i, Vsew::E16, 0u64);
+        write_elem(&mut state, VReg::V10, i, Vsew::E8, 5u64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddWv {
+            vd: VReg::V8,
+            vs2: VReg::V16,
+            vs1: VReg::V10,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..4usize {
+        // 0 + sext(5) = 5
+        assert_eq!(read_elem(&state, VReg::V8, i, Vsew::E16), 5u64, "elem {i}");
+    }
+}
+
+#[test]
+fn vwaddu_vv_vd_aliases_vs1_high_part_legal() {
+    // The highest-part overlap is also permitted for the .vv form. vd={v2,v3}; vs1=v3 aliases the
+    // high register of the destination, vs2=v6 is disjoint.
+    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V6, i, Vsew::E16, 1000u64);
+        write_elem(&mut state, VReg::V3, i, Vsew::E16, 7u64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwadduVv {
+            vd: VReg::V2,
+            vs2: VReg::V6,
+            vs1: VReg::V3,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..4usize {
+        assert_eq!(
+            read_elem(&state, VReg::V2, i, Vsew::E32),
+            1007u64,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwsubu_wv_e32_m1_vd_overlaps_vs1_low_part_illegal() {
+    // vs1=v2 aliases the *low* register of the {v2,v3} destination group, which is not the
+    // highest-numbered part and is therefore illegal.
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuWv {
+            vd: VReg::V2,
+            vs2: VReg::V14,
+            vs1: VReg::V2,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+// Extension destination overlapping the highest-numbered part of a narrow source
+
+#[test]
+fn vsext_vf2_e16_m2_vs2_high_part_overlap_legal() {
+    // Spec §5.2: an extension destination (EEW=SEW) may overlap a narrow source (EEW=SEW/factor)
+    // when the source EMUL >= 1 and the overlap is in the highest-numbered part of the destination
+    // group. vsext.vf2 v28, v29: vd={v28,v29} (E16,M2), vs2=v29 (E8, EMUL=1) which aliases the high
+    // register of the destination group. This is the exact case that previously failed.
+    let mut state = setup(16, Vsew::E16, Vlmul::M2);
+    // Narrow E8 source elements live in v29, the high register of the {v28,v29} destination group.
+    // High bit is set so sign-extension is exercised: byte 0x80+i -> i16 (i - 128).
+    for i in 0..16usize {
+        write_elem(&mut state, VReg::V29, i, Vsew::E8, 0x80 + i as u64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VsextVf2 {
+            vd: VReg::V28,
+            vs2: VReg::V29,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Each narrow source element is read before the wide destination element overwrites it
+    // (elements are processed in increasing order), so the aliasing produces correct results.
+    for i in 0..16usize {
+        assert_eq!(
+            read_elem(&state, VReg::V28, i, Vsew::E16),
+            0xff80 + i as u64,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vzext_vf4_e32_m8_vs2_high_part_overlap_legal() {
+    // Spec §5.2 example: with LMUL=8, vzext.vf4 v0, v6 is legal. vd={v0..v7} (E32,M8), vs2={v6,v7}
+    // (E8, EMUL=2) aliases the two highest registers of the destination group.
+    let mut state = setup(32, Vsew::E32, Vlmul::M8);
+    for i in 0..32usize {
+        write_elem(&mut state, VReg::V6, i, Vsew::E8, 0xabu64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VzextVf4 {
+            vd: VReg::V0,
+            vs2: VReg::V6,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..32usize {
+        assert_eq!(
+            read_elem(&state, VReg::V0, i, Vsew::E32),
+            0xabu64,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vsext_vf2_e16_m2_vs2_low_part_overlap_illegal() {
+    // vs2=v28 aliases the *low* register of the {v28,v29} destination group, which is not the
+    // highest-numbered part and is therefore illegal.
+    let mut state = setup(16, Vsew::E16, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VsextVf2 {
+            vd: VReg::V28,
+            vs2: VReg::V28,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vzext_vf4_e32_m8_vs2_non_high_part_overlap_illegal() {
+    // Spec §5.2 example: with LMUL=8, a source of v0/v2/v4 for vzext.vf4 v0, ... is illegal because
+    // it does not occupy the highest-numbered part of the destination group.
+    let mut state = setup(32, Vsew::E32, Vlmul::M8);
+    let result = exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VzextVf4 {
+            vd: VReg::V0,
+            vs2: VReg::V4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
