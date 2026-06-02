@@ -61,7 +61,7 @@ fn set_vreg(
 }
 
 /// Read a full vector register as bytes
-fn get_vreg(state: &TestInterpreterState<Zve64xArithInstruction<Reg<u64>>>, reg: VReg) -> [u8; 16] {
+fn get_vreg(state: &TestInterpreterState<Zve64xArithInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
     state.ext_state.read_vreg()[usize::from(reg.bits())]
 }
 
@@ -73,7 +73,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -91,7 +91,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -109,14 +109,14 @@ fn mask_bit(
     (byte >> (i % u8::BITS)) & 1 != 0
 }
 
-// With TEST_VLEN=128, VLENB=16:
-//   E8/M1  -> VLMAX=16, 1 reg,  16 elems/reg
-//   E16/M1 -> VLMAX=8,  1 reg,  8 elems/reg
-//   E32/M1 -> VLMAX=4,  1 reg,  4 elems/reg
-//   E64/M1 -> VLMAX=2,  1 reg,  2 elems/reg
-//   E8/M2  -> VLMAX=32, 2 regs, 16 elems/reg
-//   E32/M2 -> VLMAX=8,  2 regs, 4 elems/reg
-//   E64/Mf2-> VLMAX=1,  1 reg,  2 elems/reg (but VLMAX=1)
+// With TEST_VLEN=256, VLENB=32:
+//   E8/M1  -> VLMAX=32, 1 reg,  32 elems/reg
+//   E16/M1 -> VLMAX=16, 1 reg,  16 elems/reg
+//   E32/M1 -> VLMAX=8,  1 reg,  8 elems/reg
+//   E64/M1 -> VLMAX=4,  1 reg,  4 elems/reg
+//   E8/M2  -> VLMAX=64, 2 regs, 32 elems/reg
+//   E32/M2 -> VLMAX=16, 2 regs, 8 elems/reg
+//   E64/Mf2-> VLMAX=2,  1 reg,  4 elems/reg
 
 // vadd
 
@@ -224,9 +224,9 @@ fn vadd_vi_e16_m1_negative_imm() {
 
 #[test]
 fn vadd_vv_e8_m2_spans_two_regs() {
-    // VLMAX=32: elements 0..15 in v2, 16..31 in v3
-    let mut state = setup(32, Vsew::E8, Vlmul::M2);
-    for i in 0..32usize {
+    // VLMAX=64: elements 0..31 in v2, 32..63 in v3 (32 E8 elems per VLENB=32 register)
+    let mut state = setup(64, Vsew::E8, Vlmul::M2);
+    for i in 0..64usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 1);
     }
@@ -242,7 +242,7 @@ fn vadd_vv_e8_m2_spans_two_regs() {
         },
     )
     .unwrap();
-    for i in 0..32usize {
+    for i in 0..64usize {
         assert_eq!(
             read_elem(&state, VReg::V6, i, Vsew::E8),
             i as u64 + 1,
@@ -751,7 +751,7 @@ fn vmseq_vv_e8_m1_writes_mask_bits() {
         );
     }
     // Pre-fill vd (v4) with all-ones so we can detect undisturbed bits above vl
-    set_vreg(&mut state, VReg::V4, &[0xFF; 16]);
+    set_vreg(&mut state, VReg::V4, &[0xFF; 32]);
     exec(
         &mut state,
         Zve64xArithInstruction::VmseqVv {
@@ -773,8 +773,8 @@ fn vmseq_vv_e8_m1_writes_mask_bits() {
     assert!(!mask_bit(&state, VReg::V4, 5));
     assert!(mask_bit(&state, VReg::V4, 6));
     assert!(!mask_bit(&state, VReg::V4, 7));
-    // Bits above vl (8..127) must remain undisturbed (all-ones from pre-fill)
-    for i in 8..128usize {
+    // Bits above vl (8..VLEN) must remain undisturbed (all-ones from pre-fill)
+    for i in 8..256usize {
         assert_eq!(
             (state.ext_state.read_vreg()[usize::from(VReg::V4.bits())][i / u8::BITS as usize]
                 >> (i % u8::BITS as usize))

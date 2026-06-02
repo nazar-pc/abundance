@@ -7,11 +7,11 @@ use crate::{
 use ab_riscv_primitives::prelude::*;
 use core::array;
 
-// With TEST_VLEN=128 and TEST_VLENB=16, the VLMAX values are:
-//   E8/M1=16, E16/M1=8, E32/M1=4, E64/M1=2
-//   E8/M2=32, E16/M2=16, E32/M2=8, E64/M2=4
-//   E8/M4=64, E32/M4=16
-//   E8/Mf2=8, E16/Mf2=4
+// With TEST_VLEN=256 and TEST_VLENB=32, the VLMAX values are:
+//   E8/M1=32, E16/M1=16, E32/M1=8, E64/M1=4
+//   E8/M2=64, E16/M2=32, E32/M2=16, E64/M2=8
+//   E8/M4=128, E32/M4=32
+//   E8/Mf2=16, E16/Mf2=8
 
 /// Initialize the state with vector CSRs and a given vtype configuration
 fn setup(
@@ -57,7 +57,7 @@ fn vreg_byte(
 fn vreg_bytes(
     state: &TestInterpreterState<Zve64xLoadInstruction<Reg<u64>>>,
     reg: VReg,
-) -> [u8; 16] {
+) -> [u8; 32] {
     state.ext_state.read_vreg()[usize::from(reg.bits())]
 }
 
@@ -100,7 +100,7 @@ fn exec_one(
 fn vlr_single_register_loads_vlenb_bytes() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
-    let data = array::from_fn::<_, 16, _>(|i| i as u8);
+    let data = array::from_fn::<_, 32, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -124,7 +124,7 @@ fn vlr_single_register_loads_vlenb_bytes() {
 fn vlr_two_registers_loads_two_vlenb_blocks() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
-    let data = array::from_fn::<_, 32, _>(|i| i as u8);
+    let data = array::from_fn::<_, 64, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -140,15 +140,15 @@ fn vlr_two_registers_loads_two_vlenb_blocks() {
     )
     .unwrap();
 
-    assert_eq!(&vreg_bytes(&state, VReg::V2), &data[..16]);
-    assert_eq!(&vreg_bytes(&state, VReg::V3), &data[16..]);
+    assert_eq!(&vreg_bytes(&state, VReg::V2), &data[..32]);
+    assert_eq!(&vreg_bytes(&state, VReg::V3), &data[32..]);
 }
 
 #[test]
 fn vlr_four_registers() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
-    let data = array::from_fn::<_, 64, _>(|i| i as u8);
+    let data = array::from_fn::<_, 128, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -165,7 +165,7 @@ fn vlr_four_registers() {
     .unwrap();
 
     for i in 0u8..4 {
-        let expected: [u8; 16] = data[i as usize * 16..(i as usize + 1) * 16]
+        let expected: [u8; 32] = data[i as usize * 32..(i as usize + 1) * 32]
             .try_into()
             .unwrap();
         let reg = VReg::from_bits(4 + i).unwrap();
@@ -179,7 +179,7 @@ fn vlr_ignores_vtype_and_vl() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     // vtype remains vill (default after init_vector_csrs)
-    let data = [0xABu8; 16];
+    let data = [0xABu8; 32];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -203,7 +203,7 @@ fn vlr_resets_vstart_on_success() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     state.ext_state.set_vstart(7);
-    let data = [0u8; 16];
+    let data = [0u8; 32];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -314,7 +314,7 @@ fn vlm_vl_8_loads_exactly_1_byte() {
 #[test]
 fn vlm_vl_0_loads_no_bytes_and_leaves_dst_unchanged() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V5, &[0xABu8; 16]);
+    set_vreg(&mut state, VReg::V5, &[0xABu8; 32]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     exec_one(
@@ -328,7 +328,7 @@ fn vlm_vl_0_loads_no_bytes_and_leaves_dst_unchanged() {
     .unwrap();
 
     // Nothing written; destination unchanged
-    assert_eq!(vreg_bytes(&state, VReg::V5), [0xABu8; 16]);
+    assert_eq!(vreg_bytes(&state, VReg::V5), [0xABu8; 32]);
 }
 
 #[test]
@@ -375,7 +375,7 @@ fn vlm_vector_not_allowed_is_illegal() {
 
 #[test]
 fn vle_e8_loads_vl_bytes_sequentially() {
-    // E8/M1: VLMAX=16, vl=4
+    // E8/M1: VLMAX=32, vl=4
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     let data = [10u8, 20, 30, 40];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
@@ -403,7 +403,7 @@ fn vle_e8_loads_vl_bytes_sequentially() {
 
 #[test]
 fn vle_e32_loads_vl_words_sequentially() {
-    // E32/M1: VLMAX=4, vl=3
+    // E32/M1: VLMAX=8, vl=3
     let mut state = setup(3, Vsew::E32, Vlmul::M1);
     let data = array::from_fn::<_, 12, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
@@ -431,7 +431,7 @@ fn vle_e32_loads_vl_words_sequentially() {
 
 #[test]
 fn vle_e64_loads_vl_doublewords() {
-    // E64/M1: VLMAX=2, vl=2
+    // E64/M1: VLMAX=4, vl=2
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
     let val0 = 0x0102_0304_0506_0708_u64;
     let val1 = 0xDEAD_BEEF_CAFE_BABE_u64;
@@ -458,7 +458,7 @@ fn vle_e64_loads_vl_doublewords() {
 #[test]
 fn vle_vl_0_does_not_write_any_elements() {
     let mut state = setup(0, Vsew::E32, Vlmul::M1);
-    set_vreg(&mut state, VReg::V7, &[0xFFu8; 16]);
+    set_vreg(&mut state, VReg::V7, &[0xFFu8; 32]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     exec_one(
@@ -474,7 +474,7 @@ fn vle_vl_0_does_not_write_any_elements() {
     .unwrap();
 
     // Tail is undisturbed when vl=0
-    assert_eq!(vreg_bytes(&state, VReg::V7), [0xFFu8; 16]);
+    assert_eq!(vreg_bytes(&state, VReg::V7), [0xFFu8; 32]);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -1917,9 +1917,9 @@ fn mark_vs_dirty_not_called_on_illegal_instruction_error() {
 
 #[test]
 fn vle_e8_all_elements_across_register_boundary_m2() {
-    // E8/M2: VLMAX=32, vl=20, group spans V2 and V3
-    let mut state = setup(20, Vsew::E8, Vlmul::M2);
-    let data = array::from_fn::<_, 20, _>(|i| i as u8 + 1);
+    // E8/M2: VLMAX=64, vl=40, group spans V2 and V3 (32 E8 elems per VLENB=32 register)
+    let mut state = setup(40, Vsew::E8, Vlmul::M2);
+    let data = array::from_fn::<_, 40, _>(|i| i as u8 + 1);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -1935,18 +1935,18 @@ fn vle_e8_all_elements_across_register_boundary_m2() {
     )
     .unwrap();
 
-    // Elements 0-15 in V2, elements 16-19 in V3
-    for i in 0..16usize {
+    // Elements 0-31 in V2, elements 32-39 in V3
+    for i in 0..32usize {
         assert_eq!(vreg_byte(&state, VReg::V2, i), (i + 1) as u8, "V2[{i}]");
     }
-    for i in 0..4usize {
-        assert_eq!(vreg_byte(&state, VReg::V3, i), (17 + i) as u8, "V3[{i}]");
+    for i in 0..8usize {
+        assert_eq!(vreg_byte(&state, VReg::V3, i), (33 + i) as u8, "V3[{i}]");
     }
 }
 
 #[test]
 fn vle_e16_loads_half_words() {
-    // E16/M1: VLMAX=8, vl=3
+    // E16/M1: VLMAX=16, vl=3
     let mut state = setup(3, Vsew::E16, Vlmul::M1);
     let vals = [0x0102_u16, 0x0304, 0x0506];
     let data = vals.map(u16::to_le_bytes);
@@ -1975,9 +1975,9 @@ fn vle_e16_loads_half_words() {
 
 #[test]
 fn vle_vl_equals_vlmax_loads_all_elements() {
-    // E8/M1: VLMAX=16, vl=16 (maximum)
-    let mut state = setup(16, Vsew::E8, Vlmul::M1);
-    let data = array::from_fn::<_, 16, _>(|i| i as u8);
+    // E8/M1: VLMAX=32, vl=32 (maximum)
+    let mut state = setup(32, Vsew::E8, Vlmul::M1);
+    let data = array::from_fn::<_, 32, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -2000,7 +2000,7 @@ fn vle_vl_equals_vlmax_loads_all_elements() {
 
 #[test]
 fn vle_fractional_lmul_mf2_e8() {
-    // E8/Mf2: VLMAX = VLEN/(SEW*2) = 128/(8*2) = 8; group_regs=1
+    // E8/Mf2: VLMAX = VLEN/(SEW*2) = 256/(8*2) = 16; group_regs=1
     let mut state = setup(4, Vsew::E8, Vlmul::Mf2);
     write_mem(&mut state, TEST_BASE_ADDR, &[5u8, 6, 7, 8]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -2169,7 +2169,7 @@ fn vle_fault_at_first_element_does_not_mark_vs_dirty() {
 fn vlr_eight_registers() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
-    let data = array::from_fn::<_, 128, _>(|i| i as u8);
+    let data = array::from_fn::<_, 256, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -2187,7 +2187,7 @@ fn vlr_eight_registers() {
 
     for r in 0u8..8 {
         let reg = VReg::from_bits(r).unwrap();
-        let expected: [u8; 16] = data[r as usize * 16..(r as usize + 1) * 16]
+        let expected: [u8; 32] = data[r as usize * 32..(r as usize + 1) * 32]
             .try_into()
             .unwrap();
         assert_eq!(vreg_bytes(&state, reg), expected, "register v{r}");
