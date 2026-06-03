@@ -59,9 +59,11 @@ where
     > {
         match self {
             // Mask-register logical instructions (§16.1).
-            // These operate on the full VLENB bytes regardless of vtype/vl, but still require
-            // vtype to be valid (vill=0). Any vector instruction must be rejected when vill is
-            // set, regardless of whether it uses SEW or vl.
+            // These compute the body elements [vstart, vl); prestart bits [0, vstart) are
+            // undisturbed and the tail (past vl) is tail-agnostic (realised here as
+            // undisturbed). They still require vtype to be valid (vill=0); any vector
+            // instruction must be rejected when vill is set, regardless of whether it uses
+            // SEW or vl.
             Self::Vmandn { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
@@ -73,15 +75,20 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                // SAFETY: all VReg values are valid indices < 32; snapshot-before-write
-                // inside the helper means vd may overlap vs2 or vs1 safely.
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
+                // SAFETY: all VReg values are valid indices < 32; `vl <= VLEN` and
+                // `vstart <= vl` are architectural invariants; snapshot-before-write inside
+                // the helper means vd may overlap vs2 or vs1 safely.
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
                         ext_state,
                         vd,
                         vs2,
                         vs1,
-                        |a, b| a & !b,
+                        vl,
+                        vstart,
+                        |a, b| a && !b,
                     );
                 }
             }
@@ -96,6 +103,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -103,6 +112,8 @@ where
                         vd,
                         vs2,
                         vs1,
+                        vl,
+                        vstart,
                         |a, b| a & b,
                     );
                 }
@@ -118,6 +129,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -125,6 +138,8 @@ where
                         vd,
                         vs2,
                         vs1,
+                        vl,
+                        vstart,
                         |a, b| a | b,
                     );
                 }
@@ -140,6 +155,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -147,6 +164,8 @@ where
                         vd,
                         vs2,
                         vs1,
+                        vl,
+                        vstart,
                         |a, b| a ^ b,
                     );
                 }
@@ -162,6 +181,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -169,7 +190,9 @@ where
                         vd,
                         vs2,
                         vs1,
-                        |a, b| a | !b,
+                        vl,
+                        vstart,
+                        |a, b| a || !b,
                     );
                 }
             }
@@ -184,6 +207,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -191,6 +216,8 @@ where
                         vd,
                         vs2,
                         vs1,
+                        vl,
+                        vstart,
                         |a, b| !(a & b),
                     );
                 }
@@ -206,6 +233,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -213,6 +242,8 @@ where
                         vd,
                         vs2,
                         vs1,
+                        vl,
+                        vstart,
                         |a, b| !(a | b),
                     );
                 }
@@ -228,6 +259,8 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
+                let vl = ext_state.vl();
+                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -235,6 +268,8 @@ where
                         vd,
                         vs2,
                         vs1,
+                        vl,
+                        vstart,
                         |a, b| !(a ^ b),
                     );
                 }
@@ -253,7 +288,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`; `vstart <= vl`
                 // by spec invariant.
                 unsafe {
@@ -273,7 +308,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: same as `Vcpop`
                 unsafe {
                     zve64x_mask_helpers::execute_vfirst(regs, ext_state, rd, vs2, vm, vl, vstart);
@@ -468,7 +503,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: vd alignment checked above; `vm=false` implies `vd != v0` checked above;
                 // `vl <= VLMAX = group_regs * VLENB / sew_bytes`, all element indices valid.
                 unsafe {

@@ -95,10 +95,11 @@ fn mask_bit(
 }
 
 // mask-logical
-
+// E8/M8 gives VLMAX=256, so the whole 32-byte mask register is body and the per-byte
+// assertions below exercise every bit of the logical operation.
 #[test]
 fn vmand_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vs2 = 0b10101010, vs1 = 0b11001100
     set_vreg(&mut state, VReg::V2, [0xAA; 32]);
     set_vreg(&mut state, VReg::V1, [0xCC; 32]);
@@ -121,7 +122,7 @@ fn vmand_basic() {
 
 #[test]
 fn vmor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     set_vreg(&mut state, VReg::V2, [0xAA; 32]);
     set_vreg(&mut state, VReg::V1, [0x55; 32]);
     exec(
@@ -141,7 +142,7 @@ fn vmor_basic() {
 
 #[test]
 fn vmxor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     set_vreg(&mut state, VReg::V2, [0xF0; 32]);
     set_vreg(&mut state, VReg::V1, [0xFF; 32]);
     exec(
@@ -161,7 +162,7 @@ fn vmxor_basic() {
 
 #[test]
 fn vmandn_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmandn: vd = vs2 AND NOT vs1
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0x0F; 32]);
@@ -182,7 +183,7 @@ fn vmandn_basic() {
 
 #[test]
 fn vmorn_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmorn: vd = vs2 OR NOT vs1
     set_vreg(&mut state, VReg::V2, [0x00; 32]);
     set_vreg(&mut state, VReg::V1, [0x0F; 32]);
@@ -203,7 +204,7 @@ fn vmorn_basic() {
 
 #[test]
 fn vmnand_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmnand: vd = NOT(vs2 AND vs1)
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0xFF; 32]);
@@ -224,7 +225,7 @@ fn vmnand_basic() {
 
 #[test]
 fn vmnor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmnor: vd = NOT(vs2 OR vs1)
     set_vreg(&mut state, VReg::V2, [0x00; 32]);
     set_vreg(&mut state, VReg::V1, [0x00; 32]);
@@ -245,7 +246,7 @@ fn vmnor_basic() {
 
 #[test]
 fn vmxnor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmxnor: vd = NOT(vs2 XOR vs1)
     set_vreg(&mut state, VReg::V2, [0xAA; 32]);
     set_vreg(&mut state, VReg::V1, [0xAA; 32]);
@@ -264,13 +265,15 @@ fn vmxnor_basic() {
     assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 32]);
 }
 
-/// Mask-logical ops operate on full VLENB bytes regardless of vl.
-/// Even with vl=0 the full register is processed.
+/// Mask-logical ops compute only the body [0, vl); bits at or past vl are tail-agnostic and
+/// left undisturbed here. This is the core property the certification suite checks.
 #[test]
-fn vmand_operates_on_full_register_regardless_of_vl() {
-    let mut state = setup(0, Vsew::E8, Vlmul::M1);
+fn vmand_respects_vl_tail_undisturbed() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0xAA; 32]);
+    // Pre-set vd so undisturbed tail bytes are detectable
+    set_vreg(&mut state, VReg::V4, [0x33; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmand {
@@ -282,14 +285,106 @@ fn vmand_operates_on_full_register_regardless_of_vl() {
         },
     )
     .unwrap();
-    // All VLENB (32) bytes processed: 0xFF & 0xAA = 0xAA
-    assert_eq!(get_vreg(&state, VReg::V4), [0xAA; 32]);
+    // Body is the first 8 mask bits = byte 0: 0xFF & 0xAA = 0xAA
+    assert_eq!(get_vreg(&state, VReg::V4)[0], 0xAA);
+    // Bytes 1..32 are past vl: undisturbed
+    for b in 1..32usize {
+        assert_eq!(get_vreg(&state, VReg::V4)[b], 0x33, "tail byte {b}");
+    }
+}
+
+/// Mask-logical ops honor vstart: prestart bits [0, vstart) are undisturbed.
+#[test]
+fn vmand_respects_vstart_prestart_undisturbed() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V4, [0x00; 32]);
+    state.ext_state.set_vstart(4);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmand {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Bits 0..4 prestart: undisturbed (0)
+    for i in 0..4 {
+        assert!(!mask_bit(&state, VReg::V4, i), "prestart bit {i}");
+    }
+    // Bits 4..8 body: 0xFF & 0xFF = 1
+    for i in 4..8 {
+        assert!(mask_bit(&state, VReg::V4, i), "body bit {i}");
+    }
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
+/// With vl=0, mask-logical ops write nothing; vd is undisturbed but VS is still marked dirty.
+#[test]
+fn vmand_vl_zero_undisturbed() {
+    let mut state = setup(0, Vsew::E8, Vlmul::M1);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xAA; 32]);
+    set_vreg(&mut state, VReg::V4, [0x5C; 32]);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmand {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(get_vreg(&state, VReg::V4), [0x5C; 32]);
+    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+}
+
+/// Regression for the Vx16-vmand.mm certification failure. The cert uses SEW=16, LMUL=1/4,
+/// which with VLEN=256 yields VLMAX=4, so vl=4. The same effective body [0, 4) is reproduced
+/// here with E16/M1, vl=4 (no dependence on the fractional-LMUL enum). The old implementation
+/// applied the logical op across the whole physical register, corrupting the tail-agnostic
+/// bytes that the certification signature compares as undisturbed; the body bits stayed
+/// correct, so only the tail check tripped.
+#[test]
+fn vmand_cert_regression_tail_undisturbed() {
+    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    // In the cert flow vd == vs2 (v13); mirror that overlap here.
+    set_vreg(&mut state, VReg::V13, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V11, [0x0F; 32]);
+    let before = get_vreg(&state, VReg::V13);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmand {
+            vd: VReg::V13,
+            vs2: VReg::V13,
+            vs1: VReg::V11,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Body bits 0..4: 0xFF & 0x0F = 1
+    for i in 0..4u32 {
+        assert!(mask_bit(&state, VReg::V13, i), "body bit {i}");
+    }
+    let after = get_vreg(&state, VReg::V13);
+    // Every bit at or past vl=4 is undisturbed: high nibble of byte 0 plus all higher bytes.
+    assert_eq!(after[0] & 0xF0, before[0] & 0xF0, "tail of byte 0");
+    for b in 1..32usize {
+        assert_eq!(after[b], before[b], "tail byte {b}");
+    }
 }
 
 /// vd may overlap vs2 for mask-logical ops
 #[test]
 fn vmand_vd_overlaps_vs2() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0x0F; 32]);
     // vd = vs2
@@ -310,7 +405,7 @@ fn vmand_vd_overlaps_vs2() {
 /// vd may overlap vs1 for mask-logical ops
 #[test]
 fn vmand_vd_overlaps_vs1() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0x0F; 32]);
     // vd = vs1
@@ -331,7 +426,7 @@ fn vmand_vd_overlaps_vs1() {
 /// vd may be v0 for mask-logical ops (they are always unmasked)
 #[test]
 fn vmand_vd_is_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0xAA; 32]);
     exec(
