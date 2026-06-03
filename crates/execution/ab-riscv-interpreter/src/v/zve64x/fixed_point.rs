@@ -71,22 +71,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -128,17 +128,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -176,17 +176,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -227,22 +227,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -284,17 +284,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -332,17 +332,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -382,22 +382,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -439,17 +439,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -488,22 +488,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -545,17 +545,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -594,22 +594,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -651,17 +651,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -700,22 +700,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -757,17 +757,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -806,22 +806,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -863,17 +863,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -912,22 +912,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -969,17 +969,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1018,22 +1018,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1075,17 +1075,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1124,22 +1124,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1185,17 +1185,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1236,17 +1236,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1289,22 +1289,22 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1348,17 +1348,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1398,17 +1398,17 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1455,7 +1455,7 @@ where
                     sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -1468,12 +1468,12 @@ where
                     sew,
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1519,7 +1519,7 @@ where
                     sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -1530,7 +1530,7 @@ where
                     vtype.vlmul(),
                     sew,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1572,7 +1572,7 @@ where
                     sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -1583,7 +1583,7 @@ where
                     vtype.vlmul(),
                     sew,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1626,7 +1626,7 @@ where
                     sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -1637,12 +1637,12 @@ where
                     vtype.vlmul(),
                     sew,
                 )?;
-                zve64x_fixed_point_helpers::check_vs::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1688,7 +1688,7 @@ where
                     sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -1699,7 +1699,7 @@ where
                     vtype.vlmul(),
                     sew,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1741,7 +1741,7 @@ where
                     sew,
                 )?;
                 let group_regs = vtype.vlmul().register_count();
-                zve64x_fixed_point_helpers::check_vd::<Reg, _, _, _>(
+                zve64x_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -1752,7 +1752,7 @@ where
                     vtype.vlmul(),
                     sew,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });

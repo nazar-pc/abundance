@@ -2,7 +2,7 @@
 
 use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zve64x::arith::zve64x_arith_helpers::{
-    OpSrc, check_vreg_group_alignment as check_vd, check_vreg_group_alignment as check_vs, sew_mask,
+    OpSrc, check_vreg_group_alignment, sew_mask,
 };
 use crate::v::zve64x::arith::zve64x_arith_helpers::{
     read_element_u64, sign_extend, write_element_u64,
