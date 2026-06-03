@@ -1,6 +1,7 @@
 //! Zve64x extension
 
 pub mod arith;
+pub mod carry;
 pub mod config;
 pub mod fixed_point;
 pub mod load;
@@ -14,6 +15,7 @@ pub mod zve64x_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zve64x::arith::zve64x_arith_helpers;
+use crate::v::zve64x::carry::zve64x_carry_helpers;
 use crate::v::zve64x::config::zve64x_config_helpers;
 use crate::v::zve64x::fixed_point::zve64x_fixed_point_helpers;
 use crate::v::zve64x::load::zve64x_load_helpers;

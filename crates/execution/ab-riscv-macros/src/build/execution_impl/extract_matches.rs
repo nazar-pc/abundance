@@ -80,6 +80,9 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                         pat_struct.fields = mem::take(&mut pat_struct.fields)
                             .into_iter()
                             .filter_map(|field| {
+                                // TODO: Ensure all fields correspond to those in the enum
+                                //  definition, right now this silently accepts non-existing ignored
+                                //  fields
                                 if let Pat::Wild(_) = &*field.pat {
                                     return None;
                                 }

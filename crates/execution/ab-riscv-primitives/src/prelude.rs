@@ -42,6 +42,7 @@ pub use crate::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
 pub use crate::instructions::utils::{I24, I24WithZeroedBits};
 pub use crate::instructions::v::zve64x::Zve64xInstruction;
 pub use crate::instructions::v::zve64x::arith::Zve64xArithInstruction;
+pub use crate::instructions::v::zve64x::carry::Zve64xCarryInstruction;
 pub use crate::instructions::v::zve64x::config::Zve64xConfigInstruction;
 pub use crate::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
 pub use crate::instructions::v::zve64x::load::Zve64xLoadInstruction;

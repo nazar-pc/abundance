@@ -3,6 +3,8 @@
 #[doc(hidden)]
 pub mod arith;
 #[doc(hidden)]
+pub mod carry;
+#[doc(hidden)]
 pub mod config;
 #[doc(hidden)]
 pub mod fixed_point;
@@ -24,6 +26,7 @@ pub mod widen_narrow;
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
 use crate::instructions::v::zve64x::arith::Zve64xArithInstruction;
+use crate::instructions::v::zve64x::carry::Zve64xCarryInstruction;
 use crate::instructions::v::zve64x::config::Zve64xConfigInstruction;
 use crate::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
 use crate::instructions::v::zve64x::load::Zve64xLoadInstruction;
@@ -46,6 +49,7 @@ use core::fmt;
         Zve64xLoadInstruction,
         Zve64xStoreInstruction,
         Zve64xArithInstruction,
+        Zve64xCarryInstruction,
         Zve64xMulDivInstruction,
         Zve64xWidenNarrowInstruction,
         Zve64xFixedPointInstruction,
