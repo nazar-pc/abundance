@@ -188,6 +188,25 @@ impl fmt::Display for Vlmul {
     }
 }
 
+/// Factor by which Vsew width is divided
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum VsewFactor {
+    /// Divide width by 2
+    F2 = 2,
+    /// Divide width by 4
+    F4 = 4,
+    /// Divide width by 8
+    F8 = 8,
+}
+
+impl VsewFactor {
+    /// Divide Vsew width by a given factor
+    pub const fn factor(self) -> u8 {
+        self as u8
+    }
+}
+
 /// Selected element width (SEW).
 ///
 /// Encoded in `vtype[5:3]` as `vsew`. `SEW = 8 * 2^vsew`.
@@ -213,6 +232,26 @@ impl Vsew {
             0b001 => Some(Self::E16),
             0b010 => Some(Self::E32),
             0b011 => Some(Self::E64),
+            _ => None,
+        }
+    }
+
+    /// Get the double-width element width, if available
+    pub const fn double_width(self) -> Option<Self> {
+        match self {
+            Self::E8 => Some(Self::E16),
+            Self::E16 => Some(Self::E32),
+            Self::E32 => Some(Self::E64),
+            Self::E64 => None,
+        }
+    }
+
+    /// Divide Vsew width by a given factor
+    pub const fn divide_by_factor(self, factor: VsewFactor) -> Option<Self> {
+        match self.bits().div_exact(factor.factor())? {
+            8 => Some(Self::E8),
+            16 => Some(Self::E16),
+            32 => Some(Self::E32),
             _ => None,
         }
     }

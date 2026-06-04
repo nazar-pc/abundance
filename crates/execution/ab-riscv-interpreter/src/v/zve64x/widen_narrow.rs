@@ -319,11 +319,9 @@ where
                     });
                 }
                 // Scalar is sign-extended from XLEN to 64 bits
-                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    rs1_value.as_u64(),
-                    u32::from(Reg::XLEN),
-                )
-                .cast_unsigned();
+                let scalar =
+                    zve64x_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
+                        .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -597,11 +595,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    rs1_value.as_u64(),
-                    u32::from(Reg::XLEN),
-                )
-                .cast_unsigned();
+                let scalar =
+                    zve64x_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
+                        .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -866,11 +862,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    rs1_value.as_u64(),
-                    u32::from(Reg::XLEN),
-                )
-                .cast_unsigned();
+                let scalar =
+                    zve64x_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
+                        .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -1132,11 +1126,9 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
-                    rs1_value.as_u64(),
-                    u32::from(Reg::XLEN),
-                )
-                .cast_unsigned();
+                let scalar =
+                    zve64x_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
+                        .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -1564,7 +1556,13 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, sew, 2, false,
+                        ext_state,
+                        vd,
+                        vs2,
+                        vm,
+                        sew,
+                        VsewFactor::F2,
+                        false,
                     );
                 }
             }
@@ -1609,7 +1607,13 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, sew, 4, false,
+                        ext_state,
+                        vd,
+                        vs2,
+                        vm,
+                        sew,
+                        VsewFactor::F4,
+                        false,
                     );
                 }
             }
@@ -1654,7 +1658,13 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, sew, 8, false,
+                        ext_state,
+                        vd,
+                        vs2,
+                        vm,
+                        sew,
+                        VsewFactor::F8,
+                        false,
                     );
                 }
             }
@@ -1698,7 +1708,13 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, sew, 2, true,
+                        ext_state,
+                        vd,
+                        vs2,
+                        vm,
+                        sew,
+                        VsewFactor::F2,
+                        true,
                     );
                 }
             }
@@ -1742,7 +1758,13 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, sew, 4, true,
+                        ext_state,
+                        vd,
+                        vs2,
+                        vm,
+                        sew,
+                        VsewFactor::F4,
+                        true,
                     );
                 }
             }
@@ -1786,7 +1808,13 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, sew, 8, true,
+                        ext_state,
+                        vd,
+                        vs2,
+                        vm,
+                        sew,
+                        VsewFactor::F8,
+                        true,
                     );
                 }
             }
