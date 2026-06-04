@@ -195,7 +195,7 @@ jobs:
         with:
           path: *cache-path
           key: *cache-key
-        # Only save on `main` branch, and only from one canonical matrix variant per OS
+        # Only save on `main` branch and only from one canonical matrix variant per OS
         if: github.ref == 'refs/heads/main' && matrix.type == 'features'
 
   cargo-test:
@@ -593,6 +593,15 @@ jobs:
           cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=min,scope=act4-build-{0}', runner.arch) || '' }}
           load: true
 
+      - name: Restore cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: &act4-work-cache-path |
+            work
+          key: &act4-work-cache-key act4-work-${{ hashFiles('crates/execution/ab-riscv-act4-runner/res/abundance/**') }}
+          restore-keys: |
+            act4-work-
+
       - name: ACT4 tests
         working-directory: crates/execution/ab-riscv-act4-runner
         run: |
@@ -616,6 +625,14 @@ jobs:
           # And just to make sure, force-disable AES intrinsics and test software implementation
           echo "Running RV64 tests (-aes)"
           RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
+
+      - name: Save cache
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: *act4-work-cache-path
+          key: *act4-work-cache-key
+        # Only save on `main` branch and only from one OS since the contents will be identical for all OSes
+        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04'
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
