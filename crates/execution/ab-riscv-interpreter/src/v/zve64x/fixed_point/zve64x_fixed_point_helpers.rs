@@ -420,7 +420,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -437,7 +437,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let mut any_sat = false;
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -488,7 +488,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -507,7 +507,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits() * 2 - 1);
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

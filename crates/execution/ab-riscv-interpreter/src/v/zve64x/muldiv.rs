@@ -93,7 +93,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -143,7 +143,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -201,7 +201,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -256,7 +256,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
@@ -313,7 +313,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -368,7 +368,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
@@ -425,7 +425,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -481,7 +481,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
@@ -535,7 +535,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -591,7 +591,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -648,7 +648,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -698,7 +698,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -750,7 +750,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -810,7 +810,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -871,7 +871,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -921,7 +921,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1001,7 +1001,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
@@ -1072,7 +1072,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
@@ -1152,7 +1152,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
@@ -1225,7 +1225,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -1307,7 +1307,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
@@ -1380,7 +1380,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // scalar from rs1 is sign-extended to XLEN; treat as signed SEW-wide
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -1437,7 +1437,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
@@ -1488,7 +1488,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1540,7 +1540,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
@@ -1591,7 +1591,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1643,7 +1643,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
@@ -1694,7 +1694,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1747,7 +1747,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
@@ -1798,7 +1798,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1877,7 +1877,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_op(
@@ -1949,7 +1949,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
@@ -2029,7 +2029,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_op(
@@ -2102,7 +2102,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
@@ -2183,7 +2183,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_op(
@@ -2256,7 +2256,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // scalar (rs1) is the signed operand; vs2 elements are unsigned
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -2334,7 +2334,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // scalar (rs1) is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above

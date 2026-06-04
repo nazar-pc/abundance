@@ -49,7 +49,7 @@ pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
     src: OpSrc,
     with_carry: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -59,7 +59,7 @@ pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -110,7 +110,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
     vs2: VReg,
     src: OpSrc,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -120,7 +120,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -175,7 +175,7 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
     src: OpSrc,
     with_carry: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -187,7 +187,7 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
 {
     let mask = sew_mask(sew);
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -243,7 +243,7 @@ pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
     src: OpSrc,
     with_borrow: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -255,7 +255,7 @@ pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
 {
     let mask = sew_mask(sew);
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`

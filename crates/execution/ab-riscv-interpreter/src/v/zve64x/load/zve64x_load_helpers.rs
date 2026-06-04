@@ -286,7 +286,7 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
     vd: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     base: u64,
     eew: Eew,
     group_regs: u8,
@@ -308,7 +308,7 @@ where
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -344,7 +344,7 @@ where
                         ext_state.reset_vstart();
                         return Ok(());
                     }
-                    if i > vstart {
+                    if i > u32::from(vstart) {
                         // Elements [vstart, i) were committed; VS is now dirty.
                         ext_state.mark_vs_dirty();
                         // vstart records the faulting element for restartability.
@@ -410,7 +410,7 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     vd: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     base: u64,
     stride: i64,
     eew: Eew,
@@ -431,7 +431,7 @@ where
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -443,7 +443,7 @@ where
             let data = match read_mem_element(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
-                    if f > 0 || i > vstart {
+                    if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(i as u16);
                     }
@@ -499,7 +499,7 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
@@ -520,7 +520,7 @@ where
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -543,7 +543,7 @@ where
             let data = match read_mem_element(memory, addr, data_eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
-                    if f > 0 || i > vstart {
+                    if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(i as u16);
                     }

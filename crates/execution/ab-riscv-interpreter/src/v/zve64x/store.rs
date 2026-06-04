@@ -76,10 +76,10 @@ where
                 }
                 let vlenb = u64::from(ExtState::VLENB);
                 let evl = u64::from(nreg) * vlenb;
-                let vstart = u64::from(ext_state.vstart());
-                if vstart < evl {
+                let vstart = ext_state.vstart();
+                if u64::from(vstart) < evl {
                     let base = rs1_value.as_u64();
-                    let mut byte_off = vstart;
+                    let mut byte_off = u64::from(vstart);
                     while byte_off < evl {
                         let reg_off = byte_off / vlenb;
                         let in_reg = (byte_off % vlenb) as usize;
@@ -113,8 +113,8 @@ where
                 }
                 let vl = ext_state.vl();
                 let evl_bytes = vl.div_ceil(u8::BITS);
-                let start_byte = u32::from(ext_state.vstart());
-                if start_byte < evl_bytes {
+                let start_byte = ext_state.vstart();
+                if u32::from(start_byte) < evl_bytes {
                     let base = rs1_value.as_u64();
                     // SAFETY: `vs3.bits() < 32` is guaranteed by `VReg`.
                     // `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLENB` because `vl <= VLMAX <=
@@ -124,7 +124,7 @@ where
                         ext_state
                             .read_vreg()
                             .get_unchecked(usize::from(vs3.bits()))
-                            .get_unchecked(start_byte as usize..evl_bytes as usize)
+                            .get_unchecked(usize::from(start_byte)..evl_bytes as usize)
                     };
                     memory
                         .write_slice(base + u64::from(start_byte), src)
@@ -284,7 +284,7 @@ where
                         vs2,
                         vm,
                         ext_state.vl(),
-                        u32::from(ext_state.vstart()),
+                        ext_state.vstart(),
                         rs1_value.as_u64(),
                         data_eew,
                         index_eew,
@@ -340,7 +340,7 @@ where
                         vs2,
                         vm,
                         ext_state.vl(),
-                        u32::from(ext_state.vstart()),
+                        ext_state.vstart(),
                         rs1_value.as_u64(),
                         data_eew,
                         index_eew,
@@ -497,7 +497,7 @@ where
                         vs2,
                         vm,
                         ext_state.vl(),
-                        u32::from(ext_state.vstart()),
+                        ext_state.vstart(),
                         rs1_value.as_u64(),
                         data_eew,
                         index_eew,
@@ -554,7 +554,7 @@ where
                         vs2,
                         vm,
                         ext_state.vl(),
-                        u32::from(ext_state.vstart()),
+                        ext_state.vstart(),
                         rs1_value.as_u64(),
                         data_eew,
                         index_eew,

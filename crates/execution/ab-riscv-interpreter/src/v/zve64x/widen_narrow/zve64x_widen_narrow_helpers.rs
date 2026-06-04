@@ -353,7 +353,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     zero_extend_a: bool,
     zero_extend_b: bool,
@@ -375,7 +375,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -438,7 +438,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     zero_extend_b: bool,
     op: F,
@@ -458,7 +458,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -520,7 +520,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     arithmetic: bool,
 ) where
@@ -541,7 +541,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -601,7 +601,7 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     factor: u8,
     sign: bool,
@@ -620,7 +620,7 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

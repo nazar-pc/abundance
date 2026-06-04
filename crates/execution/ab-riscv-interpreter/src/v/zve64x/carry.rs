@@ -94,7 +94,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_add::<Reg, _, _>(
@@ -139,7 +139,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
@@ -185,7 +185,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
@@ -239,7 +239,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_add_mask::<Reg, _, _>(
@@ -280,7 +280,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -322,7 +322,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -375,7 +375,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_add_mask::<Reg, _, _>(
@@ -416,7 +416,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -458,7 +458,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -510,7 +510,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_sub::<Reg, _, _>(
@@ -554,7 +554,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
@@ -607,7 +607,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_sub_mask::<Reg, _, _>(
@@ -648,7 +648,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -701,7 +701,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_sub_mask::<Reg, _, _>(
@@ -742,7 +742,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {

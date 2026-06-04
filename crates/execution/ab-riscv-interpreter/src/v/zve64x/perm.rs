@@ -102,9 +102,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Per spec §16.1: update only when vstart < vl.
-                if vstart < vl {
+                if u32::from(vstart) < vl {
                     let scalar = rs1_value.as_u64();
                     // SAFETY: element 0 always fits.
                     unsafe {
@@ -165,7 +165,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified above; vl <= VLMAX.
                 unsafe {
@@ -211,7 +211,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslideupVx.
                 unsafe {
@@ -257,7 +257,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment verified above; vl <= VLMAX; offset clamped in helper.
@@ -298,7 +298,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslidedownVx.
@@ -352,7 +352,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
@@ -399,7 +399,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
                 unsafe {
@@ -457,7 +457,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 // SAFETY: all alignment and overlap constraints verified above; vl <= VLMAX.
                 unsafe {
@@ -509,7 +509,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let index = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
@@ -556,7 +556,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let index = u64::from(uimm);
                 // SAFETY: same as VrgatherVx.
@@ -629,7 +629,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX;
                 // vs1 uses EEW=16 with computed index_group_regs.
@@ -692,7 +692,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_merge_vv(
@@ -740,7 +740,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
@@ -784,7 +784,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Sign-extend imm to u64 so the low sew_bytes are correct for all SEW.
                 let scalar = i64::from(simm5).cast_unsigned();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.

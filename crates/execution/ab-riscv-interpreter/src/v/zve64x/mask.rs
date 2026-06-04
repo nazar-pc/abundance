@@ -442,7 +442,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // Spec §16.8: viota.m with vstart != 0 raises an illegal instruction exception.
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });

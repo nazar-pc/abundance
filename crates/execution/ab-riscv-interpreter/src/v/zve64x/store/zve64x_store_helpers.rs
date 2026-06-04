@@ -234,7 +234,7 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
@@ -253,7 +253,7 @@ where
     let data_elem_bytes = data_eew.bytes();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }

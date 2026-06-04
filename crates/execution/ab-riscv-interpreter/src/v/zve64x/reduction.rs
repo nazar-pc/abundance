@@ -71,7 +71,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // Spec §14: reductions with vstart > 0 are reserved; raise illegal instruction
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -110,7 +110,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -148,7 +148,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -186,7 +186,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -224,7 +224,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -265,7 +265,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -311,7 +311,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -352,7 +352,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -398,7 +398,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -445,7 +445,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });

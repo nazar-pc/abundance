@@ -93,7 +93,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -145,7 +145,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -193,7 +193,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Per v-spec §12.1 / §11.1: the 5-bit immediate is sign-extended to SEW,
                 // then interpreted as an unsigned SEW-wide value for the saturating add.
                 // Sign-extend i8 -> i64 -> bit-cast to u64; sat_addu masks to SEW internally.
@@ -249,7 +249,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -301,7 +301,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -349,7 +349,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Sign-extend 5-bit immediate for signed sat add
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -404,7 +404,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -456,7 +456,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -510,7 +510,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -562,7 +562,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -616,7 +616,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -668,7 +668,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -722,7 +722,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -774,7 +774,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -828,7 +828,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -880,7 +880,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -934,7 +934,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -986,7 +986,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1040,7 +1040,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1092,7 +1092,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1146,7 +1146,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1202,7 +1202,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1253,7 +1253,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Immediate is unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = (u64::from(imm) & u64::from(sew.bits() - 1)) as u32;
                 // SAFETY: alignment checked above
@@ -1311,7 +1311,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1365,7 +1365,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1415,7 +1415,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let shamt = (u64::from(imm) & u64::from(sew.bits() - 1)) as u32;
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1479,7 +1479,7 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
@@ -1536,7 +1536,7 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
@@ -1589,7 +1589,7 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
@@ -1648,7 +1648,7 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(
@@ -1705,7 +1705,7 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
@@ -1758,7 +1758,7 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_narrowing_clip_op(

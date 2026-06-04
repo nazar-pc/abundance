@@ -176,7 +176,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -191,7 +191,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -244,7 +244,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     src: OpSrc,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -259,7 +259,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         // When masked, inactive elements in the destination mask register are left undisturbed
         // (spec §12.8: "mask register results follow mask-undisturbed policy")
         if !mask_bit(&mask_buf, i) {

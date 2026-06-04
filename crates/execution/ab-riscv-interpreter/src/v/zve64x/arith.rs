@@ -93,7 +93,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above; `vl <= VLMAX = group_regs * VLENB / sew_bytes`;
                 // masked vd != v0 checked above.
                 unsafe {
@@ -144,7 +144,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; scalar source has no register constraints
                 unsafe {
@@ -190,7 +190,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Sign-extend imm to u64 so wrapping_add works correctly for all SEW
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -243,7 +243,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -293,7 +293,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -344,7 +344,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // vrsub: result = src - vs2[i]
                 // SAFETY: alignment checked above
@@ -391,7 +391,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -443,7 +443,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -493,7 +493,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -539,7 +539,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -591,7 +591,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -641,7 +641,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -687,7 +687,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -739,7 +739,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -789,7 +789,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -835,7 +835,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -887,7 +887,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -938,7 +938,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -984,7 +984,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Immediate is already unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
                 // SAFETY: alignment checked above
@@ -1037,7 +1037,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1092,7 +1092,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1142,7 +1142,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1194,7 +1194,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1248,7 +1248,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1298,7 +1298,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1353,7 +1353,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1406,7 +1406,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1460,7 +1460,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1518,7 +1518,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1578,7 +1578,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1631,7 +1631,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1685,7 +1685,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1743,7 +1743,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1805,7 +1805,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: `vs2` and `vs1` alignment checked; `vd` is a single mask register,
                 // no alignment constraint; `vl <= VLMAX <= VLEN` so all element indices fit
                 // within the mask register. Mask-dest overlap rule (§11.8) checked above.
@@ -1856,7 +1856,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -1901,7 +1901,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -1958,7 +1958,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2007,7 +2007,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2052,7 +2052,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2109,7 +2109,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2158,7 +2158,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2215,7 +2215,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2264,7 +2264,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2321,7 +2321,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2370,7 +2370,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2415,7 +2415,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Per spec §12.8: for vmsleu.vi, the immediate is sign-extended to XLEN
                 // then the comparison is unsigned. A negative i8 immediate sign-extends to
                 // a large u64 (e.g. -1 -> 0xFFFF...FF). Both operands are masked to SEW
@@ -2479,7 +2479,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2528,7 +2528,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2573,7 +2573,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2624,7 +2624,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2669,7 +2669,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2720,7 +2720,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2765,7 +2765,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
