@@ -208,7 +208,7 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
 
         // Use u128 to capture the carry-out bit beyond SEW
         let sum = u128::from(a & mask) + u128::from(b & mask) + u128::from(c);
-        let carry_out = (sum >> sew.bits()) & 1 != 0;
+        let carry_out = (sum >> sew.bits_width()) & 1 != 0;
 
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
         unsafe {

@@ -97,8 +97,8 @@ pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
     let result = sa.wrapping_add(sb);
-    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits()));
-    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits()));
+    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits_width()));
+    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits_width()));
     if result < min_val {
         *vxsat = true;
         (min_val as i64).cast_unsigned() & sew_mask(sew)
@@ -136,8 +136,8 @@ pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
     let result = sa.wrapping_sub(sb);
-    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits()));
-    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits()));
+    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits_width()));
+    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits_width()));
     if result < min_val {
         *vxsat = true;
         (min_val as i64).cast_unsigned() & sew_mask(sew)
@@ -169,7 +169,7 @@ pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     // Bit 0 of `sum & mask` is the rounding bit for the truncated division.
     let r = round_increment(sum & mask, 1, mode, (sum >> 1u8) & 1);
     // Shift the (SEW+1)-bit quantity right by 1: result = (carry << (SEW-1)) | ((sum & mask) >> 1)
-    let shifted = (carry << (u32::from(sew.bits()) - 1)) | ((sum & mask) >> 1u8);
+    let shifted = (carry << (u32::from(sew.bits_width()) - 1)) | ((sum & mask) >> 1u8);
     (shifted.wrapping_add(r)) & mask
 }
 
@@ -226,7 +226,7 @@ pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     // Result = (borrow << SEW | diff) >> 1 (arithmetic) + r
     // Arithmetic shift: sign bit (`borrow`) propagates.
     let sign_fill = borrow.wrapping_neg(); // all ones if borrow set, zero otherwise
-    let shifted = (sign_fill << (u32::from(sew.bits()) - 1)) | ((diff & mask) >> 1u8);
+    let shifted = (sign_fill << (u32::from(sew.bits_width()) - 1)) | ((diff & mask) >> 1u8);
     (shifted.wrapping_add(r)) & mask
 }
 
@@ -266,8 +266,8 @@ pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 #[doc(hidden)]
 pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // SEW-wide signed min and max in i64 (valid for all SEW <= 64)
-    let min_sew = i64::MIN >> (i64::BITS - u32::from(sew.bits()));
-    let max_sew = i64::MAX >> (i64::BITS - u32::from(sew.bits()));
+    let min_sew = i64::MIN >> (i64::BITS - u32::from(sew.bits_width()));
+    let max_sew = i64::MAX >> (i64::BITS - u32::from(sew.bits_width()));
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
     // The only case where `product * 2` overflows a 2*SEW signed result is INT_MIN * INT_MIN.
@@ -284,7 +284,7 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     let doubled = product << 1u8;
     // Extract the low SEW bits (the discarded portion) for rounding.
     // Cast to u128 first to avoid sign-extension contaminating the mask.
-    let shift = u32::from(sew.bits());
+    let shift = u32::from(sew.bits_width());
     let low_bits = (doubled.cast_unsigned() & u128::from(sew_mask(sew))) as u64;
     // Arithmetic right shift by SEW gives the truncated signed result in SEW-wide range.
     let truncated = doubled >> shift;
@@ -343,7 +343,7 @@ pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool
 pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Sign-extend vs2_elem to full i64 treating it as a 2*SEW-bit signed value.
     // For SEW=8 the source is 16-bit, for SEW=16 it is 32-bit, for SEW=32 it is 64-bit.
-    let double_sew_bits = sew.bits() * 2;
+    let double_sew_bits = sew.bits_width() * 2;
     let shift_amt = i64::BITS - u32::from(double_sew_bits);
     let signed_wide = (vs2_elem.cast_signed() << shift_amt) >> shift_amt;
     // Arithmetic right shift with rounding
@@ -358,8 +358,8 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
     let r = round_increment(low_bits, shamt, mode, (truncated.cast_unsigned()) & 1);
     let rounded = truncated.wrapping_add(r.cast_signed());
     // Saturate to signed SEW range
-    let min_dst = i64::MIN >> (i64::BITS - u32::from(sew.bits()));
-    let max_dst = i64::MAX >> (i64::BITS - u32::from(sew.bits()));
+    let min_dst = i64::MIN >> (i64::BITS - u32::from(sew.bits_width()));
+    let max_dst = i64::MAX >> (i64::BITS - u32::from(sew.bits_width()));
     if rounded < min_dst {
         *vxsat = true;
         min_dst.cast_unsigned() & sew_mask(sew)
@@ -389,7 +389,7 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
     elem_i: u32,
     sew: Vsew,
 ) -> u64 {
-    let double_sew_bytes = usize::from(sew.bytes()) * 2;
+    let double_sew_bytes = usize::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / double_sew_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * double_sew_bytes;
@@ -504,7 +504,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
-    let shamt_mask = u64::from(sew.bits() * 2 - 1);
+    let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -546,7 +546,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    if sew.bits() > 32 {
+    if sew.bits_width() > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });

@@ -81,7 +81,7 @@ pub unsafe fn read_element_0_u64<const VLENB: usize>(
     base_reg: u8,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     // SAFETY: `base_reg < 32` by VReg invariant
     let reg = unsafe { vreg.get_unchecked(usize::from(base_reg)) };
     let mut buf = [0u8; 8];
@@ -102,7 +102,7 @@ pub unsafe fn write_element_0_u64<const VLENB: usize>(
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg < 32` by VReg invariant
     let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg)) };
@@ -130,7 +130,7 @@ pub fn sign_extend_to_reg<Reg>(val: u64, sew: Vsew) -> Reg::Type
 where
     Reg: Register,
 {
-    let sew_bits = u32::from(sew.bits());
+    let sew_bits = u32::from(sew.bits_width());
     // `shift` is in [0, 64). When sew_bits == 64, shift == 0 and the value is unchanged.
     let shift = u64::BITS - sew_bits;
     // Cast to i64 so the right-shift is arithmetic (sign-extending).

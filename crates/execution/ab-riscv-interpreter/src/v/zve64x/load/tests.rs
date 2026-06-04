@@ -30,7 +30,7 @@ fn setup(
 
 /// Encode a raw vtype value from SEW and LMUL (vta=false, vma=false)
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3)
 }
 
 /// Write a sequence of bytes into test memory starting at `addr`

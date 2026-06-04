@@ -99,7 +99,7 @@ pub fn indexed_load_overlap_allowed(
         return true;
     }
 
-    match sew.bytes().cmp(&index_eew.bytes()) {
+    match sew.bytes_width().cmp(&index_eew.bytes()) {
         // Equal EEW: the two groups coincide, overlap is permitted.
         Ordering::Equal => true,
         // Smaller data EEW: overlap must be in the lowest-numbered part of the index group, which
@@ -112,7 +112,7 @@ pub fn indexed_load_overlap_allowed(
         Ordering::Greater => {
             let (lmul_num, lmul_den) = vlmul.as_fraction();
             let index_emul_at_least_one = u16::from(index_eew.bits()) * u16::from(lmul_num)
-                >= u16::from(sew.bits()) * u16::from(lmul_den);
+                >= u16::from(sew.bits_width()) * u16::from(lmul_den);
             let (vd, vs2) = (vd.bits(), vs2.bits());
             index_emul_at_least_one && vd + data_regs == vs2 + index_regs
         }

@@ -143,7 +143,7 @@ impl Vlmul {
     pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<u8> {
         let (lmul_num, lmul_den) = self.as_fraction();
         let num = u16::from(index_eew.bits()) * u16::from(lmul_num);
-        let den = u16::from(sew.bits()) * u16::from(lmul_den);
+        let den = u16::from(sew.bits_width()) * u16::from(lmul_den);
         // Both are products of powers of two; GCD equals the smaller value.
         let g = if num < den { num } else { den };
         let (n, d) = (num / g, den / g);
@@ -214,13 +214,13 @@ impl VsewFactor {
 #[repr(u8)]
 pub enum Vsew {
     /// SEW = 8 bits (vsew = 0b000)
-    E8 = 0b000,
+    E8 = 8,
     /// SEW = 16 bits (vsew = 0b001)
-    E16 = 0b001,
+    E16 = 16,
     /// SEW = 32 bits (vsew = 0b010)
-    E32 = 0b010,
+    E32 = 32,
     /// SEW = 64 bits (vsew = 0b011)
-    E64 = 0b011,
+    E64 = 64,
 }
 
 impl Vsew {
@@ -236,7 +236,18 @@ impl Vsew {
         }
     }
 
-    /// Get the double-width element width, if available
+    /// Encode to the 3-bit vsew field
+    #[inline(always)]
+    pub const fn bits(self) -> u8 {
+        match self {
+            Vsew::E8 => 0b000,
+            Vsew::E16 => 0b001,
+            Vsew::E32 => 0b010,
+            Vsew::E64 => 0b011,
+        }
+    }
+
+    /// Get the double element width, if available
     pub const fn double_width(self) -> Option<Self> {
         match self {
             Self::E8 => Some(Self::E16),
@@ -248,7 +259,7 @@ impl Vsew {
 
     /// Divide Vsew width by a given factor
     pub const fn divide_by_factor(self, factor: VsewFactor) -> Option<Self> {
-        match self.bits().div_exact(factor.factor())? {
+        match self.bits_width().div_exact(factor.factor())? {
             8 => Some(Self::E8),
             16 => Some(Self::E16),
             32 => Some(Self::E32),
@@ -256,15 +267,9 @@ impl Vsew {
         }
     }
 
-    /// Encode to the 3-bit vsew field
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        self as u8
-    }
-
     /// Element width in bits
     #[inline(always)]
-    pub const fn bits(self) -> u8 {
+    pub const fn bits_width(self) -> u8 {
         match self {
             Self::E8 => 8,
             Self::E16 => 16,
@@ -275,7 +280,7 @@ impl Vsew {
 
     /// Element width in bytes
     #[inline(always)]
-    pub const fn bytes(self) -> u8 {
+    pub const fn bytes_width(self) -> u8 {
         match self {
             Self::E8 => 1,
             Self::E16 => 2,
@@ -474,7 +479,7 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
         let vlmul = Vlmul::from_bits(vlmul_bits)?;
         let vsew = Vsew::from_bits(vsew_bits)?;
 
-        let sew = vsew.bits();
+        let sew = vsew.bits_width();
         if u32::from(sew) > ELEN {
             return None;
         }
@@ -503,7 +508,7 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
     {
         let mut raw = 0u8;
         raw |= self.vlmul.to_bits();
-        raw |= self.vsew.to_bits() << 3u8;
+        raw |= self.vsew.bits() << 3u8;
 
         if self.vta {
             raw |= 1 << 6u8;

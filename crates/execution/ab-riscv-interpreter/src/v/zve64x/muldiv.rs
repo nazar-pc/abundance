@@ -165,7 +165,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // vmulh is not supported for SEW=64 in Zve64x (would need 128-bit result)
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -221,7 +221,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -269,7 +269,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -325,7 +325,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -373,7 +373,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -430,7 +430,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -887,7 +887,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // Widening produces 2*SEW result; SEW=64 would require 128-bit output
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -968,7 +968,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1032,7 +1032,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1113,7 +1113,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1179,7 +1179,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1260,7 +1260,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1708,7 +1708,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1789,7 +1789,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1853,7 +1853,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1934,7 +1934,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1999,7 +1999,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2080,7 +2080,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2154,7 +2154,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });

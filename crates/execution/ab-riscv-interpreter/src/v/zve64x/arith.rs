@@ -832,7 +832,7 @@ where
                         vm,
                         sew,
                         // Shift amount masked to log2(SEW) bits per spec §12.6
-                        |a, b, sew| a << (b & u64::from(sew.bits() - 1)),
+                        |a, b, sew| a << (b & u64::from(sew.bits_width() - 1)),
                     );
                 }
             }
@@ -879,7 +879,7 @@ where
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
                         sew,
-                        |a, b, sew| a << (b & u64::from(sew.bits() - 1)),
+                        |a, b, sew| a << (b & u64::from(sew.bits_width() - 1)),
                     );
                 }
             }
@@ -912,7 +912,7 @@ where
                 }
                 let sew = vtype.vsew();
                 // Immediate is already unsigned 5-bit; mask to log2(SEW) here too
-                let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
+                let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -972,7 +972,7 @@ where
                         // Logical right shift; operate on the SEW-wide portion only
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
-                            let shamt = b & u64::from(sew.bits() - 1);
+                            let shamt = b & u64::from(sew.bits_width() - 1);
                             (a & mask) >> shamt
                         },
                     );
@@ -1023,7 +1023,7 @@ where
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
-                            let shamt = b & u64::from(sew.bits() - 1);
+                            let shamt = b & u64::from(sew.bits_width() - 1);
                             (a & mask) >> shamt
                         },
                     );
@@ -1057,7 +1057,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
+                let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1115,7 +1115,7 @@ where
                         vm,
                         sew,
                         |a, b, sew| {
-                            let shamt = b & u64::from(sew.bits() - 1);
+                            let shamt = b & u64::from(sew.bits_width() - 1);
                             let signed = zve64x_arith_helpers::sign_extend(a, sew);
                             (signed >> shamt).cast_unsigned()
                         },
@@ -1166,7 +1166,7 @@ where
                         vm,
                         sew,
                         |a, b, sew| {
-                            let shamt = b & u64::from(sew.bits() - 1);
+                            let shamt = b & u64::from(sew.bits_width() - 1);
                             let signed = zve64x_arith_helpers::sign_extend(a, sew);
                             (signed >> shamt).cast_unsigned()
                         },
@@ -1201,7 +1201,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
+                let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(

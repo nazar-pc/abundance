@@ -18,7 +18,7 @@ use ab_riscv_primitives::prelude::*;
 //   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3u8)
 }
 
 fn setup(
@@ -63,7 +63,7 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
@@ -79,7 +79,7 @@ fn read_wide_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    let wide_bytes = usize::from(sew.bytes()) * 2;
+    let wide_bytes = usize::from(sew.bytes_width()) * 2;
     let elems_per_reg = 16 / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
@@ -96,7 +96,7 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
@@ -112,7 +112,7 @@ fn write_wide_elem(
     sew: Vsew,
     value: u64,
 ) {
-    let wide_bytes = usize::from(sew.bytes()) * 2;
+    let wide_bytes = usize::from(sew.bytes_width()) * 2;
     let elems_per_reg = 16 / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;

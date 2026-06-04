@@ -74,7 +74,7 @@ pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
     elem_i: u32,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
@@ -102,7 +102,7 @@ pub(in super::super) unsafe fn write_element_u64<const VLENB: usize>(
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
@@ -291,7 +291,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
-    let shift = u64::BITS - u32::from(sew.bits());
+    let shift = u64::BITS - u32::from(sew.bits_width());
     (val.cast_signed() << shift) >> shift
 }
 
@@ -302,9 +302,9 @@ pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
 #[inline(always)]
 #[doc(hidden)]
 pub fn sew_mask(sew: Vsew) -> u64 {
-    if u32::from(sew.bits()) == u64::BITS {
+    if u32::from(sew.bits_width()) == u64::BITS {
         u64::MAX
     } else {
-        (1u64 << sew.bits()) - 1
+        (1u64 << sew.bits_width()) - 1
     }
 }

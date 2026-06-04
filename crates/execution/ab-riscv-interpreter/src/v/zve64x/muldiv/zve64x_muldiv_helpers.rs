@@ -105,7 +105,7 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
     sew: Vsew,
     value: u64,
 ) {
-    let wide_bytes = usize::from(sew.bytes()) * 2;
+    let wide_bytes = usize::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / wide_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * wide_bytes;
@@ -459,7 +459,7 @@ pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
     let sb = i128::from(sign_extend(b, sew));
     let product = sa.wrapping_mul(sb);
     // Extract bits [2*SEW-1 : SEW] of the product
-    let high = (product >> u32::from(sew.bits())).cast_unsigned() as u64;
+    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -470,7 +470,7 @@ pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
     let ua = u128::from(a & sew_mask(sew));
     let ub = u128::from(b & sew_mask(sew));
     let product = ua.wrapping_mul(ub);
-    let high = (product >> u32::from(sew.bits())) as u64;
+    let high = (product >> u32::from(sew.bits_width())) as u64;
     high & sew_mask(sew)
 }
 
@@ -484,7 +484,7 @@ pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
     let ub = u128::from(b & sew_mask(sew));
     // Compute signed × unsigned as i128 to preserve sign
     let product = sa.wrapping_mul(ub.cast_signed());
-    let high = (product >> u32::from(sew.bits())).cast_unsigned() as u64;
+    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -502,7 +502,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
         return sew_mask(sew);
     }
     // Signed overflow: MIN / -1 returns MIN
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits()));
+    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
     if sa == sew_min && sb == -1 {
         return sew_min.cast_unsigned() & sew_mask(sew);
     }
@@ -524,7 +524,7 @@ pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
         return a & sew_mask(sew);
     }
     // Signed overflow: MIN % -1 = 0
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits()));
+    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
     if sa == sew_min && sb == -1 {
         return 0;
     }

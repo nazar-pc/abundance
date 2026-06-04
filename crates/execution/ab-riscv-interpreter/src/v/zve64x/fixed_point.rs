@@ -1076,7 +1076,7 @@ where
                         sew,
                         |a, b, sew, vxrm, _vxsat| {
                             // Shift amount masked to log2(SEW) bits per spec §12.7
-                            let shamt = (b & u64::from(sew.bits() - 1)) as u32;
+                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
                             let masked_a = a & zve64x_fixed_point_helpers::sew_mask(sew);
                             zve64x_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
                                 & zve64x_fixed_point_helpers::sew_mask(sew)
@@ -1128,7 +1128,7 @@ where
                         vm,
                         sew,
                         |a, b, sew, vxrm, _vxsat| {
-                            let shamt = (b & u64::from(sew.bits() - 1)) as u32;
+                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
                             let masked_a = a & zve64x_fixed_point_helpers::sew_mask(sew);
                             zve64x_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
                                 & zve64x_fixed_point_helpers::sew_mask(sew)
@@ -1165,7 +1165,7 @@ where
                 }
                 let sew = vtype.vsew();
                 // Immediate is unsigned 5-bit; mask to log2(SEW) here too
-                let shamt = (u64::from(imm) & u64::from(sew.bits() - 1)) as u32;
+                let shamt = (u64::from(imm) & u64::from(sew.bits_width() - 1)) as u32;
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(
@@ -1228,7 +1228,7 @@ where
                         vm,
                         sew,
                         |a, b, sew, vxrm, _vxsat| {
-                            let shamt = (b & u64::from(sew.bits() - 1)) as u32;
+                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
                             zve64x_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
                                 & zve64x_fixed_point_helpers::sew_mask(sew)
                         },
@@ -1279,7 +1279,7 @@ where
                         vm,
                         sew,
                         |a, b, sew, vxrm, _vxsat| {
-                            let shamt = (b & u64::from(sew.bits() - 1)) as u32;
+                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
                             zve64x_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
                                 & zve64x_fixed_point_helpers::sew_mask(sew)
                         },
@@ -1314,7 +1314,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let shamt = (u64::from(imm) & u64::from(sew.bits() - 1)) as u32;
+                let shamt = (u64::from(imm) & u64::from(sew.bits_width() - 1)) as u32;
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_fixed_point_helpers::execute_fixed_point_op(

@@ -404,7 +404,7 @@ where
                     });
                 }
                 // Widening: 2*SEW must fit in ELEN
-                if u32::from(vtype.vsew().bits()) * 2 > ExtState::ELEN {
+                if u32::from(vtype.vsew().bits_width()) * 2 > ExtState::ELEN {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -450,7 +450,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vtype.vsew().bits()) * 2 > ExtState::ELEN {
+                if u32::from(vtype.vsew().bits_width()) * 2 > ExtState::ELEN {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
