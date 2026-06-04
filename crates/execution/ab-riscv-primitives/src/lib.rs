@@ -67,6 +67,7 @@
     const_trait_impl,
     const_try,
     const_try_residual,
+    exact_div,
     generic_const_exprs,
     stmt_expr_attributes,
     try_blocks

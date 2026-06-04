@@ -99,7 +99,7 @@ pub fn indexed_load_overlap_allowed(
         return true;
     }
 
-    match sew.bytes().cmp(&index_eew.bytes()) {
+    match sew.bytes_width().cmp(&index_eew.bytes()) {
         // Equal EEW: the two groups coincide, overlap is permitted.
         Ordering::Equal => true,
         // Smaller data EEW: overlap must be in the lowest-numbered part of the index group, which
@@ -112,7 +112,7 @@ pub fn indexed_load_overlap_allowed(
         Ordering::Greater => {
             let (lmul_num, lmul_den) = vlmul.as_fraction();
             let index_emul_at_least_one = u16::from(index_eew.bits()) * u16::from(lmul_num)
-                >= u16::from(sew.bits()) * u16::from(lmul_den);
+                >= u16::from(sew.bits_width()) * u16::from(lmul_den);
             let (vd, vs2) = (vd.bits(), vs2.bits());
             index_emul_at_least_one && vd + data_regs == vs2 + index_regs
         }
@@ -285,8 +285,6 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
     memory: &Memory,
     vd: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     base: u64,
     eew: Eew,
     group_regs: u8,
@@ -302,13 +300,15 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
     let segment_stride = u64::from(nf) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -344,7 +344,7 @@ where
                         ext_state.reset_vstart();
                         return Ok(());
                     }
-                    if i > vstart {
+                    if i > u32::from(vstart) {
                         // Elements [vstart, i) were committed; VS is now dirty.
                         ext_state.mark_vs_dirty();
                         // vstart records the faulting element for restartability.
@@ -409,8 +409,6 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     memory: &Memory,
     vd: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     base: u64,
     stride: i64,
     eew: Eew,
@@ -426,12 +424,14 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -443,7 +443,7 @@ where
             let data = match read_mem_element(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
-                    if f > 0 || i > vstart {
+                    if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(i as u16);
                     }
@@ -498,8 +498,6 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
@@ -515,12 +513,14 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let index_base_reg = usize::from(vs2.bits());
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -543,7 +543,7 @@ where
             let data = match read_mem_element(memory, addr, data_eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
-                    if f > 0 || i > vstart {
+                    if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(i as u16);
                     }

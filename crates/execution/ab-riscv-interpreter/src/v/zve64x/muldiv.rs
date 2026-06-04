@@ -92,18 +92,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_mul(b),
                     );
@@ -142,8 +138,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -153,8 +147,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_mul(b),
                     );
@@ -173,7 +165,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // vmulh is not supported for SEW=64 in Zve64x (would need 128-bit result)
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -200,18 +192,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::mulh_ss,
                     );
@@ -233,7 +221,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -255,8 +243,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
@@ -266,8 +252,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::mulh_ss,
                     );
@@ -285,7 +269,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -312,18 +296,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::mulhu_uu,
                     );
@@ -345,7 +325,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -367,8 +347,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
@@ -378,8 +356,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::mulhu_uu,
                     );
@@ -397,7 +373,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -424,18 +400,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vs2 is signed, vs1 is unsigned
                         zve64x_muldiv_helpers::mulhsu_su,
@@ -458,7 +430,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -480,8 +452,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; SEW < 64 checked above
@@ -492,8 +462,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vs2 is signed, scalar (rs1) is unsigned
                         zve64x_muldiv_helpers::mulhsu_su,
@@ -534,18 +502,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // Division by zero: quotient = all-ones for the SEW width (spec §12.11)
                         |a, b, sew| {
@@ -590,8 +554,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -601,8 +563,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_muldiv_helpers::sew_mask(sew);
@@ -647,18 +607,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::sdiv,
                     );
@@ -697,8 +653,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -708,8 +662,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::sdiv,
                     );
@@ -749,18 +701,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // Division by zero: remainder = dividend (spec §12.11)
                         |a, b, sew| {
@@ -809,8 +757,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -820,8 +766,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_muldiv_helpers::sew_mask(sew);
@@ -870,18 +814,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::srem,
                     );
@@ -920,8 +860,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -931,8 +869,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         zve64x_muldiv_helpers::srem,
                     );
@@ -951,7 +887,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // Widening produces 2*SEW result; SEW=64 would require 128-bit output
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1000,18 +936,14 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_muldiv_helpers::sew_mask(sew);
@@ -1036,7 +968,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1071,8 +1003,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
@@ -1082,8 +1012,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_muldiv_helpers::sew_mask(sew);
@@ -1104,7 +1032,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1151,18 +1079,14 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vs2 is signed, vs1 is unsigned; widen both to full u64 before multiply
                         |a, b, sew| {
@@ -1189,7 +1113,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1224,8 +1148,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -1236,8 +1158,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let sa = zve64x_muldiv_helpers::sign_extend(a, sew);
@@ -1259,7 +1179,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1306,18 +1226,14 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_op(
                         ext_state,
                         vd,
                         vs2,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // Both operands sign-extended; full 2*SEW product fits in u64
                         |a, b, sew| {
@@ -1344,7 +1260,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1379,8 +1295,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // scalar from rs1 is sign-extended to XLEN; treat as signed SEW-wide
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -1391,8 +1305,6 @@ where
                         vs2,
                         zve64x_muldiv_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let sa = zve64x_muldiv_helpers::sign_extend(a, sew);
@@ -1436,18 +1348,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vmacc: vd[i] = vd[i] + vs1[i] * vs2[i]
                         |acc, a, b, _| acc.wrapping_add(a.wrapping_mul(b)),
@@ -1487,8 +1395,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1496,10 +1402,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |acc, a, b, _| acc.wrapping_add(a.wrapping_mul(b)),
                     );
@@ -1539,18 +1443,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vnmsac: vd[i] = vd[i] - vs1[i] * vs2[i]
                         |acc, a, b, _| acc.wrapping_sub(a.wrapping_mul(b)),
@@ -1590,8 +1490,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1599,10 +1497,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |acc, a, b, _| acc.wrapping_sub(a.wrapping_mul(b)),
                     );
@@ -1642,18 +1538,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vmadd: vd[i] = vs1[i] * vd[i] + vs2[i]; acc=vd, a=vs1, b=vs2
                         |acc, a, b, _| a.wrapping_mul(acc).wrapping_add(b),
@@ -1693,8 +1585,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1702,10 +1592,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vmadd: vd[i] = rs1 * vd[i] + vs2[i]
                         |acc, a, b, _| a.wrapping_mul(acc).wrapping_add(b),
@@ -1746,18 +1634,14 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vnmsub: vd[i] = -(vs1[i] * vd[i]) + vs2[i]; acc=vd, a=vs1, b=vs2
                         |acc, a, b, _| b.wrapping_sub(a.wrapping_mul(acc)),
@@ -1797,8 +1681,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1806,10 +1688,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vnmsub: vd[i] = -(rs1 * vd[i]) + vs2[i]
                         |acc, a, b, _| b.wrapping_sub(a.wrapping_mul(acc)),
@@ -1828,7 +1708,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1876,18 +1756,14 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vwmaccu: vd[i] = vd[i] + zext(vs1[i]) * zext(vs2[i])
                         |acc, a, b, sew| {
@@ -1913,7 +1789,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1948,8 +1824,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
@@ -1957,10 +1831,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |acc, a, b, sew| {
                             let mask = zve64x_muldiv_helpers::sew_mask(sew);
@@ -1981,7 +1853,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2028,18 +1900,14 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vwmacc: vd[i] = vd[i] + sext(vs1[i]) * sext(vs2[i])
                         |acc, a, b, sew| {
@@ -2066,7 +1934,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2101,8 +1969,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
@@ -2110,10 +1976,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |acc, a, b, sew| {
                             let sa = zve64x_muldiv_helpers::sign_extend(a, sew);
@@ -2135,7 +1999,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2182,18 +2046,14 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_widening_muladd_op(
                         ext_state,
                         vd,
-                        vs1.bits(),
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        vs1,
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vwmaccsu: vd[i] = vd[i] + sext(vs1[i]) * zext(vs2[i])
                         |acc, a, b, sew| {
@@ -2220,7 +2080,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2255,8 +2115,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // scalar (rs1) is the signed operand; vs2 elements are unsigned
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -2265,10 +2123,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vwmaccsu.vx: vd[i] = vd[i] + sext(rs1) * zext(vs2[i])
                         // Helper passes (acc, scalar_as_a, vs2_as_b, sew): a=rs1 (signed),
@@ -2298,7 +2154,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                if u32::from(vtype.vsew().bits()) == u64::BITS {
+                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -2333,8 +2189,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // scalar (rs1) is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above; SEW < 64 checked above
@@ -2343,10 +2197,8 @@ where
                         ext_state,
                         vd,
                         scalar,
-                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2.bits()),
+                        zve64x_muldiv_helpers::OpSrc::Vreg(vs2),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // vwmaccus.vx: vd[i] = vd[i] + zext(rs1) * sext(vs2[i])
                         // Helper passes (acc, scalar_as_a, vs2_as_b, sew): a=rs1 (unsigned),

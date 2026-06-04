@@ -75,7 +75,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                // SAFETY: element 0 is always within register v(vs2_base), byte offset 0;
+                // SAFETY: element 0 is always within register vs2, byte offset 0;
                 // VLENB >= sew.bytes() for all legal vtype configurations.
                 let raw = unsafe {
                     zve64x_perm_helpers::read_element_0_u64(ext_state.read_vreg(), vs2.bits(), sew)
@@ -102,9 +102,9 @@ where
                     })?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
+                let vstart = ext_state.vstart();
                 // Per spec §16.1: update only when vstart < vl.
-                if vstart < vl {
+                if u32::from(vstart) < vl {
                     let scalar = rs1_value.as_u64();
                     // SAFETY: element 0 always fits.
                     unsafe {
@@ -164,14 +164,10 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zve64x_perm_helpers::execute_slideup(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, offset,
-                    );
+                    zve64x_perm_helpers::execute_slideup(ext_state, vd, vs2, vm, sew, offset);
                 }
             }
             // vslideup.vi vd, vs2, uimm, vm
@@ -210,14 +206,10 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslideupVx.
                 unsafe {
-                    zve64x_perm_helpers::execute_slideup(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, offset,
-                    );
+                    zve64x_perm_helpers::execute_slideup(ext_state, vd, vs2, vm, sew, offset);
                 }
             }
             // vslidedown.vx vd, vs2, rs1: _, vm
@@ -256,14 +248,12 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment verified above; vl <= VLMAX; offset clamped in helper.
                 unsafe {
                     zve64x_perm_helpers::execute_slidedown(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, vlmax, offset,
+                        ext_state, vd, vs2, vm, sew, vlmax, offset,
                     );
                 }
             }
@@ -297,14 +287,12 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslidedownVx.
                 unsafe {
                     zve64x_perm_helpers::execute_slidedown(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, vlmax, offset,
+                        ext_state, vd, vs2, vm, sew, vlmax, offset,
                     );
                 }
             }
@@ -351,14 +339,10 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
-                    zve64x_perm_helpers::execute_slide1up(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, scalar,
-                    );
+                    zve64x_perm_helpers::execute_slide1up(ext_state, vd, vs2, vm, sew, scalar);
                 }
             }
             // vslide1down.vx vd, vs2, rs1: _, vm
@@ -398,14 +382,10 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
                 unsafe {
-                    zve64x_perm_helpers::execute_slide1down(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, scalar,
-                    );
+                    zve64x_perm_helpers::execute_slide1down(ext_state, vd, vs2, vm, sew, scalar);
                 }
             }
             // vrgather.vv vd, vs2, vs1, vm
@@ -456,13 +436,11 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 // SAFETY: all alignment and overlap constraints verified above; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_rgather_vv(
-                        ext_state, vd, vs2, vs1, vm, vl, vstart, sew, vlmax,
+                        ext_state, vd, vs2, vs1, vm, sew, vlmax,
                     );
                 }
             }
@@ -508,14 +486,12 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let index = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_rgather_scalar(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, vlmax, index,
+                        ext_state, vd, vs2, vm, sew, vlmax, index,
                     );
                 }
             }
@@ -555,14 +531,12 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 let index = u64::from(uimm);
                 // SAFETY: same as VrgatherVx.
                 unsafe {
                     zve64x_perm_helpers::execute_rgather_scalar(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, vlmax, index,
+                        ext_state, vd, vs2, vm, sew, vlmax, index,
                     );
                 }
             }
@@ -628,8 +602,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let vlmax = ext_state.vlmax_for_vtype(vtype);
                 // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX;
                 // vs1 uses EEW=16 with computed index_group_regs.
@@ -640,8 +612,6 @@ where
                         vs2,
                         vs1,
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         vlmax,
                         index_group_regs,
@@ -691,13 +661,9 @@ where
                     )?;
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zve64x_perm_helpers::execute_merge_vv(
-                        ext_state, vd, vs2, vs1, vm, vl, vstart, sew,
-                    );
+                    zve64x_perm_helpers::execute_merge_vv(ext_state, vd, vs2, vs1, vm, sew);
                 }
             }
             // vmerge.vxm / vmv.v.x
@@ -739,14 +705,10 @@ where
                     )?;
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zve64x_perm_helpers::execute_merge_scalar(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, scalar,
-                    );
+                    zve64x_perm_helpers::execute_merge_scalar(ext_state, vd, vs2, vm, sew, scalar);
                 }
             }
             // vmerge.vim / vmv.v.i
@@ -783,15 +745,11 @@ where
                     )?;
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = u32::from(ext_state.vstart());
                 // Sign-extend imm to u64 so the low sew_bytes are correct for all SEW.
                 let scalar = i64::from(simm5).cast_unsigned();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zve64x_perm_helpers::execute_merge_scalar(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, scalar,
-                    );
+                    zve64x_perm_helpers::execute_merge_scalar(ext_state, vd, vs2, vm, sew, scalar);
                 }
             }
             // vcompress.vm vd, vs2, vs1

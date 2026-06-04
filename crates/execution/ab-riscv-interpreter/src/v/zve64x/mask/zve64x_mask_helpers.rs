@@ -25,8 +25,6 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
-    vl: u32,
-    vstart: u16,
     op: F,
 ) where
     Reg: Register,
@@ -37,6 +35,8 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(bool, bool) -> bool,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
     let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
@@ -72,8 +72,6 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
     rd: Reg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
 ) where
     Reg: Register,
     Regs: RegisterFile<Reg>,
@@ -83,6 +81,8 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2` is a valid VReg index (< 32)
@@ -118,8 +118,6 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     rd: Reg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
 ) where
     Reg: Register,
     Regs: RegisterFile<Reg>,
@@ -129,6 +127,8 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2` is a valid VReg index (< 32)
@@ -356,7 +356,7 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd.bits(), i, sew, prefix_count);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, prefix_count);
         }
         if mask_bit(&vs2_snap, i) {
             prefix_count += 1;
@@ -382,8 +382,6 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -393,6 +391,8 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -401,7 +401,7 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd.bits(), i, sew, u64::from(i));
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, u64::from(i));
         }
     }
     ext_state.mark_vs_dirty();

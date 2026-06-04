@@ -83,8 +83,6 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
     memory: &mut Memory,
     vs3: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     base: u64,
     eew: Eew,
     group_regs: u8,
@@ -99,6 +97,8 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
     let segment_stride = u64::from(nf * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
@@ -160,8 +160,6 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
     memory: &mut Memory,
     vs3: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     base: u64,
     stride: i64,
     eew: Eew,
@@ -177,6 +175,8 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -233,8 +233,6 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
     vs3: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
@@ -250,10 +248,12 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let data_elem_bytes = data_eew.bytes();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }

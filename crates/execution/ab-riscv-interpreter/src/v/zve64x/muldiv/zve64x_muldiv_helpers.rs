@@ -100,18 +100,18 @@ where
 #[inline(always)]
 unsafe fn write_wide_element_u64<const VLENB: usize>(
     vreg: &mut [[u8; VLENB]; 32],
-    base_reg: u8,
+    base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
     value: u64,
 ) {
-    let wide_bytes = usize::from(sew.bytes()) * 2;
+    let wide_bytes = usize::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / wide_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * wide_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
     // SAFETY: `byte_off + wide_bytes <= VLENB`; `wide_bytes <= 8` for SEW < 64
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + wide_bytes) };
     // SAFETY: `wide_bytes <= 8` because SEW < 64 is enforced before widening ops are called
@@ -128,7 +128,6 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -136,8 +135,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -149,27 +146,27 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
             OpSrc::Vreg(vs1_base) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
+                read_element_u64(ext_state.read_vreg(), vs1_base, i, sew)
             },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew);
         // SAFETY: register bounds verified by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -188,7 +185,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - SEW < 64 verified by caller (so 2*SEW <= 64 and fits in u64)
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -196,8 +192,6 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -209,29 +203,29 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
             OpSrc::Vreg(vs1_base) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
+                read_element_u64(ext_state.read_vreg(), vs1_base, i, sew)
             },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew);
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them because
         // `vl <= src_group_regs * VLENB / sew_bytes` and dest stores at 2*SEW width so
         // `i < dest_group_regs * VLENB / (2*sew_bytes)`
         unsafe {
-            write_wide_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_wide_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -248,16 +242,13 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
-    a_reg: u8,
+    a_reg: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -269,28 +260,27 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let acc = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
+        let acc = unsafe { read_element_u64(ext_state.read_vreg(), vd, i, sew) };
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(a_reg), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), a_reg, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, a, b, sew);
         // SAFETY: register bounds verified by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -304,7 +294,6 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// Same as [`execute_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -312,8 +301,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     scalar: u64,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -325,26 +312,25 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let acc = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
-        let b = match &src {
+        let acc = unsafe { read_element_u64(ext_state.read_vreg(), vd, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, scalar, b, sew);
         // SAFETY: register bounds verified by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -364,16 +350,13 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// - SEW < 64 verified by caller
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
-    a_reg: u8,
+    a_reg: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -385,31 +368,29 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // Read the existing 2*SEW accumulator from vd
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
         // `execute_widening_op` for the bound argument)
-        let acc =
-            unsafe { read_wide_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
+        let acc = unsafe { read_wide_element_u64(ext_state.read_vreg(), vd, i, sew) };
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(a_reg), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), a_reg, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, a, b, sew);
         // SAFETY: same as acc read above
         unsafe {
-            write_wide_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_wide_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -423,7 +404,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// Same as [`execute_widening_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -431,8 +411,6 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     scalar: u64,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -444,28 +422,26 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
         // `execute_widening_op` for the bound argument)
-        let acc =
-            unsafe { read_wide_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
-        let b = match &src {
+        let acc = unsafe { read_wide_element_u64(ext_state.read_vreg(), vd, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, scalar, b, sew);
         // SAFETY: same as acc read above
         unsafe {
-            write_wide_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_wide_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -483,7 +459,7 @@ pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
     let sb = i128::from(sign_extend(b, sew));
     let product = sa.wrapping_mul(sb);
     // Extract bits [2*SEW-1 : SEW] of the product
-    let high = (product >> u32::from(sew.bits())).cast_unsigned() as u64;
+    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -494,7 +470,7 @@ pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
     let ua = u128::from(a & sew_mask(sew));
     let ub = u128::from(b & sew_mask(sew));
     let product = ua.wrapping_mul(ub);
-    let high = (product >> u32::from(sew.bits())) as u64;
+    let high = (product >> u32::from(sew.bits_width())) as u64;
     high & sew_mask(sew)
 }
 
@@ -508,7 +484,7 @@ pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
     let ub = u128::from(b & sew_mask(sew));
     // Compute signed × unsigned as i128 to preserve sign
     let product = sa.wrapping_mul(ub.cast_signed());
-    let high = (product >> u32::from(sew.bits())).cast_unsigned() as u64;
+    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -526,7 +502,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
         return sew_mask(sew);
     }
     // Signed overflow: MIN / -1 returns MIN
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits()));
+    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
     if sa == sew_min && sb == -1 {
         return sew_min.cast_unsigned() & sew_mask(sew);
     }
@@ -548,7 +524,7 @@ pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
         return a & sew_mask(sew);
     }
     // Signed overflow: MIN % -1 = 0
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits()));
+    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
     if sa == sew_min && sb == -1 {
         return 0;
     }

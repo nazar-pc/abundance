@@ -8,7 +8,7 @@ use ab_riscv_primitives::prelude::*;
 
 /// Encode a raw vtype value (vta=false, vma=false)
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3u8)
 }
 
 /// Build a fresh state with vector CSRs initialized and vtype/vl configured
@@ -72,7 +72,7 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
@@ -90,7 +90,7 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes());
+    let sew_bytes = usize::from(sew.bytes_width());
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
@@ -1459,7 +1459,7 @@ fn vsra_all_sew_widths_sign_extends_correctly() {
     ] {
         let mut state = setup(1, vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, msb_val);
-        let shamt = vsew.bits() - 1;
+        let shamt = vsew.bits_width() - 1;
         state.regs.write(Reg::A0, u64::from(shamt));
         exec(
             &mut state,
@@ -1472,10 +1472,10 @@ fn vsra_all_sew_widths_sign_extends_correctly() {
             },
         )
         .unwrap();
-        let sew_mask = if vsew.bits() == 64 {
+        let sew_mask = if vsew.bits_width() == 64 {
             u64::MAX
         } else {
-            (1u64 << vsew.bits()) - 1
+            (1u64 << vsew.bits_width()) - 1
         };
         assert_eq!(
             read_elem(&state, VReg::V4, 0, vsew),

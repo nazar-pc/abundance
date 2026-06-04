@@ -97,8 +97,8 @@ pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
     let result = sa.wrapping_add(sb);
-    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits()));
-    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits()));
+    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits_width()));
+    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits_width()));
     if result < min_val {
         *vxsat = true;
         (min_val as i64).cast_unsigned() & sew_mask(sew)
@@ -136,8 +136,8 @@ pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
     let result = sa.wrapping_sub(sb);
-    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits()));
-    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits()));
+    let min_val = i128::MIN >> (i128::BITS - u32::from(sew.bits_width()));
+    let max_val = i128::MAX >> (i128::BITS - u32::from(sew.bits_width()));
     if result < min_val {
         *vxsat = true;
         (min_val as i64).cast_unsigned() & sew_mask(sew)
@@ -169,7 +169,7 @@ pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     // Bit 0 of `sum & mask` is the rounding bit for the truncated division.
     let r = round_increment(sum & mask, 1, mode, (sum >> 1u8) & 1);
     // Shift the (SEW+1)-bit quantity right by 1: result = (carry << (SEW-1)) | ((sum & mask) >> 1)
-    let shifted = (carry << (u32::from(sew.bits()) - 1)) | ((sum & mask) >> 1u8);
+    let shifted = (carry << (u32::from(sew.bits_width()) - 1)) | ((sum & mask) >> 1u8);
     (shifted.wrapping_add(r)) & mask
 }
 
@@ -226,7 +226,7 @@ pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     // Result = (borrow << SEW | diff) >> 1 (arithmetic) + r
     // Arithmetic shift: sign bit (`borrow`) propagates.
     let sign_fill = borrow.wrapping_neg(); // all ones if borrow set, zero otherwise
-    let shifted = (sign_fill << (u32::from(sew.bits()) - 1)) | ((diff & mask) >> 1u8);
+    let shifted = (sign_fill << (u32::from(sew.bits_width()) - 1)) | ((diff & mask) >> 1u8);
     (shifted.wrapping_add(r)) & mask
 }
 
@@ -266,8 +266,8 @@ pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 #[doc(hidden)]
 pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // SEW-wide signed min and max in i64 (valid for all SEW <= 64)
-    let min_sew = i64::MIN >> (i64::BITS - u32::from(sew.bits()));
-    let max_sew = i64::MAX >> (i64::BITS - u32::from(sew.bits()));
+    let min_sew = i64::MIN >> (i64::BITS - u32::from(sew.bits_width()));
+    let max_sew = i64::MAX >> (i64::BITS - u32::from(sew.bits_width()));
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
     // The only case where `product * 2` overflows a 2*SEW signed result is INT_MIN * INT_MIN.
@@ -284,7 +284,7 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     let doubled = product << 1u8;
     // Extract the low SEW bits (the discarded portion) for rounding.
     // Cast to u128 first to avoid sign-extension contaminating the mask.
-    let shift = u32::from(sew.bits());
+    let shift = u32::from(sew.bits_width());
     let low_bits = (doubled.cast_unsigned() & u128::from(sew_mask(sew))) as u64;
     // Arithmetic right shift by SEW gives the truncated signed result in SEW-wide range.
     let truncated = doubled >> shift;
@@ -343,7 +343,7 @@ pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool
 pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Sign-extend vs2_elem to full i64 treating it as a 2*SEW-bit signed value.
     // For SEW=8 the source is 16-bit, for SEW=16 it is 32-bit, for SEW=32 it is 64-bit.
-    let double_sew_bits = sew.bits() * 2;
+    let double_sew_bits = sew.bits_width() * 2;
     let shift_amt = i64::BITS - u32::from(double_sew_bits);
     let signed_wide = (vs2_elem.cast_signed() << shift_amt) >> shift_amt;
     // Arithmetic right shift with rounding
@@ -358,8 +358,8 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
     let r = round_increment(low_bits, shamt, mode, (truncated.cast_unsigned()) & 1);
     let rounded = truncated.wrapping_add(r.cast_signed());
     // Saturate to signed SEW range
-    let min_dst = i64::MIN >> (i64::BITS - u32::from(sew.bits()));
-    let max_dst = i64::MAX >> (i64::BITS - u32::from(sew.bits()));
+    let min_dst = i64::MIN >> (i64::BITS - u32::from(sew.bits_width()));
+    let max_dst = i64::MAX >> (i64::BITS - u32::from(sew.bits_width()));
     if rounded < min_dst {
         *vxsat = true;
         min_dst.cast_unsigned() & sew_mask(sew)
@@ -385,16 +385,16 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 #[inline(always)]
 pub unsafe fn read_wide_element_u64<const VLENB: usize>(
     vreg: &[[u8; VLENB]; 32],
-    base_reg: usize,
+    base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
 ) -> u64 {
-    let double_sew_bytes = usize::from(sew.bytes()) * 2;
+    let double_sew_bytes = usize::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / double_sew_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * double_sew_bytes;
     // SAFETY: caller guarantees bounds
-    let reg = unsafe { vreg.get_unchecked(base_reg + reg_off) };
+    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
     // SAFETY: `byte_off + double_sew_bytes <= VLENB`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + double_sew_bytes) };
     let mut buf = [0u8; 8];
@@ -411,7 +411,6 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
 /// # Safety
 /// Same preconditions as `execute_arith_op` in the arithmetic helpers.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -419,8 +418,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -433,29 +430,29 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     let mut any_sat = false;
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: alignment and bounds checked by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew) }
+                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
             }
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew, vxrm, &mut any_sat);
         // SAFETY: alignment and bounds checked by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     if any_sat {
@@ -481,7 +478,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -489,8 +485,6 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
     op: F,
 ) where
@@ -503,36 +497,33 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
-    let shamt_mask = u64::from(sew.bits() * 2 - 1);
-    for i in vstart..vl {
+    let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // Read 2*SEW-wide source element
         // SAFETY: `vs2` double-width alignment checked by caller
-        let wide_a =
-            unsafe { read_wide_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let shamt = match &src {
+        let wide_a = unsafe { read_wide_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: vs1 SEW-wide alignment checked by caller
-                let raw = unsafe {
-                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
-                };
+                let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) };
                 (raw & shamt_mask) as u32
             }
-            OpSrc::Scalar(val) => (*val & shamt_mask) as u32,
+            OpSrc::Scalar(val) => (val & shamt_mask) as u32,
         };
         let result = op(wide_a, shamt, sew, vxrm, &mut any_sat);
         // SAFETY: `vd` alignment checked by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     if any_sat {
@@ -555,7 +546,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    if sew.bits() > 32 {
+    if sew.bits_width() > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });

@@ -43,22 +43,21 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
         return;
     }
     // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1.bits()), 0, sew) };
+    let init = unsafe { read_element_u64(ext_state.read_vreg(), vs1, 0, sew) };
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vs2_base = usize::from(vs2.bits());
     let mut acc = init;
     for i in 0..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `vs2_base % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`
-        let elem = unsafe { read_element_u64(ext_state.read_vreg(), vs2_base, i, sew) };
+        // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`
+        let elem = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
         acc = op(acc, elem, sew);
     }
     // SAFETY: element 0 always fits within register vd
     unsafe {
-        write_element_u64(ext_state.write_vreg(), vd.bits(), 0, sew, acc);
+        write_element_u64(ext_state.write_vreg(), vd, 0, sew, acc);
     }
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();
@@ -106,18 +105,16 @@ pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
         return;
     }
     // SAFETY: element 0 always fits within register vs1
-    let init =
-        unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1.bits()), 0, wide_sew) };
+    let init = unsafe { read_element_u64(ext_state.read_vreg(), vs1, 0, wide_sew) };
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vs2_base = usize::from(vs2.bits());
     let mut acc = init;
     for i in 0..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: same bounds argument as `execute_reduce_op`
-        let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs2_base, i, sew) };
+        let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
         let elem = if sign_extend_src {
             sign_extend(raw, sew).cast_unsigned()
         } else {
@@ -127,7 +124,7 @@ pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
     }
     // SAFETY: element 0 always fits within register vd
     unsafe {
-        write_element_u64(ext_state.write_vreg(), vd.bits(), 0, wide_sew, acc);
+        write_element_u64(ext_state.write_vreg(), vd, 0, wide_sew, acc);
     }
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();

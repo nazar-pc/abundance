@@ -75,8 +75,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: all VReg values are valid indices < 32; `vl <= VLEN` and
                 // `vstart <= vl` are architectural invariants; snapshot-before-write inside
                 // the helper means vd may overlap vs2 or vs1 safely.
@@ -86,8 +84,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| a && !b,
                     );
                 }
@@ -103,8 +99,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -112,8 +106,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| a & b,
                     );
                 }
@@ -129,8 +121,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -138,8 +128,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| a | b,
                     );
                 }
@@ -155,8 +143,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -164,8 +150,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| a ^ b,
                     );
                 }
@@ -181,8 +165,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -190,8 +172,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| a || !b,
                     );
                 }
@@ -207,8 +187,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -216,8 +194,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| !(a & b),
                     );
                 }
@@ -233,8 +209,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -242,8 +216,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| !(a | b),
                     );
                 }
@@ -259,8 +231,6 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zve64x_mask_helpers::execute_mask_logical_op(
@@ -268,8 +238,6 @@ where
                         vd,
                         vs2,
                         vs1,
-                        vl,
-                        vstart,
                         |a, b| !(a ^ b),
                     );
                 }
@@ -287,12 +255,10 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`; `vstart <= vl`
                 // by spec invariant.
                 unsafe {
-                    zve64x_mask_helpers::execute_vcpop(regs, ext_state, rd, vs2, vm, vl, vstart);
+                    zve64x_mask_helpers::execute_vcpop(regs, ext_state, rd, vs2, vm);
                 }
             }
             // vfirst.m (§16.3): find lowest-numbered active set bit in vs2, write index to rd.
@@ -307,11 +273,9 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: same as `Vcpop`
                 unsafe {
-                    zve64x_mask_helpers::execute_vfirst(regs, ext_state, rd, vs2, vm, vl, vstart);
+                    zve64x_mask_helpers::execute_vfirst(regs, ext_state, rd, vs2, vm);
                 }
             }
             // vmsbf.m (§16.4): set-before-first mask bit.
@@ -442,7 +406,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // Spec §16.8: viota.m with vstart != 0 raises an illegal instruction exception.
-                if u32::from(ext_state.vstart()) != 0 {
+                if ext_state.vstart() != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -502,12 +466,10 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: vd alignment checked above; `vm=false` implies `vd != v0` checked above;
                 // `vl <= VLMAX = group_regs * VLENB / sew_bytes`, all element indices valid.
                 unsafe {
-                    zve64x_mask_helpers::execute_vid(ext_state, vd, vm, vl, vstart, sew);
+                    zve64x_mask_helpers::execute_vid(ext_state, vd, vm, sew);
                 }
             }
         }

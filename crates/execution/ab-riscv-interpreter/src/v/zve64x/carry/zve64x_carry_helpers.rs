@@ -40,7 +40,6 @@ pub(in super::super) unsafe fn carry_bit<const VLENB: usize>(
 /// - `vd.bits() != 0` (vd must not overlap v0, which holds the carry-in)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
@@ -48,8 +47,6 @@ pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
     vs2: VReg,
     src: OpSrc,
     with_carry: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -59,20 +56,19 @@ pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-
-    for i in vstart..vl {
-        // SAFETY: `vs2_base % group_regs == 0` and `vs2_base + group_regs <= 32` (caller
-        // precondition); `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2_base + i / elems_per_reg < vs2_base + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
+    for i in u32::from(vstart)..vl {
+        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
+        // `i < vl <= group_regs * elems_per_reg`, so
+        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) }
+                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -85,11 +81,11 @@ pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
 
         // Wrap naturally: write_element_u64 writes only the low sew_bytes
         let result = a.wrapping_add(b).wrapping_add(c);
-        // SAFETY: `vd_base % group_regs == 0` and `vd_base + group_regs <= 32` (caller
-        // precondition); `i < vl <= group_regs * elems_per_reg`, so
-        // `vd_base + i / elems_per_reg < vd_base + group_regs <= 32`
+        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32` (caller precondition);
+        // `i < vl <= group_regs * elems_per_reg`, so
+        // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
 
@@ -112,8 +108,6 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -123,32 +117,31 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-
-    for i in vstart..vl {
-        // SAFETY: `vs2_base % group_regs == 0` and `vs2_base + group_regs <= 32` (caller
-        // precondition); `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2_base + i / elems_per_reg < vs2_base + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let b = match &src {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
+    for i in u32::from(vstart)..vl {
+        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
+        // `i < vl <= group_regs * elems_per_reg`, so
+        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew) }
+                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
             }
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => val,
         };
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
         let borrow = unsafe { carry_bit(ext_state.read_vreg(), i) };
 
         let result = a.wrapping_sub(b).wrapping_sub(borrow);
-        // SAFETY: `vd_base % group_regs == 0` and `vd_base + group_regs <= 32` (caller
-        // precondition); `i < vl <= group_regs * elems_per_reg`, so
-        // `vd_base + i / elems_per_reg < vd_base + group_regs <= 32`
+        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32` (caller precondition);
+        // `i < vl <= group_regs * elems_per_reg`, so
+        // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
 
@@ -172,7 +165,6 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLENB / sew_bytes` and `vl <= VLEN`
 /// - vd overlap constraints checked by caller
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
@@ -180,8 +172,6 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
     vs2: VReg,
     src: OpSrc,
     with_carry: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -191,20 +181,21 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    let vs2_base = vs2.bits();
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let mask = sew_mask(sew);
 
-    for i in vstart..vl {
-        // SAFETY: `vs2_base % group_regs == 0` and `vs2_base + group_regs <= 32` (caller
-        // precondition); `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2_base + i / elems_per_reg < vs2_base + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+    for i in u32::from(vstart)..vl {
+        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
+        // `i < vl <= group_regs * elems_per_reg`, so
+        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) }
+                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -217,7 +208,7 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
 
         // Use u128 to capture the carry-out bit beyond SEW
         let sum = u128::from(a & mask) + u128::from(b & mask) + u128::from(c);
-        let carry_out = (sum >> sew.bits()) & 1 != 0;
+        let carry_out = (sum >> sew.bits_width()) & 1 != 0;
 
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
         unsafe {
@@ -241,7 +232,6 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
 /// # Safety
 /// Same as [`execute_carry_add_mask()`].
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
@@ -249,8 +239,6 @@ pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
     vs2: VReg,
     src: OpSrc,
     with_borrow: bool,
-    vl: u32,
-    vstart: u32,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -260,20 +248,21 @@ pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    let vs2_base = vs2.bits();
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let mask = sew_mask(sew);
 
-    for i in vstart..vl {
-        // SAFETY: `vs2_base % group_regs == 0` and `vs2_base + group_regs <= 32` (caller
-        // precondition); `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2_base + i / elems_per_reg < vs2_base + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+    for i in u32::from(vstart)..vl {
+        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
+        // `i < vl <= group_regs * elems_per_reg`, so
+        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) }
+                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
