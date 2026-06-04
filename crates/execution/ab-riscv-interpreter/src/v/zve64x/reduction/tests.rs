@@ -53,7 +53,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -70,7 +70,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -285,9 +285,9 @@ fn vredsum_all_masked_out_writes_vs1_zero() {
 
 #[test]
 fn vredsum_m2_uses_group() {
-    // LMUL=2, E8: VLMAX=32; vs2 spans v2-v3
-    let mut state = setup(32, Vsew::E8, Vlmul::M2);
-    for i in 0..32usize {
+    // LMUL=2, E8: VLMAX=64; vs2 spans v2-v3 (32 E8 elems per VLENB=32 register)
+    let mut state = setup(64, Vsew::E8, Vlmul::M2);
+    for i in 0..64usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 1);
     }
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0);
@@ -303,7 +303,7 @@ fn vredsum_m2_uses_group() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E8), 32u64 & 0xff);
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E8), 64u64 & 0xff);
 }
 
 // vredand

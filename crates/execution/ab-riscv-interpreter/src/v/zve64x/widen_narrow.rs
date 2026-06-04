@@ -107,7 +107,7 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -179,7 +179,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -253,7 +253,7 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -325,7 +325,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -403,7 +403,7 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -475,7 +475,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -548,7 +548,7 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -620,7 +620,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -698,7 +698,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -766,7 +766,7 @@ where
                     vd,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -838,7 +838,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -905,7 +905,7 @@ where
                     vd,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -981,7 +981,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1048,7 +1048,7 @@ where
                     vd,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1120,7 +1120,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1187,7 +1187,7 @@ where
                     vd,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1261,7 +1261,7 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1328,7 +1328,7 @@ where
                     vs2,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1391,7 +1391,7 @@ where
                     vs2,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1458,7 +1458,7 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1525,7 +1525,7 @@ where
                     vs2,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1588,7 +1588,7 @@ where
                     vs2,
                     wide_group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1644,7 +1644,7 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1691,7 +1691,7 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1738,7 +1738,7 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1784,7 +1784,7 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1830,7 +1830,7 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -1876,7 +1876,7 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && vd.bits() == 0 {
+                if !vm && vd == VReg::V0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });

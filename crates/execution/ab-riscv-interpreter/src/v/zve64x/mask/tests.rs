@@ -6,11 +6,12 @@ use crate::{
 };
 use ab_riscv_primitives::prelude::*;
 
-// With TEST_VLEN=128, VLENB=16:
-//   E8/M1 -> VLMAX=16, 1 reg
-//   E16/M1 -> VLMAX=8, 1 reg
-//   E32/M1 -> VLMAX=4, 1 reg
-//   E64/M1 -> VLMAX=2, 1 reg
+// With TEST_VLEN=256, VLENB=32:
+//   E8/M1 -> VLMAX=32, 1 reg
+//   E16/M1 -> VLMAX=16, 1 reg
+//   E32/M1 -> VLMAX=8, 1 reg
+//   E64/M1 -> VLMAX=4, 1 reg
+//   E8/M8 -> VLMAX=256, 8 regs
 
 // helpers
 
@@ -54,14 +55,14 @@ fn exec(
         .map(|_| ())
 }
 
-fn get_vreg(state: &TestInterpreterState<Zve64xMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 16] {
+fn get_vreg(state: &TestInterpreterState<Zve64xMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
     state.ext_state.read_vreg()[usize::from(reg.bits())]
 }
 
 fn set_vreg(
     state: &mut TestInterpreterState<Zve64xMaskInstruction<Reg<u64>>>,
     reg: VReg,
-    data: [u8; 16],
+    data: [u8; 32],
 ) {
     state.ext_state.write_vreg()[usize::from(reg.bits())] = data;
 }
@@ -74,7 +75,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -94,13 +95,14 @@ fn mask_bit(
 }
 
 // mask-logical
-
+// E8/M8 gives VLMAX=256, so the whole 32-byte mask register is body and the per-byte
+// assertions below exercise every bit of the logical operation.
 #[test]
 fn vmand_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vs2 = 0b10101010, vs1 = 0b11001100
-    set_vreg(&mut state, VReg::V2, [0xAA; 16]);
-    set_vreg(&mut state, VReg::V1, [0xCC; 16]);
+    set_vreg(&mut state, VReg::V2, [0xAA; 32]);
+    set_vreg(&mut state, VReg::V1, [0xCC; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmand {
@@ -113,16 +115,16 @@ fn vmand_basic() {
     )
     .unwrap();
     // 0xAA & 0xCC = 0x88
-    assert_eq!(get_vreg(&state, VReg::V4), [0x88; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0x88; 32]);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
     assert_eq!(state.ext_state.vstart(), 0);
 }
 
 #[test]
 fn vmor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xAA; 16]);
-    set_vreg(&mut state, VReg::V1, [0x55; 16]);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
+    set_vreg(&mut state, VReg::V2, [0xAA; 32]);
+    set_vreg(&mut state, VReg::V1, [0x55; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmor {
@@ -135,14 +137,14 @@ fn vmor_basic() {
     )
     .unwrap();
     // 0xAA | 0x55 = 0xFF
-    assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 32]);
 }
 
 #[test]
 fn vmxor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xF0; 16]);
-    set_vreg(&mut state, VReg::V1, [0xFF; 16]);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
+    set_vreg(&mut state, VReg::V2, [0xF0; 32]);
+    set_vreg(&mut state, VReg::V1, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmxor {
@@ -155,15 +157,15 @@ fn vmxor_basic() {
     )
     .unwrap();
     // 0xF0 ^ 0xFF = 0x0F
-    assert_eq!(get_vreg(&state, VReg::V4), [0x0F; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0x0F; 32]);
 }
 
 #[test]
 fn vmandn_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmandn: vd = vs2 AND NOT vs1
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V1, [0x0F; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0x0F; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmandn {
@@ -176,15 +178,15 @@ fn vmandn_basic() {
     )
     .unwrap();
     // 0xFF & !0x0F = 0xF0
-    assert_eq!(get_vreg(&state, VReg::V4), [0xF0; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xF0; 32]);
 }
 
 #[test]
 fn vmorn_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmorn: vd = vs2 OR NOT vs1
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
-    set_vreg(&mut state, VReg::V1, [0x0F; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
+    set_vreg(&mut state, VReg::V1, [0x0F; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmorn {
@@ -197,15 +199,15 @@ fn vmorn_basic() {
     )
     .unwrap();
     // 0x00 | !0x0F = 0xF0
-    assert_eq!(get_vreg(&state, VReg::V4), [0xF0; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xF0; 32]);
 }
 
 #[test]
 fn vmnand_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmnand: vd = NOT(vs2 AND vs1)
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V1, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmnand {
@@ -218,15 +220,15 @@ fn vmnand_basic() {
     )
     .unwrap();
     // NOT(0xFF & 0xFF) = 0x00
-    assert_eq!(get_vreg(&state, VReg::V4), [0x00; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0x00; 32]);
 }
 
 #[test]
 fn vmnor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmnor: vd = NOT(vs2 OR vs1)
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
-    set_vreg(&mut state, VReg::V1, [0x00; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
+    set_vreg(&mut state, VReg::V1, [0x00; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmnor {
@@ -239,15 +241,15 @@ fn vmnor_basic() {
     )
     .unwrap();
     // NOT(0x00 | 0x00) = 0xFF
-    assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 32]);
 }
 
 #[test]
 fn vmxnor_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
     // vmxnor: vd = NOT(vs2 XOR vs1)
-    set_vreg(&mut state, VReg::V2, [0xAA; 16]);
-    set_vreg(&mut state, VReg::V1, [0xAA; 16]);
+    set_vreg(&mut state, VReg::V2, [0xAA; 32]);
+    set_vreg(&mut state, VReg::V1, [0xAA; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmxnor {
@@ -260,16 +262,18 @@ fn vmxnor_basic() {
     )
     .unwrap();
     // NOT(0xAA ^ 0xAA) = NOT(0x00) = 0xFF
-    assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xFF; 32]);
 }
 
-/// Mask-logical ops operate on full VLENB bytes regardless of vl.
-/// Even with vl=0 the full register is processed.
+/// Mask-logical ops compute only the body [0, vl); bits at or past vl are tail-agnostic and
+/// left undisturbed here. This is the core property the certification suite checks.
 #[test]
-fn vmand_operates_on_full_register_regardless_of_vl() {
-    let mut state = setup(0, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V1, [0xAA; 16]);
+fn vmand_respects_vl_tail_undisturbed() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xAA; 32]);
+    // Pre-set vd so undisturbed tail bytes are detectable
+    set_vreg(&mut state, VReg::V4, [0x33; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmand {
@@ -281,16 +285,108 @@ fn vmand_operates_on_full_register_regardless_of_vl() {
         },
     )
     .unwrap();
-    // All 16 bytes processed: 0xFF & 0xAA = 0xAA
-    assert_eq!(get_vreg(&state, VReg::V4), [0xAA; 16]);
+    // Body is the first 8 mask bits = byte 0: 0xFF & 0xAA = 0xAA
+    assert_eq!(get_vreg(&state, VReg::V4)[0], 0xAA);
+    // Bytes 1..32 are past vl: undisturbed
+    for b in 1..32usize {
+        assert_eq!(get_vreg(&state, VReg::V4)[b], 0x33, "tail byte {b}");
+    }
+}
+
+/// Mask-logical ops honor vstart: prestart bits [0, vstart) are undisturbed.
+#[test]
+fn vmand_respects_vstart_prestart_undisturbed() {
+    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V4, [0x00; 32]);
+    state.ext_state.set_vstart(4);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmand {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Bits 0..4 prestart: undisturbed (0)
+    for i in 0..4 {
+        assert!(!mask_bit(&state, VReg::V4, i), "prestart bit {i}");
+    }
+    // Bits 4..8 body: 0xFF & 0xFF = 1
+    for i in 4..8 {
+        assert!(mask_bit(&state, VReg::V4, i), "body bit {i}");
+    }
+    assert_eq!(state.ext_state.vstart(), 0);
+}
+
+/// With vl=0, mask-logical ops write nothing; vd is undisturbed but VS is still marked dirty.
+#[test]
+fn vmand_vl_zero_undisturbed() {
+    let mut state = setup(0, Vsew::E8, Vlmul::M1);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xAA; 32]);
+    set_vreg(&mut state, VReg::V4, [0x5C; 32]);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmand {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(get_vreg(&state, VReg::V4), [0x5C; 32]);
+    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+}
+
+/// Regression for the Vx16-vmand.mm certification failure. The cert uses SEW=16, LMUL=1/4,
+/// which with VLEN=256 yields VLMAX=4, so vl=4. The same effective body [0, 4) is reproduced
+/// here with E16/M1, vl=4 (no dependence on the fractional-LMUL enum). The old implementation
+/// applied the logical op across the whole physical register, corrupting the tail-agnostic
+/// bytes that the certification signature compares as undisturbed; the body bits stayed
+/// correct, so only the tail check tripped.
+#[test]
+fn vmand_cert_regression_tail_undisturbed() {
+    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    // In the cert flow vd == vs2 (v13); mirror that overlap here.
+    set_vreg(&mut state, VReg::V13, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V11, [0x0F; 32]);
+    let before = get_vreg(&state, VReg::V13);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Vmand {
+            vd: VReg::V13,
+            vs2: VReg::V13,
+            vs1: VReg::V11,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Body bits 0..4: 0xFF & 0x0F = 1
+    for i in 0..4u32 {
+        assert!(mask_bit(&state, VReg::V13, i), "body bit {i}");
+    }
+    let after = get_vreg(&state, VReg::V13);
+    // Every bit at or past vl=4 is undisturbed: high nibble of byte 0 plus all higher bytes.
+    assert_eq!(after[0] & 0xF0, before[0] & 0xF0, "tail of byte 0");
+    for b in 1..32usize {
+        assert_eq!(after[b], before[b], "tail byte {b}");
+    }
 }
 
 /// vd may overlap vs2 for mask-logical ops
 #[test]
 fn vmand_vd_overlaps_vs2() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V1, [0x0F; 16]);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0x0F; 32]);
     // vd = vs2
     exec(
         &mut state,
@@ -303,15 +399,15 @@ fn vmand_vd_overlaps_vs2() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg(&state, VReg::V2), [0x0F; 16]);
+    assert_eq!(get_vreg(&state, VReg::V2), [0x0F; 32]);
 }
 
 /// vd may overlap vs1 for mask-logical ops
 #[test]
 fn vmand_vd_overlaps_vs1() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V1, [0x0F; 16]);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0x0F; 32]);
     // vd = vs1
     exec(
         &mut state,
@@ -324,15 +420,15 @@ fn vmand_vd_overlaps_vs1() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg(&state, VReg::V1), [0x0F; 16]);
+    assert_eq!(get_vreg(&state, VReg::V1), [0x0F; 32]);
 }
 
 /// vd may be v0 for mask-logical ops (they are always unmasked)
 #[test]
 fn vmand_vd_is_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V1, [0xAA; 16]);
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V1, [0xAA; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmand {
@@ -344,7 +440,7 @@ fn vmand_vd_is_v0() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg(&state, VReg::V0), [0xAA; 16]);
+    assert_eq!(get_vreg(&state, VReg::V0), [0xAA; 32]);
 }
 
 /// Mask-logical ops require vector instructions to be allowed
@@ -374,7 +470,7 @@ fn vmand_vector_not_allowed() {
 #[test]
 fn vcpop_all_set_unmasked() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vcpop {
@@ -395,7 +491,7 @@ fn vcpop_all_set_unmasked() {
 #[test]
 fn vcpop_all_clear() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vcpop {
@@ -415,7 +511,7 @@ fn vcpop_all_clear() {
 fn vcpop_respects_vl() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // All bits set, but only 4 elements active
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vcpop {
@@ -435,12 +531,15 @@ fn vcpop_respects_vl() {
 fn vcpop_masked() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2: bits 0,1,2,3,4,5,6,7 all set
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     // mask v0: only elements 0,2,4,6 active (alternating, low nibble = 0b01010101 = 0x55)
     set_vreg(
         &mut state,
         VReg::V0,
-        [0x55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [
+            0x55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0,
+        ],
     );
     exec(
         &mut state,
@@ -461,7 +560,7 @@ fn vcpop_masked() {
 #[test]
 fn vcpop_vstart_skips_early_elements() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     state.ext_state.set_vstart(4);
     exec(
         &mut state,
@@ -525,7 +624,7 @@ fn vcpop_vector_not_allowed() {
 fn vcpop_sparse_bits() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     // Set exactly bits 0, 3, 7, 11, 15 - one per byte boundary cluster
-    let mut data = [0u8; 16];
+    let mut data = [0u8; 32];
     // Byte 0: bits 0,3,7 -> 0b1000_1001 = 0x89
     data[0] = 0x89;
     // Byte 1: bits 8+3=11 -> 0b0000_1000 = 0x08
@@ -554,7 +653,7 @@ fn vcpop_sparse_bits() {
 fn vfirst_basic() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
     // First set bit at position 3
-    let mut data = [0u8; 16];
+    let mut data = [0u8; 32];
     data[0] = 0b0000_1000;
     set_vreg(&mut state, VReg::V2, data);
     exec(
@@ -577,7 +676,7 @@ fn vfirst_basic() {
 #[test]
 fn vfirst_no_set_bit_returns_minus_one() {
     let mut state = setup(16, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vfirst {
@@ -597,7 +696,7 @@ fn vfirst_no_set_bit_returns_minus_one() {
 #[test]
 fn vfirst_bit_zero() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vfirst {
@@ -617,7 +716,7 @@ fn vfirst_bit_zero() {
 fn vfirst_respects_vl() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // Only bit 5 set - beyond vl=4
-    let mut data = [0u8; 16];
+    let mut data = [0u8; 32];
     data[0] = 0b0010_0000;
     set_vreg(&mut state, VReg::V2, data);
     exec(
@@ -639,11 +738,11 @@ fn vfirst_respects_vl() {
 fn vfirst_masked_skips_inactive() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2: bit 0 set, bit 4 set
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b0001_0001;
     set_vreg(&mut state, VReg::V2, vs2);
     // Mask: elements 2,3,4,5,6,7 active (bits 2-7 = 0b11111100 = 0xFC)
-    let mut mask = [0u8; 16];
+    let mut mask = [0u8; 32];
     mask[0] = 0xFC;
     set_vreg(&mut state, VReg::V0, mask);
     exec(
@@ -666,7 +765,7 @@ fn vfirst_masked_skips_inactive() {
 fn vfirst_vstart_skips_early() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Bits 1 and 5 set
-    let mut data = [0u8; 16];
+    let mut data = [0u8; 32];
     data[0] = 0b0010_0010;
     set_vreg(&mut state, VReg::V2, data);
     state.ext_state.set_vstart(3);
@@ -692,7 +791,7 @@ fn vfirst_vstart_skips_early() {
 fn vmsbf_first_at_position_3() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit at position 3
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b0000_1000;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -721,7 +820,7 @@ fn vmsbf_first_at_position_3() {
 #[test]
 fn vmsbf_no_set_bit() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmsbf {
@@ -742,7 +841,7 @@ fn vmsbf_no_set_bit() {
 #[test]
 fn vmsbf_first_at_position_zero() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0x01;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -766,13 +865,13 @@ fn vmsbf_first_at_position_zero() {
 fn vmsbf_masked_inactive_undisturbed() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit in vs2 at position 4
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b0001_0000;
     set_vreg(&mut state, VReg::V2, vs2);
     // Pre-set vd to all-ones so we can detect undisturbed bits
-    set_vreg(&mut state, VReg::V4, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V4, [0xFF; 32]);
     // Mask: elements 2,3,4,5,6,7 active (bits 2-7 = 0xFC)
-    let mut mask = [0u8; 16];
+    let mut mask = [0u8; 32];
     mask[0] = 0xFC;
     set_vreg(&mut state, VReg::V0, mask);
     exec(
@@ -886,7 +985,7 @@ fn vmsbf_nonzero_vstart_illegal() {
 fn vmsof_first_at_position_3() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Set bits at positions 3 and 6
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b0100_1000;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -912,8 +1011,8 @@ fn vmsof_first_at_position_3() {
 #[test]
 fn vmsof_no_set_bit() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
-    set_vreg(&mut state, VReg::V4, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
+    set_vreg(&mut state, VReg::V4, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmsof {
@@ -975,13 +1074,13 @@ fn vmsof_vd_eq_v0_masked_illegal() {
 fn vmsof_masked_inactive_undisturbed() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit in vs2 at position 2
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b0000_0100;
     set_vreg(&mut state, VReg::V2, vs2);
     // vd pre-set to all-ones
-    set_vreg(&mut state, VReg::V4, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V4, [0xFF; 32]);
     // Mask: elements 2..8 active (bits 2-7 = 0xFC)
-    let mut mask = [0u8; 16];
+    let mut mask = [0u8; 32];
     mask[0] = 0xFC;
     set_vreg(&mut state, VReg::V0, mask);
     exec(
@@ -1034,7 +1133,7 @@ fn vmsof_nonzero_vstart_illegal() {
 fn vmsif_first_at_position_3() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // First set bit at position 3
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b0000_1000;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -1063,7 +1162,7 @@ fn vmsif_first_at_position_3() {
 #[test]
 fn vmsif_no_set_bit() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0x00; 16]);
+    set_vreg(&mut state, VReg::V2, [0x00; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmsif {
@@ -1084,7 +1183,7 @@ fn vmsif_no_set_bit() {
 #[test]
 fn vmsif_first_at_position_zero() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0x01;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -1176,7 +1275,7 @@ fn vmsbf_vmsof_vmsif_relationship() {
     let k = 5u32;
     let vl = 8u32;
 
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[(k / u8::BITS) as usize] |= 1 << (k % u8::BITS);
 
     for i in 0..vl {
@@ -1250,7 +1349,7 @@ fn vmsbf_vmsof_vmsif_relationship() {
 fn viota_basic_e8_m1() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2 bits: 0=1, 1=0, 2=1, 3=0, 4=1, 5=0, 6=0, 7=0 -> byte = 0b00010101 = 0x15
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0x15;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -1286,7 +1385,7 @@ fn viota_basic_e8_m1() {
 fn viota_e32_m1() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // vs2: bits 1 and 2 set -> byte = 0b00000110 = 0x06
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0x06;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -1314,13 +1413,13 @@ fn viota_e32_m1() {
 fn viota_inactive_vs2_bits_treated_as_zero() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // vs2: all bits set
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     // Execution mask: only elements 4..8 active (bits 4-7 = 0xF0)
-    let mut mask = [0u8; 16];
+    let mut mask = [0u8; 32];
     mask[0] = 0xF0;
     set_vreg(&mut state, VReg::V0, mask);
     // Pre-set vd to a sentinel so we can confirm inactive elements are undisturbed
-    set_vreg(&mut state, VReg::V4, [0xAB; 16]);
+    set_vreg(&mut state, VReg::V4, [0xAB; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Viota {
@@ -1436,10 +1535,17 @@ fn viota_misaligned_vd_illegal() {
     ));
 }
 
+/// viota.m never raises an illegal-instruction exception because of a narrow SEW. Per spec §16.8
+/// the result simply wraps (truncates to SEW) if it does not fit, matching the general "integer
+/// operations wrap around on overflow" rule. This exercises the widest element width to confirm
+/// the prefix count is written correctly and the instruction is accepted.
+///
+/// The exact `VLMAX == 2^SEW` boundary that the removed check got wrong is covered by
+/// [`viota_e8_m8_vlmax_256_boundary()`].
 #[test]
-fn viota_sew64_does_not_overflow_width_check() {
+fn viota_e64_m1_no_width_trap() {
     let mut state = setup(2, Vsew::E64, Vlmul::M1);
-    let mut vs2 = [0u8; 16];
+    let mut vs2 = [0u8; 32];
     vs2[0] = 0b11;
     set_vreg(&mut state, VReg::V2, vs2);
     exec(
@@ -1455,6 +1561,39 @@ fn viota_sew64_does_not_overflow_width_check() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E64), 1);
+}
+
+/// Regression test for the removed SEW-width trap. At `E8/M8` with `TEST_VLEN=256` the maximum
+/// vector length is `VLMAX = 8 * 256 / 8 = 256`, i.e. `VLMAX == 2^SEW` for `SEW=8`. The largest
+/// prefix count `viota.m` writes is `VLMAX - 1 = 255`, which fits exactly in an 8-bit element, so
+/// the instruction is legal. The removed check rejected this (`256 >> 8 == 1`) and wrongly trapped
+/// it - exactly the failure seen for `viota.m` on the ACT4 runner. With every mask bit set and
+/// active, element `i` must equal `i` across the full 8-register destination group.
+#[test]
+fn viota_e8_m8_vlmax_256_boundary() {
+    let mut state = setup(256, Vsew::E8, Vlmul::M8);
+    // A single mask register holds VLEN bits; with VLENB=32 that is all 256 elements.
+    set_vreg(&mut state, VReg::V8, [0xFF; 32]);
+    exec(
+        &mut state,
+        Zve64xMaskInstruction::Viota {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Element i counts the set bits strictly before i; with every bit set that is just i. The
+    // largest, 255, exercises the boundary where the old width check would have trapped.
+    for i in 0..256usize {
+        assert_eq!(
+            read_elem(&state, VReg::V16, i, Vsew::E8),
+            i as u64,
+            "elem {i}"
+        );
+    }
 }
 
 // vid
@@ -1553,7 +1692,7 @@ fn vid_e64_m1() {
 fn vid_respects_vl() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     // Pre-set entire vd register to sentinel value
-    set_vreg(&mut state, VReg::V4, [0xEE; 16]);
+    set_vreg(&mut state, VReg::V4, [0xEE; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vid {
@@ -1583,9 +1722,9 @@ fn vid_respects_vl() {
 fn vid_masked_inactive_undisturbed() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
     // Pre-set vd to sentinel
-    set_vreg(&mut state, VReg::V4, [0xBE; 16]);
+    set_vreg(&mut state, VReg::V4, [0xBE; 32]);
     // Mask: only even elements active (bits 0,2,4,6 = 0b01010101 = 0x55)
-    let mut mask = [0u8; 16];
+    let mut mask = [0u8; 32];
     mask[0] = 0x55;
     set_vreg(&mut state, VReg::V0, mask);
     exec(
@@ -1658,7 +1797,7 @@ fn vid_misaligned_vd_illegal() {
 #[test]
 fn vid_vstart_undisturbed_below() {
     let mut state = setup(8, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V4, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V4, [0xFF; 32]);
     state.ext_state.set_vstart(4);
     exec(
         &mut state,
@@ -1730,7 +1869,7 @@ fn vid_vector_not_allowed() {
 #[test]
 fn vcpop_vl_zero() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vcpop {
@@ -1749,7 +1888,7 @@ fn vcpop_vl_zero() {
 #[test]
 fn vfirst_vl_zero() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vfirst {
@@ -1768,8 +1907,8 @@ fn vfirst_vl_zero() {
 #[test]
 fn vmsbf_vl_zero() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V2, [0xFF; 16]);
-    set_vreg(&mut state, VReg::V4, [0xAB; 16]);
+    set_vreg(&mut state, VReg::V2, [0xFF; 32]);
+    set_vreg(&mut state, VReg::V4, [0xAB; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vmsbf {
@@ -1781,14 +1920,14 @@ fn vmsbf_vl_zero() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg(&state, VReg::V4), [0xAB; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xAB; 32]);
 }
 
 /// With vl=0, vid writes nothing and vd is untouched
 #[test]
 fn vid_vl_zero() {
     let mut state = setup(0, Vsew::E8, Vlmul::M1);
-    set_vreg(&mut state, VReg::V4, [0xCD; 16]);
+    set_vreg(&mut state, VReg::V4, [0xCD; 32]);
     exec(
         &mut state,
         Zve64xMaskInstruction::Vid {
@@ -1799,7 +1938,7 @@ fn vid_vl_zero() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg(&state, VReg::V4), [0xCD; 16]);
+    assert_eq!(get_vreg(&state, VReg::V4), [0xCD; 32]);
 }
 
 // vs_dirty and vstart invariants
@@ -1902,7 +2041,7 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             "instruction {idx}: vstart reset"
         );
     }
-    // Instructions that trap on vstart != 0 per spec (§16.4, §16.8) — checked with vstart=0
+    // Instructions that trap on vstart != 0 per spec (§16.4, §16.8) - checked with vstart=0
     let vstart_must_be_zero: &[Zve64xMaskInstruction<Reg<u64>>] = &[
         Zve64xMaskInstruction::Vmsbf {
             vd: VReg::V4,

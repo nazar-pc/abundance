@@ -337,7 +337,18 @@ where
                     vs2,
                     index_group_regs,
                 )?;
-                if zve64x_load_helpers::groups_overlap(vd, data_group_regs, vs2, index_group_regs) {
+                // Non-segment indexed loads permit `vd`/`vs2` overlap under the general
+                // EEW-relative overlap rule (e.g. when the data and index EEW match); only
+                // disallowed overlaps are reserved.
+                if !zve64x_load_helpers::indexed_load_overlap_allowed(
+                    vd,
+                    data_group_regs,
+                    vs2,
+                    index_group_regs,
+                    index_eew,
+                    vtype.vsew(),
+                    vtype.vlmul(),
+                ) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -354,7 +365,10 @@ where
                 //   `data_group_regs = LMUL`, so VLMAX = LMUL * VLEN / SEW, which bounds `vl`
                 // - `vl <= index_group_regs * VLENB / index_eew.bytes()`: `index_group_regs` is
                 //   EMUL_index defined so this VLMAX_index equals the architectural VLMAX
-                // - no overlap between data and index groups: checked above
+                // - `vd`/`vs2` overlap (if any) satisfies the general EEW overlap rule, checked
+                //   above; the in-order element loop reads index element `i` before writing data
+                //   element `i`, and that rule guarantees a data write never clobbers an index
+                //   element that has not yet been consumed
                 // - mask overlap: checked above via `groups_overlap`
                 unsafe {
                     zve64x_load_helpers::execute_indexed_load(
@@ -410,7 +424,17 @@ where
                     vs2,
                     index_group_regs,
                 )?;
-                if zve64x_load_helpers::groups_overlap(vd, data_group_regs, vs2, index_group_regs) {
+                // Non-segment indexed loads permit `vd`/`vs2` overlap under the general
+                // EEW-relative overlap rule; see the `Vluxei` arm for details.
+                if !zve64x_load_helpers::indexed_load_overlap_allowed(
+                    vd,
+                    data_group_regs,
+                    vs2,
+                    index_group_regs,
+                    index_eew,
+                    vtype.vsew(),
+                    vtype.vlmul(),
+                ) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });

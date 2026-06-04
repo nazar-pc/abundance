@@ -21,7 +21,7 @@ const TRAP_ADDRESS: u64 = 0;
 /// Zve64x element width
 const ZVE64X_ELEN: u32 = 64;
 /// VLEN in bits for the test vector register file
-const TEST_VLEN: u32 = 128;
+const TEST_VLEN: u32 = 256;
 /// VLEN in bytes
 const TEST_VLENB: usize = (TEST_VLEN / u8::BITS) as usize;
 

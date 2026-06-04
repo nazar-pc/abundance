@@ -16,14 +16,14 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul, vta: bool, vma: bool) -> u16 {
     val
 }
 
-// VLMAX for TEST_VLEN=128:
-//   e8,m1  -> 128/8   = 16
-//   e16,m1 -> 128/16  = 8
-//   e32,m1 -> 128/32  = 4
-//   e64,m1 -> 128/64  = 2
-//   e8,m2  -> 256/8   = 32
-//   e8,m8  -> 1024/8  = 128
-//   e32,mf2-> 64/32   = 2
+// VLMAX for TEST_VLEN=256:
+//   e8,m1  -> 256/8    = 32
+//   e16,m1 -> 256/16   = 16
+//   e32,m1 -> 256/32   = 8
+//   e64,m1 -> 256/64   = 4
+//   e8,m2  -> 512/8    = 64
+//   e8,m8  -> 2048/8   = 256
+//   e32,mf2-> 128/32   = 4
 //   e8,mf8 -> 16/8    = 2
 
 // vsetvli basic tests
@@ -31,7 +31,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul, vta: bool, vma: bool) -> u16 {
 #[test]
 fn vsetvli_sets_vl_and_rd_from_avl() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
-    // VLMAX = 128/32 = 4, AVL = 3 < VLMAX -> vl = 3
+    // VLMAX = 256/32 = 8, AVL = 3 < VLMAX -> vl = 3
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -54,7 +54,7 @@ fn vsetvli_sets_vl_and_rd_from_avl() {
 #[test]
 fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
-    // VLMAX = 4, AVL = 100 -> vl = 4
+    // VLMAX = 8, AVL = 100 -> vl = 8
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -66,8 +66,8 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), 4);
+    assert_eq!(state.regs.read(Reg::A0), 8);
+    assert_eq!(state.ext_state.vl(), 8);
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn vsetvli_avl_zero_gives_vl_zero() {
 #[test]
 fn vsetvli_avl_equals_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M1, false, false);
-    // VLMAX = 128/8 = 16
+    // VLMAX = 256/8 = 32
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -100,12 +100,12 @@ fn vsetvli_avl_equals_vlmax() {
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
-    state.regs.write(Reg::A1, 16);
+    state.regs.write(Reg::A1, 32);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 16);
-    assert_eq!(state.ext_state.vl(), 16);
+    assert_eq!(state.regs.read(Reg::A0), 32);
+    assert_eq!(state.ext_state.vl(), 32);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn vsetvli_rd_x0_discards_result() {
 #[test]
 fn vsetvli_e8_m8_gives_max_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M8, false, false);
-    // VLMAX = (128*8)/8 = 128
+    // VLMAX = (256*8)/8 = 256
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -141,18 +141,18 @@ fn vsetvli_e8_m8_gives_max_vlmax() {
         rs2: Reg::Zero,
     }]);
     state.ext_state.init_vector_csrs();
-    state.regs.write(Reg::A1, 200);
+    state.regs.write(Reg::A1, 300);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 128);
-    assert_eq!(state.ext_state.vl(), 128);
+    assert_eq!(state.regs.read(Reg::A0), 256);
+    assert_eq!(state.ext_state.vl(), 256);
 }
 
 #[test]
 fn vsetvli_e64_m1() {
     let vtypei = encode_vtype(Vsew::E64, Vlmul::M1, false, false);
-    // VLMAX = 128/64 = 2
+    // VLMAX = 256/64 = 4
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -173,7 +173,7 @@ fn vsetvli_e64_m1() {
 #[test]
 fn vsetvli_e32_mf2() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::Mf2, false, false);
-    // VLMAX = 128 / (32*2) = 2
+    // VLMAX = 256 / (32*2) = 4
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -185,14 +185,14 @@ fn vsetvli_e32_mf2() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 2);
-    assert_eq!(state.ext_state.vl(), 2);
+    assert_eq!(state.regs.read(Reg::A0), 4);
+    assert_eq!(state.ext_state.vl(), 4);
 }
 
 #[test]
 fn vsetvli_e8_mf8() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::Mf8, false, false);
-    // VLMAX = 128 / (8*8) = 2
+    // VLMAX = 256 / (8*8) = 4
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -294,7 +294,7 @@ fn vsetvli_reserved_vlmul_sets_vill() {
 
 #[test]
 fn vsetvli_vlmax_zero_sets_vill() {
-    // e64 with mf8: VLMAX = 128/(64*8) = 0 -> unsupported
+    // e64 with mf8: VLMAX = 256/(64*8) = 0 -> unsupported
     let vtypei = encode_vtype(Vsew::E64, Vlmul::Mf8, false, false);
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
@@ -336,7 +336,7 @@ fn vsetvli_reserved_upper_bits_set_vill() {
 #[test]
 fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
-    // VLMAX = 128/32 = 4
+    // VLMAX = 256/32 = 8
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::Zero,
@@ -347,14 +347,14 @@ fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), 4);
+    assert_eq!(state.regs.read(Reg::A0), 8);
+    assert_eq!(state.ext_state.vl(), 8);
 }
 
 #[test]
 fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M8, false, false);
-    // VLMAX = (128*8)/8 = 128
+    // VLMAX = (256*8)/8 = 256
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::Zero,
@@ -365,8 +365,8 @@ fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 128);
-    assert_eq!(state.ext_state.vl(), 128);
+    assert_eq!(state.regs.read(Reg::A0), 256);
+    assert_eq!(state.ext_state.vl(), 256);
 }
 
 #[test]
@@ -472,7 +472,7 @@ fn vsetivli_avl_zero() {
 #[test]
 fn vsetivli_max_immediate() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
-    // VLMAX = 4, uimm = 31 > VLMAX -> vl = 4
+    // VLMAX = 8, uimm = 31 > VLMAX -> vl = 8
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetivli {
         rd: Reg::A0,
         uimm: 31,
@@ -484,14 +484,14 @@ fn vsetivli_max_immediate() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), 4);
+    assert_eq!(state.regs.read(Reg::A0), 8);
+    assert_eq!(state.ext_state.vl(), 8);
 }
 
 #[test]
 fn vsetivli_avl_within_vlmax() {
     let vtypei = encode_vtype(Vsew::E8, Vlmul::M8, false, false);
-    // VLMAX = 128, uimm = 20 -> vl = 20
+    // VLMAX = 256, uimm = 20 -> vl = 20
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetivli {
         rd: Reg::A0,
         uimm: 20,
@@ -530,7 +530,7 @@ fn vsetivli_unsupported_sets_vill() {
 #[test]
 fn vsetivli_with_ta_ma() {
     let vtypei = encode_vtype(Vsew::E16, Vlmul::M4, true, true);
-    // VLMAX = (128*4)/16 = 32, uimm = 10
+    // VLMAX = (256*4)/16 = 64, uimm = 10
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetivli {
         rd: Reg::A0,
         uimm: 10,
@@ -576,7 +576,7 @@ fn vsetvl_basic() {
 #[test]
 fn vsetvl_rs1_x0_rd_nonzero() {
     let vtype_raw = u64::from(encode_vtype(Vsew::E64, Vlmul::M1, false, false));
-    // VLMAX = 128/64 = 2
+    // VLMAX = 256/64 = 4
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
         rs1: Reg::Zero,
@@ -587,8 +587,8 @@ fn vsetvl_rs1_x0_rd_nonzero() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.regs.read(Reg::A0), 2);
-    assert_eq!(state.ext_state.vl(), 2);
+    assert_eq!(state.regs.read(Reg::A0), 4);
+    assert_eq!(state.ext_state.vl(), 4);
 }
 
 #[test]
@@ -634,7 +634,7 @@ fn vsetvl_high_bits_in_rs2_sets_vill() {
 fn vsetvl_context_restore_preserves_vtype() {
     // vsetvl is used for context restore; ensure the full round-trip works
     let vtype_raw = u64::from(encode_vtype(Vsew::E16, Vlmul::M4, true, false));
-    // VLMAX = (128*4)/16 = 32
+    // VLMAX = (256*4)/16 = 64
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvl {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -1017,7 +1017,7 @@ fn sequential_vsetvli_overrides_previous() {
     execute(&mut state).unwrap();
 
     // Second instruction should have taken effect
-    // VLMAX = (128*2)/8 = 32, AVL = 10 -> vl = 10
+    // VLMAX = (256*2)/8 = 64, AVL = 10 -> vl = 10
     assert_eq!(state.ext_state.vl(), 10);
     assert_eq!(state.regs.read(Reg::A2), 10);
     let vtype = state.ext_state.vtype().unwrap();
@@ -1061,7 +1061,7 @@ fn vsetvli_after_vill_recovers() {
 #[test]
 fn vsetivli_followed_by_vsetvl_x0_x0() {
     let mut state = initialize_state([
-        // Set e16,m1 with AVL=5 -> vl=5, VLMAX=8
+        // Set e16,m1 with AVL=5 -> vl=5, VLMAX=16
         Zve64xConfigInstruction::Vsetivli {
             rd: Reg::A0,
             uimm: 5,
@@ -1069,7 +1069,7 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-        // Change to ta,ma but keep same SEW/LMUL (same VLMAX=8)
+        // Change to ta,ma but keep same SEW/LMUL (same VLMAX=16)
         Zve64xConfigInstruction::Vsetvli {
             rd: Reg::Zero,
             rs1: Reg::Zero,
@@ -1094,7 +1094,7 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
 #[test]
 fn vsetvli_large_avl_in_register() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
-    // VLMAX = 4, AVL = u64::MAX -> vl = 4
+    // VLMAX = 8, AVL = u64::MAX -> vl = 8
     let mut state = initialize_state([Zve64xConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -1106,8 +1106,8 @@ fn vsetvli_large_avl_in_register() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_state.vl(), 4);
-    assert_eq!(state.regs.read(Reg::A0), 4);
+    assert_eq!(state.ext_state.vl(), 8);
+    assert_eq!(state.regs.read(Reg::A0), 8);
 }
 
 #[test]

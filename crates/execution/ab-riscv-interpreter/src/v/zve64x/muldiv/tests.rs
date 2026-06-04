@@ -7,15 +7,15 @@ use crate::{
 };
 use ab_riscv_primitives::prelude::*;
 
-// With TEST_VLEN=128, VLENB=16:
-//   E8/M1  -> VLMAX=16, 1 reg
-//   E16/M1 -> VLMAX=8,  1 reg
-//   E32/M1 -> VLMAX=4,  1 reg
-//   E64/M1 -> VLMAX=2,  1 reg
-//   E8/M2  -> VLMAX=32, 2 regs
-//   E16/M2 -> VLMAX=16, 2 regs
-//   E32/M2 -> VLMAX=8,  2 regs (vd for widening E16 uses 2 regs)
-//   E8/M4  -> VLMAX=64, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=4 at E32/M1)
+// With TEST_VLEN=256, VLENB=32:
+//   E8/M1  -> VLMAX=32, 1 reg
+//   E16/M1 -> VLMAX=16, 1 reg
+//   E32/M1 -> VLMAX=8,  1 reg
+//   E64/M1 -> VLMAX=4,  1 reg
+//   E8/M2  -> VLMAX=64, 2 regs
+//   E16/M2 -> VLMAX=32, 2 regs
+//   E32/M2 -> VLMAX=16, 2 regs (vd for widening E16 uses 2 regs)
+//   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
@@ -64,7 +64,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -97,7 +97,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -845,13 +845,6 @@ fn vrem_vv_e32_signed_overflow_returns_zero() {
 #[test]
 fn vrem_vx_e8() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
-    // -128 % -1 = 0
-    // i8::MIN
-    write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80);
-    // sign-extends as -1 in the vx scalar path? No - scalar is treated as unsigned for vrem
-    state.regs.write(Reg::A0, 0xFFu64);
-    // Actually for vrem.vx, the scalar is the divisor and is sign-extended from XLEN.
-    // rs1 = 0xFF00...FF (if we write 0xFF it is zero-extended) - let's use a simpler case.
     // -127 % 7: -127 = 0x81 as i8, result = -127 % 7 = -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x81);
     state.regs.write(Reg::A0, 7u64);
@@ -995,9 +988,9 @@ fn vwmulu_m8_is_illegal() {
 
 #[test]
 fn vwmulu_mf2_e8_correct_result() {
-    // LMUL=Mf2, SEW=E8: VLMAX = VLEN/2 / 8 = 128/2/8 = 8 elements
+    // LMUL=Mf2, SEW=E8: VLMAX = VLEN/2 / 8 = 256/2/8 = 16 elements
     // EMUL = 2 * (1/2) = 1, so vd occupies 1 register (same as vs2/vs1)
-    // With VLENB=16: 8 E8 elements fit in half a register, so VLMAX=8
+    // With VLENB=32: 16 E8 elements fit in half a register, so VLMAX=16
     let mut state = setup(4, Vsew::E8, Vlmul::Mf2);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 1) as u64 * 10);
@@ -1092,9 +1085,16 @@ fn vwmulu_m1_overlap_uses_2_dest_regs() {
 }
 
 #[test]
-fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
-    // With M1, vd=V4 occupies V4+V5. vs2=V5 overlaps with upper half of vd -> illegal.
+fn vwmulu_m1_vs2_in_upper_dest_reg_is_legal() {
+    // With M1, vd=V4 occupies V4+V5 (source EMUL=1). vs2=V5 occupies exactly the
+    // highest-numbered register of the destination group, which the RISC-V "V" spec §5.2
+    // permits for widening instructions. With vl=4 the wide results land entirely in V4, so the
+    // V5 source is not clobbered before it is read.
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V5, i, Vsew::E8, (i + 1) as u64);
+        write_elem(&mut state, VReg::V2, i, Vsew::E8, 2);
+    }
     let result = exec(
         &mut state,
         Zve64xMulDivInstruction::VwmuluVv {
@@ -1106,10 +1106,109 @@ fn vwmulu_m1_vs2_in_upper_dest_reg_is_illegal() {
             rs2: Reg::Zero,
         },
     );
+    assert!(result.is_ok());
+    for i in 0..4usize {
+        assert_eq!(
+            read_wide_elem(&state, VReg::V4, i, Vsew::E8),
+            (i + 1) as u64 * 2,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwmulu_m1_vs1_in_upper_dest_reg_is_legal() {
+    // Same legal top-overlap as above, but for vs1 (the second source operand). This mirrors the
+    // `vwmul.vv v10, v7, v11` case: vd=V10 occupies V10+V11 and vs1=V11 is the highest-numbered
+    // register of the destination group.
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V7, i, Vsew::E8, (i + 1) as u64);
+        write_elem(&mut state, VReg::V11, i, Vsew::E8, 3);
+    }
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V10,
+            vs2: VReg::V7,
+            vs1: VReg::V11,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(result.is_ok());
+    for i in 0..4usize {
+        assert_eq!(
+            read_wide_elem(&state, VReg::V10, i, Vsew::E8),
+            (i + 1) as u64 * 3,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwmulu_m1_vs2_in_lower_dest_reg_is_illegal() {
+    // With M1, vd=V4 occupies V4+V5. vs2=V4 overlaps the *lowest*-numbered register of the
+    // destination group, which is not the permitted highest-numbered overlap -> illegal.
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V4,
+            vs2: VReg::V4,
+            vs1: VReg::V2,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
     assert!(matches!(
         result,
         Err(ExecutionError::IllegalInstruction { .. })
     ));
+}
+
+#[test]
+fn vwmulu_m2_lower_half_overlap_is_illegal() {
+    // With M2, vd=V8 occupies V8..V12 (4 regs) and a source occupies 2 regs. The only legal
+    // overlap is the top half (V10+V11). vs1=V8 occupies the lowest-numbered half of the
+    // destination group, which is not the permitted highest-numbered overlap -> illegal.
+    let mut state = setup(4, Vsew::E8, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V8,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vwmulu_m2_top_half_overlap_is_legal() {
+    // With M2, vd=V8 occupies V8..V12. vs1=V10 occupies exactly the top half (V10+V11) of the
+    // destination group -> legal per spec §5.2.
+    let mut state = setup(4, Vsew::E8, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xMulDivInstruction::VwmuluVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V10,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(result.is_ok());
 }
 
 // vwmul (signed widening)
@@ -1526,7 +1625,7 @@ fn vwmacc_vv_e8_signed() {
 
 #[test]
 fn vwmacc_mf2_e16_basic() {
-    // LMUL=Mf2, SEW=E16: VLMAX = 128/2/16 = 4 elements
+    // LMUL=Mf2, SEW=E16: VLMAX = 256/2/16 = 8 elements
     // EMUL_dest = 1, so vd is 1 register wide at E32 (2*SEW)
     let mut state = setup(4, Vsew::E16, Vlmul::Mf2);
     for i in 0..4usize {
@@ -1594,21 +1693,20 @@ fn vwmaccsu_vv_e8() {
     assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 400u64);
 }
 
-// vwmaccus
+// vwmaccus.vx: vd[i] = vd[i] + zext(rs1) * sext(vs2[i])
+// rs1 is UNSIGNED, vs2 is SIGNED.
 
 #[test]
 fn vwmaccus_vx_e8() {
-    // vwmaccus.vx: vd[i] = vd[i] + sext(rs1) * zext(vs2[i])
-    // rs1 is SIGNED, vs2 is UNSIGNED.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_wide_elem(&mut state, VReg::V8, 0, Vsew::E8, 0);
     write_wide_elem(&mut state, VReg::V8, 1, Vsew::E8, 0);
-    // vs2=255 (unsigned)
+    // vs2=-1 (signed)
     write_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFF);
-    // vs2=50 (unsigned)
+    // vs2=50 (signed positive)
     write_elem(&mut state, VReg::V4, 1, Vsew::E8, 50);
-    // rs1 low 8 bits = 0xFF, sign-extends to -1
-    state.regs.write(Reg::A0, 0xFFu64);
+    // rs1=255 (unsigned)
+    state.regs.write(Reg::A0, 255u64);
     exec(
         &mut state,
         Zve64xMulDivInstruction::VwmaccusVx {
@@ -1620,28 +1718,29 @@ fn vwmaccus_vx_e8() {
         },
     )
     .unwrap();
-    // 0 + (-1) * 255 = -255 as i16
+    // 0 + zext(255) * sext(-1) = 255 * (-1) = -255 as i16
     assert_eq!(
         read_wide_elem(&state, VReg::V8, 0, Vsew::E8) as i16,
         -255i16
     );
-    // 0 + (-1) * 50 = -50
-    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8) as i16, -50i16);
+    // 0 + zext(255) * sext(50) = 255 * 50 = 12750
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 12750u64);
 }
+
+// vwmaccsu.vx: vd[i] = vd[i] + sext(rs1) * zext(vs2[i])
+// rs1 is SIGNED, vs2 is UNSIGNED.
 
 #[test]
 fn vwmaccsu_vx_e8() {
-    // vwmaccsu.vx: vd[i] = vd[i] + sext(vs2[i]) * zext(rs1)
-    // vs2 is SIGNED, rs1 is UNSIGNED.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_wide_elem(&mut state, VReg::V8, 0, Vsew::E8, 0);
     write_wide_elem(&mut state, VReg::V8, 1, Vsew::E8, 0);
-    // vs2=-1 (signed)
-    write_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFF);
-    // vs2=2 (signed)
-    write_elem(&mut state, VReg::V4, 1, Vsew::E8, 2);
-    // rs1=200 (unsigned)
-    state.regs.write(Reg::A0, 200u64);
+    // vs2=200 (unsigned)
+    write_elem(&mut state, VReg::V4, 0, Vsew::E8, 200);
+    // vs2=50 (unsigned)
+    write_elem(&mut state, VReg::V4, 1, Vsew::E8, 50);
+    // rs1=0xFF stored in register; sign-extends from SEW (8 bits) to -1 signed
+    state.regs.write(Reg::A0, 0xFFu64);
     exec(
         &mut state,
         Zve64xMulDivInstruction::VwmaccsuVx {
@@ -1653,13 +1752,13 @@ fn vwmaccsu_vx_e8() {
         },
     )
     .unwrap();
-    // 0 + (-1) * 200 = -200 as i16
+    // 0 + sext(0xFF=-1) * zext(200) = -1 * 200 = -200 as i16
     assert_eq!(
         read_wide_elem(&state, VReg::V8, 0, Vsew::E8) as i16,
         -200i16
     );
-    // 0 + 2 * 200 = 400
-    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 400u64);
+    // 0 + sext(0xFF=-1) * zext(50) = -1 * 50 = -50 as i16
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8) as i16, -50i16);
 }
 
 // common error paths

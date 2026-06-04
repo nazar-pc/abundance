@@ -6,16 +6,16 @@ use crate::{
 };
 use ab_riscv_primitives::prelude::*;
 
-// With TEST_VLEN=128, VLENB=16:
-//   E8/M1   -> VLMAX=16, 1 reg,  16 elems/reg
-//   E16/M1  -> VLMAX=8,  1 reg,  8 elems/reg
-//   E32/M1  -> VLMAX=4,  1 reg,  4 elems/reg
-//   E64/M1  -> VLMAX=2,  1 reg,  2 elems/reg
-//   E8/M2   -> VLMAX=32, 2 regs, 16 elems/reg
-//   E16/M2  -> VLMAX=16, 2 regs, 8 elems/reg
-//   E32/M2  -> VLMAX=8,  2 regs, 4 elems/reg
-//   E64/M2  -> VLMAX=4,  2 regs, 2 elems/reg
-//   E64/Mf2 -> VLMAX=1,  1 reg,  2 elems/reg  (VLMAX=1)
+// With TEST_VLEN=256, VLENB=32:
+//   E8/M1   -> VLMAX=32, 1 reg,  32 elems/reg
+//   E16/M1  -> VLMAX=16, 1 reg,  16 elems/reg
+//   E32/M1  -> VLMAX=8,  1 reg,  8 elems/reg
+//   E64/M1  -> VLMAX=4,  1 reg,  4 elems/reg
+//   E8/M2   -> VLMAX=64, 2 regs, 32 elems/reg
+//   E16/M2  -> VLMAX=32, 2 regs, 16 elems/reg
+//   E32/M2  -> VLMAX=16, 2 regs, 8 elems/reg
+//   E64/M2  -> VLMAX=8,  2 regs, 4 elems/reg
+//   E64/Mf2 -> VLMAX=2,  1 reg,  4 elems/reg
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
@@ -64,7 +64,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -81,7 +81,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -100,7 +100,7 @@ fn set_vreg_bytes(
 fn get_vreg_bytes(
     state: &crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     reg: VReg,
-) -> [u8; 16] {
+) -> [u8; 32] {
     state.ext_state.read_vreg()[usize::from(reg.bits())]
 }
 
@@ -2060,7 +2060,8 @@ fn vmerge_variants_reset_vstart_and_mark_dirty() {
 
 #[test]
 fn vmv_v_x_m2_e32_broadcasts_across_group() {
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    // E32/M2: VLMAX=16, vl=16 spans V4 and V5 (8 E32 elems per VLENB=32 register)
+    let mut state = setup(16, Vsew::E32, Vlmul::M2);
     state.regs.write(Reg::A0, 0xCAFEu64);
     exec(
         &mut state,
@@ -2073,7 +2074,7 @@ fn vmv_v_x_m2_e32_broadcasts_across_group() {
         },
     )
     .unwrap();
-    for i in 0..8usize {
+    for i in 0..16usize {
         assert_eq!(
             read_elem(&state, VReg::V4, i, Vsew::E32),
             0xCAFE,
@@ -2084,14 +2085,16 @@ fn vmv_v_x_m2_e32_broadcasts_across_group() {
 
 #[test]
 fn vmerge_vxm_m2_e32_blends_across_group() {
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
-    for i in 0..8usize {
+    // E32/M2: VLMAX=16, vl=16 spans V4 and V5 (8 E32 elems per VLENB=32 register)
+    let mut state = setup(16, Vsew::E32, Vlmul::M2);
+    for i in 0..16usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, (i * 100) as u64);
     }
     state.regs.write(Reg::A0, 777u64);
-    // Set mask bits 0, 2, 4, 6.
+    // Set even mask bits across both bytes: elements 0,2,..,14 active.
     state.ext_state.write_vreg()[0].fill(0);
     state.ext_state.write_vreg()[0][0] = 0b0101_0101;
+    state.ext_state.write_vreg()[0][1] = 0b0101_0101;
     exec(
         &mut state,
         Zve64xPermInstruction::VmergeVxm {
@@ -2103,7 +2106,7 @@ fn vmerge_vxm_m2_e32_blends_across_group() {
         },
     )
     .unwrap();
-    for i in 0..8usize {
+    for i in 0..16usize {
         let expected = if i % 2 == 0 { 777 } else { (i * 100) as u64 };
         assert_eq!(
             read_elem(&state, VReg::V4, i, Vsew::E32),
@@ -2314,7 +2317,10 @@ fn vcompress_vm_vstart_zero_normal_operation() {
 #[test]
 fn vmv1r_v_copies_single_register() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
-    let src: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    let src: [u8; 32] = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+        26, 27, 28, 29, 30, 31, 32,
+    ];
     state.ext_state.write_vreg()[usize::from(VReg::V2.bits())] = src;
     set_vreg_bytes(&mut state, VReg::V4, 0xCC);
     exec(
@@ -2346,7 +2352,7 @@ fn vmv1r_v_src_eq_dst_nop() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg_bytes(&state, VReg::V2), [0xAB; 16]);
+    assert_eq!(get_vreg_bytes(&state, VReg::V2), [0xAB; 32]);
 }
 
 #[test]
@@ -2367,8 +2373,8 @@ fn vmv2r_v_copies_two_registers() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg_bytes(&state, VReg::V4), [0x11; 16]);
-    assert_eq!(get_vreg_bytes(&state, VReg::V5), [0x22; 16]);
+    assert_eq!(get_vreg_bytes(&state, VReg::V4), [0x11; 32]);
+    assert_eq!(get_vreg_bytes(&state, VReg::V5), [0x22; 32]);
 }
 
 #[test]
@@ -2432,7 +2438,7 @@ fn vmv4r_v_copies_four_registers() {
     for k in 0u8..4 {
         assert_eq!(
             get_vreg_bytes(&state, VReg::from_bits(VReg::V12.bits() + k).unwrap()),
-            [k + 1; 16],
+            [k + 1; 32],
             "reg offset {k}"
         );
     }
@@ -2503,7 +2509,7 @@ fn vmv8r_v_copies_eight_registers() {
     for k in 0u8..8 {
         assert_eq!(
             get_vreg_bytes(&state, VReg::from_bits(VReg::V16.bits() + k).unwrap()),
-            [k + 10; 16],
+            [k + 10; 32],
             "reg offset {k}"
         );
     }
@@ -2560,7 +2566,7 @@ fn vmvr_does_not_require_valid_vtype() {
         },
     )
     .unwrap();
-    assert_eq!(get_vreg_bytes(&state, VReg::V4), [0xAB; 16]);
+    assert_eq!(get_vreg_bytes(&state, VReg::V4), [0xAB; 32]);
 }
 
 // Multi-register group (LMUL > 1) tests
@@ -3318,7 +3324,7 @@ fn vl_zero_leaves_vd_undisturbed_rgather() {
 
 #[test]
 fn vslideup_mf2_e64_offset_ge_vlmax_no_write() {
-    // Mf2/E64: VLMAX = VLEN/(8*2) = 128/(8*2) = 1.
+    // Mf2/E64: VLMAX = VLEN/(64*2) = 256/128 = 2; this test pins vl=1.
     let mut state = setup(1, Vsew::E64, Vlmul::Mf2);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xABCD);
     write_elem(&mut state, VReg::V4, 0, Vsew::E64, 0xDEAD);

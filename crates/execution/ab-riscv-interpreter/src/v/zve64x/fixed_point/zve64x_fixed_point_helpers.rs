@@ -2,7 +2,7 @@
 
 use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zve64x::arith::zve64x_arith_helpers::{
-    OpSrc, check_vreg_group_alignment as check_vd, check_vreg_group_alignment as check_vs, sew_mask,
+    OpSrc, check_vreg_group_alignment, sew_mask,
 };
 use crate::v::zve64x::arith::zve64x_arith_helpers::{
     read_element_u64, sign_extend, write_element_u64,
@@ -563,28 +563,48 @@ where
     Ok(())
 }
 
-/// Check that `vs2` for a narrowing instruction is aligned to `2 * group_regs` and fits in [0,32).
+/// Check that the double-width source `vs2` of a narrowing instruction is aligned to its register
+/// group and fits in `[0, 32)`.
+///
+/// The source operand has `EEW = 2*SEW`, so its `EMUL = 2*LMUL`. Per v-spec §5.2 the group must be
+/// aligned to `EMUL` registers, and `EMUL` outside the legal range `[1/8, 8]` (e.g. `LMUL=8`, which
+/// would need `EMUL=16`) is reserved. Unlike `2 * register_count()`, this correctly yields a single
+/// register with no alignment constraint for fractional `LMUL` (where `2*LMUL <= 1`).
+///
+/// `sew` is the destination (narrow) SEW; it must be at most 32 (see [`check_narrowing_sew()`]).
 #[inline(always)]
 #[doc(hidden)]
 pub fn check_vs2_narrowing_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vs2: VReg,
-    group_regs: u8,
+    vlmul: Vlmul,
+    sew: Vsew,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    // Per v-spec §5.2: narrowing requires EMUL_src = 2*LMUL <= 8.
-    // LMUL=8 with a narrowing instruction is reserved.
-    if group_regs > 4 {
-        return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
-        });
-    }
-    let double_group = group_regs * 2;
+    // Source EEW is double the destination SEW. SEW=64 is rejected earlier by
+    // `check_narrowing_sew`.
+    let wide_eew = match sew {
+        Vsew::E8 => Eew::E16,
+        Vsew::E16 => Eew::E32,
+        Vsew::E32 => Eew::E64,
+        Vsew::E64 => {
+            return Err(ExecutionError::IllegalInstruction {
+                address: program_counter.old_pc(INSTRUCTION_SIZE),
+            });
+        }
+    };
+    // `EMUL = 2*LMUL`; `None` when reserved (e.g. LMUL=8 -> EMUL=16).
+    let wide_group =
+        vlmul
+            .data_register_count(wide_eew, sew)
+            .ok_or(ExecutionError::IllegalInstruction {
+                address: program_counter.old_pc(INSTRUCTION_SIZE),
+            })?;
     let vs2_idx = vs2.bits();
-    if !vs2_idx.is_multiple_of(double_group) || vs2_idx + double_group > 32 {
+    if !vs2_idx.is_multiple_of(wide_group) || vs2_idx + wide_group > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });

@@ -121,7 +121,7 @@ fn i24_negative_one_stored_as_all_ff() {
 
 #[test]
 fn i24_sign_extension_positive_boundary() {
-    // 0x7FFFFF is max positive; 0x800000 would be the sign bit — must not be stored
+    // 0x7FFFFF is max positive; 0x800000 would be the sign bit - must not be stored
     let v = 0x007F_FFFF_i32;
     let recovered = I24::from_i32(v).to_i32();
     assert_eq!(recovered, v);

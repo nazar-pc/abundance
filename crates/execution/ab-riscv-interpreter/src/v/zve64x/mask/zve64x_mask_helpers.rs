@@ -7,14 +7,17 @@ use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
-/// Execute a mask-register logical operation on the full `VLENB`-byte mask registers.
+/// Execute a mask-register logical operation (§16.1).
 ///
-/// Operates on the entire register width independent of `vl` or `vtype`, per spec §16.1.
-/// `op` receives `(vs2_byte: u8, vs1_byte: u8) -> u8`.
+/// Computes the result for the body elements `[vstart, vl)` only. Prestart bits `[0, vstart)`
+/// are left undisturbed, and tail bits `[vl, VLEN)` follow the tail-agnostic policy, realised
+/// here as undisturbed (a permitted agnostic implementation and the one the reference model
+/// produces). `op` receives `(vs2_bit: bool, vs1_bit: bool) -> bool`.
 ///
 /// # Safety
-/// `vd`, `vs2`, and `vs1` are valid register indices (guaranteed by `VReg` type).
-/// The operation snaps both sources before writing, so `vd` may safely overlap either source.
+/// `vd`, `vs2`, and `vs1` are valid register indices (guaranteed by `VReg`).
+/// `vl <= VLEN`, so `(vl - 1) / 8 < VLENB`; `vstart <= vl` by the architectural invariant.
+/// The operation snapshots both sources before writing, so `vd` may safely overlap either source.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
@@ -22,6 +25,8 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
+    vl: u32,
+    vstart: u16,
     op: F,
 ) where
     Reg: Register,
@@ -30,29 +35,22 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     [(); ExtState::VLEN as usize]:,
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
-    F: Fn(u8, u8) -> u8,
+    F: Fn(bool, bool) -> bool,
 {
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
     let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
     // SAFETY: `vs1.bits() < 32`; `VReg` values are always in `0..32`
     let vs1_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs1.bits())) };
-    // SAFETY: `vd.bits() < 32`; `VReg` values are always in `0..32`
-    let vd_reg = unsafe {
-        ext_state
-            .write_vreg()
-            .get_unchecked_mut(usize::from(vd.bits()))
-    };
-    for byte_i in 0..ExtState::VLENB as usize {
-        // SAFETY: `byte_i < VLENB` because the loop bound is `ExtState::VLENB`, and
-        // `vs2_snap` / `vs1_snap` are `[u8; VLENB]` arrays
-        let a = unsafe { *vs2_snap.get_unchecked(byte_i) };
-        // SAFETY: `byte_i < VLENB` because the loop bound is `ExtState::VLENB`, and
-        // `vs2_snap` / `vs1_snap` are `[u8; VLENB]` arrays
-        let b = unsafe { *vs1_snap.get_unchecked(byte_i) };
-        // SAFETY: `byte_i < VLENB` because the loop bound is `ExtState::VLENB`, and
-        // `vd_reg` points to a `[u8; VLENB]` register row
-        *unsafe { vd_reg.get_unchecked_mut(byte_i) } = op(a, b);
+    // Body elements [vstart, vl): compute the logical operation bit-by-bit. Prestart bits
+    // [0, vstart) and tail bits [vl, VLEN) are left undisturbed.
+    for i in u32::from(vstart)..vl {
+        let a = mask_bit(&vs2_snap, i);
+        let b = mask_bit(&vs1_snap, i);
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        unsafe {
+            write_mask_bit(ext_state.write_vreg(), vd, i, op(a, b));
+        }
     }
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();
@@ -75,7 +73,7 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
 ) where
     Reg: Register,
     Regs: RegisterFile<Reg>,
@@ -90,7 +88,7 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
     // SAFETY: `vs2` is a valid VReg index (< 32)
     let vs2_reg = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
     let mut count = 0u32;
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -121,7 +119,7 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     vs2: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
 ) where
     Reg: Register,
     Regs: RegisterFile<Reg>,
@@ -138,7 +136,7 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
     let not_found = u64::MAX;
     let mut result = not_found;
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -317,13 +315,15 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
 /// treated as zero for the prefix sum. Inactive destination elements follow the mask-agnostic
 /// policy (here implemented as undisturbed, which is a permitted realisation).
 ///
+/// If SEW is too narrow to hold the prefix count, the value wraps (truncates to SEW) via
+/// [`write_element_u64()`]; the spec does not raise an exception for this case.
+///
 /// The caller must reject `vstart != 0` before invocation (spec §16.8 mandatory trap).
 ///
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
 /// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
-/// - SEW wide enough to hold VLMAX-1 (checked by caller)
 /// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
@@ -383,7 +383,7 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
     vd: VReg,
     vm: bool,
     vl: u32,
-    vstart: u32,
+    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -395,7 +395,7 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    for i in vstart..vl {
+    for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

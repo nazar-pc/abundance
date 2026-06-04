@@ -393,7 +393,7 @@ fn test_vasub_vx() {
 
 #[test]
 fn test_vsmul_vv() {
-    let inst = make_v_arith(0b10_0111, true, 2, 3, OPMVV, 1);
+    let inst = make_v_arith(0b10_0111, true, 2, 3, OPIVV, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -410,7 +410,7 @@ fn test_vsmul_vv() {
 
 #[test]
 fn test_vsmul_vx_masked() {
-    let inst = make_v_arith(0b10_0111, false, 8, 10, OPMVX, 12);
+    let inst = make_v_arith(0b10_0111, false, 8, 10, OPIVX, 12);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -424,19 +424,11 @@ fn test_vsmul_vx_masked() {
     );
 }
 
-#[test]
-fn test_vsmul_vi_rejected() {
-    // vsmul has no VI form
-    let inst = make_v_arith(0b10_0111, true, 2, 3, OPIVI, 1);
-    let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
-    assert_eq!(decoded, None);
-}
-
 // Scaling shifts
 
 #[test]
 fn test_vssrl_vv() {
-    let inst = make_v_arith(0b10_1000, true, 2, 3, OPIVV, 1);
+    let inst = make_v_arith(0b10_1010, true, 2, 3, OPIVV, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -453,7 +445,7 @@ fn test_vssrl_vv() {
 
 #[test]
 fn test_vssrl_vx() {
-    let inst = make_v_arith(0b10_1000, true, 2, 5, OPIVX, 1);
+    let inst = make_v_arith(0b10_1010, true, 2, 5, OPIVX, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -470,7 +462,7 @@ fn test_vssrl_vx() {
 #[test]
 fn test_vssrl_vi() {
     // imm=7 (unsigned shift amount)
-    let inst = make_v_arith(0b10_1000, true, 2, 7, OPIVI, 1);
+    let inst = make_v_arith(0b10_1010, true, 2, 7, OPIVI, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -487,7 +479,7 @@ fn test_vssrl_vi() {
 
 #[test]
 fn test_vssra_vv() {
-    let inst = make_v_arith(0b10_1001, true, 2, 3, OPIVV, 1);
+    let inst = make_v_arith(0b10_1011, true, 2, 3, OPIVV, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -504,7 +496,7 @@ fn test_vssra_vv() {
 
 #[test]
 fn test_vssra_vx_masked() {
-    let inst = make_v_arith(0b10_1001, false, 8, 10, OPIVX, 12);
+    let inst = make_v_arith(0b10_1011, false, 8, 10, OPIVX, 12);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -520,7 +512,7 @@ fn test_vssra_vx_masked() {
 
 #[test]
 fn test_vssra_vi() {
-    let inst = make_v_arith(0b10_1001, true, 4, 31, OPIVI, 8);
+    let inst = make_v_arith(0b10_1011, true, 4, 31, OPIVI, 8);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
@@ -657,9 +649,24 @@ fn test_unknown_funct6() {
 }
 
 #[test]
-fn test_vsmul_opivv_rejected() {
-    // vsmul uses OPMVV/OPMVX, not OPIVV
-    let inst = make_v_arith(0b10_0111, true, 2, 3, OPIVV, 1);
+fn test_vsmul_vi_rejected() {
+    // vsmul has no VI form
+    let inst = make_v_arith(0b10_0111, true, 2, 3, OPIVI, 1);
+    let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(decoded, None);
+}
+
+#[test]
+fn test_vsmul_opmvv_rejected() {
+    // vsmul uses OPIVV/OPIVX, not OPMVV/OPMVX
+    let inst = make_v_arith(0b10_0111, true, 2, 3, OPMVV, 1);
+    let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
+    assert_eq!(decoded, None);
+}
+
+#[test]
+fn test_vsmul_opmvx_rejected() {
+    let inst = make_v_arith(0b10_0111, true, 2, 5, OPMVX, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
@@ -703,14 +710,14 @@ fn test_display_vaadd_vv() {
 
 #[test]
 fn test_display_vsmul_vx_masked() {
-    let inst = make_v_arith(0b10_0111, false, 8, 10, OPMVX, 12);
+    let inst = make_v_arith(0b10_0111, false, 8, 10, OPIVX, 12);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsmul.vx v12, v8, a0, v0.t");
 }
 
 #[test]
 fn test_display_vssrl_vi() {
-    let inst = make_v_arith(0b10_1000, true, 2, 7, OPIVI, 1);
+    let inst = make_v_arith(0b10_1010, true, 2, 7, OPIVI, 1);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vssrl.vi v1, v2, 7");
 }
@@ -751,7 +758,7 @@ fn test_vsaddu_vv_high_regs() {
 #[test]
 fn test_vssra_vi_max_shift() {
     // max 5-bit unsigned immediate = 31
-    let inst = make_v_arith(0b10_1001, true, 16, 31, OPIVI, 0);
+    let inst = make_v_arith(0b10_1011, true, 16, 31, OPIVI, 0);
     let decoded = Zve64xFixedPointInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,

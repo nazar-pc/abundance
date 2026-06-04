@@ -53,7 +53,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -70,7 +70,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -87,12 +87,13 @@ fn write_mask(state: &mut TestInterpreterState<Zve64xWidenNarrowInstruction<Reg<
         }
     }
 }
-// With TEST_VLEN=128, VLENB=16:
+
+// With TEST_VLEN=256, VLENB=32:
 // Widening from SEW produces 2*SEW destination.
-// E8/M1 -> narrow VLMAX=16; wide dest uses M2 (2 regs, E16)
-// E16/M1 -> narrow VLMAX=8; wide dest uses M2 (2 regs, E32)
-// E32/M1 -> narrow VLMAX=4; wide dest uses M2 (2 regs, E64)
-// E8/M2 -> narrow VLMAX=32; wide dest uses M4 (4 regs, E16)
+// E8/M1 -> narrow VLMAX=32; wide dest uses M2 (2 regs, E16)
+// E16/M1 -> narrow VLMAX=16; wide dest uses M2 (2 regs, E32)
+// E32/M1 -> narrow VLMAX=8; wide dest uses M2 (2 regs, E64)
+// E8/M2 -> narrow VLMAX=64; wide dest uses M4 (4 regs, E16)
 // Narrowing from 2*SEW to SEW:
 // vl set to narrow VLMAX; vs2 is a wide group
 
@@ -203,9 +204,9 @@ fn vwaddu_vx_e8_m1_zero_extends_scalar() {
 }
 
 #[test]
-fn vwaddu_vx_e8_m1_scalar_not_truncated_to_sew() {
-    // Per spec §11.2, the rs1 scalar is the full XLEN value zero-extended to 2*SEW
-    // (NOT truncated to SEW). With rs1=0x1ff and SEW=8, the operand is 0x1ff, not 0xff.
+fn vwaddu_vx_e8_m1_scalar_truncated_to_sew() {
+    // The scalar operand participates as a SEW-width zero-extended value; bits above SEW are
+    // discarded before widening. With rs1=0x1ff and SEW=8: 0x1ff & 0xff = 0xff.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x00);
@@ -221,8 +222,51 @@ fn vwaddu_vx_e8_m1_scalar_not_truncated_to_sew() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x200u64);
-    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E16), 0x1ffu64);
+    // 0x01 + 0xff = 0x100; 0x00 + 0xff = 0xff
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x100u64);
+    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E16), 0xffu64);
+}
+
+#[test]
+fn vwaddu_vx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_ffff with SEW=16: truncated to 0xffff; 0x0001 + 0xffff = 0x1_0000
+    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x0001);
+    write_elem(&mut state, VReg::V2, 1, Vsew::E16, 0x0000);
+    state.regs.write(Reg::A0, 0x1_ffffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwadduVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0x1_0000u64);
+    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E32), 0xffffu64);
+}
+
+#[test]
+fn vwaddu_vx_e32_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_ffff_ffff with SEW=32: truncated to 0xffff_ffff; 0x01 + 0xffff_ffff = 0x1_0000_0000
+    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x01);
+    state.regs.write(Reg::A0, 0x1_ffff_ffffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwadduVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E64), 0x1_0000_0000u64);
 }
 
 // vwadd.vv
@@ -279,10 +323,11 @@ fn vwadd_vv_e32_m1_sign_extends() {
 
 #[test]
 fn vwadd_vx_e16_m1_sign_extends_scalar() {
-    // rs1 is treated as sign-extended; a negative 64-bit scalar is the right treatment
+    // rs1 is treated as sign-extended from SEW bits; u64::MAX masked to 16 bits = 0xffff = -1 as
+    // i16
     let mut state = setup(2, Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x8000);
-    // scalar = -1 in 64 bits = 0xffff_ffff_ffff_ffff (sign-extended)
+    // scalar = u64::MAX; truncated to SEW=16 bits = 0xffff = -1 as i16
     state.regs.write(Reg::A1, u64::MAX);
     exec(
         &mut state,
@@ -295,15 +340,15 @@ fn vwadd_vx_e16_m1_sign_extends_scalar() {
         },
     )
     .unwrap();
-    // sext(0x8000 as i16) = -32768 as i64 = 0xffff_ffff_ffff_8000
-    // + scalar (-1) = 0xffff_ffff_ffff_7fff
+    // sext(0x8000 as i16) = -32768; scalar sext(0xffff as i16) = -1; -32768 + (-1) = -32769 =
+    // 0xffff_7fff
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0xffff_7fffu64);
 }
 
 #[test]
-fn vwadd_vx_e8_m1_scalar_sign_extended_from_xlen_not_sew() {
-    // rs1=0x1ff as i64 is +511 (sign-extended from XLEN, not from SEW).
-    // element 0x01 sext to i16 = 1; 1 + 511 = 512 = 0x0200.
+fn vwadd_vx_e8_m1_scalar_truncated_to_sew() {
+    // Scalar is first truncated to SEW bits, then sign-extended. rs1=0x1ff with SEW=8:
+    // 0x1ff & 0xff = 0xff = -1 as i8; sext to i16 = -1. element 0x01 sext=1; 1+(-1)=0.
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     state.regs.write(Reg::A0, 0x1ffu64);
@@ -318,12 +363,13 @@ fn vwadd_vx_e8_m1_scalar_sign_extended_from_xlen_not_sew() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x0200u64);
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0u64);
 }
 
 #[test]
 fn vwadd_vx_e8_m1_negative_xlen_scalar() {
-    // rs1 = u64::MAX = -1 signed. 0x01 sext = 1. 1 + (-1) = 0.
+    // rs1 = u64::MAX = -1 signed; truncated to SEW=8 bits: 0xff = -1 as i8; sext = -1.
+    // 0x01 sext = 1. 1 + (-1) = 0.
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     state.regs.write(Reg::A0, u64::MAX);
@@ -339,6 +385,47 @@ fn vwadd_vx_e8_m1_negative_xlen_scalar() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0u64);
+}
+
+#[test]
+fn vwadd_vx_e8_m1_positive_scalar_fits_in_sew() {
+    // rs1=0x7f=127 which fits in i8. sext(0x7f as i8) = 127. 0x01 sext=1. 1+127=128=0x0080.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
+    state.regs.write(Reg::A0, 0x7fu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0x0080u64);
+}
+
+#[test]
+fn vwadd_vx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_8000 with SEW=16: 0x1_8000 & 0xffff = 0x8000 = -32768 as i16.
+    // sext to i32 = -32768. vs2[0]=0x0001 sext=1. 1+(-32768) = -32767 = 0xffff_8001.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x0001);
+    state.regs.write(Reg::A0, 0x1_8000u64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0xffff_8001u64);
 }
 
 // vwsubu.vv
@@ -362,6 +449,53 @@ fn vwsubu_vv_e8_m1_zero_extends() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0xffffu64);
+}
+
+// vwsubu.vx
+
+#[test]
+fn vwsubu_vx_e8_m1_scalar_truncated_to_sew() {
+    // rs1=0x1ff with SEW=8: truncated to 0xff. vs2[0]=0x01 zero-ext=0x0001.
+    // 0x0001 - 0x00ff wraps in u16 = 0xff02.
+    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
+    write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0xff);
+    state.regs.write(Reg::A0, 0x1ffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // 0x0001 - 0x00ff = 0xff02 (wraps)
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0xff02u64);
+    // 0x00ff - 0x00ff = 0
+    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E16), 0u64);
+}
+
+#[test]
+fn vwsubu_vx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_0001 with SEW=16: truncated to 0x0001. vs2[0]=0x8000. 0x8000 - 0x0001 = 0x7fff.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x8000);
+    state.regs.write(Reg::A0, 0x1_0001u64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0x7fffu64);
 }
 
 // vwsub.vv
@@ -388,10 +522,12 @@ fn vwsub_vv_e8_m1_sign_extends() {
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0xffffu64);
 }
 
+// vwsub.vx
+
 #[test]
 fn vwsub_vx_e32_m1_sign_extends() {
-    // sext(0x8000_0000 as i32) = -2147483648i64; scalar = -1
-    // result = -2147483648 - (-1) = -2147483647
+    // sext(0x8000_0000 as i32) = -2147483648i64; scalar u64::MAX truncated to SEW=32 = 0xffff_ffff
+    // = -1 result = -2147483648 - (-1) = -2147483647
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x8000_0000);
     state.regs.write(Reg::A0, u64::MAX);
@@ -413,15 +549,55 @@ fn vwsub_vx_e32_m1_sign_extends() {
     );
 }
 
+#[test]
+fn vwsub_vx_e8_m1_scalar_truncated_to_sew() {
+    // rs1=0x1ff with SEW=8: 0x1ff & 0xff = 0xff = -1 as i8; sext = -1.
+    // vs2[0]=0x01 sext=1. 1 - (-1) = 2.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
+    state.regs.write(Reg::A0, 0x1ffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 2u64);
+}
+
+#[test]
+fn vwsub_vx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_8000 with SEW=16: truncated to 0x8000 = -32768 as i16; sext = -32768.
+    // vs2[0]=0x0001 sext=1. 1 - (-32768) = 32769 = 0x8001.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x0001);
+    state.regs.write(Reg::A0, 0x1_8000u64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0x8001u64);
+}
+
 // vwaddu.wv
 
 #[test]
 fn vwaddu_wv_e8_m1_wide_plus_narrow() {
     // vs2 holds 2*SEW=E16 values; vs1 holds SEW=E8 (zero-extended)
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    // vs2 is the wide group (uses 2 regs for M1 -> M2 dest)
     // vwaddu.wv: vd(E16,M2) = vs2(E16,M2) + zext(vs1(E8,M1))
-    // Use V8 as wide vs2, V4 as narrow vs1, V0 group for vd but v0 conflicts with mask
     // Use V16 as vd(M2), V8 as vs2(M2), V4 as vs1(M1)
     for i in 0..4usize {
         write_elem(&mut state, VReg::V8, i, Vsew::E16, 1000);
@@ -444,6 +620,8 @@ fn vwaddu_wv_e8_m1_wide_plus_narrow() {
         assert_eq!(read_elem(&state, VReg::V16, i, Vsew::E16), 1255, "elem {i}");
     }
 }
+
+// vwaddu.wx
 
 #[test]
 fn vwaddu_wx_e16_m1_wide_plus_scalar() {
@@ -473,9 +651,9 @@ fn vwaddu_wx_e16_m1_wide_plus_scalar() {
 }
 
 #[test]
-fn vwaddu_wx_e8_m1_scalar_not_truncated() {
-    // Wide source = 0x200, scalar = 0x1ff (full XLEN value, zero-extended).
-    // 0x200 + 0x1ff = 0x3ff.
+fn vwaddu_wx_e8_m1_scalar_truncated_to_sew() {
+    // Scalar participates as a SEW-width zero-extended value. rs1=0x1ff with SEW=8:
+    // truncated to 0xff. Wide source=0x200. 0x200 + 0xff = 0x2ff.
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0x200u64);
     state.regs.write(Reg::A0, 0x1ffu64);
@@ -490,7 +668,27 @@ fn vwaddu_wx_e8_m1_scalar_not_truncated() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 0x3ffu64);
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 0x2ffu64);
+}
+
+#[test]
+fn vwaddu_wx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_ffff with SEW=16: truncated to 0xffff. Wide=0x0001. 0x0001 + 0xffff = 0x1_0000.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E32, 0x0001u64);
+    state.regs.write(Reg::A0, 0x1_ffffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwadduWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E32), 0x1_0000u64);
 }
 
 // vwadd.wv / vwadd.wx
@@ -527,7 +725,8 @@ fn vwadd_wv_e8_m1_sign_extends_narrow() {
 
 #[test]
 fn vwadd_wx_e32_m1_sign_extends_scalar() {
-    // scalar = -1 (u64::MAX), wide source = 0; result = -1 as E64 = 0xffff_ffff_ffff_ffff
+    // scalar = -1 (u64::MAX truncated to SEW=32 = 0xffff_ffff = -1 as i32; sext = -1)
+    // wide source = 0; result = -1 as E64 = 0xffff_ffff_ffff_ffff
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V8, 0, Vsew::E64, 0u64);
     state.regs.write(Reg::A0, u64::MAX);
@@ -543,6 +742,48 @@ fn vwadd_wx_e32_m1_sign_extends_scalar() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E64), u64::MAX);
+}
+
+#[test]
+fn vwadd_wx_e8_m1_scalar_truncated_to_sew() {
+    // rs1=0x1ff with SEW=8: truncated to 0xff = -1 as i8; sext = -1 as i16 = 0xffff.
+    // Wide source = 0x0000. 0x0000 + 0xffff = 0xffff.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0u64);
+    state.regs.write(Reg::A0, 0x1ffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 0xffffu64);
+}
+
+#[test]
+fn vwadd_wx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_8000 with SEW=16: truncated to 0x8000 = -32768 as i16; sext = -32768 as i32.
+    // Wide source = 0. 0 + (-32768) = -32768 as u32 = 0xffff_8000.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E32, 0u64);
+    state.regs.write(Reg::A0, 0x1_8000u64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E32), 0xffff_8000u64);
 }
 
 // vwsubu.wv / vwsubu.wx
@@ -593,6 +834,46 @@ fn vwsubu_wx_e16_m1_scalar() {
     assert_eq!(read_elem(&state, VReg::V16, 1, Vsew::E32), 4u64);
 }
 
+#[test]
+fn vwsubu_wx_e8_m1_scalar_truncated_to_sew() {
+    // rs1=0x1ff with SEW=8: truncated to 0xff. Wide=0x0100. 0x0100 - 0x00ff = 0x0001.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0x0100u64);
+    state.regs.write(Reg::A0, 0x1ffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 0x0001u64);
+}
+
+#[test]
+fn vwsubu_wx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_0001 with SEW=16: truncated to 0x0001. Wide=0x8000. 0x8000 - 0x0001 = 0x7fff.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E32, 0x8000u64);
+    state.regs.write(Reg::A0, 0x1_0001u64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E32), 0x7fffu64);
+}
+
 // vwsub.wv / vwsub.wx
 
 #[test]
@@ -618,7 +899,7 @@ fn vwsub_wv_e8_m1_sign_extends_narrow() {
 
 #[test]
 fn vwsub_wx_e32_m1_sign_extends_scalar() {
-    // wide = 0, scalar = -1 (u64::MAX); 0 - (-1) = 1
+    // wide = 0, scalar u64::MAX truncated to SEW=32 = 0xffff_ffff = -1; 0 - (-1) = 1
     let mut state = setup(1, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V8, 0, Vsew::E64, 0u64);
     state.regs.write(Reg::A0, u64::MAX);
@@ -634,6 +915,48 @@ fn vwsub_wx_e32_m1_sign_extends_scalar() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E64), 1u64);
+}
+
+#[test]
+fn vwsub_wx_e8_m1_scalar_truncated_to_sew() {
+    // rs1=0x1ff with SEW=8: truncated to 0xff = -1 as i8; sext = -1.
+    // Wide = 0x0000. 0 - (-1) = 1.
+    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0u64);
+    state.regs.write(Reg::A0, 0x1ffu64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E16), 1u64);
+}
+
+#[test]
+fn vwsub_wx_e16_m1_scalar_truncated_to_sew() {
+    // rs1=0x1_8000 with SEW=16: truncated to 0x8000 = -32768 as i16; sext = -32768.
+    // Wide = 0. 0 - (-32768) = 32768 = 0x8000.
+    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E32, 0u64);
+    state.regs.write(Reg::A0, 0x1_8000u64);
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubWx {
+            vd: VReg::V16,
+            vs2: VReg::V8,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V16, 0, Vsew::E32), 0x8000u64);
 }
 
 // vnsrl.wv / vnsrl.wx / vnsrl.wi
@@ -1841,4 +2164,228 @@ fn vwaddu_wv_vd_aliases_vs2_legal() {
             "elem {i}"
         );
     }
+}
+
+// Widening destination overlapping the highest-numbered part of a narrow source
+
+#[test]
+fn vwsubu_wv_e32_m1_vd_aliases_vs1_high_part_legal() {
+    // Spec §5.2: a widening destination (EEW=2*SEW) may overlap a narrow source (EEW=SEW) when the
+    // source EMUL >= 1 and the overlap is in the highest-numbered part of the destination group.
+    // vwsubu.wv v2, v14, v3: vd={v2,v3} (E64,M2), vs2={v14,v15} (E64,M2 wide), vs1=v3 (E32,M1)
+    // which aliases the high register of the destination group.
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V14, i, Vsew::E64, 0x1_0000_0000u64);
+    }
+    // Narrow source lives in v3, the high register of the {v2,v3} destination group.
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V3, i, Vsew::E32, (i as u64) + 1);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuWv {
+            vd: VReg::V2,
+            vs2: VReg::V14,
+            vs1: VReg::V3,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Each source element i is read before the destination element i overwrites it (elements are
+    // processed in increasing order), so the aliasing produces correct results.
+    for i in 0..4usize {
+        assert_eq!(
+            read_elem(&state, VReg::V2, i, Vsew::E64),
+            0x1_0000_0000u64 - (i as u64 + 1),
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwadd_wv_e8_m2_vs1_high_part_overlap_legal() {
+    // LMUL=2: narrow group=2 regs, wide dest=4 regs. vd={v8,v9,v10,v11}; vs1={v10,v11} occupies the
+    // highest-numbered part of the destination, which is legal.
+    let mut state = setup(4, Vsew::E8, Vlmul::M2);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V16, i, Vsew::E16, 0u64);
+        write_elem(&mut state, VReg::V10, i, Vsew::E8, 5u64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwaddWv {
+            vd: VReg::V8,
+            vs2: VReg::V16,
+            vs1: VReg::V10,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..4usize {
+        // 0 + sext(5) = 5
+        assert_eq!(read_elem(&state, VReg::V8, i, Vsew::E16), 5u64, "elem {i}");
+    }
+}
+
+#[test]
+fn vwaddu_vv_vd_aliases_vs1_high_part_legal() {
+    // The highest-part overlap is also permitted for the .vv form. vd={v2,v3}; vs1=v3 aliases the
+    // high register of the destination, vs2=v6 is disjoint.
+    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    for i in 0..4usize {
+        write_elem(&mut state, VReg::V6, i, Vsew::E16, 1000u64);
+        write_elem(&mut state, VReg::V3, i, Vsew::E16, 7u64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwadduVv {
+            vd: VReg::V2,
+            vs2: VReg::V6,
+            vs1: VReg::V3,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..4usize {
+        assert_eq!(
+            read_elem(&state, VReg::V2, i, Vsew::E32),
+            1007u64,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vwsubu_wv_e32_m1_vd_overlaps_vs1_low_part_illegal() {
+    // vs1=v2 aliases the *low* register of the {v2,v3} destination group, which is not the
+    // highest-numbered part and is therefore illegal.
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VwsubuWv {
+            vd: VReg::V2,
+            vs2: VReg::V14,
+            vs1: VReg::V2,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+// Extension destination overlapping the highest-numbered part of a narrow source
+
+#[test]
+fn vsext_vf2_e16_m2_vs2_high_part_overlap_legal() {
+    // Spec §5.2: an extension destination (EEW=SEW) may overlap a narrow source (EEW=SEW/factor)
+    // when the source EMUL >= 1 and the overlap is in the highest-numbered part of the destination
+    // group. vsext.vf2 v28, v29: vd={v28,v29} (E16,M2), vs2=v29 (E8, EMUL=1) which aliases the high
+    // register of the destination group.
+    let mut state = setup(16, Vsew::E16, Vlmul::M2);
+    // Narrow E8 source elements live in v29, the high register of the {v28,v29} destination group.
+    // High bit is set so sign-extension is exercised: byte 0x80+i -> i16 (i - 128).
+    for i in 0..16usize {
+        write_elem(&mut state, VReg::V29, i, Vsew::E8, 0x80 + i as u64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VsextVf2 {
+            vd: VReg::V28,
+            vs2: VReg::V29,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // Each narrow source element is read before the wide destination element overwrites it
+    // (elements are processed in increasing order), so the aliasing produces correct results.
+    for i in 0..16usize {
+        assert_eq!(
+            read_elem(&state, VReg::V28, i, Vsew::E16),
+            0xff80 + i as u64,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vzext_vf4_e32_m8_vs2_high_part_overlap_legal() {
+    // Spec §5.2 example: with LMUL=8, vzext.vf4 v0, v6 is legal. vd={v0..v7} (E32,M8), vs2={v6,v7}
+    // (E8, EMUL=2) aliases the two highest registers of the destination group.
+    let mut state = setup(32, Vsew::E32, Vlmul::M8);
+    for i in 0..32usize {
+        write_elem(&mut state, VReg::V6, i, Vsew::E8, 0xabu64);
+    }
+    exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VzextVf4 {
+            vd: VReg::V0,
+            vs2: VReg::V6,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..32usize {
+        assert_eq!(
+            read_elem(&state, VReg::V0, i, Vsew::E32),
+            0xabu64,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
+fn vsext_vf2_e16_m2_vs2_low_part_overlap_illegal() {
+    // vs2=v28 aliases the *low* register of the {v28,v29} destination group, which is not the
+    // highest-numbered part and is therefore illegal.
+    let mut state = setup(16, Vsew::E16, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VsextVf2 {
+            vd: VReg::V28,
+            vs2: VReg::V28,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vzext_vf4_e32_m8_vs2_non_high_part_overlap_illegal() {
+    // Spec §5.2 example: with LMUL=8, a source of v0/v2/v4 for vzext.vf4 v0, ... is illegal because
+    // it does not occupy the highest-numbered part of the destination group.
+    let mut state = setup(32, Vsew::E32, Vlmul::M8);
+    let result = exec(
+        &mut state,
+        Zve64xWidenNarrowInstruction::VzextVf4 {
+            vd: VReg::V0,
+            vs2: VReg::V4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
 }

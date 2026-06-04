@@ -30,8 +30,14 @@ where
     Ok(())
 }
 
-/// Check that an extension source `vs2` is aligned to `src_group_regs`, fits in `[0,32)`, and
-/// does not overlap `vd` (which occupies `group_regs` registers).
+/// Check that an extension source `vs2` is aligned to `src_group_regs`, fits in `[0,32)`, and only
+/// overlaps `vd` (which occupies `group_regs` registers) in a manner permitted by the spec.
+///
+/// Per the vector spec §5.2, the destination EEW (SEW) of an extension is greater than the source
+/// EEW (SEW/factor), so the destination may overlap the source only when the source EMUL is at
+/// least 1 and the overlap is in the highest-numbered part of the destination register group (e.g.
+/// `vzext.vf4 v0, v6` with LMUL=8, where the narrow source `{v6,v7}` aliases the high registers of
+/// the wide `{v0..v7}` destination). Any other overlap is illegal.
 #[inline(always)]
 #[doc(hidden)]
 pub fn check_vs_ext_alignment<Reg, Memory, PC, CustomError>(
@@ -51,8 +57,9 @@ where
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
-    // vd and vs2 must not overlap
-    if ranges_overlap(vd.bits(), group_regs, vs2_idx, src_group_regs) {
+    // The wide destination (group_regs) may overlap the narrow source (src_group_regs) only in the
+    // highest-numbered part of the destination group, and only when the source EMUL >= 1.
+    if widen_src_overlap_illegal(vd.bits(), group_regs, vs2_idx, src_group_regs) {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -60,11 +67,18 @@ where
     Ok(())
 }
 
-/// Check that a widening destination `vd` is aligned to `wide_group_regs`, does not overlap the
-/// `group_regs` registers starting at `vs_a` or `vs_b`, and fits within `[0, 32)`.
+/// Check that a widening destination `vd` is aligned to `wide_group_regs`, fits within `[0, 32)`,
+/// and only overlaps the `group_regs`-register narrow source(s) starting at `vs_a`/`vs_b` in a
+/// manner permitted by the spec.
 ///
 /// `wide_group_regs` is the pre-computed register count for the wide EMUL (2*LMUL), obtained via
 /// `Vlmul::index_register_count(wide_eew, sew)`. `group_regs` is the narrow LMUL register count.
+///
+/// Per the vector spec §5.2, a destination whose EEW (2*SEW) is greater than a source's EEW (SEW)
+/// may overlap that source only when the source EMUL is at least 1 and the overlap is in the
+/// highest-numbered part of the destination register group (e.g. `vwsubu.wv v2, v14, v3` with
+/// LMUL=1, where the narrow `v3` aliases the high register of the wide `{v2, v3}` destination).
+/// Any other overlap is illegal.
 #[inline(always)]
 #[doc(hidden)]
 pub fn check_vd_widen_alignment<Reg, Memory, PC, CustomError>(
@@ -85,21 +99,37 @@ where
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
-    let va_idx = vs_a.bits();
-    if ranges_overlap(vd_idx, wide_group_regs, va_idx, group_regs) {
+    if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.bits(), group_regs) {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
-    if let Some(vs_b) = vs_b_opt {
-        let vb_idx = vs_b.bits();
-        if ranges_overlap(vd_idx, wide_group_regs, vb_idx, group_regs) {
-            return Err(ExecutionError::IllegalInstruction {
-                address: program_counter.old_pc(INSTRUCTION_SIZE),
-            });
-        }
+    if let Some(vs_b) = vs_b_opt
+        && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.bits(), group_regs)
+    {
+        return Err(ExecutionError::IllegalInstruction {
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
+        });
     }
     Ok(())
+}
+
+/// Returns `true` when a narrow source group of `group_regs` registers starting at `vs_idx`
+/// overlaps the wide destination group (`wide_group_regs` registers starting at `vd_idx`) in a way
+/// that is *not* permitted by the spec.
+///
+/// Overlap is only legal when the source EMUL is at least 1 - which, on widening, is exactly when
+/// the destination register count strictly exceeds the narrow source count (for fractional LMUL
+/// both counts collapse to 1) - and the source occupies the highest-numbered registers of the
+/// destination group.
+#[inline(always)]
+fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_regs: u8) -> bool {
+    if !ranges_overlap(vd_idx, wide_group_regs, vs_idx, group_regs) {
+        return false;
+    }
+    let high_part_overlap =
+        wide_group_regs > group_regs && vs_idx == vd_idx + wide_group_regs - group_regs;
+    !high_part_overlap
 }
 
 /// Check that a widening source `vs2` that is already 2×SEW wide is aligned to `wide_group_regs`
@@ -245,6 +275,57 @@ pub fn sign_extend_bits(val: u64, bits: u32) -> i64 {
     (val.cast_signed() << shift) >> shift
 }
 
+/// Interpret a scalar operand as an unsigned SEW-wide value.
+///
+/// RVV widening scalar instructions (.vx/.wx) conceptually use a scalar
+/// operand whose width matches the current SEW, not the full XLEN width.
+///
+/// For example on RV64:
+///
+/// SEW=8:
+///     val = 0x0000_0000_0000_01ff
+///     result = 0x0000_0000_0000_00ff
+///
+/// SEW=16:
+///     val = 0x0000_0000_0000_01ff
+///     result = 0x0000_0000_0000_01ff
+///
+/// SEW=32:
+///     val = 0xffff_ffff_1234_5678
+///     result = 0x0000_0000_1234_5678
+///
+/// This helper performs that SEW-width truncation without sign extension.
+#[inline(always)]
+fn scalar_unsigned_for_sew(val: u64, sew_bits: u32) -> u64 {
+    val & (u64::MAX >> (u64::BITS - sew_bits))
+}
+
+/// Interpret a scalar operand as a signed SEW-wide value.
+///
+/// The scalar is first truncated to SEW bits, then sign-extended back to
+/// 64 bits.
+///
+/// For example on RV64:
+///
+/// SEW=8:
+///     val = 0x0000_0000_0000_00ff
+///     result = 0xffff_ffff_ffff_ffff (-1)
+///
+/// SEW=8:
+///     val = 0x0000_0000_0000_007f
+///     result = 0x0000_0000_0000_007f (+127)
+///
+/// SEW=16:
+///     val = 0x0000_0000_0000_ffff
+///     result = 0xffff_ffff_ffff_ffff (-1)
+///
+/// This matches the signed widening behavior required by instructions such
+/// as vwadd.vx and vwsub.vx.
+#[inline(always)]
+fn scalar_signed_for_sew(val: u64, sew_bits: u32) -> u64 {
+    sign_extend_bits(val, sew_bits).cast_unsigned()
+}
+
 /// Execute a widening integer add/subtract.
 ///
 /// Each source element is SEW-wide; the destination element is 2×SEW-wide.
@@ -320,7 +401,13 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
                     sign_extend_bits(raw_b, sew_bits).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => {
+                if zero_extend_b {
+                    scalar_unsigned_for_sew(*val, sew_bits)
+                } else {
+                    scalar_signed_for_sew(*val, sew_bits)
+                }
+            }
         };
         let result = op(wide_a, wide_b);
         // SAFETY: `vd` aligned to `2*group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
@@ -405,7 +492,13 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
                     sign_extend_bits(raw_b, sew_bits).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => {
+                if zero_extend_b {
+                    scalar_unsigned_for_sew(*val, sew_bits)
+                } else {
+                    scalar_signed_for_sew(*val, sew_bits)
+                }
+            }
         };
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd

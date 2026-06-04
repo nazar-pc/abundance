@@ -66,7 +66,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -81,7 +81,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes());
-    let elems_per_reg = 16 / sew_bytes;
+    let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -99,7 +99,7 @@ fn write_wide_elem(
     value: u64,
 ) {
     let wide_bytes = usize::from(sew.bytes()) * 2;
-    let elems_per_reg = 16 / wide_bytes;
+    let elems_per_reg = 32 / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
@@ -2071,6 +2071,78 @@ fn vnclipu_vs2_misaligned_m1_faults() {
         Zve64xFixedPointInstruction::VnclipuWi {
             vd: VReg::V8,
             vs2: VReg::V3,
+            imm: 0,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vnclip_wi_mf2_odd_vs2_ok() {
+    // Regression: `vnclip.wi v15, v13, 4`.
+    // With fractional LMUL the source EMUL = 2*LMUL <= 1, so vs2 occupies a single register with no
+    // alignment constraint; an odd-numbered vs2 (V13) must be accepted. The previous check used
+    // 2*register_count() = 2 and wrongly rejected it.
+    let mut state = setup(1, Vsew::E8, Vlmul::Mf2);
+    // 256 (as i16) >> 4 = 16, fits in i8, no rounding/saturation
+    write_wide_elem(&mut state, VReg::V13, 0, Vsew::E8, 0x0100);
+    exec(
+        &mut state,
+        Zve64xFixedPointInstruction::VnclipWi {
+            vd: VReg::V15,
+            vs2: VReg::V13,
+            imm: 4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        sign_extend(read_elem(&state, VReg::V15, 0, Vsew::E8), Vsew::E8),
+        16
+    );
+    assert!(!vxsat(&state));
+}
+
+#[test]
+fn vnclipu_wi_mf4_odd_vs2_ok() {
+    // Same fractional-LMUL alignment relaxation for the unsigned variant: Mf4 -> source EMUL = 1/2,
+    // so a single, arbitrarily-aligned source register is legal.
+    let mut state = setup(1, Vsew::E8, Vlmul::Mf4);
+    write_wide_elem(&mut state, VReg::V7, 0, Vsew::E8, 0x00F0);
+    exec(
+        &mut state,
+        Zve64xFixedPointInstruction::VnclipuWi {
+            vd: VReg::V9,
+            vs2: VReg::V7,
+            imm: 4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // 0xF0 >> 4 = 0x0F
+    assert_eq!(read_elem(&state, VReg::V9, 0, Vsew::E8), 0x0F);
+    assert!(!vxsat(&state));
+}
+
+#[test]
+fn vnclip_vs2_misaligned_m2_faults() {
+    // M2: source EMUL = 4, so vs2 must be aligned to 4; V2 is not.
+    let mut state = setup(1, Vsew::E8, Vlmul::M2);
+    let result = exec(
+        &mut state,
+        Zve64xFixedPointInstruction::VnclipWi {
+            vd: VReg::V8,
+            vs2: VReg::V2,
             imm: 0,
             vm: true,
             rs1: Reg::Zero,

@@ -42,11 +42,24 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
     Some(if d > 1 { 1 } else { n })
 }
 
-/// Check that a narrower source register group does not overlap the wider destination group.
+/// Check that a narrower source register group does not *illegally* overlap the wider destination
+/// group of a widening instruction.
 ///
 /// For widening instructions `vd` occupies `dest_group_regs` registers (which is
 /// [`widening_dest_register_count()`] of the source LMUL); `vs` occupies `src_group_regs`.
-/// The spec prohibits any overlap between them.
+///
+/// Per the RISC-V "V" spec §5.2, because the destination EEW (`2*SEW`) is greater than the source
+/// EEW (`SEW`), the source group *may* overlap the destination group, but only when both of the
+/// following hold:
+/// - the source EMUL is at least 1, and
+/// - the overlap is in the highest-numbered part of the destination register group, i.e. the source
+///   occupies exactly the top `src_group_regs` registers of the destination group.
+///
+/// When the source EMUL is at least 1, `dest_group_regs == 2 * src_group_regs`, so
+/// `dest_group_regs > src_group_regs` is an equivalent test for "source EMUL >= 1": a fractional
+/// source EMUL (`< 1`) yields `dest_group_regs == src_group_regs == 1`, in which case no overlap is
+/// ever legal. Any overlap that is not the legal "source in the highest-numbered part" form is
+/// rejected as an illegal instruction.
 #[inline(always)]
 #[doc(hidden)]
 pub fn check_no_widening_overlap<Reg, Memory, PC, CustomError>(
@@ -64,13 +77,19 @@ where
     let vd_end = vd_start + dest_group_regs;
     let vs_start = vs.bits();
     let vs_end = vs_start + src_group_regs;
-    // Overlap when the intervals intersect
-    if vs_start < vd_end && vd_start < vs_end {
-        return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
-        });
+    // Disjoint register groups are always fine
+    if vs_start >= vd_end || vd_start >= vs_end {
+        return Ok(());
     }
-    Ok(())
+    // The groups overlap. This is legal only when the source EMUL is at least 1
+    // (`dest_group_regs > src_group_regs`) and the source occupies exactly the highest-numbered
+    // part of the destination group (`vs_start == vd_end - src_group_regs`).
+    if dest_group_regs > src_group_regs && vs_start == vd_end - src_group_regs {
+        return Ok(());
+    }
+    Err(ExecutionError::IllegalInstruction {
+        address: program_counter.old_pc(INSTRUCTION_SIZE),
+    })
 }
 
 /// Write a 2*SEW-wide element into the widened destination register group at element index

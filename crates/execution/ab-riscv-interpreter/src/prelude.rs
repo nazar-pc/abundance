@@ -17,6 +17,7 @@ pub use crate::rv64::zk::zkn::zkne::rv64_zkne_helpers;
 pub use crate::rv64::zk::zkn::zknh::rv64_zknh_helpers;
 pub use crate::v::vector_registers::*;
 pub use crate::v::zve64x::arith::zve64x_arith_helpers;
+pub use crate::v::zve64x::carry::zve64x_carry_helpers;
 pub use crate::v::zve64x::config::zve64x_config_helpers;
 pub use crate::v::zve64x::fixed_point::zve64x_fixed_point_helpers;
 pub use crate::v::zve64x::load::zve64x_load_helpers;
