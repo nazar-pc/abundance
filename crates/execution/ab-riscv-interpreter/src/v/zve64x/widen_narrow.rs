@@ -112,8 +112,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -122,8 +120,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         true,
@@ -184,8 +180,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // Scalar is zero-extended to 2*SEW; the low SEW bits are what matter
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
@@ -196,8 +190,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         true,
@@ -258,8 +250,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -268,8 +258,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         false,
@@ -330,8 +318,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // Scalar is sign-extended from XLEN to 64 bits
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
@@ -346,8 +332,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         false,
@@ -408,8 +392,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -418,8 +400,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         true,
@@ -480,8 +460,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
@@ -491,8 +469,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         true,
@@ -553,8 +529,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_op(
@@ -563,8 +537,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         false,
@@ -625,8 +597,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
@@ -640,8 +610,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         false,
@@ -703,8 +671,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -713,8 +679,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         u64::wrapping_add,
@@ -771,8 +735,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
@@ -782,8 +744,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         u64::wrapping_add,
@@ -843,8 +803,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -853,8 +811,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         u64::wrapping_add,
@@ -910,8 +866,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
@@ -925,8 +879,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         u64::wrapping_add,
@@ -986,8 +938,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -996,8 +946,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         u64::wrapping_sub,
@@ -1053,8 +1001,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
@@ -1064,8 +1010,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                         u64::wrapping_sub,
@@ -1125,8 +1069,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_widen_w_op(
@@ -1135,8 +1077,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         u64::wrapping_sub,
@@ -1192,8 +1132,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = zve64x_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     u32::from(Reg::XLEN),
@@ -1207,8 +1145,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                         u64::wrapping_sub,
@@ -1266,8 +1202,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_narrow_shift(
@@ -1276,8 +1210,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                     );
@@ -1333,8 +1265,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
@@ -1344,8 +1274,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                     );
@@ -1396,8 +1324,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_narrow_shift(
@@ -1406,8 +1332,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         false,
                     );
@@ -1463,8 +1387,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_narrow_shift(
@@ -1473,8 +1395,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                     );
@@ -1530,8 +1450,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
@@ -1541,8 +1459,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                     );
@@ -1593,8 +1509,6 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_narrow_shift(
@@ -1603,8 +1517,6 @@ where
                         vs2,
                         zve64x_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         true,
                     );
@@ -1649,12 +1561,10 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, 2, false,
+                        ext_state, vd, vs2, vm, sew, 2, false,
                     );
                 }
             }
@@ -1696,12 +1606,10 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, 4, false,
+                        ext_state, vd, vs2, vm, sew, 4, false,
                     );
                 }
             }
@@ -1743,12 +1651,10 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, 8, false,
+                        ext_state, vd, vs2, vm, sew, 8, false,
                     );
                 }
             }
@@ -1789,12 +1695,10 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, 2, true,
+                        ext_state, vd, vs2, vm, sew, 2, true,
                     );
                 }
             }
@@ -1835,12 +1739,10 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, 4, true,
+                        ext_state, vd, vs2, vm, sew, 4, true,
                     );
                 }
             }
@@ -1881,12 +1783,10 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zve64x_widen_narrow_helpers::execute_extension(
-                        ext_state, vd, vs2, vm, vl, vstart, sew, 8, true,
+                        ext_state, vd, vs2, vm, sew, 8, true,
                     );
                 }
             }

@@ -167,7 +167,6 @@ pub enum OpSrc {
 /// - `vl <= group_regs * VLENB / sew_bytes` (all `vl` elements fit within the register group)
 /// - When `vm=false`: `vd.bits() != 0` (vd does not overlap v0)
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -175,8 +174,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -188,6 +185,8 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 
@@ -235,7 +234,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - `vl <= VLEN` (so every element index fits within the mask register)
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -243,8 +241,6 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -256,6 +252,8 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> bool,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 

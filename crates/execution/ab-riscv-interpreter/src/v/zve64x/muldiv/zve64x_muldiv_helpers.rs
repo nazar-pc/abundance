@@ -128,7 +128,6 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -136,8 +135,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -149,6 +146,8 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -186,7 +185,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - SEW < 64 verified by caller (so 2*SEW <= 64 and fits in u64)
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -194,8 +192,6 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -207,6 +203,8 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -244,7 +242,6 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -252,8 +249,6 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     a_reg: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -265,6 +260,8 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -297,7 +294,6 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// Same as [`execute_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -305,8 +301,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     scalar: u64,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -318,6 +312,8 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -354,7 +350,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// - SEW < 64 verified by caller
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -362,8 +357,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     a_reg: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -375,6 +368,8 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -409,7 +404,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// Same as [`execute_widening_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -417,8 +411,6 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     scalar: u64,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -430,6 +422,8 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {

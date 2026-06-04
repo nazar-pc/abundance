@@ -93,8 +93,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_add::<Reg, _, _>(
@@ -103,8 +101,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Vreg(vs1),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -138,8 +134,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
@@ -149,8 +143,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -184,8 +176,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
@@ -195,8 +185,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -238,8 +226,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_add_mask::<Reg, _, _>(
@@ -248,8 +234,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Vreg(vs1),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -279,8 +263,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -290,8 +272,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -321,8 +301,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -332,8 +310,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -374,8 +350,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_add_mask::<Reg, _, _>(
@@ -384,8 +358,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Vreg(vs1),
                         false,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -415,8 +387,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -426,8 +396,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         false,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -457,8 +425,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -468,8 +434,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         false,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -509,8 +473,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_sub::<Reg, _, _>(
@@ -518,8 +480,6 @@ where
                         vd,
                         vs2,
                         zve64x_carry_helpers::OpSrc::Vreg(vs1),
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -553,8 +513,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
@@ -563,8 +521,6 @@ where
                         vd,
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -606,8 +562,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_sub_mask::<Reg, _, _>(
@@ -616,8 +570,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Vreg(vs1),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -647,8 +599,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -658,8 +608,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         true,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -700,8 +648,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
                     zve64x_carry_helpers::execute_carry_sub_mask::<Reg, _, _>(
@@ -710,8 +656,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Vreg(vs1),
                         false,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }
@@ -741,8 +685,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignments and overlap checked above
                 unsafe {
@@ -752,8 +694,6 @@ where
                         vs2,
                         zve64x_carry_helpers::OpSrc::Scalar(scalar),
                         false,
-                        vl,
-                        vstart,
                         sew,
                     );
                 }

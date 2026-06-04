@@ -411,7 +411,6 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
 /// # Safety
 /// Same preconditions as `execute_arith_op` in the arithmetic helpers.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -419,8 +418,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -433,6 +430,8 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -479,7 +478,6 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
@@ -487,8 +485,6 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     op: F,
 ) where
@@ -501,6 +497,8 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };

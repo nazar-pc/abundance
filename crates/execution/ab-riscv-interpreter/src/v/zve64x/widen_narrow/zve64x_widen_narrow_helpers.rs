@@ -352,8 +352,6 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     zero_extend_a: bool,
     zero_extend_b: bool,
@@ -367,6 +365,8 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let sew_bytes = usize::from(sew.bytes());
     // 2×SEW in bytes; SEW < 64 is enforced by caller, so this is at most 8
     let wide_sew_bytes = sew_bytes * 2;
@@ -437,8 +437,6 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     zero_extend_b: bool,
     op: F,
@@ -451,6 +449,8 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64) -> u64,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let sew_bytes = usize::from(sew.bytes());
     let wide_sew_bytes = sew_bytes * 2;
     let sew_bits = u32::from(sew.bits());
@@ -511,7 +511,6 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
 /// - SEW < 64
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
@@ -519,8 +518,6 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     arithmetic: bool,
 ) where
@@ -531,6 +528,8 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let sew_bytes = usize::from(sew.bytes());
     let wide_sew_bytes = sew_bytes * 2;
     // Shift amount mask: log2(2*SEW) bits = log2(SEW) + 1 bits
@@ -593,15 +592,12 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
 /// - `sew_bytes / factor >= 1` (SEW >= factor*8)
 /// - When `vm=false`: `vd.bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     factor: u8,
     sign: bool,
@@ -613,6 +609,8 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let sew_bytes = usize::from(sew.bytes());
     let src_sew_bytes = sew_bytes / usize::from(factor);
     let src_sew_bits = (u32::from(sew.bits())) / u32::from(factor);

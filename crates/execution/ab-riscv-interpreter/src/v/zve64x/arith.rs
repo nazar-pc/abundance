@@ -92,8 +92,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above; `vl <= VLMAX = group_regs * VLENB / sew_bytes`;
                 // masked vd != v0 checked above.
                 unsafe {
@@ -103,8 +101,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_add(b),
                     );
@@ -143,8 +139,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above; scalar source has no register constraints
                 unsafe {
@@ -154,8 +148,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_add(b),
                     );
@@ -189,8 +181,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // Sign-extend imm to u64 so wrapping_add works correctly for all SEW
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -201,8 +191,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_add(b),
                     );
@@ -242,8 +230,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -252,8 +238,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_sub(b),
                     );
@@ -292,8 +276,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -303,8 +285,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a.wrapping_sub(b),
                     );
@@ -343,8 +323,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // vrsub: result = src - vs2[i]
                 // SAFETY: alignment checked above
@@ -355,8 +333,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| b.wrapping_sub(a),
                     );
@@ -390,8 +366,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -401,8 +375,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| b.wrapping_sub(a),
                     );
@@ -442,8 +414,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -452,8 +422,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a & b,
                     );
@@ -492,8 +460,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -503,8 +469,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a & b,
                     );
@@ -538,8 +502,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -549,8 +511,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a & b,
                     );
@@ -590,8 +550,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -600,8 +558,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a | b,
                     );
@@ -640,8 +596,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -651,8 +605,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a | b,
                     );
@@ -686,8 +638,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -697,8 +647,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a | b,
                     );
@@ -738,8 +686,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -748,8 +694,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a ^ b,
                     );
@@ -788,8 +732,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -799,8 +741,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a ^ b,
                     );
@@ -834,8 +774,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -845,8 +783,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a ^ b,
                     );
@@ -886,8 +822,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -896,8 +830,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // Shift amount masked to log2(SEW) bits per spec §12.6
                         |a, b, sew| a << (b & u64::from(sew.bits() - 1)),
@@ -937,8 +869,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -948,8 +878,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| a << (b & u64::from(sew.bits() - 1)),
                     );
@@ -983,8 +911,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // Immediate is already unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
                 // SAFETY: alignment checked above
@@ -995,8 +921,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(shamt),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, _| a << b,
                     );
@@ -1036,8 +960,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1046,8 +968,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         // Logical right shift; operate on the SEW-wide portion only
                         |a, b, sew| {
@@ -1091,8 +1011,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1102,8 +1020,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -1141,8 +1057,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1152,8 +1066,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(shamt),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| (a & zve64x_arith_helpers::sew_mask(sew)) >> b,
                     );
@@ -1193,8 +1105,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1203,8 +1113,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let shamt = b & u64::from(sew.bits() - 1);
@@ -1247,8 +1155,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1258,8 +1164,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let shamt = b & u64::from(sew.bits() - 1);
@@ -1297,8 +1201,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let shamt = u64::from(uimm) & u64::from(sew.bits() - 1);
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1308,8 +1210,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(shamt),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let signed = zve64x_arith_helpers::sign_extend(a, sew);
@@ -1352,8 +1252,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1362,8 +1260,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -1405,8 +1301,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1416,8 +1310,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -1459,8 +1351,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1469,8 +1359,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             if zve64x_arith_helpers::sign_extend(a, sew)
@@ -1517,8 +1405,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1528,8 +1414,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             if zve64x_arith_helpers::sign_extend(a, sew)
@@ -1577,8 +1461,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1587,8 +1469,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -1630,8 +1510,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1641,8 +1519,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             let mask = zve64x_arith_helpers::sew_mask(sew);
@@ -1684,8 +1560,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1694,8 +1568,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             if zve64x_arith_helpers::sign_extend(a, sew)
@@ -1742,8 +1614,6 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1753,8 +1623,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             if zve64x_arith_helpers::sign_extend(a, sew)
@@ -1804,8 +1672,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: `vs2` and `vs1` alignment checked; `vd` is a single mask register,
                 // no alignment constraint; `vl <= VLMAX <= VLEN` so all element indices fit
                 // within the mask register. Mask-dest overlap rule (§11.8) checked above.
@@ -1816,8 +1682,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -1855,8 +1719,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -1866,8 +1728,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -1900,8 +1760,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -1911,8 +1769,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -1957,8 +1813,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -1967,8 +1821,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2006,8 +1858,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2017,8 +1867,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2051,8 +1899,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2062,8 +1908,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2108,8 +1952,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2118,8 +1960,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2157,8 +1997,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2168,8 +2006,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2214,8 +2050,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2224,8 +2058,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)
@@ -2263,8 +2095,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2274,8 +2104,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)
@@ -2320,8 +2148,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2330,8 +2156,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2369,8 +2193,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2380,8 +2202,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2414,8 +2234,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // Per spec §12.8: for vmsleu.vi, the immediate is sign-extended to XLEN
                 // then the comparison is unsigned. A negative i8 immediate sign-extends to
                 // a large u64 (e.g. -1 -> 0xFFFF...FF). Both operands are masked to SEW
@@ -2432,8 +2250,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2478,8 +2294,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2488,8 +2302,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)
@@ -2527,8 +2339,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2538,8 +2348,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)
@@ -2572,8 +2380,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2583,8 +2389,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)
@@ -2623,8 +2427,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2634,8 +2436,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2668,8 +2468,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2679,8 +2477,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             (a & zve64x_arith_helpers::sew_mask(sew))
@@ -2719,8 +2515,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2730,8 +2524,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)
@@ -2764,8 +2556,6 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
-                let vstart = ext_state.vstart();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
@@ -2775,8 +2565,6 @@ where
                         vs2,
                         zve64x_arith_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        vl,
-                        vstart,
                         sew,
                         |a, b, sew| {
                             zve64x_arith_helpers::sign_extend(a, sew)

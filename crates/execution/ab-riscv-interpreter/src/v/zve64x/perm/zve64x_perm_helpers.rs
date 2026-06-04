@@ -157,15 +157,12 @@ where
 /// - `vl <= group_regs * VLENB / sew_bytes`.
 /// - When `vm=false`: `vd.bits() != 0`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     offset: u64,
 ) where
@@ -176,6 +173,8 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
@@ -206,15 +205,12 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 /// - `vl <= vlmax`.
 /// - When `vm=false`: `vd.bits() != 0`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     vlmax: u32,
     offset: u64,
@@ -226,6 +222,8 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -262,15 +260,12 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLENB / sew_bytes`.
 /// - When `vm=false`: `vd.bits() != 0`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     scalar: u64,
 ) where
@@ -281,6 +276,8 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -317,15 +314,12 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLENB / sew_bytes`.
 /// - When `vm=false`: `vd.bits() != 0`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     scalar: u64,
 ) where
@@ -336,6 +330,8 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -364,7 +360,6 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 /// - `vl <= vlmax`.
 /// - When `vm=false`: `vd.bits() != 0`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
@@ -372,8 +367,6 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     vs2: VReg,
     vs1: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     vlmax: u32,
 ) where
@@ -384,6 +377,8 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -414,15 +409,12 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 /// - `vl <= vlmax`.
 /// - When `vm=false`: `vd.bits() != 0`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     vlmax: u32,
     index: u64,
@@ -434,6 +426,8 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // Pre-compute the gathered value; it's the same for all elements.
@@ -475,8 +469,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     vs2: VReg,
     vs1: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     vlmax: u32,
     index_group_regs: u8,
@@ -488,6 +480,8 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // Maximum number of EEW=16 elements the index register group can hold.
     // Each register holds VLENB / 2 elements at EEW=16.
     let index_capacity = u32::from(index_group_regs) * (ExtState::VLENB / 2);
@@ -533,7 +527,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
 /// - `vl <= group_regs * VLENB / sew_bytes`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
@@ -541,8 +534,6 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     vs2: VReg,
     vs1: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -552,6 +543,8 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -585,15 +578,12 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
 /// - `vl <= group_regs * VLENB / sew_bytes`.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     sew: Vsew,
     scalar: u64,
 ) where
@@ -604,6 +594,8 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
 

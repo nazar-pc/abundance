@@ -285,8 +285,6 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
     memory: &Memory,
     vd: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     base: u64,
     eew: Eew,
     group_regs: u8,
@@ -302,6 +300,8 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
     let segment_stride = u64::from(nf) * u64::from(elem_bytes);
 
@@ -409,8 +409,6 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     memory: &Memory,
     vd: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     base: u64,
     stride: i64,
     eew: Eew,
@@ -426,6 +424,8 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
@@ -498,8 +498,6 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
-    vstart: u16,
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
@@ -515,6 +513,8 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let vl = ext_state.vl();
+    let vstart = ext_state.vstart();
     let index_base_reg = usize::from(vs2.bits());
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
