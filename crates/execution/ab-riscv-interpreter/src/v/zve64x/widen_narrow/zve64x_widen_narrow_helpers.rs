@@ -275,6 +275,57 @@ pub fn sign_extend_bits(val: u64, bits: u32) -> i64 {
     (val.cast_signed() << shift) >> shift
 }
 
+/// Interpret a scalar operand as an unsigned SEW-wide value.
+///
+/// RVV widening scalar instructions (.vx/.wx) conceptually use a scalar
+/// operand whose width matches the current SEW, not the full XLEN width.
+///
+/// For example on RV64:
+///
+/// SEW=8:
+///     val = 0x0000_0000_0000_01ff
+///     result = 0x0000_0000_0000_00ff
+///
+/// SEW=16:
+///     val = 0x0000_0000_0000_01ff
+///     result = 0x0000_0000_0000_01ff
+///
+/// SEW=32:
+///     val = 0xffff_ffff_1234_5678
+///     result = 0x0000_0000_1234_5678
+///
+/// This helper performs that SEW-width truncation without sign extension.
+#[inline(always)]
+fn scalar_unsigned_for_sew(val: u64, sew_bits: u32) -> u64 {
+    val & (u64::MAX >> (u64::BITS - sew_bits))
+}
+
+/// Interpret a scalar operand as a signed SEW-wide value.
+///
+/// The scalar is first truncated to SEW bits, then sign-extended back to
+/// 64 bits.
+///
+/// For example on RV64:
+///
+/// SEW=8:
+///     val = 0x0000_0000_0000_00ff
+///     result = 0xffff_ffff_ffff_ffff (-1)
+///
+/// SEW=8:
+///     val = 0x0000_0000_0000_007f
+///     result = 0x0000_0000_0000_007f (+127)
+///
+/// SEW=16:
+///     val = 0x0000_0000_0000_ffff
+///     result = 0xffff_ffff_ffff_ffff (-1)
+///
+/// This matches the signed widening behavior required by instructions such
+/// as vwadd.vx and vwsub.vx.
+#[inline(always)]
+fn scalar_signed_for_sew(val: u64, sew_bits: u32) -> u64 {
+    sign_extend_bits(val, sew_bits).cast_unsigned()
+}
+
 /// Execute a widening integer add/subtract.
 ///
 /// Each source element is SEW-wide; the destination element is 2×SEW-wide.
@@ -350,7 +401,13 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
                     sign_extend_bits(raw_b, sew_bits).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => {
+                if zero_extend_b {
+                    scalar_unsigned_for_sew(*val, sew_bits)
+                } else {
+                    scalar_signed_for_sew(*val, sew_bits)
+                }
+            }
         };
         let result = op(wide_a, wide_b);
         // SAFETY: `vd` aligned to `2*group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
@@ -435,7 +492,13 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
                     sign_extend_bits(raw_b, sew_bits).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => {
+                if zero_extend_b {
+                    scalar_unsigned_for_sew(*val, sew_bits)
+                } else {
+                    scalar_signed_for_sew(*val, sew_bits)
+                }
+            }
         };
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd
