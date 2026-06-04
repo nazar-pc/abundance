@@ -212,7 +212,7 @@ where
                     vs3,
                     group_regs,
                 )?;
-                let stride = rs2_value.as_u64().cast_signed();
+                let stride = rs2_value.as_i64();
                 // SAFETY: same preconditions as `Vse`.
                 unsafe {
                     zve64x_store_helpers::execute_strided_store(
@@ -418,7 +418,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                let stride = rs2_value.as_u64().cast_signed();
+                let stride = rs2_value.as_i64();
                 // SAFETY: same as `Vsseg`.
                 unsafe {
                     zve64x_store_helpers::execute_strided_store(

@@ -65,6 +65,9 @@ where
 
     /// Convert to `u64`
     fn as_u64(&self) -> u64;
+
+    /// Convert to `i64` (sign-extended)
+    fn as_i64(&self) -> i64;
 }
 
 impl const RegType for u32 {
@@ -74,6 +77,11 @@ impl const RegType for u32 {
     fn as_u64(&self) -> u64 {
         u64::from(*self)
     }
+
+    #[inline(always)]
+    fn as_i64(&self) -> i64 {
+        i64::from(self.cast_signed())
+    }
 }
 
 impl const RegType for u64 {
@@ -82,6 +90,11 @@ impl const RegType for u64 {
     #[inline(always)]
     fn as_u64(&self) -> u64 {
         *self
+    }
+
+    #[inline(always)]
+    fn as_i64(&self) -> i64 {
+        self.cast_signed()
     }
 }
 

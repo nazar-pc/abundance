@@ -105,7 +105,7 @@ where
                 let vstart = ext_state.vstart();
                 // Per spec §16.1: update only when vstart < vl.
                 if u32::from(vstart) < vl {
-                    let scalar = rs1_value.as_u64();
+                    let scalar = rs1_value.as_i64().cast_unsigned();
                     // SAFETY: element 0 always fits.
                     unsafe {
                         zve64x_perm_helpers::write_element_0_u64(
@@ -339,7 +339,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_slide1up(ext_state, vd, vs2, vm, sew, scalar);
@@ -382,7 +382,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
                 unsafe {
                     zve64x_perm_helpers::execute_slide1down(ext_state, vd, vs2, vm, sew, scalar);
@@ -705,7 +705,7 @@ where
                     )?;
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
                     zve64x_perm_helpers::execute_merge_scalar(ext_state, vd, vs2, vm, sew, scalar);
