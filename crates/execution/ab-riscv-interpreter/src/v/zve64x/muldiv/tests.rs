@@ -845,13 +845,6 @@ fn vrem_vv_e32_signed_overflow_returns_zero() {
 #[test]
 fn vrem_vx_e8() {
     let mut state = setup(1, Vsew::E8, Vlmul::M1);
-    // -128 % -1 = 0
-    // i8::MIN
-    write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80);
-    // sign-extends as -1 in the vx scalar path? No - scalar is treated as unsigned for vrem
-    state.regs.write(Reg::A0, 0xFFu64);
-    // Actually for vrem.vx, the scalar is the divisor and is sign-extended from XLEN.
-    // rs1 = 0xFF00...FF (if we write 0xFF it is zero-extended) - let's use a simpler case.
     // -127 % 7: -127 = 0x81 as i8, result = -127 % 7 = -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x81);
     state.regs.write(Reg::A0, 7u64);
@@ -1700,21 +1693,20 @@ fn vwmaccsu_vv_e8() {
     assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 400u64);
 }
 
-// vwmaccus
+// vwmaccus.vx: vd[i] = vd[i] + zext(rs1) * sext(vs2[i])
+// rs1 is UNSIGNED, vs2 is SIGNED.
 
 #[test]
 fn vwmaccus_vx_e8() {
-    // vwmaccus.vx: vd[i] = vd[i] + sext(rs1) * zext(vs2[i])
-    // rs1 is SIGNED, vs2 is UNSIGNED.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_wide_elem(&mut state, VReg::V8, 0, Vsew::E8, 0);
     write_wide_elem(&mut state, VReg::V8, 1, Vsew::E8, 0);
-    // vs2=255 (unsigned)
+    // vs2=-1 (signed)
     write_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFF);
-    // vs2=50 (unsigned)
+    // vs2=50 (signed positive)
     write_elem(&mut state, VReg::V4, 1, Vsew::E8, 50);
-    // rs1 low 8 bits = 0xFF, sign-extends to -1
-    state.regs.write(Reg::A0, 0xFFu64);
+    // rs1=255 (unsigned)
+    state.regs.write(Reg::A0, 255u64);
     exec(
         &mut state,
         Zve64xMulDivInstruction::VwmaccusVx {
@@ -1726,28 +1718,29 @@ fn vwmaccus_vx_e8() {
         },
     )
     .unwrap();
-    // 0 + (-1) * 255 = -255 as i16
+    // 0 + zext(255) * sext(-1) = 255 * (-1) = -255 as i16
     assert_eq!(
         read_wide_elem(&state, VReg::V8, 0, Vsew::E8) as i16,
         -255i16
     );
-    // 0 + (-1) * 50 = -50
-    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8) as i16, -50i16);
+    // 0 + zext(255) * sext(50) = 255 * 50 = 12750
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 12750u64);
 }
+
+// vwmaccsu.vx: vd[i] = vd[i] + sext(rs1) * zext(vs2[i])
+// rs1 is SIGNED, vs2 is UNSIGNED.
 
 #[test]
 fn vwmaccsu_vx_e8() {
-    // vwmaccsu.vx: vd[i] = vd[i] + sext(vs2[i]) * zext(rs1)
-    // vs2 is SIGNED, rs1 is UNSIGNED.
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_wide_elem(&mut state, VReg::V8, 0, Vsew::E8, 0);
     write_wide_elem(&mut state, VReg::V8, 1, Vsew::E8, 0);
-    // vs2=-1 (signed)
-    write_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFF);
-    // vs2=2 (signed)
-    write_elem(&mut state, VReg::V4, 1, Vsew::E8, 2);
-    // rs1=200 (unsigned)
-    state.regs.write(Reg::A0, 200u64);
+    // vs2=200 (unsigned)
+    write_elem(&mut state, VReg::V4, 0, Vsew::E8, 200);
+    // vs2=50 (unsigned)
+    write_elem(&mut state, VReg::V4, 1, Vsew::E8, 50);
+    // rs1=0xFF stored in register; sign-extends from SEW (8 bits) to -1 signed
+    state.regs.write(Reg::A0, 0xFFu64);
     exec(
         &mut state,
         Zve64xMulDivInstruction::VwmaccsuVx {
@@ -1759,13 +1752,13 @@ fn vwmaccsu_vx_e8() {
         },
     )
     .unwrap();
-    // 0 + (-1) * 200 = -200 as i16
+    // 0 + sext(0xFF=-1) * zext(200) = -1 * 200 = -200 as i16
     assert_eq!(
         read_wide_elem(&state, VReg::V8, 0, Vsew::E8) as i16,
         -200i16
     );
-    // 0 + 2 * 200 = 400
-    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8), 400u64);
+    // 0 + sext(0xFF=-1) * zext(50) = -1 * 50 = -50 as i16
+    assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E8) as i16, -50i16);
 }
 
 // common error paths
