@@ -577,7 +577,7 @@ jobs:
 
       - name: Clone ACT4 repo
         run: |
-          git clone --depth 1 --revision=d33252a6f0de859fe16273a730d068fd7cc7ad8e \
+          git clone --depth 1 --revision=29b50e3d0281d347a5ab94887db8f4e1af93cd30 \
             https://github.com/riscv/riscv-arch-test \
             riscv-arch-test
 
@@ -607,15 +607,15 @@ jobs:
             make
           
           echo "Running RV32 tests"
-          cargo run -- rv32 work/abundance-rv32i-max/elfs
+          cargo run --release -- rv32 work/abundance-rv32i-max/elfs
           
           # Native CPU will use AES intrinsics for Zknd/Zkne implementation
           echo "Running RV64 tests (native)"
-          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run -- rv64 work/abundance-rv64i-max/elfs
+          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
           
           # And just to make sure, force-disable AES intrinsics and test software implementation
           echo "Running RV64 tests (-aes)"
-          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run -- rv64 work/abundance-rv64i-max/elfs
+          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
