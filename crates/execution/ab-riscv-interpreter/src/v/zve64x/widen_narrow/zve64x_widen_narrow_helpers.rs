@@ -226,7 +226,7 @@ unsafe fn snapshot_mask<const VLENB: usize>(
 #[inline(always)]
 unsafe fn read_element_u64<const VLENB: usize>(
     vreg: &[[u8; VLENB]; 32],
-    base_reg: usize,
+    base_reg: VReg,
     elem_i: u32,
     sew_bytes: usize,
 ) -> u64 {
@@ -234,7 +234,7 @@ unsafe fn read_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked(base_reg + reg_off) };
+    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
     let mut buf = [0u8; 8];
@@ -250,7 +250,7 @@ unsafe fn read_element_u64<const VLENB: usize>(
 #[inline(always)]
 unsafe fn write_element_u64<const VLENB: usize>(
     vreg: &mut [[u8; VLENB]; 32],
-    base_reg: u8,
+    base_reg: VReg,
     elem_i: u32,
     sew_bytes: usize,
     value: u64,
@@ -260,7 +260,7 @@ unsafe fn write_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
     // SAFETY: `sew_bytes <= 8`
@@ -374,27 +374,23 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
 
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: `vs2` aligned to `group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
-        let raw_a =
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew_bytes) };
+        let raw_a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew_bytes) };
         let wide_a = if zero_extend_a {
             raw_a
         } else {
             sign_extend_bits(raw_a, sew_bits).cast_unsigned()
         };
-        let wide_b = match &src {
+        let wide_b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                let raw_b = unsafe {
-                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew_bytes)
-                };
+                let raw_b =
+                    unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew_bytes) };
                 if zero_extend_b {
                     raw_b
                 } else {
@@ -403,9 +399,9 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
             }
             OpSrc::Scalar(val) => {
                 if zero_extend_b {
-                    scalar_unsigned_for_sew(*val, sew_bits)
+                    scalar_unsigned_for_sew(val, sew_bits)
                 } else {
-                    scalar_signed_for_sew(*val, sew_bits)
+                    scalar_signed_for_sew(val, sew_bits)
                 }
             }
         };
@@ -413,7 +409,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
         // SAFETY: `vd` aligned to `2*group_regs`; `i < vl <= group_regs * (VLENB / sew_bytes)`
         // so `i < 2*group_regs * (VLENB / wide_sew_bytes)` - element fits in the wide group
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, wide_sew_bytes, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, wide_sew_bytes, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -461,8 +457,6 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
 
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
 
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
@@ -470,22 +464,13 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
         }
         // vs2 is already 2×SEW; read at wide width
         // SAFETY: `vs2` aligned to `2*group_regs`; element `i` fits within it
-        let wide_a = unsafe {
-            read_element_u64(
-                ext_state.read_vreg(),
-                usize::from(vs2_base),
-                i,
-                wide_sew_bytes,
-            )
-        };
-        let wide_b = match &src {
-            OpSrc::Vreg(vs1_base) => {
+        let wide_a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, wide_sew_bytes) };
+        let wide_b = match src {
+            OpSrc::Vreg(vs1) => {
                 // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew_bytes)`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw_b = unsafe {
-                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew_bytes)
-                };
+                let raw_b = unsafe { read_element_u64(ext_state.read_vreg(), vs1, i, sew_bytes) };
                 if zero_extend_b {
                     raw_b
                 } else {
@@ -494,16 +479,16 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
             }
             OpSrc::Scalar(val) => {
                 if zero_extend_b {
-                    scalar_unsigned_for_sew(*val, sew_bits)
+                    scalar_unsigned_for_sew(val, sew_bits)
                 } else {
-                    scalar_signed_for_sew(*val, sew_bits)
+                    scalar_signed_for_sew(val, sew_bits)
                 }
             }
         };
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, wide_sew_bytes, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, wide_sew_bytes, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -555,30 +540,20 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
 
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
 
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: `vs2` is the wide source group
-        let wide_val = unsafe {
-            read_element_u64(
-                ext_state.read_vreg(),
-                usize::from(vs2_base),
-                i,
-                wide_sew_bytes,
-            )
-        };
-        let shamt = match &src {
+        let wide_val = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, wide_sew_bytes) };
+        let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew_bytes)`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw = unsafe {
-                    read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew_bytes)
-                };
+                let raw =
+                    unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew_bytes) };
                 raw & shamt_mask
             }
             // Scalar shift amount: only the low log2(2*SEW) bits are used per spec
@@ -596,7 +571,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
         let result = result_wide & ((1u64 << sew.bits()) - 1);
         // SAFETY: `vd` is the narrow destination group
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew_bytes, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew_bytes, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -644,22 +619,13 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
 
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
 
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: vs2 group covers `vl` narrow elements
-        let raw = unsafe {
-            read_element_u64(
-                ext_state.read_vreg(),
-                usize::from(vs2_base),
-                i,
-                src_sew_bytes,
-            )
-        };
+        let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, src_sew_bytes) };
         let result = if sign {
             sign_extend_bits(raw, src_sew_bits).cast_unsigned()
         } else {
@@ -667,7 +633,7 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
         };
         // SAFETY: vd group covers `vl` wide elements
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew_bytes, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew_bytes, result);
         }
     }
     ext_state.mark_vs_dirty();

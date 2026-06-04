@@ -356,7 +356,7 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd.bits(), i, sew, prefix_count);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, prefix_count);
         }
         if mask_bit(&vs2_snap, i) {
             prefix_count += 1;
@@ -401,7 +401,7 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd.bits(), i, sew, u64::from(i));
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, u64::from(i));
         }
     }
     ext_state.mark_vs_dirty();

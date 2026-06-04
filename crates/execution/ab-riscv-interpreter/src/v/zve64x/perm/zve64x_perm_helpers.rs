@@ -178,8 +178,6 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     // The active range starts at max(vstart, offset).
     let start = vstart.max(offset.min(u64::from(u32::MAX)) as u32);
@@ -189,17 +187,10 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
         }
         let src_idx = u64::from(i) - offset;
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
-        let val = unsafe {
-            read_element_u64(
-                ext_state.read_vreg(),
-                usize::from(vs2_base),
-                src_idx as u32,
-                sew,
-            )
-        };
+        let val = unsafe { read_element_u64(ext_state.read_vreg(), vs2, src_idx as u32, sew) };
         // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -237,8 +228,6 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -249,20 +238,13 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
             && src_idx < u64::from(vlmax)
         {
             // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
-            unsafe {
-                read_element_u64(
-                    ext_state.read_vreg(),
-                    usize::from(vs2_base),
-                    src_idx as u32,
-                    sew,
-                )
-            }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, src_idx as u32, sew) }
         } else {
             0
         };
         // SAFETY: i < vl <= vlmax <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -301,8 +283,6 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -311,11 +291,11 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
             scalar
         } else {
             // SAFETY: i - 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i - 1, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, i - 1, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -358,21 +338,19 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         let val = if i + 1 < vl {
             // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i + 1, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, i + 1, sew) }
         } else {
             scalar
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -408,32 +386,21 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-    let vs1_base = vs1.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-        let index =
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) };
+        let index = unsafe { read_element_u64(ext_state.read_vreg(), vs1, i, sew) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe {
-                read_element_u64(
-                    ext_state.read_vreg(),
-                    usize::from(vs2_base),
-                    index as u32,
-                    sew,
-                )
-            }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, index as u32, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -469,19 +436,10 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-        unsafe {
-            read_element_u64(
-                ext_state.read_vreg(),
-                usize::from(vs2_base),
-                index as u32,
-                sew,
-            )
-        }
+        unsafe { read_element_u64(ext_state.read_vreg(), vs2, index as u32, sew) }
     } else {
         0u64
     };
@@ -491,7 +449,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -541,9 +499,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     );
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-    let vs1_base = vs1.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -551,24 +506,16 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
         // Read 16-bit index from vs1; EEW=16 always.
         // SAFETY: i < vl <= index_capacity = index_group_regs * (VLENB/2), so element i
         // fits within the index register group.
-        let index =
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, Vsew::E16) };
+        let index = unsafe { read_element_u64(ext_state.read_vreg(), vs1, i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe {
-                read_element_u64(
-                    ext_state.read_vreg(),
-                    usize::from(vs2_base),
-                    index as u32,
-                    sew,
-                )
-            }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, index as u32, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -608,22 +555,19 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs1_base = vs1.bits();
-    let vs2_base = vs2.bits();
     for i in vstart..vl {
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs1_base), i, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs1, i, sew) }
         } else {
             // mask_set=false only reachable when vm=false (vmerge path).
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -662,18 +606,17 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 {
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
+
     for i in vstart..vl {
         let val = if mask_bit(&mask_buf, i) {
             scalar
         } else {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) }
+            unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, val);
         }
     }
     ext_state.mark_vs_dirty();
@@ -707,16 +650,13 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
-    let vs1_base = vs1.bits();
     let mask_bytes = vl.div_ceil(u8::BITS) as usize;
     let vreg = ext_state.read_vreg();
     let mut vs1_buf = [0u8; { ExtState::VLENB as usize }];
     // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf.get_unchecked_mut(..mask_bytes).copy_from_slice(
-            vreg.get_unchecked(usize::from(vs1_base))
+            vreg.get_unchecked(usize::from(vs1.bits()))
                 .get_unchecked(..mask_bytes),
         );
     }
@@ -726,10 +666,10 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg
-        let val = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
+        let val = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
         // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, out_idx, sew, val);
+            write_element_u64(ext_state.write_vreg(), vd, out_idx, sew, val);
         }
         out_idx += 1;
     }

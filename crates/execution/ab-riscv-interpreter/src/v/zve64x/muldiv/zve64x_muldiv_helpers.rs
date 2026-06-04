@@ -100,7 +100,7 @@ where
 #[inline(always)]
 unsafe fn write_wide_element_u64<const VLENB: usize>(
     vreg: &mut [[u8; VLENB]; 32],
-    base_reg: u8,
+    base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
     value: u64,
@@ -111,7 +111,7 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * wide_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
     // SAFETY: `byte_off + wide_bytes <= VLENB`; `wide_bytes <= 8` for SEW < 64
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + wide_bytes) };
     // SAFETY: `wide_bytes <= 8` because SEW < 64 is enforced before widening ops are called
@@ -151,25 +151,23 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
             OpSrc::Vreg(vs1_base) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
+                read_element_u64(ext_state.read_vreg(), vs1_base, i, sew)
             },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew);
         // SAFETY: register bounds verified by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -211,27 +209,25 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
-    let vs2_base = vs2.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vs2_base), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
             OpSrc::Vreg(vs1_base) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*vs1_base), i, sew)
+                read_element_u64(ext_state.read_vreg(), vs1_base, i, sew)
             },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew);
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them because
         // `vl <= src_group_regs * VLENB / sew_bytes` and dest stores at 2*SEW width so
         // `i < dest_group_regs * VLENB / (2*sew_bytes)`
         unsafe {
-            write_wide_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_wide_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -253,7 +249,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
-    a_reg: u8,
+    a_reg: VReg,
     src: OpSrc,
     vm: bool,
     vl: u32,
@@ -271,26 +267,23 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let acc = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
+        let acc = unsafe { read_element_u64(ext_state.read_vreg(), vd, i, sew) };
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(a_reg), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), a_reg, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, a, b, sew);
         // SAFETY: register bounds verified by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -327,24 +320,21 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: register bounds verified by caller
-        let acc = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
-        let b = match &src {
+        let acc = unsafe { read_element_u64(ext_state.read_vreg(), vd, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, scalar, b, sew);
         // SAFETY: register bounds verified by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -369,7 +359,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
-    a_reg: u8,
+    a_reg: VReg,
     src: OpSrc,
     vm: bool,
     vl: u32,
@@ -387,7 +377,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -395,21 +384,18 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
         // Read the existing 2*SEW accumulator from vd
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
         // `execute_widening_op` for the bound argument)
-        let acc =
-            unsafe { read_wide_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
+        let acc = unsafe { read_wide_element_u64(ext_state.read_vreg(), vd, i, sew) };
         // SAFETY: register bounds verified by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), usize::from(a_reg), i, sew) };
-        let b = match &src {
+        let a = unsafe { read_element_u64(ext_state.read_vreg(), a_reg, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, a, b, sew);
         // SAFETY: same as acc read above
         unsafe {
-            write_wide_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_wide_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -446,26 +432,22 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 {
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
-    let vd_base = vd.bits();
     for i in vstart..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
         // `execute_widening_op` for the bound argument)
-        let acc =
-            unsafe { read_wide_element_u64(ext_state.read_vreg(), usize::from(vd_base), i, sew) };
-        let b = match &src {
+        let acc = unsafe { read_wide_element_u64(ext_state.read_vreg(), vd, i, sew) };
+        let b = match src {
             // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe {
-                read_element_u64(ext_state.read_vreg(), usize::from(*b_reg), i, sew)
-            },
-            OpSrc::Scalar(val) => *val,
+            OpSrc::Vreg(b_reg) => unsafe { read_element_u64(ext_state.read_vreg(), b_reg, i, sew) },
+            OpSrc::Scalar(val) => val,
         };
         let result = op(acc, scalar, b, sew);
         // SAFETY: same as acc read above
         unsafe {
-            write_wide_element_u64(ext_state.write_vreg(), vd_base, i, sew, result);
+            write_wide_element_u64(ext_state.write_vreg(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();

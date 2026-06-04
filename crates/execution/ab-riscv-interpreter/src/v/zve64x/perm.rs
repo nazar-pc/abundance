@@ -75,7 +75,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let sew = vtype.vsew();
-                // SAFETY: element 0 is always within register v(vs2_base), byte offset 0;
+                // SAFETY: element 0 is always within register vs2, byte offset 0;
                 // VLENB >= sew.bytes() for all legal vtype configurations.
                 let raw = unsafe {
                     zve64x_perm_helpers::read_element_0_u64(ext_state.read_vreg(), vs2.bits(), sew)
