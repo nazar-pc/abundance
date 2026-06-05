@@ -2,6 +2,7 @@ extern crate alloc;
 
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
+use crate::instructions::v::zve64x::load::{Nf, SegVmNf};
 use crate::instructions::v::zve64x::store::Zve64xStoreInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -325,9 +326,8 @@ fn test_vsseg2e8() {
         Some(Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V4,
             rs1: Reg::A0,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             eew: Eew::E8,
-            nf: 2,
             rs2: Reg::Zero,
         })
     );
@@ -342,9 +342,8 @@ fn test_vsseg8e32_masked() {
         Some(Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V0,
             rs1: Reg::T0,
-            vm: false,
+            vm_nf: SegVmNf::new(false, Nf::N8),
             eew: Eew::E32,
-            nf: 8,
             rs2: Reg::Zero,
         })
     );
@@ -360,9 +359,8 @@ fn test_vssseg4e64() {
             vs3: VReg::V8,
             rs1: Reg::A0,
             rs2: Reg::A1,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N4),
             eew: Eew::E64,
-            nf: 4,
         })
     );
 }
@@ -377,9 +375,8 @@ fn test_vsuxseg2ei32() {
             vs3: VReg::V4,
             rs1: Reg::A0,
             vs2: VReg::V8,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             eew: Eew::E32,
-            nf: 2,
             rs2: Reg::Zero,
         })
     );
@@ -395,9 +392,8 @@ fn test_vsoxseg3ei8_masked() {
             vs3: VReg::V4,
             rs1: Reg::A0,
             vs2: VReg::V12,
-            vm: false,
+            vm_nf: SegVmNf::new(false, Nf::N3),
             eew: Eew::E8,
-            nf: 3,
             rs2: Reg::Zero,
         })
     );

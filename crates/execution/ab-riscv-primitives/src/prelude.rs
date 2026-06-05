@@ -45,7 +45,7 @@ pub use crate::instructions::v::zve64x::arith::Zve64xArithInstruction;
 pub use crate::instructions::v::zve64x::carry::Zve64xCarryInstruction;
 pub use crate::instructions::v::zve64x::config::Zve64xConfigInstruction;
 pub use crate::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
-pub use crate::instructions::v::zve64x::load::Zve64xLoadInstruction;
+pub use crate::instructions::v::zve64x::load::{Nf, SegVmNf, Zve64xLoadInstruction};
 pub use crate::instructions::v::zve64x::mask::Zve64xMaskInstruction;
 pub use crate::instructions::v::zve64x::muldiv::Zve64xMulDivInstruction;
 pub use crate::instructions::v::zve64x::perm::Zve64xPermInstruction;

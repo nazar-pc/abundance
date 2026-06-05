@@ -29,7 +29,7 @@ use crate::instructions::v::zve64x::arith::Zve64xArithInstruction;
 use crate::instructions::v::zve64x::carry::Zve64xCarryInstruction;
 use crate::instructions::v::zve64x::config::Zve64xConfigInstruction;
 use crate::instructions::v::zve64x::fixed_point::Zve64xFixedPointInstruction;
-use crate::instructions::v::zve64x::load::Zve64xLoadInstruction;
+use crate::instructions::v::zve64x::load::{Nf, SegVmNf, Zve64xLoadInstruction};
 use crate::instructions::v::zve64x::mask::Zve64xMaskInstruction;
 use crate::instructions::v::zve64x::muldiv::Zve64xMulDivInstruction;
 use crate::instructions::v::zve64x::perm::Zve64xPermInstruction;

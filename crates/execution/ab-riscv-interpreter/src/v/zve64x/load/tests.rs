@@ -1356,9 +1356,8 @@ fn vlseg_nf2_e8_interleaved_fields() {
         Zve64xLoadInstruction::Vlseg {
             vd: VReg::V2,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1395,9 +1394,8 @@ fn vlseg_nf3_e32() {
         Zve64xLoadInstruction::Vlseg {
             vd: VReg::V1,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E32,
-            nf: 3,
+            vm_nf: SegVmNf::new(true, Nf::N3),
             rs2: Reg::Zero,
         },
     )
@@ -1429,9 +1427,8 @@ fn vlseg_register_group_overflow_is_illegal() {
         Zve64xLoadInstruction::Vlseg {
             vd: VReg::V30,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E8,
-            nf: 8,
+            vm_nf: SegVmNf::new(true, Nf::N8),
             rs2: Reg::Zero,
         },
     )
@@ -1448,9 +1445,8 @@ fn vlseg_masked_vd_at_v0_is_illegal() {
         Zve64xLoadInstruction::Vlseg {
             vd: VReg::V0,
             rs1: Reg::A0,
-            vm: false,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(false, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1472,9 +1468,8 @@ fn vlsegff_no_fault_loads_all_segments() {
         Zve64xLoadInstruction::Vlsegff {
             vd: VReg::V2,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1505,9 +1500,8 @@ fn vlsegff_fault_at_segment_1_truncates_vl() {
         Zve64xLoadInstruction::Vlsegff {
             vd: VReg::V4,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1554,9 +1548,8 @@ fn vlsseg_nf2_e32_with_stride() {
             vd: VReg::V2,
             rs1: Reg::A0,
             rs2: Reg::A1,
-            vm: true,
             eew: Eew::E32,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
         },
     )
     .unwrap();
@@ -1602,9 +1595,8 @@ fn vlsseg_fault_at_f1_of_i0_marks_vs_dirty_and_sets_vstart() {
             vd: VReg::V2,
             rs1: Reg::A0,
             rs2: Reg::A1,
-            vm: true,
             eew: Eew::E32,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
         },
     )
     .unwrap_err();
@@ -1648,9 +1640,8 @@ fn vlsseg_fault_at_i1_f0_marks_vs_dirty_and_sets_vstart() {
             vd: VReg::V2,
             rs1: Reg::A0,
             rs2: Reg::A1,
-            vm: true,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
         },
     )
     .unwrap_err();
@@ -1698,9 +1689,8 @@ fn vluxseg_nf2_e32_indexed() {
             vd: VReg::V2,
             rs1: Reg::A0,
             vs2: VReg::V8,
-            vm: true,
             eew: Eew::E32,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1740,9 +1730,8 @@ fn vluxseg_field_vs2_overlap_is_illegal() {
             vd: VReg::V2,
             rs1: Reg::A0,
             vs2: VReg::V3,
-            vm: true,
             eew: Eew::E32,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1779,9 +1768,8 @@ fn vloxseg_same_result_as_vluxseg() {
             vd: VReg::V2,
             rs1: Reg::A0,
             vs2: VReg::V6,
-            vm: true,
             eew: Eew::E32,
-            nf: 1,
+            vm_nf: SegVmNf::new(true, Nf::N1),
             rs2: Reg::Zero,
         },
     )

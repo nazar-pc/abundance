@@ -180,7 +180,7 @@ where
                         rs1_value.as_u64(),
                         eew,
                         group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -224,7 +224,7 @@ where
                         stride,
                         eew,
                         group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -283,7 +283,7 @@ where
                         data_eew,
                         index_eew,
                         data_group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -337,7 +337,7 @@ where
                         data_eew,
                         index_eew,
                         data_group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -345,10 +345,11 @@ where
             Self::Vsseg {
                 vs3,
                 rs1: _,
-                vm,
                 eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -393,10 +394,11 @@ where
                 vs3,
                 rs1: _,
                 rs2: _,
-                vm,
                 eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -439,10 +441,11 @@ where
                 vs3,
                 rs1: _,
                 vs2,
-                vm,
                 eew: index_eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -498,10 +501,11 @@ where
                 vs3,
                 rs1: _,
                 vs2,
-                vm,
                 eew: index_eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),

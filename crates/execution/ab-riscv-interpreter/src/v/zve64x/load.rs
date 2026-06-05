@@ -166,7 +166,6 @@ where
                     });
                 }
                 // SAFETY:
-                // - 1 <= MAX_NF
                 // - alignment: `check_register_group_alignment` verified `vd % group_regs == 0` and
                 //   `vd + group_regs <= 32`, satisfying both the alignment and nf=1 bounds
                 //   preconditions
@@ -183,7 +182,7 @@ where
                         rs1_value.as_u64(),
                         eew,
                         group_regs,
-                        1,
+                        Nf::N1,
                         false,
                     )?;
                 }
@@ -232,7 +231,7 @@ where
                         rs1_value.as_u64(),
                         eew,
                         group_regs,
-                        1,
+                        Nf::N1,
                         true,
                     )?;
                 }
@@ -290,7 +289,7 @@ where
                         stride,
                         eew,
                         group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -375,7 +374,7 @@ where
                         vtype.vsew().as_eew(),
                         index_eew,
                         data_group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -449,7 +448,7 @@ where
                         vtype.vsew().as_eew(),
                         index_eew,
                         data_group_regs,
-                        1,
+                        Nf::N1,
                     )?;
                 }
             }
@@ -458,10 +457,11 @@ where
             Self::Vlseg {
                 vd,
                 rs1: _,
-                vm,
                 eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -485,13 +485,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                if nf > zve64x_load_helpers::MAX_NF {
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 // SAFETY:
-                // - `nf <= MAX_NF` checked above
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
                 // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL for this
@@ -517,10 +511,11 @@ where
             Self::Vlsegff {
                 vd,
                 rs1: _,
-                vm,
                 eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -544,11 +539,6 @@ where
                     group_regs,
                     nf,
                 )?;
-                if nf > zve64x_load_helpers::MAX_NF {
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 // SAFETY: preconditions identical to `Vlseg`; see that arm for the full argument.
                 unsafe {
                     zve64x_load_helpers::execute_unit_stride_load(
@@ -570,10 +560,11 @@ where
                 vd,
                 rs1: _,
                 rs2: _,
-                vm,
                 eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -625,10 +616,11 @@ where
                 vd,
                 rs1: _,
                 vs2,
-                vm,
                 eew: index_eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -661,7 +653,7 @@ where
                     vs2,
                     index_group_regs,
                 )?;
-                for f in 0..nf {
+                for f in 0..nf.fields_per_segment() {
                     // SAFETY: `vd.bits() + f * data_group_regs < 32` because
                     // `validate_segment_registers` established `vd.bits() + nf * data_group_regs
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
@@ -715,10 +707,11 @@ where
                 vd,
                 rs1: _,
                 vs2,
-                vm,
                 eew: index_eew,
-                nf,
+                vm_nf,
             } => {
+                let vm = vm_nf.vm();
+                let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -748,7 +741,7 @@ where
                     vs2,
                     index_group_regs,
                 )?;
-                for f in 0..nf {
+                for f in 0..nf.fields_per_segment() {
                     // SAFETY: `vd.bits() + f * data_group_regs < 32` because
                     // `validate_segment_registers` established `vd.bits() + nf * data_group_regs
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`

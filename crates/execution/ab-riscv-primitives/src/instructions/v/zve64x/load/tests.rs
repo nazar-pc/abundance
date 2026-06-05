@@ -2,7 +2,7 @@ extern crate alloc;
 
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
-use crate::instructions::v::zve64x::load::Zve64xLoadInstruction;
+use crate::instructions::v::zve64x::load::{Nf, SegVmNf, Zve64xLoadInstruction};
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
 use alloc::format;
@@ -376,9 +376,8 @@ fn test_vlseg2e8() {
         Some(Zve64xLoadInstruction::Vlseg {
             vd: VReg::V4,
             rs1: Reg::A0,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             eew: Eew::E8,
-            nf: 2,
             rs2: Reg::Zero,
         })
     );
@@ -394,9 +393,8 @@ fn test_vlseg8e32_masked() {
         Some(Zve64xLoadInstruction::Vlseg {
             vd: VReg::V0,
             rs1: Reg::T0,
-            vm: false,
+            vm_nf: SegVmNf::new(false, Nf::N8),
             eew: Eew::E32,
-            nf: 8,
             rs2: Reg::Zero,
         })
     );
@@ -412,9 +410,8 @@ fn test_vlseg3e16ff() {
         Some(Zve64xLoadInstruction::Vlsegff {
             vd: VReg::V8,
             rs1: Reg::A0,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N3),
             eew: Eew::E16,
-            nf: 3,
             rs2: Reg::Zero,
         })
     );
@@ -431,9 +428,8 @@ fn test_vlsseg4e64() {
             vd: VReg::V8,
             rs1: Reg::A0,
             rs2: Reg::A1,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N4),
             eew: Eew::E64,
-            nf: 4,
         })
     );
 }
@@ -449,9 +445,8 @@ fn test_vluxseg2ei32() {
             vd: VReg::V4,
             rs1: Reg::A0,
             vs2: VReg::V8,
-            vm: true,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             eew: Eew::E32,
-            nf: 2,
             rs2: Reg::Zero,
         })
     );
@@ -468,9 +463,8 @@ fn test_vloxseg3ei8() {
             vd: VReg::V4,
             rs1: Reg::A0,
             vs2: VReg::V12,
-            vm: false,
+            vm_nf: SegVmNf::new(false, Nf::N3),
             eew: Eew::E8,
-            nf: 3,
             rs2: Reg::Zero,
         })
     );

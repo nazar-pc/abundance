@@ -46,14 +46,14 @@ pub fn validate_segment_store_registers<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vs3: VReg,
     group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     check_register_group_alignment::<Reg, _, _, _>(program_counter, vs3, group_regs)?;
-    let total = u32::from(vs3.bits()) + u32::from(nf) * u32::from(group_regs);
+    let total = u32::from(vs3.bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs);
     if total > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -86,7 +86,7 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
     base: u64,
     eew: Eew,
     group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -100,7 +100,7 @@ where
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
-    let segment_stride = u64::from(nf * elem_bytes);
+    let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -108,7 +108,7 @@ where
             continue;
         }
         let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
             let field_base_reg = vs3.bits() + f * group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
@@ -164,7 +164,7 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
     stride: i64,
     eew: Eew,
     group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -185,7 +185,7 @@ where
             continue;
         }
         let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
             let field_base_reg = vs3.bits() + f * group_regs;
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
@@ -237,7 +237,7 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
     data_eew: Eew,
     index_eew: Eew,
     data_group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -265,7 +265,7 @@ where
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
         let elem_base = base.wrapping_add(offset);
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
             let field_base_reg = vs3.bits() + f * data_group_regs;
             // SAFETY: `i < vl <= data_group_regs * VLENB / data_eew.bytes()` (precondition), so
