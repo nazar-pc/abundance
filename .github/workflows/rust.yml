@@ -606,7 +606,7 @@ jobs:
         working-directory: crates/execution/ab-riscv-act4-runner
         run: |
           echo "Building ELFs"
-          mkdir work
+          mkdir -p work
           docker run --rm \
             -u $(id -u):$(id -g) \
             -v ./work:/act4/work \
