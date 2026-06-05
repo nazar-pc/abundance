@@ -138,7 +138,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -554,7 +554,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -653,7 +653,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -757,7 +757,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -860,7 +860,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_arith_op(
@@ -1395,7 +1395,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1490,7 +1490,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1585,7 +1585,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(
@@ -1681,7 +1681,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_muldiv_helpers::execute_muladd_scalar_op(

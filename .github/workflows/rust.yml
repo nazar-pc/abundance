@@ -195,7 +195,7 @@ jobs:
         with:
           path: *cache-path
           key: *cache-key
-        # Only save on `main` branch, and only from one canonical matrix variant per OS
+        # Only save on `main` branch and only from one canonical matrix variant per OS
         if: github.ref == 'refs/heads/main' && matrix.type == 'features'
 
   cargo-test:
@@ -577,7 +577,7 @@ jobs:
 
       - name: Clone ACT4 repo
         run: |
-          git clone --depth 1 --revision=d33252a6f0de859fe16273a730d068fd7cc7ad8e \
+          git clone --depth 1 --revision=29b50e3d0281d347a5ab94887db8f4e1af93cd30 \
             https://github.com/riscv/riscv-arch-test \
             riscv-arch-test
 
@@ -593,6 +593,15 @@ jobs:
           cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=min,scope=act4-build-{0}', runner.arch) || '' }}
           load: true
 
+      - name: Restore cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: &act4-work-cache-path |
+            work
+          key: &act4-work-cache-key act4-work-${{ hashFiles('crates/execution/ab-riscv-act4-runner/res/abundance/**') }}
+          restore-keys: |
+            act4-work-
+
       - name: ACT4 tests
         working-directory: crates/execution/ab-riscv-act4-runner
         run: |
@@ -607,15 +616,23 @@ jobs:
             make
           
           echo "Running RV32 tests"
-          cargo run -- rv32 work/abundance-rv32i-max/elfs
+          cargo run --release -- rv32 work/abundance-rv32i-max/elfs
           
           # Native CPU will use AES intrinsics for Zknd/Zkne implementation
           echo "Running RV64 tests (native)"
-          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run -- rv64 work/abundance-rv64i-max/elfs
+          RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
           
           # And just to make sure, force-disable AES intrinsics and test software implementation
           echo "Running RV64 tests (-aes)"
-          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run -- rv64 work/abundance-rv64i-max/elfs
+          RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
+
+      - name: Save cache
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: *act4-work-cache-path
+          key: *act4-work-cache-key
+        # Only save on `main` branch and only from one OS since the contents will be identical for all OSes
+        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04'
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks

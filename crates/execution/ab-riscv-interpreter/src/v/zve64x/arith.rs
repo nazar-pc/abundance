@@ -139,7 +139,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above; scalar source has no register constraints
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -276,7 +276,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -323,7 +323,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // vrsub: result = src - vs2[i]
                 // SAFETY: alignment checked above
                 unsafe {
@@ -460,7 +460,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -596,7 +596,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -732,7 +732,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1301,7 +1301,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1405,7 +1405,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1510,7 +1510,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1614,7 +1614,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
                 unsafe {
                     zve64x_arith_helpers::execute_arith_op(
@@ -1719,7 +1719,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -1858,7 +1858,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -1997,7 +1997,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2095,7 +2095,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2193,7 +2193,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2339,7 +2339,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2427,7 +2427,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(
@@ -2515,7 +2515,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let scalar = rs1_value.as_u64();
+                let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: see `VmseqVv`
                 unsafe {
                     zve64x_arith_helpers::execute_compare_op(

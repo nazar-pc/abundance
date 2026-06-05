@@ -272,8 +272,8 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                // rs2 holds a signed stride; reinterpret the register value as signed.
-                let stride = rs2_value.as_u64().cast_signed();
+                // rs2 holds a signed stride; reinterpret the register value as signed
+                let stride = rs2_value.as_i64();
                 // SAFETY:
                 // - alignment and nf=1 bounds: `check_register_group_alignment` verified `vd %
                 //   group_regs == 0` and `vd + group_regs <= 32`
@@ -597,7 +597,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                let stride = rs2_value.as_u64().cast_signed();
+                let stride = rs2_value.as_i64();
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
