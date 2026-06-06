@@ -56,7 +56,10 @@ fn read_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.to_bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .read_vregs()
+        .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
     buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
     u64::from_le_bytes(buf)
@@ -73,13 +76,16 @@ fn write_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.to_bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .write_vregs()
+        .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
     reg[byte_off..byte_off + sew_bytes].copy_from_slice(&buf[..sew_bytes]);
 }
 
 fn write_mask(state: &mut TestInterpreterState<Zve64xWidenNarrowInstruction<Reg<u64>>>, bits: u32) {
-    let reg = &mut state.ext_state.write_vreg()[0];
+    let reg = state.ext_state.write_vregs().get_mut(VReg::V0);
     reg.fill(0);
     for i in 0..32 {
         if (bits >> i) & 1 != 0 {

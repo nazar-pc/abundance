@@ -36,8 +36,7 @@ fn set_vreg(
     reg: VReg,
     data: &[u8],
 ) {
-    let dst = &mut state.ext_state.write_vreg()[usize::from(reg.to_bits())];
-    dst[..data.len()].copy_from_slice(data);
+    state.ext_state.write_vregs().get_mut(reg)[..data.len()].copy_from_slice(data);
 }
 
 fn read_mem_bytes<const N: usize>(

@@ -103,7 +103,7 @@ where
     let elem_bytes = eew.bytes_width();
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -111,7 +111,9 @@ where
         let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
-            let field_base_reg = vs3.to_bits() + f * group_regs;
+            // SAFETY: Guaranteed by function contract
+            let field_base_reg =
+                unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
             // Let `elems_per_reg = VLENB / elem_bytes`.
@@ -125,9 +127,8 @@ where
             //
             // Therefore,
             // `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
-            let data = unsafe {
-                read_group_element(ext_state.read_vreg(), usize::from(field_base_reg), i, eew)
-            };
+            let data =
+                unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
@@ -180,7 +181,7 @@ where
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -188,13 +189,14 @@ where
         let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
-            let field_base_reg = vs3.to_bits() + f * group_regs;
+            // SAFETY: Guaranteed by function contract
+            let field_base_reg =
+                unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
             // i / elems_per_reg < field_base_reg + group_regs <= vs3.bits() + nf *
             // group_regs <= 32`.
-            let data = unsafe {
-                read_group_element(ext_state.read_vreg(), usize::from(field_base_reg), i, eew)
-            };
+            let data =
+                unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
@@ -253,38 +255,27 @@ where
     let vstart = ext_state.vstart();
     let data_elem_bytes = data_eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: `i < vl <= index_group_regs * VLENB / index_eew.bytes()` (precondition), so
         // `vs2.bits() + i / (VLENB / index_eew.bytes()) < vs2.bits() + index_group_regs <= 32`.
-        let index_buf = unsafe {
-            read_group_element(
-                ext_state.read_vreg(),
-                usize::from(vs2.to_bits()),
-                i,
-                index_eew,
-            )
-        };
+        let index_buf = unsafe { read_group_element(ext_state.read_vregs(), vs2, i, index_eew) };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
         let elem_base = base.wrapping_add(offset);
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
-            let field_base_reg = vs3.to_bits() + f * data_group_regs;
+            // SAFETY: Guaranteed by function contract
+            let field_base_reg =
+                unsafe { VReg::from_bits(vs3.to_bits() + f * data_group_regs).unwrap_unchecked() };
             // SAFETY: `i < vl <= data_group_regs * VLENB / data_eew.bytes()` (precondition), so
             // `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
             //                                    <= vs3.bits() + nf * data_group_regs <= 32`.
-            let data = unsafe {
-                read_group_element(
-                    ext_state.read_vreg(),
-                    usize::from(field_base_reg),
-                    i,
-                    data_eew,
-                )
-            };
+            let data =
+                unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, data_eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {

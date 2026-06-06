@@ -101,10 +101,10 @@ impl VectorRegisters for AbundanceRv32IMaxExtState
 where
     Self: Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg>,
 {
-    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
         &self.vregs
     }
-    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
         &mut self.vregs
     }
     fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {

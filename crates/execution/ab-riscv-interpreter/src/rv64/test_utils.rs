@@ -378,11 +378,11 @@ where
     [(); Self::ELEN as usize]:,
     [(); Self::VLEN as usize]:,
 {
-    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
         &self.vector.vregs
     }
 
-    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
         &mut self.vector.vregs
     }
 

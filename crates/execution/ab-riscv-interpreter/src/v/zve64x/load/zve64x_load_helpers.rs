@@ -1,6 +1,6 @@
 //! Opaque helpers for Zve64x extension
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
@@ -33,7 +33,7 @@ pub(in super::super) fn mask_bit(mask: &[u8], i: u32) -> bool {
 /// when `vl` is the current architectural `vl` (bounded by `VLMAX <= VLEN`).
 #[inline(always)]
 pub(in super::super) unsafe fn snapshot_mask<const VLENB: usize>(
-    vreg: &[[u8; VLENB]; 32],
+    vregs: &VectorRegisterFile<VLENB>,
     vm: bool,
     vl: u32,
 ) -> [u8; VLENB] {
@@ -46,7 +46,7 @@ pub(in super::super) unsafe fn snapshot_mask<const VLENB: usize>(
         // SAFETY: `mask_bytes <= VLENB` by the caller's precondition
         unsafe {
             buf.get_unchecked_mut(..mask_bytes)
-                .copy_from_slice(vreg[usize::from(VReg::V0.to_bits())].get_unchecked(..mask_bytes));
+                .copy_from_slice(vregs.get(VReg::V0).get_unchecked(..mask_bytes));
         }
     }
     buf
@@ -190,8 +190,9 @@ where
 /// a valid element index within the register group.
 #[inline(always)]
 pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
-    vreg: &[[u8; VLENB]; 32],
-    base_reg: usize,
+    vregs: &VectorRegisterFile<VLENB>,
+    base_reg: VReg,
+    // TODO: `elem_i` here and in other places shouldn't be `u32`
     elem_i: u32,
     eew: Eew,
 ) -> [u8; Eew::MAX_BYTES as usize] {
@@ -199,8 +200,10 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
     let elems_per_reg = VLENB / elem_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * elem_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by the caller's precondition.
-    let reg = unsafe { vreg.get_unchecked(base_reg + reg_off) };
+    // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
+    let reg = unsafe {
+        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
+    };
     // SAFETY: `byte_off + elem_bytes <= VLENB`: the maximum `byte_off` is
     // `(elems_per_reg - 1) * elem_bytes = VLENB - elem_bytes`, so
     // `byte_off + elem_bytes <= VLENB - elem_bytes + elem_bytes = VLENB`.
@@ -223,8 +226,8 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
 /// a valid element index within the register group.
 #[inline(always)]
 unsafe fn write_group_element<const VLENB: usize>(
-    vreg: &mut [[u8; VLENB]; 32],
-    base_reg: u8,
+    vregs: &mut VectorRegisterFile<VLENB>,
+    base_reg: VReg,
     elem_i: u32,
     eew: Eew,
     buf: [u8; Eew::MAX_BYTES as usize],
@@ -234,7 +237,9 @@ unsafe fn write_group_element<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * elem_bytes;
     // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg) + reg_off) };
+    let reg = unsafe {
+        vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
+    };
     // SAFETY: `byte_off + elem_bytes <= VLENB` and `elem_bytes <= Eew::MAX_BYTES`: same argument as
     // in `read_group_element`
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + elem_bytes) };
@@ -302,7 +307,7 @@ where
     let segment_stride = u64::from(nf.fields_per_segment()) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -353,7 +358,9 @@ where
 
         // All nf fields for element i were read successfully; commit to the register file.
         for f in 0..nf.fields_per_segment() {
-            let field_base_reg = vd.to_bits() + f * group_regs;
+            // SAFETY: Guaranteed by function contract
+            let field_base_reg =
+                unsafe { VReg::from_bits(vd.to_bits() + f * group_regs).unwrap_unchecked() };
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
             // Let `elems_per_reg = VLENB / elem_bytes`.
@@ -372,7 +379,7 @@ where
             // above), so `f as usize < Nf::MAX = field_buf.len()`.
             unsafe {
                 write_group_element(
-                    ext_state.write_vreg(),
+                    ext_state.write_vregs(),
                     field_base_reg,
                     i,
                     eew,
@@ -425,7 +432,7 @@ where
     let elem_bytes = eew.bytes_width();
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -446,7 +453,9 @@ where
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
             };
-            let field_base_reg = vd.to_bits() + f * group_regs;
+            // SAFETY: Guaranteed by function contract
+            let field_base_reg =
+                unsafe { VReg::from_bits(vd.to_bits() + f * group_regs).unwrap_unchecked() };
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
             // Let `elems_per_reg = VLENB / elem_bytes`.
@@ -460,7 +469,7 @@ where
             //
             // Therefore, `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
             unsafe {
-                write_group_element(ext_state.write_vreg(), field_base_reg, i, eew, data);
+                write_group_element(ext_state.write_vregs(), field_base_reg, i, eew, data);
             }
         }
     }
@@ -511,10 +520,10 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let index_base_reg = usize::from(vs2.to_bits());
+    let index_base_reg = vs2;
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -529,7 +538,7 @@ where
         // `i / (VLENB / index_eew.bytes()) < EMUL_index`, and therefore
         // `index_base_reg + i / (VLENB / index_eew.bytes()) < index_base_reg + EMUL_index <= 32`.
         let index_buf =
-            unsafe { read_group_element(ext_state.read_vreg(), index_base_reg, i, index_eew) };
+            unsafe { read_group_element(ext_state.read_vregs(), index_base_reg, i, index_eew) };
         let offset = u64::from_le_bytes(index_buf);
         let elem_addr = base.wrapping_add(offset);
 
@@ -546,7 +555,9 @@ where
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
             };
-            let field_base_reg = vd.to_bits() + f * data_group_regs;
+            // SAFETY: Guaranteed by function contract
+            let field_base_reg =
+                unsafe { VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked() };
             // SAFETY: need `field_base_reg + i / (VLENB / data_eew.bytes()) < 32`.
             //
             // Let `data_elems_per_reg = VLENB / data_eew.bytes()`.
@@ -561,7 +572,7 @@ where
             // Therefore,
             // `field_base_reg + i / data_elems_per_reg < field_base_reg + data_group_regs <= 32`.
             unsafe {
-                write_group_element(ext_state.write_vreg(), field_base_reg, i, data_eew, data);
+                write_group_element(ext_state.write_vregs(), field_base_reg, i, data_eew, data);
             }
         }
     }

@@ -50,7 +50,7 @@ fn vreg_byte(
     reg: VReg,
     offset: usize,
 ) -> u8 {
-    state.ext_state.read_vreg()[usize::from(reg.to_bits())][offset]
+    state.ext_state.read_vregs().get(reg)[offset]
 }
 
 /// Read a full vector register as a byte slice copy
@@ -58,7 +58,7 @@ fn vreg_bytes(
     state: &TestInterpreterState<Zve64xLoadInstruction<Reg<u64>>>,
     reg: VReg,
 ) -> [u8; 32] {
-    state.ext_state.read_vreg()[usize::from(reg.to_bits())]
+    *state.ext_state.read_vregs().get(reg)
 }
 
 /// Set a vector register's bytes directly
@@ -67,8 +67,7 @@ fn set_vreg(
     reg: VReg,
     data: &[u8],
 ) {
-    let dst = &mut state.ext_state.write_vreg()[usize::from(reg.to_bits())];
-    dst[..data.len()].copy_from_slice(data);
+    state.ext_state.write_vregs().get_mut(reg)[..data.len()].copy_from_slice(data);
 }
 
 /// Execute a single instruction directly (not via the instruction fetcher)

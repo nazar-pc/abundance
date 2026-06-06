@@ -70,7 +70,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vs3.to_bits()) % u32::from(nreg) != 0 {
+                if vs3.to_bits() % nreg != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -84,16 +84,14 @@ where
                     while byte_off < evl {
                         let reg_off = byte_off / vlenb;
                         let in_reg = (byte_off % vlenb) as usize;
-                        let reg_idx = (u64::from(vs3.to_bits()) + reg_off) as usize;
-                        // SAFETY: `reg_idx < 32` because the decoder guarantees `nreg` in
-                        // {1,2,4,8} and `vs3` is `nreg`-aligned (checked above), so
-                        // `vs3.bits() + nreg - 1 <= 31`. `in_reg < VLENB` by construction.
-                        let src = unsafe {
-                            ext_state
-                                .read_vreg()
-                                .get_unchecked(reg_idx)
-                                .get_unchecked(in_reg..)
+                        // SAFETY: the decoder guarantees `nreg` in {1,2,4,8} and `vs3` is
+                        // `nreg`-aligned (checked above), so `vs3.bits() + nreg - 1 <= 31`
+                        let reg = unsafe {
+                            VReg::from_bits(vs3.to_bits() + reg_off as u8).unwrap_unchecked()
                         };
+                        // SAFETY: `in_reg < VLENB` by construction
+                        let src =
+                            unsafe { ext_state.read_vregs().get(reg).get_unchecked(in_reg..) };
                         if let Err(error) = memory.write_slice(base + byte_off, src) {
                             ext_state.set_vstart(byte_off as u16);
                             return Err(ExecutionError::MemoryAccess(error));
@@ -117,14 +115,13 @@ where
                 let start_byte = ext_state.vstart();
                 if u32::from(start_byte) < evl_bytes {
                     let base = rs1_value.as_u64();
-                    // SAFETY: `vs3.bits() < 32` is guaranteed by `VReg`.
-                    // `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLENB` because `vl <= VLMAX <=
-                    // VLEN`, so the slice `start_byte..evl_bytes` is in bounds of the
-                    // `VLENB`-byte source register.
+                    // SAFETY: `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLENB` because
+                    // `vl <= VLMAX <= VLEN`, so the slice `start_byte..evl_bytes` is in bounds of
+                    // the `VLENB`-byte source register
                     let src = unsafe {
                         ext_state
-                            .read_vreg()
-                            .get_unchecked(usize::from(vs3.to_bits()))
+                            .read_vregs()
+                            .get(vs3)
                             .get_unchecked(usize::from(start_byte)..evl_bytes as usize)
                     };
                     memory

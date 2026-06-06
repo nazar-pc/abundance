@@ -56,7 +56,7 @@ fn exec(
 }
 
 fn get_vreg(state: &TestInterpreterState<Zve64xMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
-    state.ext_state.read_vreg()[usize::from(reg.to_bits())]
+    *state.ext_state.read_vregs().get(reg)
 }
 
 fn set_vreg(
@@ -64,7 +64,7 @@ fn set_vreg(
     reg: VReg,
     data: [u8; 32],
 ) {
-    state.ext_state.write_vreg()[usize::from(reg.to_bits())] = data;
+    *state.ext_state.write_vregs().get_mut(reg) = data;
 }
 
 /// Read element `i` from a register group as a u64 (zero-extended), given SEW
@@ -78,7 +78,10 @@ fn read_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.to_bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .read_vregs()
+        .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
     buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
     u64::from_le_bytes(buf)
@@ -90,7 +93,7 @@ fn mask_bit(
     reg: VReg,
     i: u32,
 ) -> bool {
-    let byte = state.ext_state.read_vreg()[usize::from(reg.to_bits())][(i / u8::BITS) as usize];
+    let byte = state.ext_state.read_vregs().get(reg)[(i / u8::BITS) as usize];
     (byte >> (i % u8::BITS)) & 1 != 0
 }
 

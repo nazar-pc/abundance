@@ -1,6 +1,6 @@
 //! Opaque helpers for Zve64x extension
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zve64x::arith::zve64x_arith_helpers::{
     OpSrc, check_vreg_group_alignment, sew_mask,
 };
@@ -384,7 +384,7 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 /// - `base_reg + elem_i / (VLENB / (2*sew_bytes)) < 32`
 #[inline(always)]
 pub unsafe fn read_wide_element_u64<const VLENB: usize>(
-    vreg: &[[u8; VLENB]; 32],
+    vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
@@ -394,7 +394,9 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * double_sew_bytes;
     // SAFETY: caller guarantees bounds
-    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.to_bits()) + reg_off) };
+    let reg = unsafe {
+        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
+    };
     // SAFETY: `byte_off + double_sew_bytes <= VLENB`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + double_sew_bytes) };
     let mut buf = [0u8; 8];
@@ -434,25 +436,25 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut any_sat = false;
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: alignment and bounds checked by caller
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
+                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew, vxrm, &mut any_sat);
         // SAFETY: alignment and bounds checked by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
     }
     if any_sat {
@@ -501,7 +503,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
@@ -511,11 +513,11 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
         }
         // Read 2*SEW-wide source element
         // SAFETY: `vs2` double-width alignment checked by caller
-        let wide_a = unsafe { read_wide_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let wide_a = unsafe { read_wide_element_u64(ext_state.read_vregs(), vs2, i, sew) };
         let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: vs1 SEW-wide alignment checked by caller
-                let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) };
+                let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) };
                 (raw & shamt_mask) as u32
             }
             OpSrc::Scalar(val) => (val & shamt_mask) as u32,
@@ -523,7 +525,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
         let result = op(wide_a, shamt, sew, vxrm, &mut any_sat);
         // SAFETY: `vd` alignment checked by caller
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
     }
     if any_sat {

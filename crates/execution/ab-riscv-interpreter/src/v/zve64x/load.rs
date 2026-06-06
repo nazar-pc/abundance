@@ -72,29 +72,26 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vd.to_bits()) % u32::from(nreg) != 0 {
+                if vd.to_bits() % nreg != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 let base = rs1_value.as_u64();
                 let vlenb = u64::from(ExtState::VLENB);
-                for reg_off in 0..u64::from(nreg) {
-                    let reg_idx = u64::from(vd.to_bits()) + reg_off;
+                for reg_off in 0..nreg {
+                    // SAFETY: the decoder guarantees nreg in {1,2,4,8} and vd is nreg-aligned
+                    // (checked above), so vd.bits() + nreg - 1 <= 31.
+                    let reg = unsafe { VReg::from_bits(vd.to_bits() + reg_off).unwrap_unchecked() };
                     let bytes = memory
-                        .read_slice(base + reg_off * vlenb, ExtState::VLENB)
+                        .read_slice(base + u64::from(reg_off) * vlenb, ExtState::VLENB)
                         .inspect_err(|_error| {
                             if reg_off > 0 {
                                 ext_state.mark_vs_dirty();
                                 ext_state.reset_vstart();
                             }
                         })?;
-                    // SAFETY: `reg_idx < 32` because the decoder guarantees nreg in {1,2,4,8}
-                    // and vd is nreg-aligned (checked above), so vd.bits() + nreg - 1 <= 31.
-                    // `read_slice` returns a slice of exactly `ExtState::VLENB` bytes on success,
-                    // matching `dst`'s length, so `copy_from_slice` cannot panic.
-                    let dst = unsafe { ext_state.write_vreg().get_unchecked_mut(reg_idx as usize) };
-                    dst.copy_from_slice(bytes);
+                    ext_state.write_vregs().get_mut(reg).copy_from_slice(bytes);
                 }
                 ext_state.mark_vs_dirty();
                 ext_state.reset_vstart();
@@ -113,14 +110,13 @@ where
                 if byte_count > 0 {
                     let base = rs1_value.as_u64();
                     let bytes = memory.read_slice(base, byte_count)?;
-                    // SAFETY: `vd.bits() < 32` is guaranteed by the `VReg` type.
-                    // `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB` because
-                    // `vl <= VLMAX <= VLEN`, so `..bytes.len()` is in bounds within the
+                    // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB`
+                    // because `vl <= VLMAX <= VLEN`, so `..bytes.len()` is in bounds within the
                     // `VLENB`-byte destination register.
                     unsafe {
                         ext_state
-                            .write_vreg()
-                            .get_unchecked_mut(usize::from(vd.to_bits()))
+                            .write_vregs()
+                            .get_mut(vd)
                             .get_unchecked_mut(..bytes.len())
                             .copy_from_slice(bytes);
                     }
