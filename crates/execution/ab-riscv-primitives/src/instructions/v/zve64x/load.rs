@@ -10,6 +10,94 @@ use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
+/// Number of fields per segment for load/store instructions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Nf {
+    /// 1 field per segment
+    N1 = 1,
+    /// 2 fields per segment
+    N2 = 2,
+    /// 3 fields per segment
+    N3 = 3,
+    /// 4 fields per segment
+    N4 = 4,
+    /// 5 fields per segment
+    N5 = 5,
+    /// 6 fields per segment
+    N6 = 6,
+    /// 7 fields per segment
+    N7 = 7,
+    /// 8 fields per segment
+    N8 = 8,
+}
+
+impl fmt::Display for Nf {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.fields_per_segment())
+    }
+}
+
+impl Nf {
+    /// Maximum allowed value for `Nf`
+    pub const MAX: Self = Nf::N8;
+
+    /// Create a new instance.
+    ///
+    /// `nf` must be in the range `1..=8` or `None` is returned.
+    #[inline(always)]
+    pub const fn new(nf: u8) -> Option<Self> {
+        match nf {
+            1 => Some(Nf::N1),
+            2 => Some(Nf::N2),
+            3 => Some(Nf::N3),
+            4 => Some(Nf::N4),
+            5 => Some(Nf::N5),
+            6 => Some(Nf::N6),
+            7 => Some(Nf::N7),
+            8 => Some(Nf::N8),
+            _ => None,
+        }
+    }
+
+    /// Returns the number of fields per segment for the load/store instruction.
+    ///
+    /// Always in `1..=8` range.
+    #[inline(always)]
+    pub const fn fields_per_segment(&self) -> u8 {
+        *self as u8
+    }
+}
+
+/// `vm` and `nf` fields for segmented load/store instructions.
+///
+/// This is a more compact representation that fits within a single byte rather than two when
+/// storing these separately.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SegVmNf(u8);
+
+impl SegVmNf {
+    /// Create a new instance
+    #[inline(always)]
+    pub const fn new(vm: bool, nf: Nf) -> Self {
+        Self((nf.fields_per_segment() << 1) | u8::from(vm))
+    }
+
+    /// Extracts the `vm` field from the `SegVmNf` representation
+    #[inline(always)]
+    pub const fn vm(&self) -> bool {
+        self.0 & 1 == 1
+    }
+
+    /// Extracts the `nf` field from the `SegVmNf` representation
+    #[inline(always)]
+    pub const fn nf(&self) -> Nf {
+        // SAFETY: Protected internal invariant
+        unsafe { Nf::new(self.0 >> 1).unwrap_unchecked() }
+    }
+}
+
 /// RISC-V Zve64x vector load instruction.
 ///
 /// Encoded under the LOAD-FP major opcode (0x07). All loads use rs1 (GPR) as a base address and vd
@@ -50,23 +138,23 @@ pub enum Zve64xLoadInstruction<Reg> {
     /// Unit-stride segment load: `vlseg{nf}e{eew}.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=00000, nf>0
-    Vlseg { vd: VReg, rs1: Reg, vm: bool, eew: Eew, nf: u8 },
+    Vlseg { vd: VReg, rs1: Reg, eew: Eew, vm_nf: SegVmNf },
     /// Unit-stride fault-only-first segment load: `vlseg{nf}e{eew}ff.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=10000, nf>0
-    Vlsegff { vd: VReg, rs1: Reg, vm: bool, eew: Eew, nf: u8 },
+    Vlsegff { vd: VReg, rs1: Reg, eew: Eew, vm_nf: SegVmNf },
     /// Strided segment load: `vlsseg{nf}e{eew}.v vd, (rs1), rs2, vm`
     ///
     /// mop=10, nf>0
-    Vlsseg { vd: VReg, rs1: Reg, rs2: Reg, vm: bool, eew: Eew, nf: u8 },
+    Vlsseg { vd: VReg, rs1: Reg, rs2: Reg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-unordered segment load: `vluxseg{nf}ei{eew}.v vd, (rs1), vs2, vm`
     ///
     /// mop=01, nf>0
-    Vluxseg { vd: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew, nf: u8 },
+    Vluxseg { vd: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-ordered segment load: `vloxseg{nf}ei{eew}.v vd, (rs1), vs2, vm`
     ///
     /// mop=11, nf>0
-    Vloxseg { vd: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew, nf: u8 },
+    Vloxseg { vd: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
 }
 
 #[instruction]
@@ -119,9 +207,8 @@ where
                             Some(Self::Vlseg {
                                 vd,
                                 rs1,
-                                vm,
                                 eew,
-                                nf: nf_val,
+                                vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                             })
                         }
                     }
@@ -160,9 +247,8 @@ where
                             Some(Self::Vlsegff {
                                 vd,
                                 rs1,
-                                vm,
                                 eew,
-                                nf: nf_val,
+                                vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                             })
                         }
                     }
@@ -186,9 +272,8 @@ where
                         vd,
                         rs1,
                         vs2,
-                        vm,
                         eew,
-                        nf: nf_val,
+                        vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                     })
                 }
             }
@@ -209,9 +294,8 @@ where
                         vd,
                         rs1,
                         rs2,
-                        vm,
                         eew,
-                        nf: nf_val,
+                        vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                     })
                 }
             }
@@ -232,9 +316,8 @@ where
                         vd,
                         rs1,
                         vs2,
-                        vm,
                         eew,
-                        nf: nf_val,
+                        vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                     })
                 }
             }
@@ -268,11 +351,11 @@ where
             Self::Vluxei { vd, rs1, vs2, vm, eew } => write!(f, "vluxei{eew}.v {vd}, ({rs1}), {vs2}{}", mask_suffix(vm)),
             Self::Vloxei { vd, rs1, vs2, vm, eew } => write!(f, "vloxei{eew}.v {vd}, ({rs1}), {vs2}{}", mask_suffix(vm)),
             Self::Vlr { vd, rs1, nreg, eew } => write!(f, "vl{nreg}re{eew}.v {vd}, ({rs1})"),
-            Self::Vlseg { vd, rs1, vm, eew, nf } => write!(f, "vlseg{nf}e{eew}.v {vd}, ({rs1}){}", mask_suffix(vm)),
-            Self::Vlsegff { vd, rs1, vm, eew, nf } => write!(f, "vlseg{nf}e{eew}ff.v {vd}, ({rs1}){}", mask_suffix(vm)),
-            Self::Vlsseg { vd, rs1, rs2, vm, eew, nf } => write!(f, "vlsseg{nf}e{eew}.v {vd}, ({rs1}), {rs2}{}", mask_suffix(vm)),
-            Self::Vluxseg { vd, rs1, vs2, vm, eew, nf } => write!(f, "vluxseg{nf}ei{eew}.v {vd}, ({rs1}), {vs2}{}", mask_suffix(vm)),
-            Self::Vloxseg { vd, rs1, vs2, vm, eew, nf } => write!(f, "vloxseg{nf}ei{eew}.v {vd}, ({rs1}), {vs2}{}", mask_suffix(vm)),
+            Self::Vlseg { vd, rs1, eew, vm_nf } => write!(f, "vlseg{}e{eew}.v {vd}, ({rs1}){}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vlsegff { vd, rs1, eew, vm_nf } => write!(f, "vlseg{}e{eew}ff.v {vd}, ({rs1}){}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vlsseg { vd, rs1, rs2, eew, vm_nf } => write!(f, "vlsseg{}e{eew}.v {vd}, ({rs1}), {rs2}{}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vluxseg { vd, rs1, vs2, eew, vm_nf } => write!(f, "vluxseg{}ei{eew}.v {vd}, ({rs1}), {vs2}{}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vloxseg { vd, rs1, vs2, eew, vm_nf } => write!(f, "vloxseg{}ei{eew}.v {vd}, ({rs1}), {vs2}{}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
         }
     }
 }

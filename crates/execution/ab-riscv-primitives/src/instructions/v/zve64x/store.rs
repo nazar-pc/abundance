@@ -5,6 +5,7 @@ mod tests;
 
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
+use crate::instructions::v::zve64x::load::{Nf, SegVmNf};
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -46,19 +47,19 @@ pub enum Zve64xStoreInstruction<Reg> {
     /// Unit-stride segment store: `vsseg{nf}e{eew}.v vs3, (rs1), vm`
     ///
     /// mop=00, sumop=00000, nf>0
-    Vsseg { vs3: VReg, rs1: Reg, vm: bool, eew: Eew, nf: u8 },
+    Vsseg { vs3: VReg, rs1: Reg, eew: Eew, vm_nf: SegVmNf },
     /// Strided segment store: `vssseg{nf}e{eew}.v vs3, (rs1), rs2, vm`
     ///
     /// mop=10, nf>0
-    Vssseg { vs3: VReg, rs1: Reg, rs2: Reg, vm: bool, eew: Eew, nf: u8 },
+    Vssseg { vs3: VReg, rs1: Reg, rs2: Reg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-unordered segment store: `vsuxseg{nf}ei{eew}.v vs3, (rs1), vs2, vm`
     ///
     /// mop=01, nf>0
-    Vsuxseg { vs3: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew, nf: u8 },
+    Vsuxseg { vs3: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-ordered segment store: `vsoxseg{nf}ei{eew}.v vs3, (rs1), vs2, vm`
     ///
     /// mop=11, nf>0
-    Vsoxseg { vs3: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew, nf: u8 },
+    Vsoxseg { vs3: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
 }
 
 #[instruction]
@@ -109,9 +110,8 @@ where
                             Some(Self::Vsseg {
                                 vs3,
                                 rs1,
-                                vm,
+                                vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                                 eew,
-                                nf: nf_val,
                             })
                         }
                     }
@@ -159,9 +159,8 @@ where
                         vs3,
                         rs1,
                         vs2,
-                        vm,
+                        vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                         eew,
-                        nf: nf_val,
                     })
                 }
             }
@@ -182,9 +181,8 @@ where
                         vs3,
                         rs1,
                         rs2,
-                        vm,
+                        vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                         eew,
-                        nf: nf_val,
                     })
                 }
             }
@@ -205,9 +203,8 @@ where
                         vs3,
                         rs1,
                         vs2,
-                        vm,
+                        vm_nf: SegVmNf::new(vm, Nf::new(nf_val)?),
                         eew,
-                        nf: nf_val,
                     })
                 }
             }
@@ -240,10 +237,10 @@ where
             Self::Vsuxei { vs3, rs1, vs2, vm, eew } => write!(f, "vsuxei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),
             Self::Vsoxei { vs3, rs1, vs2, vm, eew } => write!(f, "vsoxei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),
             Self::Vsr { vs3, rs1, nreg } => write!(f, "vs{nreg}r.v {vs3}, ({rs1})"),
-            Self::Vsseg { vs3, rs1, vm, eew, nf } => write!(f, "vsseg{nf}e{eew}.v {vs3}, ({rs1}){}", mask_suffix(vm)),
-            Self::Vssseg { vs3, rs1, rs2, vm, eew, nf } => write!(f, "vssseg{nf}e{eew}.v {vs3}, ({rs1}), {rs2}{}", mask_suffix(vm)),
-            Self::Vsuxseg { vs3, rs1, vs2, vm, eew, nf } => write!(f, "vsuxseg{nf}ei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),
-            Self::Vsoxseg { vs3, rs1, vs2, vm, eew, nf } => write!(f, "vsoxseg{nf}ei{eew}.v {vs3}, ({rs1}), {vs2}{}", mask_suffix(vm)),
+            Self::Vsseg { vs3, rs1, eew, vm_nf } => write!(f, "vsseg{}e{eew}.v {vs3}, ({rs1}){}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vssseg { vs3, rs1, rs2, eew, vm_nf } => write!(f, "vssseg{}e{eew}.v {vs3}, ({rs1}), {rs2}{}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vsuxseg { vs3, rs1, vs2, eew, vm_nf } => write!(f, "vsuxseg{}ei{eew}.v {vs3}, ({rs1}), {vs2}{}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
+            Self::Vsoxseg { vs3, rs1, vs2, eew, vm_nf } => write!(f, "vsoxseg{}ei{eew}.v {vs3}, ({rs1}), {vs2}{}", vm_nf.nf(), mask_suffix(&vm_nf.vm())),
         }
     }
 }

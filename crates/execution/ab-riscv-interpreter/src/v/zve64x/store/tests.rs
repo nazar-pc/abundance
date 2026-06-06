@@ -1144,9 +1144,8 @@ fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
         Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V2,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1185,9 +1184,8 @@ fn vsseg_nf3_e32_m1_stores_three_fields_per_element() {
         Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V0,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E32,
-            nf: 3,
+            vm_nf: SegVmNf::new(true, Nf::N3),
             rs2: Reg::Zero,
         },
     )
@@ -1214,9 +1212,8 @@ fn vsseg_register_group_out_of_bounds_returns_illegal() {
         Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V30,
             rs1: Reg::A0,
-            vm: true,
             eew: Eew::E32,
-            nf: 4,
+            vm_nf: SegVmNf::new(true, Nf::N4),
             rs2: Reg::Zero,
         },
     );
@@ -1246,9 +1243,8 @@ fn vsseg_masked_vs3_equals_v0_is_legal() {
         Zve64xStoreInstruction::Vsseg {
             vs3: VReg::V0,
             rs1: Reg::A0,
-            vm: false,
             eew: Eew::E8,
-            nf: 2,
+            vm_nf: SegVmNf::new(false, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1292,9 +1288,8 @@ fn vssseg_nf2_e32_m1_stride_16_stores_correctly() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             rs2: Reg::A1,
-            vm: true,
             eew: Eew::E32,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
         },
     )
     .unwrap();
@@ -1338,9 +1333,8 @@ fn vsuxseg_nf2_e32_index_e32_data_stores_segments_at_indexed_addresses() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             vs2: VReg::V6,
-            vm: true,
             eew: Eew::E32,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )
@@ -1379,9 +1373,8 @@ fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
             vs3: VReg::V2,
             rs1: Reg::A0,
             vs2: VReg::V6,
-            vm: true,
             eew: Eew::E64,
-            nf: 2,
+            vm_nf: SegVmNf::new(true, Nf::N2),
             rs2: Reg::Zero,
         },
     )

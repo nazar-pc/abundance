@@ -7,9 +7,6 @@ use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::fmt;
 
-#[doc(hidden)]
-pub const MAX_NF: u8 = 8;
-
 /// Return whether mask bit `i` is set in the mask byte slice.
 ///
 /// Bits are stored LSB-first within each byte: bit `i` is at byte `i / 8`, position `i % 8`.
@@ -154,14 +151,14 @@ pub fn validate_segment_registers<Reg, Memory, PC, CustomError>(
     vd: VReg,
     vm: bool,
     group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     let group_regs = u32::from(group_regs);
-    let nf = u32::from(nf);
+    let nf = u32::from(nf.fields_per_segment());
     let vd_idx = u32::from(vd.bits());
     if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
@@ -270,7 +267,6 @@ fn read_mem_element(
 /// and returns `Ok`. An error at element `0` always propagates.
 ///
 /// # Safety
-/// - `nf <= MAX_NF`
 /// - `vd.bits() % group_regs == 0`
 /// - `vd.bits() + nf * group_regs <= 32`
 /// - `vl <= group_regs * VLENB / eew.bytes()` (all `vl` elements fit within the destination
@@ -288,7 +284,7 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
     base: u64,
     eew: Eew,
     group_regs: u8,
-    nf: u8,
+    nf: Nf,
     fault_only_first: bool,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -303,7 +299,7 @@ where
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes();
-    let segment_stride = u64::from(nf) * u64::from(elem_bytes);
+    let segment_stride = u64::from(nf.fields_per_segment()) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -316,23 +312,23 @@ where
         let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
 
         // Read all nf fields into a stack buffer before writing any of them.
-        // This ensures a fault on field f>0 leaves the destination registers
-        // untouched for the faulting element, so only elements with index
-        // new_vl are ever written (fault-only-first semantics).
+        // This ensures a fault on field f>0 leaves the destination registers untouched for the
+        // faulting element, so only elements with index new_vl are ever written (fault-only-first
+        // semantics).
         //
-        // Sized by `MAX_NF * Eew::MAX_BYTES`: the V spec allows at most 8
-        // fields (nf in 1..=8) each is at most 8 bytes (E64), giving 64 bytes.
-        let mut field_buf = [[0u8; usize::from(Eew::MAX_BYTES)]; usize::from(MAX_NF)];
+        // Sized by `Nf::MAX * Eew::MAX_BYTES`: the V spec allows at most 8 fields (nf in 1..=8)
+        // each is at most 8 bytes (E64), giving 64 bytes.
+        let mut field_buf =
+            [[0u8; usize::from(Eew::MAX_BYTES)]; usize::from(Nf::MAX.fields_per_segment())];
 
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
             match read_mem_element(memory, addr, eew) {
                 Ok(data) => {
                     // SAFETY: `f < nf` and the precondition on this function requires
-                    // `nf <= MAX_NF` (the V spec encodes nf in 3 bits giving 1..=8 =
-                    // MAX_NF, and the decoder enforces this before constructing the
-                    // instruction). Therefore, `f as usize < nf as usize <= MAX_NF`,
-                    // which is exactly the length of `field_buf`.
+                    // `nf <= Nf::MAX` (the V spec encodes nf in 3 bits giving 1..=Nf::MAX, and the
+                    // decoder enforces this before constructing the instruction). Therefore, `f as
+                    // usize < nf as usize <= Nf::MAX`, which is exactly the length of `field_buf`.
                     unsafe {
                         *field_buf.get_unchecked_mut(f as usize) = data;
                     }
@@ -356,7 +352,7 @@ where
         }
 
         // All nf fields for element i were read successfully; commit to the register file.
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let field_base_reg = vd.bits() + f * group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
@@ -372,8 +368,8 @@ where
             // Therefore, `field_base_reg + i / elems_per_reg
             //            < field_base_reg + group_regs <= 32`.
             //
-            // For `field_buf`: `f < nf <= MAX_NF` (the same argument as in the read loop
-            // above), so `f as usize < MAX_NF = field_buf.len()`.
+            // For `field_buf`: `f < nf <= Nf::MAX` (the same argument as in the read loop
+            // above), so `f as usize < Nf::MAX = field_buf.len()`.
             unsafe {
                 write_group_element(
                     ext_state.write_vreg(),
@@ -413,7 +409,7 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     stride: i64,
     eew: Eew,
     group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -438,7 +434,7 @@ where
 
         let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
 
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
             let data = match read_mem_element(memory, addr, eew) {
                 Ok(data) => data,
@@ -502,7 +498,7 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     data_eew: Eew,
     index_eew: Eew,
     data_group_regs: u8,
-    nf: u8,
+    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -538,7 +534,7 @@ where
         let elem_addr = base.wrapping_add(offset);
 
         let data_elem_bytes = data_eew.bytes();
-        for f in 0..nf {
+        for f in 0..nf.fields_per_segment() {
             let addr = elem_addr.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
             let data = match read_mem_element(memory, addr, data_eew) {
                 Ok(data) => data,
