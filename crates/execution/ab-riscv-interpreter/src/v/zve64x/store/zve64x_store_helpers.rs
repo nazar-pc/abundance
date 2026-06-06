@@ -32,7 +32,7 @@ fn write_mem_element(
     eew: Eew,
     buf: [u8; Eew::MAX_BYTES as usize],
 ) -> Result<(), VirtualMemoryError> {
-    memory.write_slice(addr, &buf[..usize::from(eew.bytes())])
+    memory.write_slice(addr, &buf[..usize::from(eew.bytes_width())])
 }
 
 /// Validate a segment store's destination register group.
@@ -53,7 +53,8 @@ where
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     check_register_group_alignment::<Reg, _, _, _>(program_counter, vs3, group_regs)?;
-    let total = u32::from(vs3.bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs);
+    let total =
+        u32::from(vs3.to_bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs);
     if total > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -99,7 +100,7 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let elem_bytes = eew.bytes();
+    let elem_bytes = eew.bytes_width();
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -110,7 +111,7 @@ where
         let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
-            let field_base_reg = vs3.bits() + f * group_regs;
+            let field_base_reg = vs3.to_bits() + f * group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
             // Let `elems_per_reg = VLENB / elem_bytes`.
@@ -177,7 +178,7 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let elem_bytes = eew.bytes();
+    let elem_bytes = eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -187,7 +188,7 @@ where
         let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
-            let field_base_reg = vs3.bits() + f * group_regs;
+            let field_base_reg = vs3.to_bits() + f * group_regs;
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
             // i / elems_per_reg < field_base_reg + group_regs <= vs3.bits() + nf *
             // group_regs <= 32`.
@@ -250,7 +251,7 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let data_elem_bytes = data_eew.bytes();
+    let data_elem_bytes = data_eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     for i in u32::from(vstart)..vl {
@@ -260,14 +261,19 @@ where
         // SAFETY: `i < vl <= index_group_regs * VLENB / index_eew.bytes()` (precondition), so
         // `vs2.bits() + i / (VLENB / index_eew.bytes()) < vs2.bits() + index_group_regs <= 32`.
         let index_buf = unsafe {
-            read_group_element(ext_state.read_vreg(), usize::from(vs2.bits()), i, index_eew)
+            read_group_element(
+                ext_state.read_vreg(),
+                usize::from(vs2.to_bits()),
+                i,
+                index_eew,
+            )
         };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
         let elem_base = base.wrapping_add(offset);
         for f in 0..nf.fields_per_segment() {
             let addr = elem_base.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
-            let field_base_reg = vs3.bits() + f * data_group_regs;
+            let field_base_reg = vs3.to_bits() + f * data_group_regs;
             // SAFETY: `i < vl <= data_group_regs * VLENB / data_eew.bytes()` (precondition), so
             // `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
             //                                    <= vs3.bits() + nf * data_group_regs <= 32`.

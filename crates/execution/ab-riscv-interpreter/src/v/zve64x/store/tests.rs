@@ -28,7 +28,7 @@ fn setup(
 }
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 fn set_vreg(
@@ -36,7 +36,7 @@ fn set_vreg(
     reg: VReg,
     data: &[u8],
 ) {
-    let dst = &mut state.ext_state.write_vreg()[usize::from(reg.bits())];
+    let dst = &mut state.ext_state.write_vreg()[usize::from(reg.to_bits())];
     dst[..data.len()].copy_from_slice(data);
 }
 

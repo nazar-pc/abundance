@@ -78,7 +78,11 @@ where
                 // SAFETY: element 0 is always within register vs2, byte offset 0;
                 // VLENB >= sew.bytes() for all legal vtype configurations.
                 let raw = unsafe {
-                    zve64x_perm_helpers::read_element_0_u64(ext_state.read_vreg(), vs2.bits(), sew)
+                    zve64x_perm_helpers::read_element_0_u64(
+                        ext_state.read_vreg(),
+                        vs2.to_bits(),
+                        sew,
+                    )
                 };
                 let sign_extended = zve64x_perm_helpers::sign_extend_to_reg::<Reg>(raw, sew);
                 regs.write(rd, sign_extended);
@@ -110,7 +114,7 @@ where
                     unsafe {
                         zve64x_perm_helpers::write_element_0_u64(
                             ext_state.write_vreg(),
-                            vd.bits(),
+                            vd.to_bits(),
                             sew,
                             scalar,
                         );
@@ -813,8 +817,8 @@ where
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
                         ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        vd.to_bits(),
+                        vs2.to_bits(),
                         1,
                     );
                 }
@@ -830,7 +834,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vd.bits().is_multiple_of(2) || !vs2.bits().is_multiple_of(2) {
+                if !vd.to_bits().is_multiple_of(2) || !vs2.to_bits().is_multiple_of(2) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -839,8 +843,8 @@ where
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
                         ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        vd.to_bits(),
+                        vs2.to_bits(),
                         2,
                     );
                 }
@@ -855,7 +859,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vd.bits().is_multiple_of(4) || !vs2.bits().is_multiple_of(4) {
+                if !vd.to_bits().is_multiple_of(4) || !vs2.to_bits().is_multiple_of(4) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -864,8 +868,8 @@ where
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
                         ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        vd.to_bits(),
+                        vs2.to_bits(),
                         4,
                     );
                 }
@@ -880,7 +884,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vd.bits().is_multiple_of(8) || !vs2.bits().is_multiple_of(8) {
+                if !vd.to_bits().is_multiple_of(8) || !vs2.to_bits().is_multiple_of(8) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -889,8 +893,8 @@ where
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
                         ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        vd.to_bits(),
+                        vs2.to_bits(),
                         8,
                     );
                 }

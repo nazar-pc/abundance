@@ -142,7 +142,7 @@ impl Vlmul {
     #[inline(always)]
     pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<u8> {
         let (lmul_num, lmul_den) = self.as_fraction();
-        let num = u16::from(index_eew.bits()) * u16::from(lmul_num);
+        let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num);
         let den = u16::from(sew.bits_width()) * u16::from(lmul_den);
         // Both are products of powers of two; GCD equals the smaller value.
         let g = if num < den { num } else { den };
@@ -238,7 +238,7 @@ impl Vsew {
 
     /// Encode to the 3-bit vsew field
     #[inline(always)]
-    pub const fn bits(self) -> u8 {
+    pub const fn to_bits(self) -> u8 {
         match self {
             Vsew::E8 => 0b000,
             Vsew::E16 => 0b001,
@@ -321,18 +321,18 @@ impl fmt::Display for Vsew {
 #[repr(u8)]
 pub enum Eew {
     /// 8-bit elements
-    E8 = 0b000,
+    E8 = 1,
     /// 16-bit elements
-    E16 = 0b101,
+    E16 = 2,
     /// 32-bit elements
-    E32 = 0b110,
+    E32 = 4,
     /// 64-bit elements
-    E64 = 0b111,
+    E64 = 8,
 }
 
 impl Eew {
     /// Max element width in bytes
-    pub const MAX_BYTES: u8 = 8;
+    pub const MAX_BYTES: u8 = Self::E64.bytes_width();
 
     /// Decode the width field into an element width
     #[inline(always)]
@@ -346,9 +346,20 @@ impl Eew {
         }
     }
 
+    /// Encode to the 3-bit Eew field
+    #[inline(always)]
+    pub const fn to_bits(self) -> u8 {
+        match self {
+            Eew::E8 => 0b000,
+            Eew::E16 => 0b101,
+            Eew::E32 => 0b110,
+            Eew::E64 => 0b111,
+        }
+    }
+
     /// Element width in bits
     #[inline(always)]
-    pub const fn bits(self) -> u8 {
+    pub const fn bits_width(self) -> u8 {
         match self {
             Self::E8 => 8,
             Self::E16 => 16,
@@ -361,7 +372,7 @@ impl Eew {
     ///
     /// Guaranteed to be `<= Self::MAX_BYTES`.
     #[inline(always)]
-    pub const fn bytes(self) -> u8 {
+    pub const fn bytes_width(self) -> u8 {
         match self {
             Self::E8 => 1,
             Self::E16 => 2,
@@ -372,8 +383,9 @@ impl Eew {
 }
 
 impl fmt::Display for Eew {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.bits().fmt(f)
+        self.bits_width().fmt(f)
     }
 }
 
@@ -508,7 +520,7 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
     {
         let mut raw = 0u8;
         raw |= self.vlmul.to_bits();
-        raw |= self.vsew.bits() << 3u8;
+        raw |= self.vsew.to_bits() << 3u8;
 
         if self.vta {
             raw |= 1 << 6u8;

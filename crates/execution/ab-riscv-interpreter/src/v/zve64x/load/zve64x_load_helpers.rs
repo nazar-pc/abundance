@@ -46,7 +46,7 @@ pub(in super::super) unsafe fn snapshot_mask<const VLENB: usize>(
         // SAFETY: `mask_bytes <= VLENB` by the caller's precondition
         unsafe {
             buf.get_unchecked_mut(..mask_bytes)
-                .copy_from_slice(vreg[usize::from(VReg::V0.bits())].get_unchecked(..mask_bytes));
+                .copy_from_slice(vreg[usize::from(VReg::V0.to_bits())].get_unchecked(..mask_bytes));
         }
     }
     buf
@@ -56,7 +56,7 @@ pub(in super::super) unsafe fn snapshot_mask<const VLENB: usize>(
 #[inline(always)]
 #[doc(hidden)]
 pub fn groups_overlap(a: VReg, a_regs: u8, b: VReg, b_regs: u8) -> bool {
-    let (a, b) = (a.bits(), b.bits());
+    let (a, b) = (a.to_bits(), b.to_bits());
     a < b + b_regs && b < a + a_regs
 }
 
@@ -96,7 +96,7 @@ pub fn indexed_load_overlap_allowed(
         return true;
     }
 
-    match sew.bytes_width().cmp(&index_eew.bytes()) {
+    match sew.bytes_width().cmp(&index_eew.bytes_width()) {
         // Equal EEW: the two groups coincide, overlap is permitted.
         Ordering::Equal => true,
         // Smaller data EEW: overlap must be in the lowest-numbered part of the index group, which
@@ -108,9 +108,9 @@ pub fn indexed_load_overlap_allowed(
         // recomputed here as `(index_eew / sew) * LMUL >= 1`.
         Ordering::Greater => {
             let (lmul_num, lmul_den) = vlmul.as_fraction();
-            let index_emul_at_least_one = u16::from(index_eew.bits()) * u16::from(lmul_num)
+            let index_emul_at_least_one = u16::from(index_eew.bits_width()) * u16::from(lmul_num)
                 >= u16::from(sew.bits_width()) * u16::from(lmul_den);
-            let (vd, vs2) = (vd.bits(), vs2.bits());
+            let (vd, vs2) = (vd.to_bits(), vs2.to_bits());
             index_emul_at_least_one && vd + data_regs == vs2 + index_regs
         }
     }
@@ -130,7 +130,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd = vd.bits();
+    let vd = vd.to_bits();
     if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -159,7 +159,7 @@ where
 {
     let group_regs = u32::from(group_regs);
     let nf = u32::from(nf.fields_per_segment());
-    let vd_idx = u32::from(vd.bits());
+    let vd_idx = u32::from(vd.to_bits());
     if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -195,7 +195,7 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: usize>(
     elem_i: u32,
     eew: Eew,
 ) -> [u8; Eew::MAX_BYTES as usize] {
-    let elem_bytes = usize::from(eew.bytes());
+    let elem_bytes = usize::from(eew.bytes_width());
     let elems_per_reg = VLENB / elem_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * elem_bytes;
@@ -229,7 +229,7 @@ unsafe fn write_group_element<const VLENB: usize>(
     eew: Eew,
     buf: [u8; Eew::MAX_BYTES as usize],
 ) {
-    let elem_bytes = usize::from(eew.bytes());
+    let elem_bytes = usize::from(eew.bytes_width());
     let elems_per_reg = VLENB / elem_bytes;
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * elem_bytes;
@@ -252,8 +252,8 @@ fn read_mem_element(
     eew: Eew,
 ) -> Result<[u8; Eew::MAX_BYTES as usize], VirtualMemoryError> {
     let mut out = [0; _];
-    out[..usize::from(eew.bytes())]
-        .copy_from_slice(memory.read_slice(addr, u32::from(eew.bytes()))?);
+    out[..usize::from(eew.bytes_width())]
+        .copy_from_slice(memory.read_slice(addr, u32::from(eew.bytes_width()))?);
     Ok(out)
 }
 
@@ -298,7 +298,7 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let elem_bytes = eew.bytes();
+    let elem_bytes = eew.bytes_width();
     let segment_stride = u64::from(nf.fields_per_segment()) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
@@ -353,7 +353,7 @@ where
 
         // All nf fields for element i were read successfully; commit to the register file.
         for f in 0..nf.fields_per_segment() {
-            let field_base_reg = vd.bits() + f * group_regs;
+            let field_base_reg = vd.to_bits() + f * group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
             // Let `elems_per_reg = VLENB / elem_bytes`.
@@ -422,7 +422,7 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let elem_bytes = eew.bytes();
+    let elem_bytes = eew.bytes_width();
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -446,7 +446,7 @@ where
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
             };
-            let field_base_reg = vd.bits() + f * group_regs;
+            let field_base_reg = vd.to_bits() + f * group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
             // Let `elems_per_reg = VLENB / elem_bytes`.
@@ -511,7 +511,7 @@ where
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let index_base_reg = usize::from(vs2.bits());
+    let index_base_reg = usize::from(vs2.to_bits());
 
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
@@ -533,7 +533,7 @@ where
         let offset = u64::from_le_bytes(index_buf);
         let elem_addr = base.wrapping_add(offset);
 
-        let data_elem_bytes = data_eew.bytes();
+        let data_elem_bytes = data_eew.bytes_width();
         for f in 0..nf.fields_per_segment() {
             let addr = elem_addr.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
             let data = match read_mem_element(memory, addr, data_eew) {
@@ -546,7 +546,7 @@ where
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
             };
-            let field_base_reg = vd.bits() + f * data_group_regs;
+            let field_base_reg = vd.to_bits() + f * data_group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / data_eew.bytes()) < 32`.
             //
             // Let `data_elems_per_reg = VLENB / data_eew.bytes()`.

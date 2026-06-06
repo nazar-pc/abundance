@@ -25,8 +25,8 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let a_start = u16::from(a.bits());
-    let b_start = u16::from(b.bits());
+    let a_start = u16::from(a.to_bits());
+    let b_start = u16::from(b.to_bits());
     let count = u16::from(count);
     // Intervals [a_start, a_start+count) and [b_start, b_start+count) overlap iff
     // each starts before the other ends. Arithmetic is widened to u16 to avoid u8 overflow
@@ -57,8 +57,8 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let a_start = u16::from(a.bits());
-    let b_start = u16::from(b.bits());
+    let a_start = u16::from(a.to_bits());
+    let b_start = u16::from(b.to_bits());
     let a_count = u16::from(a_count);
     let b_count = u16::from(b_count);
     // Intervals [a_start, a_start+a_count) and [b_start, b_start+b_count) overlap iff
@@ -648,7 +648,7 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf.get_unchecked_mut(..mask_bytes).copy_from_slice(
-            vreg.get_unchecked(usize::from(vs1.bits()))
+            vreg.get_unchecked(usize::from(vs1.to_bits()))
                 .get_unchecked(..mask_bytes),
         );
     }

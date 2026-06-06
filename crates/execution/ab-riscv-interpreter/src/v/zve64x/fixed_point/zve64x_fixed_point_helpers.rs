@@ -394,7 +394,7 @@ pub unsafe fn read_wide_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * double_sew_bytes;
     // SAFETY: caller guarantees bounds
-    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.to_bits()) + reg_off) };
     // SAFETY: `byte_off + double_sew_bytes <= VLENB`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + double_sew_bytes) };
     let mut buf = [0u8; 8];
@@ -594,7 +594,7 @@ where
             .ok_or(ExecutionError::IllegalInstruction {
                 address: program_counter.old_pc(INSTRUCTION_SIZE),
             })?;
-    let vs2_idx = vs2.bits();
+    let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(wide_group) || vs2_idx + wide_group > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),

@@ -6,7 +6,7 @@ use ab_riscv_primitives::prelude::*;
 /// Encode a vtype immediate from SEW, LMUL, vta, vma fields
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul, vta: bool, vma: bool) -> u16 {
     let mut val = u16::from(vlmul.to_bits());
-    val |= u16::from(vsew.bits()) << 3u8;
+    val |= u16::from(vsew.to_bits()) << 3u8;
     if vta {
         val |= 1 << 6u8;
     }

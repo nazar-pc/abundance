@@ -71,7 +71,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vd.bits()) % u32::from(nreg) != 0 {
+                if u32::from(vd.to_bits()) % u32::from(nreg) != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -79,7 +79,7 @@ where
                 let base = rs1_value.as_u64();
                 let vlenb = u64::from(ExtState::VLENB);
                 for reg_off in 0..u64::from(nreg) {
-                    let reg_idx = u64::from(vd.bits()) + reg_off;
+                    let reg_idx = u64::from(vd.to_bits()) + reg_off;
                     let bytes = memory
                         .read_slice(base + reg_off * vlenb, ExtState::VLENB)
                         .inspect_err(|_error| {
@@ -119,7 +119,7 @@ where
                     unsafe {
                         ext_state
                             .write_vreg()
-                            .get_unchecked_mut(usize::from(vd.bits()))
+                            .get_unchecked_mut(usize::from(vd.to_bits()))
                             .get_unchecked_mut(..bytes.len())
                             .copy_from_slice(bytes);
                     }
@@ -659,7 +659,7 @@ where
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
                     // encoding.
                     let field_vd = unsafe {
-                        VReg::from_bits(vd.bits() + f * data_group_regs).unwrap_unchecked()
+                        VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked()
                     };
                     if zve64x_load_helpers::groups_overlap(
                         field_vd,
@@ -747,7 +747,7 @@ where
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
                     // encoding.
                     let field_vd = unsafe {
-                        VReg::from_bits(vd.bits() + f * data_group_regs).unwrap_unchecked()
+                        VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked()
                     };
                     if zve64x_load_helpers::groups_overlap(
                         field_vd,

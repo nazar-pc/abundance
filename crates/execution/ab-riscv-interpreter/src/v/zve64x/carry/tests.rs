@@ -7,7 +7,7 @@ use crate::{
 use ab_riscv_primitives::prelude::*;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 fn setup(
@@ -56,7 +56,7 @@ fn write_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.to_bits()) + reg_off];
     let buf = value.to_le_bytes();
     reg[byte_off..byte_off + sew_bytes].copy_from_slice(&buf[..sew_bytes]);
 }
@@ -71,7 +71,7 @@ fn read_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.to_bits()) + reg_off];
     let mut buf = [0u8; 8];
     buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
     u64::from_le_bytes(buf)
@@ -84,7 +84,8 @@ fn set_mask_bit(
     i: u32,
     value: bool,
 ) {
-    let byte = &mut state.ext_state.write_vreg()[usize::from(reg.bits())][(i / u8::BITS) as usize];
+    let byte =
+        &mut state.ext_state.write_vreg()[usize::from(reg.to_bits())][(i / u8::BITS) as usize];
     if value {
         *byte |= 1 << (i % u8::BITS);
     } else {
@@ -97,7 +98,7 @@ fn read_mask_bit(
     reg: VReg,
     i: u32,
 ) -> bool {
-    let byte = state.ext_state.read_vreg()[usize::from(reg.bits())][(i / u8::BITS) as usize];
+    let byte = state.ext_state.read_vreg()[usize::from(reg.to_bits())][(i / u8::BITS) as usize];
     (byte >> (i % u8::BITS)) & 1 != 0
 }
 

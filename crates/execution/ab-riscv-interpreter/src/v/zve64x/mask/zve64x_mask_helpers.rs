@@ -39,9 +39,17 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     let vstart = ext_state.vstart();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
-    let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_snap = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     // SAFETY: `vs1.bits() < 32`; `VReg` values are always in `0..32`
-    let vs1_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs1.bits())) };
+    let vs1_snap = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs1.to_bits()))
+    };
     // Body elements [vstart, vl): compute the logical operation bit-by-bit. Prestart bits
     // [0, vstart) and tail bits [vl, VLEN) are left undisturbed.
     for i in u32::from(vstart)..vl {
@@ -86,7 +94,11 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2` is a valid VReg index (< 32)
-    let vs2_reg = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_reg = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     let mut count = 0u32;
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
@@ -132,7 +144,11 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2` is a valid VReg index (< 32)
-    let vs2_reg = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_reg = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
     let not_found = u64::MAX;
     let mut result = not_found;
@@ -191,7 +207,11 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
-    let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_snap = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     let mut found_first = false;
     for i in 0..vl {
         // Inactive elements: undisturbed
@@ -239,7 +259,11 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
-    let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_snap = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     let mut found_first = false;
     for i in 0..vl {
         if !mask_bit(&mask_buf, i) {
@@ -287,7 +311,11 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
-    let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_snap = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     let mut found_first = false;
     for i in 0..vl {
         if !mask_bit(&mask_buf, i) {
@@ -345,7 +373,11 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
     // SAFETY: `vs2.bits() < 32`; `VReg` values are always in `0..32`
-    let vs2_snap = *unsafe { ext_state.read_vreg().get_unchecked(usize::from(vs2.bits())) };
+    let vs2_snap = *unsafe {
+        ext_state
+            .read_vreg()
+            .get_unchecked(usize::from(vs2.to_bits()))
+    };
     // Per spec §16.8: inactive vs2 elements are treated as zero for the prefix sum.
     // The prefix count advances only when the execution mask is active AND the
     // corresponding vs2 bit is set.

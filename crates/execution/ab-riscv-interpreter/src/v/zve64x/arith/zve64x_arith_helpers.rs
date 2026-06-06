@@ -19,7 +19,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vreg_idx = vreg.bits();
+    let vreg_idx = vreg.to_bits();
     if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -46,8 +46,8 @@ where
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     if group_regs > 1 {
-        let vd_idx = vd.bits();
-        let src = src_base.bits();
+        let vd_idx = vd.to_bits();
+        let src = src_base.to_bits();
         if vd_idx >= src && vd_idx < src + group_regs {
             return Err(ExecutionError::IllegalInstruction {
                 address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -79,7 +79,7 @@ pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.to_bits()) + reg_off) };
     // SAFETY: `byte_off + sew_bytes <= VLENB` because `byte_off` is at most
     // `(elems_per_reg - 1) * sew_bytes = VLENB - sew_bytes`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
@@ -108,7 +108,7 @@ pub(in super::super) unsafe fn write_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.to_bits()) + reg_off) };
     // SAFETY: `byte_off + sew_bytes <= VLENB` - same argument as `read_element_u64`.
     // `sew_bytes <= 8` for all `Vsew` variants.
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
@@ -136,7 +136,7 @@ pub(in super::super) unsafe fn write_mask_bit<const VLENB: usize>(
     let bit_idx = elem_i % u8::BITS;
     // SAFETY: `byte_idx < VLENB` by the caller's precondition
     let byte = unsafe {
-        vreg.get_unchecked_mut(usize::from(vd.bits()))
+        vreg.get_unchecked_mut(usize::from(vd.to_bits()))
             .get_unchecked_mut(byte_idx)
     };
     if result {

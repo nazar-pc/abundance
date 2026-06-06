@@ -18,7 +18,7 @@ use ab_riscv_primitives::prelude::*;
 //   E64/Mf2 -> VLMAX=2,  1 reg,  4 elems/reg
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
 fn setup(
@@ -67,7 +67,7 @@ fn read_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.to_bits()) + reg_off];
     let mut buf = [0u8; 8];
     buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
     u64::from_le_bytes(buf)
@@ -84,7 +84,7 @@ fn write_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.to_bits()) + reg_off];
     let buf = value.to_le_bytes();
     reg[byte_off..byte_off + sew_bytes].copy_from_slice(&buf[..sew_bytes]);
 }
@@ -94,14 +94,14 @@ fn set_vreg_bytes(
     reg: VReg,
     value: u8,
 ) {
-    state.ext_state.write_vreg()[usize::from(reg.bits())].fill(value);
+    state.ext_state.write_vreg()[usize::from(reg.to_bits())].fill(value);
 }
 
 fn get_vreg_bytes(
     state: &crate::rv64::test_utils::TestInterpreterState<Zve64xPermInstruction<Reg<u64>>>,
     reg: VReg,
 ) -> [u8; 32] {
-    state.ext_state.read_vreg()[usize::from(reg.bits())]
+    state.ext_state.read_vreg()[usize::from(reg.to_bits())]
 }
 
 fn set_mask_bit(
@@ -110,7 +110,8 @@ fn set_mask_bit(
     i: u32,
     val: bool,
 ) {
-    let byte = &mut state.ext_state.write_vreg()[usize::from(reg.bits())][(i / u8::BITS) as usize];
+    let byte =
+        &mut state.ext_state.write_vreg()[usize::from(reg.to_bits())][(i / u8::BITS) as usize];
     if val {
         *byte |= 1 << (i % u8::BITS);
     } else {
@@ -1234,8 +1235,8 @@ fn vrgatherei16_vv_e8_m1_basic() {
         let reg_off = byte_off / 16;
         let b = byte_off % 16;
         let bytes = idx.to_le_bytes();
-        state.ext_state.write_vreg()[usize::from(VReg::V6.bits()) + reg_off][b] = bytes[0];
-        state.ext_state.write_vreg()[usize::from(VReg::V6.bits()) + reg_off][b + 1] = bytes[1];
+        state.ext_state.write_vreg()[usize::from(VReg::V6.to_bits()) + reg_off][b] = bytes[0];
+        state.ext_state.write_vreg()[usize::from(VReg::V6.to_bits()) + reg_off][b + 1] = bytes[1];
     }
     exec(
         &mut state,
@@ -1265,8 +1266,8 @@ fn vrgatherei16_vv_index_out_of_range_gives_zero() {
     for i in 0..8usize {
         let byte_off = i * 2;
         let bytes = 100u16.to_le_bytes();
-        state.ext_state.write_vreg()[usize::from(VReg::V6.bits())][byte_off] = bytes[0];
-        state.ext_state.write_vreg()[usize::from(VReg::V6.bits())][byte_off + 1] = bytes[1];
+        state.ext_state.write_vreg()[usize::from(VReg::V6.to_bits())][byte_off] = bytes[0];
+        state.ext_state.write_vreg()[usize::from(VReg::V6.to_bits())][byte_off + 1] = bytes[1];
     }
     exec(
         &mut state,
@@ -2125,7 +2126,7 @@ fn vcompress_vm_e32_basic() {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xBEEF);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0);
     set_mask_bit(&mut state, VReg::V1, 1, true);
     set_mask_bit(&mut state, VReg::V1, 3, true);
     exec(
@@ -2153,7 +2154,7 @@ fn vcompress_vm_all_active() {
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 7) as u64);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0xFF);
     exec(
         &mut state,
         Zve64xPermInstruction::VcompressVm {
@@ -2181,7 +2182,7 @@ fn vcompress_vm_none_active() {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, (i + 1) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xABCD);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0x00);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0x00);
     exec(
         &mut state,
         Zve64xPermInstruction::VcompressVm {
@@ -2208,7 +2209,7 @@ fn vcompress_vm_e8_all_elements() {
     for i in 0..16usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (15 - i) as u64);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0xFF);
     exec(
         &mut state,
         Zve64xPermInstruction::VcompressVm {
@@ -2269,7 +2270,7 @@ fn vcompress_vm_rejects_nonzero_vstart() {
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0xFF);
     state.ext_state.set_vstart(1);
     let err = exec(
         &mut state,
@@ -2292,7 +2293,7 @@ fn vcompress_vm_vstart_zero_normal_operation() {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
-    state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0);
+    state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0);
     set_mask_bit(&mut state, VReg::V1, 1, true);
     set_mask_bit(&mut state, VReg::V1, 2, true);
     exec(
@@ -2321,7 +2322,7 @@ fn vmv1r_v_copies_single_register() {
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
         26, 27, 28, 29, 30, 31, 32,
     ];
-    state.ext_state.write_vreg()[usize::from(VReg::V2.bits())] = src;
+    state.ext_state.write_vreg()[usize::from(VReg::V2.to_bits())] = src;
     set_vreg_bytes(&mut state, VReg::V4, 0xCC);
     exec(
         &mut state,
@@ -2416,12 +2417,12 @@ fn vmv4r_v_copies_four_registers() {
     for k in 0u8..4 {
         set_vreg_bytes(
             &mut state,
-            VReg::from_bits(VReg::V8.bits() + k).unwrap(),
+            VReg::from_bits(VReg::V8.to_bits() + k).unwrap(),
             k + 1,
         );
         set_vreg_bytes(
             &mut state,
-            VReg::from_bits(VReg::V12.bits() + k).unwrap(),
+            VReg::from_bits(VReg::V12.to_bits() + k).unwrap(),
             0xCC,
         );
     }
@@ -2437,7 +2438,7 @@ fn vmv4r_v_copies_four_registers() {
     .unwrap();
     for k in 0u8..4 {
         assert_eq!(
-            get_vreg_bytes(&state, VReg::from_bits(VReg::V12.bits() + k).unwrap()),
+            get_vreg_bytes(&state, VReg::from_bits(VReg::V12.to_bits() + k).unwrap()),
             [k + 1; 32],
             "reg offset {k}"
         );
@@ -2487,12 +2488,12 @@ fn vmv8r_v_copies_eight_registers() {
     for k in 0u8..8 {
         set_vreg_bytes(
             &mut state,
-            VReg::from_bits(VReg::V8.bits() + k).unwrap(),
+            VReg::from_bits(VReg::V8.to_bits() + k).unwrap(),
             k + 10,
         );
         set_vreg_bytes(
             &mut state,
-            VReg::from_bits(VReg::V16.bits() + k).unwrap(),
+            VReg::from_bits(VReg::V16.to_bits() + k).unwrap(),
             0xCC,
         );
     }
@@ -2508,7 +2509,7 @@ fn vmv8r_v_copies_eight_registers() {
     .unwrap();
     for k in 0u8..8 {
         assert_eq!(
-            get_vreg_bytes(&state, VReg::from_bits(VReg::V16.bits() + k).unwrap()),
+            get_vreg_bytes(&state, VReg::from_bits(VReg::V16.to_bits() + k).unwrap()),
             [k + 10; 32],
             "reg offset {k}"
         );
@@ -2899,7 +2900,7 @@ fn all_instructions_reset_vstart() {
             write_elem(&mut state, VReg::V2, i, Vsew::E32, (i + 1) as u64);
             write_elem(&mut state, VReg::V1, i, Vsew::E32, i as u64);
         }
-        state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
+        state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0xFF);
         state.ext_state.set_vstart(2);
         state.regs.write(Reg::A0, 1u64);
         exec(&mut state, *instr).unwrap();
@@ -3075,7 +3076,7 @@ fn all_vector_instructions_mark_vs_dirty() {
             write_elem(&mut state, VReg::V1, i, Vsew::E32, i as u64);
         }
         state.regs.write(Reg::A0, 1u64);
-        state.ext_state.write_vreg()[usize::from(VReg::V1.bits())].fill(0xFF);
+        state.ext_state.write_vreg()[usize::from(VReg::V1.to_bits())].fill(0xFF);
         let before = state.ext_state.vs_dirty_count();
         exec(&mut state, *instr).unwrap();
         assert_eq!(

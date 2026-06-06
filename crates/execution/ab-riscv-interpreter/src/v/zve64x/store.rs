@@ -69,7 +69,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vs3.bits()) % u32::from(nreg) != 0 {
+                if u32::from(vs3.to_bits()) % u32::from(nreg) != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -83,7 +83,7 @@ where
                     while byte_off < evl {
                         let reg_off = byte_off / vlenb;
                         let in_reg = (byte_off % vlenb) as usize;
-                        let reg_idx = (u64::from(vs3.bits()) + reg_off) as usize;
+                        let reg_idx = (u64::from(vs3.to_bits()) + reg_off) as usize;
                         // SAFETY: `reg_idx < 32` because the decoder guarantees `nreg` in
                         // {1,2,4,8} and `vs3` is `nreg`-aligned (checked above), so
                         // `vs3.bits() + nreg - 1 <= 31`. `in_reg < VLENB` by construction.
@@ -123,7 +123,7 @@ where
                     let src = unsafe {
                         ext_state
                             .read_vreg()
-                            .get_unchecked(usize::from(vs3.bits()))
+                            .get_unchecked(usize::from(vs3.to_bits()))
                             .get_unchecked(usize::from(start_byte)..evl_bytes as usize)
                     };
                     memory

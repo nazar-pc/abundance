@@ -412,15 +412,15 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let vd_idx = vd.bits();
+                let vd_idx = vd.to_bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 // vd must not overlap vs2; vs2 is always a single mask register (group size 1).
-                let vd_start = u32::from(vd.bits());
-                let vs2_start = u32::from(vs2.bits());
+                let vd_start = u32::from(vd.to_bits());
+                let vs2_start = u32::from(vs2.to_bits());
                 if vd_start < vs2_start + 1 && vs2_start < vd_start + u32::from(group_regs) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
@@ -454,7 +454,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 let group_regs = vtype.vlmul().register_count();
-                let vd_idx = vd.bits();
+                let vd_idx = vd.to_bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),

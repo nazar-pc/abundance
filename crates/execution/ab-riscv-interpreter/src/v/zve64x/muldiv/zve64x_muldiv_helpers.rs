@@ -73,9 +73,9 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_start = vd.bits();
+    let vd_start = vd.to_bits();
     let vd_end = vd_start + dest_group_regs;
-    let vs_start = vs.bits();
+    let vs_start = vs.to_bits();
     let vs_end = vs_start + src_group_regs;
     // Disjoint register groups are always fine
     if vs_start >= vd_end || vd_start >= vs_end {
@@ -111,7 +111,7 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * wide_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.to_bits()) + reg_off) };
     // SAFETY: `byte_off + wide_bytes <= VLENB`; `wide_bytes <= 8` for SEW < 64
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + wide_bytes) };
     // SAFETY: `wide_bytes <= 8` because SEW < 64 is enforced before widening ops are called

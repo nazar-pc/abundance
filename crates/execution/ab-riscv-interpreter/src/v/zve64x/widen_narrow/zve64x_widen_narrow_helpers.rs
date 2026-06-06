@@ -21,7 +21,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vd.bits();
+    let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -51,7 +51,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vs2_idx = vs2.bits();
+    let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -59,7 +59,7 @@ where
     }
     // The wide destination (group_regs) may overlap the narrow source (src_group_regs) only in the
     // highest-numbered part of the destination group, and only when the source EMUL >= 1.
-    if widen_src_overlap_illegal(vd.bits(), group_regs, vs2_idx, src_group_regs) {
+    if widen_src_overlap_illegal(vd.to_bits(), group_regs, vs2_idx, src_group_regs) {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -93,19 +93,19 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vd.bits();
+    let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
-    if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.bits(), group_regs) {
+    if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.to_bits(), group_regs) {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     if let Some(vs_b) = vs_b_opt
-        && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.bits(), group_regs)
+        && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.to_bits(), group_regs)
     {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -145,7 +145,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vs_idx = vs.bits();
+    let vs_idx = vs.to_bits();
     if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -170,7 +170,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vd.bits();
+    let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -212,7 +212,7 @@ unsafe fn snapshot_mask<const VLENB: usize>(
         // SAFETY: `mask_bytes <= VLENB` by precondition
         unsafe {
             buf.get_unchecked_mut(..mask_bytes)
-                .copy_from_slice(vreg[usize::from(VReg::V0.bits())].get_unchecked(..mask_bytes));
+                .copy_from_slice(vreg[usize::from(VReg::V0.to_bits())].get_unchecked(..mask_bytes));
         }
     }
     buf
@@ -235,7 +235,7 @@ unsafe fn read_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.to_bits()) + reg_off) };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
     let mut buf = [0u8; 8];
@@ -262,7 +262,7 @@ unsafe fn write_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.to_bits()) + reg_off) };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
     // SAFETY: `sew_bytes <= 8`

@@ -115,7 +115,7 @@ impl VReg {
 
     /// Return the 5-bit encoding of this register
     #[inline(always)]
-    pub const fn bits(self) -> u8 {
+    pub const fn to_bits(self) -> u8 {
         self as u8
     }
 }
