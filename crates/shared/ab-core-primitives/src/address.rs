@@ -21,14 +21,14 @@ pub struct FormattedAddress {
 impl fmt::Debug for FormattedAddress {
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_str().fmt(f)
+        fmt::Debug::fmt(self.as_str(), f)
     }
 }
 
 impl fmt::Display for FormattedAddress {
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_str().fmt(f)
+        fmt::Display::fmt(self.as_str(), f)
     }
 }
 

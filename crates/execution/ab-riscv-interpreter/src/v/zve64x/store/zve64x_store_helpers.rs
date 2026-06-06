@@ -109,7 +109,7 @@ where
         }
         let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
+            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
             let field_base_reg = vs3.bits() + f * group_regs;
             // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
             //
@@ -186,7 +186,7 @@ where
         }
         let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
+            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
             let field_base_reg = vs3.bits() + f * group_regs;
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
             // i / elems_per_reg < field_base_reg + group_regs <= vs3.bits() + nf *

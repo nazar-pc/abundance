@@ -322,7 +322,7 @@ where
             [[0u8; usize::from(Eew::MAX_BYTES)]; usize::from(Nf::MAX.fields_per_segment())];
 
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
+            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
             match read_mem_element(memory, addr, eew) {
                 Ok(data) => {
                     // SAFETY: `f < nf` and the precondition on this function requires
@@ -435,7 +435,7 @@ where
         let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
 
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f) * u64::from(elem_bytes));
+            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
             let data = match read_mem_element(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {

@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
         .capability(Capability::GroupNonUniformShuffle)
         // Avoid Cargo deadlock, customize target
-        .target_dir_path(out_dir.to_string_lossy().to_string());
+        .target_dir_path(out_dir.clone());
     spirv_builder.build_script.defaults = true;
     spirv_builder
         .build_script
