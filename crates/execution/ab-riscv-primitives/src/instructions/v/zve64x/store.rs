@@ -5,7 +5,7 @@ mod tests;
 
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
-use crate::instructions::v::zve64x::load::{Nf, SegVmNf};
+use crate::instructions::v::zve64x::load::{LoadStoreNreg, Nf, SegVmNf};
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -43,7 +43,7 @@ pub enum Zve64xStoreInstruction<Reg> {
     /// Whole-register store: `vs{nreg}r.v vs3, (rs1)`
     ///
     /// mop=00, sumop=01000, vm=1. nreg must be 1, 2, 4, or 8.
-    Vsr { vs3: VReg, rs1: Reg, nreg: u8 },
+    Vsr { vs3: VReg, rs1: Reg, nreg: LoadStoreNreg },
     /// Unit-stride segment store: `vsseg{nf}e{eew}.v vs3, (rs1), vm`
     ///
     /// mop=00, sumop=00000, nf>0
@@ -121,15 +121,8 @@ where
                         if !vm || width != 0b000 {
                             None?;
                         }
-                        // nreg must be 1, 2, 4, or 8
-                        match nf_val {
-                            1 | 2 | 4 | 8 => Some(Self::Vsr {
-                                vs3,
-                                rs1,
-                                nreg: nf_val,
-                            }),
-                            _ => None,
-                        }
+                        let nreg = LoadStoreNreg::new(nf_val)?;
+                        Some(Self::Vsr { vs3, rs1, nreg })
                     }
                     // Mask store
                     0b0_1011 => {

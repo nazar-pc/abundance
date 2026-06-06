@@ -385,7 +385,7 @@ impl Eew {
 impl fmt::Display for Eew {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.bits_width().fmt(f)
+        fmt::Display::fmt(&self.bits_width(), f)
     }
 }
 

@@ -66,6 +66,7 @@ where
                 nreg,
                 eew: _,
             } => {
+                let nreg = nreg.num_registers();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),

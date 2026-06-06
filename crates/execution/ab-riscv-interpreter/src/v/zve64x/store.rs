@@ -64,6 +64,7 @@ where
             // to `nreg`. Ignores vtype, vl, masking. Honors `vstart` in byte units: the first
             // `vstart` bytes are skipped. If `vstart >= EVL`, the instruction is a no-op.
             Self::Vsr { vs3, rs1: _, nreg } => {
+                let nreg = nreg.num_registers();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),

@@ -35,7 +35,7 @@ pub enum Nf {
 impl fmt::Display for Nf {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.fields_per_segment())
+        fmt::Display::fmt(&self.fields_per_segment(), f)
     }
 }
 
@@ -98,6 +98,47 @@ impl SegVmNf {
     }
 }
 
+/// `nreg` field for load/store instructions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum LoadStoreNreg {
+    /// 1 register
+    N1 = 1,
+    /// 2 registers
+    N2 = 2,
+    /// 4 registers
+    N4 = 4,
+    /// 8 registers
+    N8 = 8,
+}
+
+impl fmt::Display for LoadStoreNreg {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.num_registers(), f)
+    }
+}
+
+impl LoadStoreNreg {
+    /// Create a new instance
+    #[inline(always)]
+    pub const fn new(n: u8) -> Option<Self> {
+        match n {
+            1 => Some(Self::N1),
+            2 => Some(Self::N2),
+            4 => Some(Self::N4),
+            8 => Some(Self::N8),
+            _ => None,
+        }
+    }
+
+    /// Get the number of registers
+    #[inline(always)]
+    pub const fn num_registers(&self) -> u8 {
+        *self as u8
+    }
+}
+
 /// RISC-V Zve64x vector load instruction.
 ///
 /// Encoded under the LOAD-FP major opcode (0x07). All loads use rs1 (GPR) as a base address and vd
@@ -134,7 +175,7 @@ pub enum Zve64xLoadInstruction<Reg> {
     /// Whole-register load: `vl{nreg}re{eew}.v vd, (rs1)`
     ///
     /// mop=00, lumop=01000, vm=1. nreg must be 1, 2, 4, or 8.
-    Vlr { vd: VReg, rs1: Reg, nreg: u8, eew: Eew },
+    Vlr { vd: VReg, rs1: Reg, nreg: LoadStoreNreg, eew: Eew },
     /// Unit-stride segment load: `vlseg{nf}e{eew}.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=00000, nf>0
@@ -219,16 +260,8 @@ where
                             None?;
                         }
                         let eew = Eew::from_width(width)?;
-                        // nf encodes nreg: nf+1 must be 1, 2, 4, or 8
-                        match nf_val {
-                            1 | 2 | 4 | 8 => Some(Self::Vlr {
-                                vd,
-                                rs1,
-                                nreg: nf_val,
-                                eew,
-                            }),
-                            _ => None,
-                        }
+                        let nreg = LoadStoreNreg::new(nf_val)?;
+                        Some(Self::Vlr { vd, rs1, nreg, eew })
                     }
                     // Mask load
                     0b0_1011 => {

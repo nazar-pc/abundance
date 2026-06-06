@@ -89,7 +89,7 @@ fn vsr_single_register_stores_vlenb_bytes() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V2,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
     )
@@ -115,7 +115,7 @@ fn vsr_two_registers_stores_two_vlenb_blocks() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V2,
             rs1: Reg::A0,
-            nreg: 2,
+            nreg: LoadStoreNreg::N2,
             rs2: Reg::Zero,
         },
     )
@@ -140,7 +140,7 @@ fn vsr_four_registers_stores_four_vlenb_blocks() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V4,
             rs1: Reg::A0,
-            nreg: 4,
+            nreg: LoadStoreNreg::N4,
             rs2: Reg::Zero,
         },
     )
@@ -170,7 +170,7 @@ fn vsr_eight_registers_stores_eight_vlenb_blocks() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V8,
             rs1: Reg::A0,
-            nreg: 8,
+            nreg: LoadStoreNreg::N8,
             rs2: Reg::Zero,
         },
     )
@@ -197,7 +197,7 @@ fn vsr_misaligned_register_returns_illegal_instruction() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V3,
             rs1: Reg::A0,
-            nreg: 2,
+            nreg: LoadStoreNreg::N2,
             rs2: Reg::Zero,
         },
     );
@@ -225,7 +225,7 @@ fn vsr_ignores_vtype_and_vl() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V0,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
     )
@@ -247,7 +247,7 @@ fn vsr_vector_not_allowed_returns_illegal_instruction() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V0,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
     );
@@ -275,7 +275,7 @@ fn vsr_honors_nonzero_vstart() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V2,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
     )
@@ -308,7 +308,7 @@ fn vsr_vstart_at_or_past_evl_writes_nothing() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V2,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
     )
@@ -338,7 +338,7 @@ fn vsr_nreg2_vstart_spans_register_boundary() {
         Zve64xStoreInstruction::Vsr {
             vs3: VReg::V2,
             rs1: Reg::A0,
-            nreg: 2,
+            nreg: LoadStoreNreg::N2,
             rs2: Reg::Zero,
         },
     )

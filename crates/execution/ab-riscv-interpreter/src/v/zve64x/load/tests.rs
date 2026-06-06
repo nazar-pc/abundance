@@ -109,7 +109,7 @@ fn vlr_single_register_loads_vlenb_bytes() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V2,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -133,7 +133,7 @@ fn vlr_two_registers_loads_two_vlenb_blocks() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V2,
             rs1: Reg::A0,
-            nreg: 2,
+            nreg: LoadStoreNreg::N2,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -157,7 +157,7 @@ fn vlr_four_registers() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V4,
             rs1: Reg::A0,
-            nreg: 4,
+            nreg: LoadStoreNreg::N4,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -188,7 +188,7 @@ fn vlr_ignores_vtype_and_vl() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V0,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -212,7 +212,7 @@ fn vlr_resets_vstart_on_success() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V1,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -236,7 +236,7 @@ fn vlr_misaligned_vd_is_illegal() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V3,
             rs1: Reg::A0,
-            nreg: 2,
+            nreg: LoadStoreNreg::N2,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -257,7 +257,7 @@ fn vlr_out_of_bounds_memory_returns_error() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V0,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
@@ -2166,7 +2166,7 @@ fn vlr_eight_registers() {
         Zve64xLoadInstruction::Vlr {
             vd: VReg::V0,
             rs1: Reg::A0,
-            nreg: 8,
+            nreg: LoadStoreNreg::N8,
             eew: Eew::E8,
             rs2: Reg::Zero,
         },
