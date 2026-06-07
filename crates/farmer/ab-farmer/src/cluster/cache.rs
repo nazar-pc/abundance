@@ -46,7 +46,10 @@ impl Encode for ClusterCacheId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         match self {
             ClusterCacheId::Ulid(ulid) => {
                 dest.push_byte(0);
@@ -60,7 +63,10 @@ impl EncodeLike for ClusterCacheId {}
 
 impl Decode for ClusterCacheId {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         match input.read_byte().map_err(|e| {
             e.chain("Could not decode `ClusterCacheId`, failed to read variant byte")
         })? {

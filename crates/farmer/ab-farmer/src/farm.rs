@@ -67,7 +67,10 @@ impl Encode for PieceCacheId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         match self {
             PieceCacheId::Ulid(ulid) => {
                 dest.push_byte(0);
@@ -81,7 +84,10 @@ impl EncodeLike for PieceCacheId {}
 
 impl Decode for PieceCacheId {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         match input
             .read_byte()
             .map_err(|e| e.chain("Could not decode `PieceCacheId`, failed to read variant byte"))?
@@ -328,7 +334,10 @@ pub enum FarmingError {
 
 impl Encode for FarmingError {
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         let error = DecodedFarmingError {
             error: self.to_string(),
             is_fatal: self.is_fatal(),
@@ -340,7 +349,10 @@ impl Encode for FarmingError {
 
 impl Decode for FarmingError {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         DecodedFarmingError::decode(input).map(FarmingError::Decoded)
     }
 }
@@ -490,7 +502,10 @@ impl Encode for FarmId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         match self {
             FarmId::Ulid(ulid) => {
                 dest.push_byte(0);
@@ -504,7 +519,10 @@ impl EncodeLike for FarmId {}
 
 impl Decode for FarmId {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         match input
             .read_byte()
             .map_err(|e| e.chain("Could not decode `FarmId`, failed to read variant byte"))?

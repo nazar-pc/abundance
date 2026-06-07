@@ -456,19 +456,19 @@ impl NodeRunner {
     async fn handle_swarm_event(&mut self, swarm_event: SwarmEvent<Event>) {
         match swarm_event {
             SwarmEvent::Behaviour(Event::Identify(event)) => {
-                self.handle_identify_event(event).await;
+                self.handle_identify_event(event);
             }
             SwarmEvent::Behaviour(Event::Kademlia(event)) => {
-                self.handle_kademlia_event(event).await;
+                self.handle_kademlia_event(event);
             }
             SwarmEvent::Behaviour(Event::Gossipsub(event)) => {
-                self.handle_gossipsub_event(event).await;
+                self.handle_gossipsub_event(event);
             }
             SwarmEvent::Behaviour(Event::RequestResponse(event)) => {
-                self.handle_request_response_event(event).await;
+                self.handle_request_response_event(event);
             }
             SwarmEvent::Behaviour(Event::Autonat(event)) => {
-                self.handle_autonat_event(event).await;
+                self.handle_autonat_event(event);
             }
             ref event @ SwarmEvent::NewListenAddr { ref address, .. } => {
                 trace!(?event, "New local listener  event.");
@@ -715,7 +715,7 @@ impl NodeRunner {
         }
     }
 
-    async fn handle_identify_event(&mut self, event: IdentifyEvent) {
+    fn handle_identify_event(&mut self, event: IdentifyEvent) {
         let local_peer_id = *self.swarm.local_peer_id();
 
         if let IdentifyEvent::Received {
@@ -851,7 +851,7 @@ impl NodeRunner {
         }
     }
 
-    async fn handle_kademlia_event(&mut self, event: KademliaEvent) {
+    fn handle_kademlia_event(&mut self, event: KademliaEvent) {
         trace!("Kademlia event: {:?}", event);
 
         match event {
@@ -1152,7 +1152,7 @@ impl NodeRunner {
         }
     }
 
-    async fn handle_gossipsub_event(&mut self, event: GossipsubEvent) {
+    fn handle_gossipsub_event(&mut self, event: GossipsubEvent) {
         if let GossipsubEvent::Message { message, .. } = event
             && let Some(senders) = self.topic_subscription_senders.get(&message.topic)
         {
@@ -1165,12 +1165,12 @@ impl NodeRunner {
         }
     }
 
-    async fn handle_request_response_event(&mut self, event: RequestResponseEvent) {
+    fn handle_request_response_event(&mut self, event: RequestResponseEvent) {
         // No actions on statistics events.
         trace!("Request response event: {:?}", event);
     }
 
-    async fn handle_autonat_event(&mut self, event: AutonatEvent) {
+    fn handle_autonat_event(&mut self, event: AutonatEvent) {
         trace!(?event, "Autonat event received.");
         let autonat = &self.swarm.behaviour().autonat;
         debug!(

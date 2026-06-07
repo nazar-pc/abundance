@@ -57,7 +57,10 @@ impl Encode for Segment {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         for item in &self.items {
             item.encode_to(dest);
         }
@@ -66,7 +69,10 @@ impl Encode for Segment {
 
 impl Decode for Segment {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         let mut items = Vec::new();
         loop {
             match input.remaining_len()? {
@@ -125,7 +131,10 @@ impl Encode for BlockBytes {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         let length = u32::try_from(self.0.len())
             .expect("All constructors guarantee the size doesn't exceed `u32`; qed");
 
@@ -136,7 +145,10 @@ impl Encode for BlockBytes {
 
 impl Decode for BlockBytes {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         let length = u32::decode(input)?;
         if length as usize > (RecordedHistorySegment::SIZE - size_of::<u32>()) {
             return Err("Segment item size is impossibly large".into());

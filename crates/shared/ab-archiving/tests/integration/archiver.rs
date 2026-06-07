@@ -31,13 +31,19 @@ const PLACEHOLDER_SUPER_SEGMENT_HEADER: SuperSegmentHeader = SuperSegmentHeader 
     num_segments: 0,
 };
 
-fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
+fn extract_data<O>(data: &[u8], offset: O) -> &[u8]
+where
+    O: Into<u32>,
+{
     let offset: u32 = offset.into();
     let size = u32::decode(&mut &data[offset as usize..]).unwrap();
     &data[offset as usize + u32::encoded_fixed_size().unwrap()..][..size as usize]
 }
 
-fn extract_data_from_source_record<O: Into<u32>>(record: &Record, offset: O) -> &[u8] {
+fn extract_data_from_source_record<O>(record: &Record, offset: O) -> &[u8]
+where
+    O: Into<u32>,
+{
     let offset: u32 = offset.into();
     let size = u32::decode(&mut &record.as_flattened()[offset as usize..]).unwrap();
     &record.as_flattened()[offset as usize + u32::encoded_fixed_size().unwrap()..][..size as usize]

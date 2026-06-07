@@ -211,6 +211,9 @@ struct RetryJob {
 }
 
 async fn start_walking(node: Node, retries: u32, print_failed_addresses: bool) {
+    const DISPLAY_DELAY_IN_SECS: u64 = 10;
+    const RETRY_DELAY_IN_SECS: u64 = 100;
+
     let discovered_peers = Arc::new(Mutex::new(HashMap::<PeerId, PeerDiscovered>::new()));
     node.on_discovered_peer({
         let discovered_peers = Arc::clone(&discovered_peers);
@@ -221,9 +224,6 @@ async fn start_walking(node: Node, retries: u32, print_failed_addresses: bool) {
         })
     })
     .detach();
-
-    const DISPLAY_DELAY_IN_SECS: u64 = 10;
-    const RETRY_DELAY_IN_SECS: u64 = 100;
 
     let mut stats = PeerStats::default();
     let mut retry_jobs = Vec::new();

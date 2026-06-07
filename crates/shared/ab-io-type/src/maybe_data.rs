@@ -171,8 +171,6 @@ where
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
-    // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
-    //  `CAPACITY as usize`
     #[track_caller]
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
