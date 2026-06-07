@@ -70,12 +70,12 @@ where
 /// plain unit-stride store.
 ///
 /// # Safety
-/// - `vs3.bits() % group_regs == 0`
-/// - `vs3.bits() + nf * group_regs <= 32`
+/// - `vs3.to_bits() % group_regs == 0`
+/// - `vs3.to_bits() + nf * group_regs <= 32`
 /// - `vl <= group_regs * VLENB / eew.bytes()` (all `vl` elements fit within the source register
 ///   group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL register
 ///   count for the given `eew` and `vtype`)
-/// - When `vm=false`: `vs3` does not overlap `v0` (i.e. `vs3.bits() != 0`)
+/// - When `vm=false`: `vs3` does not overlap `v0` (i.e. `vs3.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -120,10 +120,10 @@ where
             // `i < vl <= group_regs * elems_per_reg` (precondition), so
             // `i / elems_per_reg < group_regs`.
             //
-            // `field_base_reg = vs3.bits() + f * group_regs`. Since `f < nf` and the
-            // precondition guarantees `vs3.bits() + nf * group_regs <= 32`:
-            // `field_base_reg + group_regs <= vs3.bits() + (f+1) * group_regs
-            //                             <= vs3.bits() + nf * group_regs <= 32`.
+            // `field_base_reg = vs3.to_bits() + f * group_regs`. Since `f < nf` and the
+            // precondition guarantees `vs3.to_bits() + nf * group_regs <= 32`:
+            // `field_base_reg + group_regs <= vs3.to_bits() + (f+1) * group_regs
+            //                             <= vs3.to_bits() + nf * group_regs <= 32`.
             //
             // Therefore,
             // `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
@@ -150,10 +150,10 @@ where
 /// specification where the stride operand is a two's-complement signed offset.
 ///
 /// # Safety
-/// - `vs3.bits() % group_regs == 0`
-/// - `vs3.bits() + nf * group_regs <= 32`
+/// - `vs3.to_bits() % group_regs == 0`
+/// - `vs3.to_bits() + nf * group_regs <= 32`
 /// - `vl <= group_regs * VLENB / eew.bytes()`
-/// - When `vm=false`: `vs3.bits() != 0`
+/// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -193,7 +193,7 @@ where
             let field_base_reg =
                 unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
-            // i / elems_per_reg < field_base_reg + group_regs <= vs3.bits() + nf *
+            // i / elems_per_reg < field_base_reg + group_regs <= vs3.to_bits() + nf *
             // group_regs <= 32`.
             let data =
                 unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, eew) };
@@ -220,13 +220,13 @@ where
 /// `index_eew` is the element width of the indices (from the instruction encoding).
 ///
 /// # Safety
-/// - `vs3.bits() % data_group_regs == 0`
-/// - `vs3.bits() + nf * data_group_regs <= 32`
+/// - `vs3.to_bits() % data_group_regs == 0`
+/// - `vs3.to_bits() + nf * data_group_regs <= 32`
 /// - `vs2` register group is aligned and fits within `[0, 32)` (caller must verify via
 ///   `check_register_group_alignment` before calling)
 /// - `vl <= data_group_regs * VLENB / data_eew.bytes()`
 /// - `vl <= index_group_regs * VLENB / index_eew.bytes()` (caller must verify)
-/// - When `vm=false`: `vs3.bits() != 0`
+/// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -261,7 +261,8 @@ where
             continue;
         }
         // SAFETY: `i < vl <= index_group_regs * VLENB / index_eew.bytes()` (precondition), so
-        // `vs2.bits() + i / (VLENB / index_eew.bytes()) < vs2.bits() + index_group_regs <= 32`.
+        // `vs2.to_bits() + i / (VLENB / index_eew.bytes()) <
+        //     vs2.to_bits() + index_group_regs <= 32`
         let index_buf = unsafe { read_group_element(ext_state.read_vregs(), vs2, i, index_eew) };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
@@ -273,7 +274,7 @@ where
                 unsafe { VReg::from_bits(vs3.to_bits() + f * data_group_regs).unwrap_unchecked() };
             // SAFETY: `i < vl <= data_group_regs * VLENB / data_eew.bytes()` (precondition), so
             // `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
-            //                                    <= vs3.bits() + nf * data_group_regs <= 32`.
+            //                                    <= vs3.to_bits() + nf * data_group_regs <= 32`.
             let data =
                 unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, data_eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing

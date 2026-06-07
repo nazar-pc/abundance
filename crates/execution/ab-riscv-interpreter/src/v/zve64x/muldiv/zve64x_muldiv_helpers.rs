@@ -128,7 +128,7 @@ unsafe fn write_wide_element_u64<const VLENB: usize>(
 /// # Safety
 /// - `vd` and source register alignment verified by caller
 /// - `vl <= group_regs * VLENB / sew_bytes`
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
@@ -185,7 +185,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 ///   and non-overlap verified by caller
 /// - `vl <= src_group_regs * VLENB / sew_bytes`
 /// - SEW < 64 verified by caller (so 2*SEW <= 64 and fits in u64)
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
@@ -242,7 +242,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// - `vd`, `a_reg`, and `src` register alignment verified by caller
 /// - `vl <= group_regs * VLENB / sew_bytes`
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
@@ -354,7 +354,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
 /// - SEW < 64 verified by caller
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(

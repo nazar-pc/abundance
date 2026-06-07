@@ -808,8 +808,8 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                // SAFETY: both vd.bits() and vs2.bits() are always in [0, 32) by VReg invariant;
-                // copying 1 register always fits.
+                // SAFETY: both vd.to_bits() and vs2.to_bits() are always in [0, 32) by VReg
+                // invariant; copying 1 register always fits.
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
                         ext_state.write_vregs(),

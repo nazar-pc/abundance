@@ -34,10 +34,10 @@ pub(in super::super) unsafe fn carry_bit<const VLENB: usize>(
 /// `vstart..vl` are processed unconditionally (no execution mask).
 ///
 /// # Safety
-/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32`
-/// - `vs2.bits() % group_regs == 0` and `vs2.bits() + group_regs <= 32`
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
+/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment (verified by caller)
-/// - `vd.bits() != 0` (vd must not overlap v0, which holds the carry-in)
+/// - `vd.to_bits() != 0` (vd must not overlap v0, which holds the carry-in)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
@@ -160,7 +160,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 /// Tail mask bits (indices `>= vl`) are left undisturbed per spec §5.3.
 ///
 /// # Safety
-/// - `vs2.bits() % group_regs == 0` and `vs2.bits() + group_regs <= 32`
+/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment
 /// - `vl <= group_regs * VLENB / sew_bytes` and `vl <= VLEN`
 /// - vd overlap constraints checked by caller

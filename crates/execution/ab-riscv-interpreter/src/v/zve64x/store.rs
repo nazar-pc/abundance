@@ -85,7 +85,7 @@ where
                         let reg_off = byte_off / vlenb;
                         let in_reg = (byte_off % vlenb) as usize;
                         // SAFETY: the decoder guarantees `nreg` in {1,2,4,8} and `vs3` is
-                        // `nreg`-aligned (checked above), so `vs3.bits() + nreg - 1 <= 31`
+                        // `nreg`-aligned (checked above), so `vs3.to_bits() + nreg - 1 <= 31`
                         let reg = unsafe {
                             VReg::from_bits(vs3.to_bits() + reg_off as u8).unwrap_unchecked()
                         };

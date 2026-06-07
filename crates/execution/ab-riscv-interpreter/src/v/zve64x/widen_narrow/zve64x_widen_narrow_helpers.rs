@@ -348,7 +348,7 @@ fn scalar_signed_for_sew(val: u64, sew_bits: u8) -> u64 {
 ///   caller)
 /// - `vl <= group_regs * VLENB / sew.bytes_width()` (all elements fit)
 /// - SEW < 64
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -433,7 +433,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLENB / sew.bytes_width()`
 /// - SEW < 64
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -515,7 +515,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
 /// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLENB / sew.bytes_width()`
 /// - SEW < 64
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
@@ -594,7 +594,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
 /// - `vs2` aligned to `src_group_regs`, fits in `[0,32)`, does not overlap `vd`
 /// - `vl <= group_regs * VLENB / sew.bytes_width()`
 /// - `sew.divide_by_factor(factor).is_some()`
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_extension<Reg, ExtState, CustomError>(

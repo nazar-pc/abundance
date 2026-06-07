@@ -10,7 +10,7 @@ use core::fmt;
 /// Execute a single-width integer reduction.
 ///
 /// # Safety
-/// - `vs2.bits() % group_regs == 0` and `vs2.bits() + group_regs <= 32` (verified by caller)
+/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `vstart == 0` (verified by caller; reductions with non-zero vstart are illegal)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - `vl <= VLEN`
@@ -66,8 +66,8 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
 /// Execute a widening integer sum reduction.
 ///
 /// # Safety
-/// - `vs2.bits() % group_regs == 0` and `vs2.bits() + group_regs <= 32` (verified by caller)
-/// - `2 * sew.bits() <= ELEN` (verified by caller)
+/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
+/// - `sew.double_width().is_some()` (verified by caller)
 /// - `vstart == 0` (verified by caller)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - `vl <= VLEN`
@@ -93,12 +93,9 @@ pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
     CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let wide_sew = match sew {
-        Vsew::E8 => Vsew::E16,
-        Vsew::E16 => Vsew::E32,
-        Vsew::E32 => Vsew::E64,
+    let Some(wide_sew) = sew.double_width() else {
         // SAFETY: caller verified `2*SEW <= ELEN`; E64 widening is unreachable here
-        Vsew::E64 => unsafe { core::hint::unreachable_unchecked() },
+        unsafe { core::hint::unreachable_unchecked() }
     };
     if vl == 0 {
         ext_state.reset_vstart();

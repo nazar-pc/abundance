@@ -316,7 +316,7 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
 /// - `vm=false` implies `vd != v0` (checked by caller)
-/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
 /// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
@@ -365,7 +365,7 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
 ///
 /// # Safety
 /// - `vm=false` implies `vd != v0` (checked by caller)
-/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (checked by caller)
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - `vl <= VLEN`
 #[inline(always)]

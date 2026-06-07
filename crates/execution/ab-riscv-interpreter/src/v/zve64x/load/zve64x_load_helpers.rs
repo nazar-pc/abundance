@@ -143,7 +143,7 @@ where
 /// register is group-aligned, and the first field group does not include `v0` when masked.
 ///
 /// Field `f` occupies registers `[vd + f * group_regs, vd + f * group_regs + group_regs)`.
-/// On `Ok`, `vd.bits() + nf * group_regs <= 32` is guaranteed.
+/// On `Ok`, `vd.to_bits() + nf * group_regs <= 32` is guaranteed.
 #[inline(always)]
 #[doc(hidden)]
 pub fn validate_segment_registers<Reg, Memory, PC, CustomError>(
@@ -272,12 +272,12 @@ fn read_mem_element(
 /// and returns `Ok`. An error at element `0` always propagates.
 ///
 /// # Safety
-/// - `vd.bits() % group_regs == 0`
-/// - `vd.bits() + nf * group_regs <= 32`
+/// - `vd.to_bits() % group_regs == 0`
+/// - `vd.to_bits() + nf * group_regs <= 32`
 /// - `vl <= group_regs * VLENB / eew.bytes()` (all `vl` elements fit within the destination
 ///   register group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL
 ///   register count for the given `eew` and `vtype`)
-/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.bits() != 0`)
+/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -367,10 +367,10 @@ where
             // `i < vl <= group_regs * elems_per_reg` (precondition), so
             // `i / elems_per_reg < group_regs`.
             //
-            // `field_base_reg = vd.bits() + f * group_regs`. Since `f < nf` and the
-            // precondition guarantees `vd.bits() + nf * group_regs <= 32`:
-            // `field_base_reg + group_regs <= vd.bits() + (f+1) * group_regs
-            //                             <= vd.bits() + nf * group_regs <= 32`.
+            // `field_base_reg = vd.to_bits() + f * group_regs`. Since `f < nf` and the
+            // precondition guarantees `vd.to_bits() + nf * group_regs <= 32`:
+            // `field_base_reg + group_regs <= vd.to_bits() + (f+1) * group_regs
+            //                             <= vd.to_bits() + nf * group_regs <= 32`.
             //
             // Therefore, `field_base_reg + i / elems_per_reg
             //            < field_base_reg + group_regs <= 32`.
@@ -400,10 +400,10 @@ where
 /// element `i` is at `addr[i] + f * eew.bytes()`.
 ///
 /// # Safety
-/// - `vd.bits() % group_regs == 0`
-/// - `vd.bits() + nf * group_regs <= 32`
+/// - `vd.to_bits() % group_regs == 0`
+/// - `vd.to_bits() + nf * group_regs <= 32`
 /// - `vl <= group_regs * VLENB / eew.bytes()`
-/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.bits() != 0`)
+/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -462,10 +462,10 @@ where
             // `i < vl <= group_regs * elems_per_reg` (precondition), so
             // `i / elems_per_reg < group_regs`.
             //
-            // `field_base_reg = vd.bits() + f * group_regs`. Since `f < nf` and
-            // `vd.bits() + nf * group_regs <= 32` (precondition):
-            // `field_base_reg + group_regs <= vd.bits() + (f+1) * group_regs
-            //                             <= vd.bits() + nf * group_regs <= 32`.
+            // `field_base_reg = vd.to_bits() + f * group_regs`. Since `f < nf` and
+            // `vd.to_bits() + nf * group_regs <= 32` (precondition):
+            // `field_base_reg + group_regs <= vd.to_bits() + (f+1) * group_regs
+            //                             <= vd.to_bits() + nf * group_regs <= 32`.
             //
             // Therefore, `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
             unsafe {
@@ -487,13 +487,13 @@ where
 /// a software interpreter.
 ///
 /// # Safety
-/// - `vd.bits() % data_group_regs == 0`
-/// - `vd.bits() + nf * data_group_regs <= 32`
-/// - `vs2.bits() + (vl - 1) / (VLENB / index_eew.bytes()) < 32` (all `vl` index elements fit within
-///   the register file; satisfied when `vs2` is alignment-checked against `EMUL_index` and `vl` is
-///   the architectural `vl` bounded by `VLMAX`)
+/// - `vd.to_bits() % data_group_regs == 0`
+/// - `vd.to_bits() + nf * data_group_regs <= 32`
+/// - `vs2.to_bits() + (vl - 1) / (VLENB / index_eew.bytes()) < 32` (all `vl` index elements fit
+///   within the register file; satisfied when `vs2` is alignment-checked against `EMUL_index` and
+///   `vl` is the architectural `vl` bounded by `VLMAX`)
 /// - `vl <= data_group_regs * VLENB / data_eew.bytes()` (all `vl` elements fit in a data group)
-/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.bits() != 0`)
+/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -533,7 +533,7 @@ where
         // SAFETY: need `index_base_reg + i / (VLENB / index_eew.bytes()) < 32`.
         //
         // The caller verified `vs2` is aligned to `EMUL_index` registers and that
-        // `vs2.bits() + EMUL_index <= 32`. `EMUL_index` is defined so that
+        // `vs2.to_bits() + EMUL_index <= 32`. `EMUL_index` is defined so that
         // `EMUL_index * (VLENB / index_eew.bytes()) = VLMAX`. Since `i < vl <= VLMAX`,
         // `i / (VLENB / index_eew.bytes()) < EMUL_index`, and therefore
         // `index_base_reg + i / (VLENB / index_eew.bytes()) < index_base_reg + EMUL_index <= 32`.
@@ -564,10 +564,10 @@ where
             // `i < vl <= data_group_regs * data_elems_per_reg` (precondition), so
             // `i / data_elems_per_reg < data_group_regs`.
             //
-            // `field_base_reg = vd.bits() + f * data_group_regs`. Since `f < nf` and
-            // `vd.bits() + nf * data_group_regs <= 32` (precondition):
-            // `field_base_reg + data_group_regs <= vd.bits() + (f+1) * data_group_regs
-            //                                  <= vd.bits() + nf * data_group_regs <= 32`.
+            // `field_base_reg = vd.to_bits() + f * data_group_regs`. Since `f < nf` and
+            // `vd.to_bits() + nf * data_group_regs <= 32` (precondition):
+            // `field_base_reg + data_group_regs <= vd.to_bits() + (f+1) * data_group_regs
+            //                                  <= vd.to_bits() + nf * data_group_regs <= 32`.
             //
             // Therefore,
             // `field_base_reg + i / data_elems_per_reg < field_base_reg + data_group_regs <= 32`.

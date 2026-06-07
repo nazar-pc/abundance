@@ -474,11 +474,11 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 /// bits. The caller must verify this constraint before invoking this function.
 ///
 /// # Safety
-/// - `sew.bits() <= 32` (Zve64x ELEN = 64 constraint for narrowing)
-/// - `vs2.bits() % (2 * group_regs) == 0` and `vs2.bits() + 2 * group_regs <= 32`
-/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32`
+/// - `sew.bits_width() <= 32` (Zve64x ELEN = 64 constraint for narrowing)
+/// - `vs2.to_bits() % (2 * group_regs) == 0` and `vs2.to_bits() + 2 * group_regs <= 32`
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vl <= group_regs * VLENB / sew_bytes`
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
@@ -537,7 +537,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
 
 /// Verify that the destination SEW is valid for narrowing (must be at most 32 in Zve64x).
 ///
-/// Returns `Err(IllegalInstruction)` when `sew.bits() > 32`.
+/// Returns `Err(IllegalInstruction)` when `sew.bits_width() > 32`.
 #[inline(always)]
 #[doc(hidden)]
 pub fn check_narrowing_sew<Reg, Memory, PC, CustomError>(

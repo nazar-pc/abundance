@@ -113,7 +113,7 @@ pub unsafe fn write_element_0_u64<const VLENB: usize>(
     }
 }
 
-/// Sign-extend the low `sew.bits()` of `val` to the register type width.
+/// Sign-extend the low `sew.bits_width()` of `val` to the register type width.
 ///
 /// The arithmetic is performed entirely in 64-bit signed integer space: we shift the SEW-wide
 /// value left to place its sign bit at bit 63, then arithmetic-right-shift back to propagate it.
@@ -157,7 +157,7 @@ where
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - `vl <= group_regs * VLENB / sew_bytes`.
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
@@ -205,7 +205,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
 /// - `vl <= vlmax`.
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
@@ -260,7 +260,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - `vl <= group_regs * VLENB / sew_bytes`.
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
@@ -314,7 +314,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
 /// - `vl <= group_regs * VLENB / sew_bytes`.
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
@@ -360,7 +360,7 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
 /// - `vl <= vlmax`.
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
@@ -409,7 +409,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - `vl <= vlmax`.
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
@@ -461,7 +461,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
 /// - `vl <= vlmax` (for the data register group) AND `vl <= index_group_regs * VLENB / 2` (for the
 ///   index register group).
-/// - When `vm=false`: `vd.bits() != 0`.
+/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]

@@ -158,13 +158,13 @@ pub enum OpSrc {
 /// Execute a single-width element-wise arithmetic operation over `vstart..vl`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result (only the
-/// low `sew.bits()` are written back).
+/// low `sew.bits_width()` are written back).
 ///
 /// # Safety
-/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (verified by caller)
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
 /// - `vl <= group_regs * VLENB / sew_bytes` (all `vl` elements fit within the register group)
-/// - When `vm=false`: `vd.bits() != 0` (vd does not overlap v0)
+/// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
@@ -228,7 +228,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// regardless of `vta`. Only bits in `vstart..vl` are written.
 ///
 /// # Safety
-/// - `vs2.bits() % group_regs == 0` and `vs2.bits() + group_regs <= 32` (verified by caller)
+/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - `vl <= VLEN` (so every element index fits within the mask register)
@@ -286,7 +286,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     ext_state.reset_vstart();
 }
 
-/// Sign-extend the low `sew.bits()` of `val` to a full `i64`
+/// Sign-extend the low `sew.bits_width()` of `val` to a full `i64`
 #[inline(always)]
 #[doc(hidden)]
 pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
@@ -294,7 +294,7 @@ pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
     (val.cast_signed() << shift) >> shift
 }
 
-/// Mask off the upper bits of a `u64` to leave only the low `sew.bits()`.
+/// Mask off the upper bits of a `u64` to leave only the low `sew.bits_width()`.
 ///
 /// Used for unsigned arithmetic and comparisons where only the SEW-wide portion is significant. For
 /// SEW = 64 this is a no-op (all bits are significant).
