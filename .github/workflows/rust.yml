@@ -561,6 +561,9 @@ jobs:
           done
 
   act4:
+    env:
+      ACT4_REPO_REVISION: 29b50e3d0281d347a5ab94887db8f4e1af93cd30
+
     strategy:
       matrix:
         os:
@@ -572,14 +575,40 @@ jobs:
     steps:
       - *checkout-step
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # 4.0.0
+      # Compute the hashes of inputs to avoid cloning and building ELFs when nothing has changed, see:
+      # https://github.com/riscv/riscv-arch-test/issues/1654
+      - name: Compute sources hash
+        id: sources-hash
+        working-directory: crates/execution/ab-riscv-act4-runner
+        run: |
+          RES_HASH=$(find res -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | cut -d' ' -f1)
+          COMBINED=$(printf '%s\n%s\n' "${{ env.ACT4_REPO_REVISION }}" "${RES_HASH}" \
+            | sha256sum \
+            | cut -d' ' -f1)
+          echo "value=${COMBINED}" >> $GITHUB_OUTPUT
+
+      - name: Restore cache
+        id: restore-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        with:
+          path: &act4-work-cache-path |
+            crates/execution/ab-riscv-act4-runner/work
+          key: &act4-work-cache-key act4-work-${{ steps.sources-hash.outputs.value }}
 
       - name: Clone ACT4 repo
         run: |
-          git clone --depth 1 --revision=29b50e3d0281d347a5ab94887db8f4e1af93cd30 \
+          git clone --depth 1 --revision=${{ env.ACT4_REPO_REVISION }} \
             https://github.com/riscv/riscv-arch-test \
             riscv-arch-test
+        if: steps.restore-cache.outputs.cache-hit != 'true'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # 4.0.0
+        if: steps.restore-cache.outputs.cache-hit != 'true'
 
       # TODO: Use official image once it is available: https://github.com/riscv/riscv-arch-test/pull/1161
       - name: Build act4-build image
@@ -592,20 +621,11 @@ jobs:
           # Only save on `main` branch
           cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=min,scope=act4-build-{0}', runner.arch) || '' }}
           load: true
+        if: steps.restore-cache.outputs.cache-hit != 'true'
 
-      - name: Restore cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
-        with:
-          path: &act4-work-cache-path |
-            crates/execution/ab-riscv-act4-runner/work
-          key: &act4-work-cache-key act4-work-${{ hashFiles('crates/execution/ab-riscv-act4-runner/res/abundance/**') }}
-          restore-keys: |
-            act4-work-
-
-      - name: ACT4 tests
+      - name: Build ELFs
         working-directory: crates/execution/ab-riscv-act4-runner
         run: |
-          echo "Building ELFs"
           mkdir -p work
           docker run --rm \
             -u $(id -u):$(id -g) \
@@ -614,7 +634,11 @@ jobs:
             -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
             ${{ steps.build.outputs.imageid }} \
             make
-          
+        if: steps.restore-cache.outputs.cache-hit != 'true'
+
+      - name: ACT4 tests
+        working-directory: crates/execution/ab-riscv-act4-runner
+        run: |
           echo "Running RV32 tests"
           cargo run --release -- rv32 work/abundance-rv32i-max/elfs
           
@@ -622,7 +646,7 @@ jobs:
           echo "Running RV64 tests (native)"
           RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
           
-          # And just to make sure, force-disable AES intrinsics and test software implementation
+          # Force-disable AES intrinsics to test software implementation
           echo "Running RV64 tests (-aes)"
           RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
 
@@ -632,7 +656,7 @@ jobs:
           path: *act4-work-cache-path
           key: *act4-work-cache-key
         # Only save on `main` branch and only from one OS since the contents will be identical for all OSes
-        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04'
+        if: steps.restore-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04'
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
