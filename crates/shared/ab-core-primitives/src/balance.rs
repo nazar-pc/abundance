@@ -21,7 +21,7 @@ impl fmt::Debug for Balance {
 
 impl fmt::Display for Balance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        u128::from(self).fmt(f)
+        fmt::Display::fmt(&u128::from(self), f)
     }
 }
 

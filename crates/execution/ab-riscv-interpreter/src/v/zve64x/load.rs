@@ -66,34 +66,32 @@ where
                 nreg,
                 eew: _,
             } => {
+                let nreg = nreg.num_registers();
                 if !ext_state.vector_instructions_allowed() {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vd.bits()) % u32::from(nreg) != 0 {
+                if vd.to_bits() % nreg != 0 {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 let base = rs1_value.as_u64();
                 let vlenb = u64::from(ExtState::VLENB);
-                for reg_off in 0..u64::from(nreg) {
-                    let reg_idx = u64::from(vd.bits()) + reg_off;
+                for reg_off in 0..nreg {
+                    // SAFETY: the decoder guarantees nreg in {1,2,4,8} and vd is nreg-aligned
+                    // (checked above), so vd.to_bits() + nreg - 1 <= 31.
+                    let reg = unsafe { VReg::from_bits(vd.to_bits() + reg_off).unwrap_unchecked() };
                     let bytes = memory
-                        .read_slice(base + reg_off * vlenb, ExtState::VLENB)
+                        .read_slice(base + u64::from(reg_off) * vlenb, ExtState::VLENB)
                         .inspect_err(|_error| {
                             if reg_off > 0 {
                                 ext_state.mark_vs_dirty();
                                 ext_state.reset_vstart();
                             }
                         })?;
-                    // SAFETY: `reg_idx < 32` because the decoder guarantees nreg in {1,2,4,8}
-                    // and vd is nreg-aligned (checked above), so vd.bits() + nreg - 1 <= 31.
-                    // `read_slice` returns a slice of exactly `ExtState::VLENB` bytes on success,
-                    // matching `dst`'s length, so `copy_from_slice` cannot panic.
-                    let dst = unsafe { ext_state.write_vreg().get_unchecked_mut(reg_idx as usize) };
-                    dst.copy_from_slice(bytes);
+                    ext_state.write_vregs().get_mut(reg).copy_from_slice(bytes);
                 }
                 ext_state.mark_vs_dirty();
                 ext_state.reset_vstart();
@@ -112,14 +110,13 @@ where
                 if byte_count > 0 {
                     let base = rs1_value.as_u64();
                     let bytes = memory.read_slice(base, byte_count)?;
-                    // SAFETY: `vd.bits() < 32` is guaranteed by the `VReg` type.
-                    // `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB` because
-                    // `vl <= VLMAX <= VLEN`, so `..bytes.len()` is in bounds within the
+                    // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB`
+                    // because `vl <= VLMAX <= VLEN`, so `..bytes.len()` is in bounds within the
                     // `VLENB`-byte destination register.
                     unsafe {
                         ext_state
-                            .write_vreg()
-                            .get_unchecked_mut(usize::from(vd.bits()))
+                            .write_vregs()
+                            .get_mut(vd)
                             .get_unchecked_mut(..bytes.len())
                             .copy_from_slice(bytes);
                     }
@@ -490,7 +487,7 @@ where
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
                 // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL for this
                 //   `eew` and `vtype`, so this VLMAX equals the architectural VLMAX bounding `vl`
-                // - mask overlap with v0: `validate_segment_registers` checked `vd.bits() != 0`
+                // - mask overlap with v0: `validate_segment_registers` checked `vd.to_bits() != 0`
                 //   when `vm=false`, ensuring no field group contains v0
                 unsafe {
                     zve64x_load_helpers::execute_unit_stride_load(
@@ -594,7 +591,7 @@ where
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
                 // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is EMUL for this `eew`
                 //   and `vtype`
-                // - mask overlap: `validate_segment_registers` checked `vd.bits() != 0` when
+                // - mask overlap: `validate_segment_registers` checked `vd.to_bits() != 0` when
                 //   `vm=false`
                 unsafe {
                     zve64x_load_helpers::execute_strided_load(
@@ -639,7 +636,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     })?;
                 // `validate_segment_registers` is called before the per-field overlap loop so
-                // that `vd.bits() + f * data_group_regs < 32` is established for all `f < nf`,
+                // that `vd.to_bits() + f * data_group_regs < 32` is established for all `f < nf`,
                 // which is required by the `VReg::from_bits` call inside the loop.
                 zve64x_load_helpers::validate_segment_registers::<Reg, _, _, _>(
                     program_counter,
@@ -654,12 +651,12 @@ where
                     index_group_regs,
                 )?;
                 for f in 0..nf.fields_per_segment() {
-                    // SAFETY: `vd.bits() + f * data_group_regs < 32` because
-                    // `validate_segment_registers` established `vd.bits() + nf * data_group_regs
+                    // SAFETY: `vd.to_bits() + f * data_group_regs < 32` because
+                    // `validate_segment_registers` established `vd.to_bits() + nf * data_group_regs
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
                     // encoding.
                     let field_vd = unsafe {
-                        VReg::from_bits(vd.bits() + f * data_group_regs).unwrap_unchecked()
+                        VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked()
                     };
                     if zve64x_load_helpers::groups_overlap(
                         field_vd,
@@ -682,7 +679,7 @@ where
                 //   `data_group_regs = LMUL`, so VLMAX = LMUL * VLEN / SEW bounds `vl`
                 // - `vl <= EMUL_index * VLENB / index_eew.bytes()`: `index_group_regs` (EMUL_index)
                 //   is defined so this VLMAX_index equals the architectural VLMAX
-                // - mask overlap: `validate_segment_registers` checked `vd.bits() != 0` when
+                // - mask overlap: `validate_segment_registers` checked `vd.to_bits() != 0` when
                 //   `vm=false`, and no field group starts at 0 since groups are contiguous from
                 //   `vd` which is nonzero
                 unsafe {
@@ -742,12 +739,12 @@ where
                     index_group_regs,
                 )?;
                 for f in 0..nf.fields_per_segment() {
-                    // SAFETY: `vd.bits() + f * data_group_regs < 32` because
-                    // `validate_segment_registers` established `vd.bits() + nf * data_group_regs
+                    // SAFETY: `vd.to_bits() + f * data_group_regs < 32` because
+                    // `validate_segment_registers` established `vd.to_bits() + nf * data_group_regs
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
                     // encoding.
                     let field_vd = unsafe {
-                        VReg::from_bits(vd.bits() + f * data_group_regs).unwrap_unchecked()
+                        VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked()
                     };
                     if zve64x_load_helpers::groups_overlap(
                         field_vd,

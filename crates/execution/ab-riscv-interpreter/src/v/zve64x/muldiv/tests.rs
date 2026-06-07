@@ -18,7 +18,7 @@ use ab_riscv_primitives::prelude::*;
 //   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
-    u64::from(vlmul.to_bits()) | (u64::from(vsew.bits()) << 3u8)
+    u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
 }
 
 fn setup(
@@ -67,7 +67,10 @@ fn read_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .read_vregs()
+        .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
     buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
     u64::from_le_bytes(buf)
@@ -83,7 +86,10 @@ fn read_wide_elem(
     let elems_per_reg = 16 / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
-    let reg = &state.ext_state.read_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .read_vregs()
+        .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
     buf[..wide_bytes].copy_from_slice(&reg[byte_off..byte_off + wide_bytes]);
     u64::from_le_bytes(buf)
@@ -100,7 +106,10 @@ fn write_elem(
     let elems_per_reg = 32 / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .write_vregs()
+        .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
     reg[byte_off..byte_off + sew_bytes].copy_from_slice(&buf[..sew_bytes]);
 }
@@ -116,7 +125,10 @@ fn write_wide_elem(
     let elems_per_reg = 16 / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
-    let reg = &mut state.ext_state.write_vreg()[usize::from(base_reg.bits()) + reg_off];
+    let reg = state
+        .ext_state
+        .write_vregs()
+        .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
     reg[byte_off..byte_off + wide_bytes].copy_from_slice(&buf[..wide_bytes]);
 }
@@ -126,7 +138,7 @@ fn set_mask_bit(
     elem_i: u32,
     val: bool,
 ) {
-    let reg = &mut state.ext_state.write_vreg()[0];
+    let reg = state.ext_state.write_vregs().get_mut(VReg::V0);
     let byte = &mut reg[(elem_i / u8::BITS) as usize];
     if val {
         *byte |= 1 << (elem_i % u8::BITS);
@@ -217,7 +229,7 @@ fn vmul_vx_e64_m1() {
 fn vmul_masked_skips_inactive() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     // mask: only elements 0 and 2 active (bits 0 and 2 set)
-    state.ext_state.write_vreg()[0][0] = 0b0000_0101;
+    state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0b0000_0101;
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 5);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 10);

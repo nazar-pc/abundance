@@ -1,6 +1,6 @@
 //! Opaque helpers for Zve64x extension
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zve64x::load::zve64x_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
@@ -19,7 +19,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vreg_idx = vreg.bits();
+    let vreg_idx = vreg.to_bits();
     if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -46,8 +46,8 @@ where
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     if group_regs > 1 {
-        let vd_idx = vd.bits();
-        let src = src_base.bits();
+        let vd_idx = vd.to_bits();
+        let src = src_base.to_bits();
         if vd_idx >= src && vd_idx < src + group_regs {
             return Err(ExecutionError::IllegalInstruction {
                 address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -69,7 +69,7 @@ where
 /// `base_reg + elem_i / (VLENB / sew_bytes) < 32` must hold.
 #[inline(always)]
 pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
-    vreg: &[[u8; VLENB]; 32],
+    vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
@@ -79,7 +79,8 @@ pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
+    let reg = vregs
+        .get(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
     // SAFETY: `byte_off + sew_bytes <= VLENB` because `byte_off` is at most
     // `(elems_per_reg - 1) * sew_bytes = VLENB - sew_bytes`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
@@ -96,7 +97,7 @@ pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
 /// `base_reg + elem_i / (VLENB / sew_bytes) < 32` must hold.
 #[inline(always)]
 pub(in super::super) unsafe fn write_element_u64<const VLENB: usize>(
-    vreg: &mut [[u8; VLENB]; 32],
+    vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
@@ -108,7 +109,8 @@ pub(in super::super) unsafe fn write_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
+    let reg = vregs
+        .get_mut(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
     // SAFETY: `byte_off + sew_bytes <= VLENB` - same argument as `read_element_u64`.
     // `sew_bytes <= 8` for all `Vsew` variants.
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
@@ -127,7 +129,7 @@ pub(in super::super) unsafe fn write_element_u64<const VLENB: usize>(
 /// `elem_i < vl <= VLMAX <= VLEN`.
 #[inline(always)]
 pub(in super::super) unsafe fn write_mask_bit<const VLENB: usize>(
-    vreg: &mut [[u8; VLENB]; 32],
+    vregs: &mut VectorRegisterFile<VLENB>,
     vd: VReg,
     elem_i: u32,
     result: bool,
@@ -135,10 +137,7 @@ pub(in super::super) unsafe fn write_mask_bit<const VLENB: usize>(
     let byte_idx = (elem_i / u8::BITS) as usize;
     let bit_idx = elem_i % u8::BITS;
     // SAFETY: `byte_idx < VLENB` by the caller's precondition
-    let byte = unsafe {
-        vreg.get_unchecked_mut(usize::from(vd.bits()))
-            .get_unchecked_mut(byte_idx)
-    };
+    let byte = unsafe { vregs.get_mut(vd).get_unchecked_mut(byte_idx) };
     if result {
         *byte |= 1 << bit_idx;
     } else {
@@ -159,13 +158,13 @@ pub enum OpSrc {
 /// Execute a single-width element-wise arithmetic operation over `vstart..vl`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result (only the
-/// low `sew.bits()` are written back).
+/// low `sew.bits_width()` are written back).
 ///
 /// # Safety
-/// - `vd.bits() % group_regs == 0` and `vd.bits() + group_regs <= 32` (verified by caller)
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
 /// - `vl <= group_regs * VLENB / sew_bytes` (all `vl` elements fit within the register group)
-/// - When `vm=false`: `vd.bits() != 0` (vd does not overlap v0)
+/// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
@@ -188,7 +187,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
@@ -197,12 +196,12 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 
         // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
+                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -212,7 +211,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
         // SAFETY: `vd % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
     }
 
@@ -229,7 +228,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// regardless of `vta`. Only bits in `vstart..vl` are written.
 ///
 /// # Safety
-/// - `vs2.bits() % group_regs == 0` and `vs2.bits() + group_regs <= 32` (verified by caller)
+/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
 /// - `vl <= group_regs * VLENB / sew_bytes`
 /// - `vl <= VLEN` (so every element index fits within the mask register)
@@ -255,7 +254,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         // When masked, inactive elements in the destination mask register are left undisturbed
@@ -265,12 +264,12 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
         }
 
         // SAFETY: same argument as in `execute_arith_op`
-        let a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) }
+                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -279,7 +278,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
 
         // SAFETY: `i < vl <= VLMAX <= VLEN`, so `i / 8 < VLEN / 8 = VLENB`
         unsafe {
-            write_mask_bit(ext_state.write_vreg(), vd, i, result);
+            write_mask_bit(ext_state.write_vregs(), vd, i, result);
         }
     }
 
@@ -287,7 +286,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     ext_state.reset_vstart();
 }
 
-/// Sign-extend the low `sew.bits()` of `val` to a full `i64`
+/// Sign-extend the low `sew.bits_width()` of `val` to a full `i64`
 #[inline(always)]
 #[doc(hidden)]
 pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
@@ -295,7 +294,7 @@ pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
     (val.cast_signed() << shift) >> shift
 }
 
-/// Mask off the upper bits of a `u64` to leave only the low `sew.bits()`.
+/// Mask off the upper bits of a `u64` to leave only the low `sew.bits_width()`.
 ///
 /// Used for unsigned arithmetic and comparisons where only the SEW-wide portion is significant. For
 /// SEW = 64 this is a no-op (all bits are significant).

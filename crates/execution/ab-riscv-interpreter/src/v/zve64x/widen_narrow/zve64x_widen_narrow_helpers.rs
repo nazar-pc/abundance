@@ -1,6 +1,6 @@
 //! Opaque helpers for Zve64x extension
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zve64x::arith::zve64x_arith_helpers::{OpSrc, check_vreg_group_alignment};
 use crate::v::zve64x::zve64x_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
@@ -21,7 +21,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vd.bits();
+    let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -51,7 +51,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vs2_idx = vs2.bits();
+    let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -59,7 +59,7 @@ where
     }
     // The wide destination (group_regs) may overlap the narrow source (src_group_regs) only in the
     // highest-numbered part of the destination group, and only when the source EMUL >= 1.
-    if widen_src_overlap_illegal(vd.bits(), group_regs, vs2_idx, src_group_regs) {
+    if widen_src_overlap_illegal(vd.to_bits(), group_regs, vs2_idx, src_group_regs) {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -93,19 +93,19 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vd.bits();
+    let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
-    if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.bits(), group_regs) {
+    if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.to_bits(), group_regs) {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     if let Some(vs_b) = vs_b_opt
-        && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.bits(), group_regs)
+        && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.to_bits(), group_regs)
     {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -145,7 +145,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vs_idx = vs.bits();
+    let vs_idx = vs.to_bits();
     if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -170,7 +170,7 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let vd_idx = vd.bits();
+    let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
@@ -200,7 +200,7 @@ fn mask_bit(mask: &[u8], i: u32) -> bool {
 /// `vl.div_ceil(8) <= VLENB` must hold. This is guaranteed when `vl <= VLEN`.
 #[inline(always)]
 unsafe fn snapshot_mask<const VLENB: usize>(
-    vreg: &[[u8; VLENB]; 32],
+    vregs: &VectorRegisterFile<VLENB>,
     vm: bool,
     vl: u32,
 ) -> [u8; VLENB] {
@@ -212,7 +212,7 @@ unsafe fn snapshot_mask<const VLENB: usize>(
         // SAFETY: `mask_bytes <= VLENB` by precondition
         unsafe {
             buf.get_unchecked_mut(..mask_bytes)
-                .copy_from_slice(vreg[usize::from(VReg::V0.bits())].get_unchecked(..mask_bytes));
+                .copy_from_slice(vregs.get(VReg::V0).get_unchecked(..mask_bytes));
         }
     }
     buf
@@ -225,7 +225,7 @@ unsafe fn snapshot_mask<const VLENB: usize>(
 /// `base_reg + elem_i / (VLENB / sew.bytes_width()) < 32`
 #[inline(always)]
 unsafe fn read_element_u64<const VLENB: usize>(
-    vreg: &[[u8; VLENB]; 32],
+    vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
@@ -235,7 +235,9 @@ unsafe fn read_element_u64<const VLENB: usize>(
     let reg_off = elem_i as usize / elems_per_reg;
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe {
+        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
+    };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
     let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
     let mut buf = [0u8; 8];
@@ -250,7 +252,7 @@ unsafe fn read_element_u64<const VLENB: usize>(
 /// `base_reg + elem_i / (VLENB / sew.bytes_width()) < 32`
 #[inline(always)]
 unsafe fn write_element_u64<const VLENB: usize>(
-    vreg: &mut [[u8; VLENB]; 32],
+    vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
@@ -262,7 +264,9 @@ unsafe fn write_element_u64<const VLENB: usize>(
     let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe { vreg.get_unchecked_mut(usize::from(base_reg.bits()) + reg_off) };
+    let reg = unsafe {
+        vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
+    };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
     let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
     // SAFETY: `sew_bytes <= 8`
@@ -344,7 +348,7 @@ fn scalar_signed_for_sew(val: u64, sew_bits: u8) -> u64 {
 ///   caller)
 /// - `vl <= group_regs * VLENB / sew.bytes_width()` (all elements fit)
 /// - SEW < 64
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -374,7 +378,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
         .expect("SEW < 64 is enforced by caller, hence this is always valid; qed");
 
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
@@ -382,7 +386,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
         }
         // SAFETY: `vs2` aligned to `group_regs`;
         // `i < vl <= group_regs * (VLENB / sew.bytes_width())`
-        let raw_a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, sew) };
+        let raw_a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
         let wide_a = if zero_extend_a {
             raw_a
         } else {
@@ -391,7 +395,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
         let wide_b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                let raw_b = unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) };
+                let raw_b = unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) };
                 if zero_extend_b {
                     raw_b
                 } else {
@@ -411,7 +415,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
         // `i < vl <= group_regs * (VLENB / sew.bytes_width())` so
         // `i < 2*group_regs * (VLENB / wide_sew.bytes_width())` - element fits in the wide group
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, wide_sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, wide_sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -429,7 +433,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLENB / sew.bytes_width()`
 /// - SEW < 64
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -458,7 +462,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
         .expect("SEW < 64 is enforced by caller, hence this is always valid; qed");
 
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
@@ -466,13 +470,13 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
         }
         // vs2 is already 2×SEW; read at wide width
         // SAFETY: `vs2` aligned to `2*group_regs`; element `i` fits within it
-        let wide_a = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, wide_sew) };
+        let wide_a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, wide_sew) };
         let wide_b = match src {
             OpSrc::Vreg(vs1) => {
                 // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew.bytes_width())`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw_b = unsafe { read_element_u64(ext_state.read_vreg(), vs1, i, sew) };
+                let raw_b = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, sew) };
                 if zero_extend_b {
                     raw_b
                 } else {
@@ -490,7 +494,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, wide_sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, wide_sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -511,7 +515,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
 /// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLENB / sew.bytes_width()`
 /// - SEW < 64
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
@@ -539,20 +543,20 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
     let shamt_mask = u64::from(wide_sew.bits_width() - 1);
 
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: `vs2` is the wide source group
-        let wide_val = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, wide_sew) };
+        let wide_val = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, wide_sew) };
         let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew.bytes_width())`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs1_base, i, sew) };
+                let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) };
                 raw & shamt_mask
             }
             // Scalar shift amount: only the low log2(2*SEW) bits are used per spec
@@ -570,7 +574,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
         let result = result_wide & ((1u64 << sew.bits_width()) - 1);
         // SAFETY: `vd` is the narrow destination group
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();
@@ -590,7 +594,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
 /// - `vs2` aligned to `src_group_regs`, fits in `[0,32)`, does not overlap `vd`
 /// - `vl <= group_regs * VLENB / sew.bytes_width()`
 /// - `sew.divide_by_factor(factor).is_some()`
-/// - When `vm=false`: `vd.bits() != 0`
+/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
@@ -616,14 +620,14 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
         .expect("SEW >= factor*8 and valid according to function contract; qed");
 
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vreg(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in u32::from(vstart)..vl {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: vs2 group covers `vl` narrow elements
-        let raw = unsafe { read_element_u64(ext_state.read_vreg(), vs2, i, src_sew) };
+        let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, src_sew) };
         let result = if sign {
             sign_extend_bits(raw, src_sew.bits_width()).cast_unsigned()
         } else {
@@ -631,7 +635,7 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
         };
         // SAFETY: vd group covers `vl` wide elements
         unsafe {
-            write_element_u64(ext_state.write_vreg(), vd, i, sew, result);
+            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
     }
     ext_state.mark_vs_dirty();

@@ -78,7 +78,7 @@ where
                 // SAFETY: element 0 is always within register vs2, byte offset 0;
                 // VLENB >= sew.bytes() for all legal vtype configurations.
                 let raw = unsafe {
-                    zve64x_perm_helpers::read_element_0_u64(ext_state.read_vreg(), vs2.bits(), sew)
+                    zve64x_perm_helpers::read_element_0_u64(ext_state.read_vregs(), vs2, sew)
                 };
                 let sign_extended = zve64x_perm_helpers::sign_extend_to_reg::<Reg>(raw, sew);
                 regs.write(rd, sign_extended);
@@ -109,8 +109,8 @@ where
                     // SAFETY: element 0 always fits.
                     unsafe {
                         zve64x_perm_helpers::write_element_0_u64(
-                            ext_state.write_vreg(),
-                            vd.bits(),
+                            ext_state.write_vregs(),
+                            vd,
                             sew,
                             scalar,
                         );
@@ -808,13 +808,13 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                // SAFETY: both vd.bits() and vs2.bits() are always in [0, 32) by VReg invariant;
-                // copying 1 register always fits.
+                // SAFETY: both vd.to_bits() and vs2.to_bits() are always in [0, 32) by VReg
+                // invariant; copying 1 register always fits.
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
-                        ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        ext_state.write_vregs(),
+                        vd,
+                        vs2,
                         1,
                     );
                 }
@@ -830,7 +830,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vd.bits().is_multiple_of(2) || !vs2.bits().is_multiple_of(2) {
+                if !vd.to_bits().is_multiple_of(2) || !vs2.to_bits().is_multiple_of(2) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -838,9 +838,9 @@ where
                 // SAFETY: alignment verified; 2 registers from aligned base always stay in [0, 32).
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
-                        ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        ext_state.write_vregs(),
+                        vd,
+                        vs2,
                         2,
                     );
                 }
@@ -855,7 +855,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vd.bits().is_multiple_of(4) || !vs2.bits().is_multiple_of(4) {
+                if !vd.to_bits().is_multiple_of(4) || !vs2.to_bits().is_multiple_of(4) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -863,9 +863,9 @@ where
                 // SAFETY: alignment verified; 4 registers from aligned base always stay in [0, 32).
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
-                        ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        ext_state.write_vregs(),
+                        vd,
+                        vs2,
                         4,
                     );
                 }
@@ -880,7 +880,7 @@ where
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vd.bits().is_multiple_of(8) || !vs2.bits().is_multiple_of(8) {
+                if !vd.to_bits().is_multiple_of(8) || !vs2.to_bits().is_multiple_of(8) {
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zve64x_helpers::INSTRUCTION_SIZE),
                     });
@@ -888,9 +888,9 @@ where
                 // SAFETY: alignment verified; 8 registers from aligned base always stay in [0, 32).
                 unsafe {
                     zve64x_perm_helpers::execute_whole_reg_move(
-                        ext_state.write_vreg(),
-                        vd.bits(),
-                        vs2.bits(),
+                        ext_state.write_vregs(),
+                        vd,
+                        vs2,
                         8,
                     );
                 }

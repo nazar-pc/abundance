@@ -4,7 +4,6 @@ use crate::v::private::SupportedElenVlen;
 use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
-use core::ops::{Deref, DerefMut};
 
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
@@ -20,19 +19,19 @@ impl<const VLENB: usize> const Default for VectorRegisterFile<VLENB> {
     }
 }
 
-impl<const VLENB: usize> const Deref for VectorRegisterFile<VLENB> {
-    type Target = [[u8; VLENB]; 32];
-
+impl<const VLENB: usize> VectorRegisterFile<VLENB> {
+    /// Get reference to a vector register
     #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    pub fn get(&self, index: VReg) -> &[u8; VLENB] {
+        // SAFETY: Always in-range
+        unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
     }
-}
 
-impl<const VLENB: usize> const DerefMut for VectorRegisterFile<VLENB> {
+    /// Get mutable reference to a vector register
     #[inline(always)]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB] {
+        // SAFETY: Always in-range
+        unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
     }
 }
 
@@ -69,10 +68,10 @@ where
     Self: VectorRegistersBase + SupportedElenVlen<{ Self::ELEN }, { Self::VLEN }>,
 {
     /// Read the vector register file
-    fn read_vreg(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }>;
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }>;
 
     /// Mutable access to the vector register file
-    fn write_vreg(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }>;
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }>;
 
     /// Get the current decoded vtype
     fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>;
@@ -83,6 +82,9 @@ where
     /// reads via Zicsr, writes via Zicsr are not allowed).
     fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>);
 
+    // TODO: Consider new type for `vl`. It is guaranteed to be `at most u16::MAX + 1`, so can be a
+    //  wrapper around `u16`, which will make things nicer in some places like when iterating over
+    //  `vstart..vl`
     /// Get the current vl
     fn vl(&self) -> u32;
 

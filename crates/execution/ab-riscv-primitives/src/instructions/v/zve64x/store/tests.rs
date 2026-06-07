@@ -2,7 +2,7 @@ extern crate alloc;
 
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
-use crate::instructions::v::zve64x::load::{Nf, SegVmNf};
+use crate::instructions::v::zve64x::load::{LoadStoreNreg, Nf, SegVmNf};
 use crate::instructions::v::zve64x::store::Zve64xStoreInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -241,7 +241,7 @@ fn test_vs1r() {
         Some(Zve64xStoreInstruction::Vsr {
             vs3: VReg::V8,
             rs1: Reg::A0,
-            nreg: 1,
+            nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         })
     );
@@ -257,7 +257,7 @@ fn test_vs2r() {
         Some(Zve64xStoreInstruction::Vsr {
             vs3: VReg::V8,
             rs1: Reg::A0,
-            nreg: 2,
+            nreg: LoadStoreNreg::N2,
             rs2: Reg::Zero,
         })
     );
@@ -272,7 +272,7 @@ fn test_vs4r() {
         Some(Zve64xStoreInstruction::Vsr {
             vs3: VReg::V8,
             rs1: Reg::A0,
-            nreg: 4,
+            nreg: LoadStoreNreg::N4,
             rs2: Reg::Zero,
         })
     );
@@ -287,7 +287,7 @@ fn test_vs8r() {
         Some(Zve64xStoreInstruction::Vsr {
             vs3: VReg::V0,
             rs1: Reg::A0,
-            nreg: 8,
+            nreg: LoadStoreNreg::N8,
             rs2: Reg::Zero,
         })
     );

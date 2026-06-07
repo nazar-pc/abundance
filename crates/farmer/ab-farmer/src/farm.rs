@@ -290,7 +290,7 @@ pub struct DecodedFarmingError {
 impl fmt::Display for DecodedFarmingError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.error.fmt(f)
+        fmt::Display::fmt(&self.error, f)
     }
 }
 
