@@ -756,7 +756,7 @@ fn prepare_csr_read_passes_through_vector_csrs() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
         &state.ext_state,
-        VCsr::Vstart as u16,
+        VectorCsr::Vstart.to_csr_index(),
         42,
         &mut output,
     );
@@ -781,13 +781,13 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     let csr_indices = [
-        VCsr::Vstart as u16,
-        VCsr::Vxsat as u16,
-        VCsr::Vxrm as u16,
-        VCsr::Vcsr as u16,
-        VCsr::Vl as u16,
-        VCsr::Vtype as u16,
-        VCsr::Vlenb as u16,
+        VectorCsr::Vstart.to_csr_index(),
+        VectorCsr::Vxsat.to_csr_index(),
+        VectorCsr::Vxrm.to_csr_index(),
+        VectorCsr::Vcsr.to_csr_index(),
+        VectorCsr::Vl.to_csr_index(),
+        VectorCsr::Vtype.to_csr_index(),
+        VectorCsr::Vlenb.to_csr_index(),
     ];
 
     for csr_index in csr_indices {
@@ -811,7 +811,7 @@ fn prepare_csr_write_rejects_read_only_vl() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vl as u16,
+        VectorCsr::Vl.to_csr_index(),
         42,
         &mut output,
     );
@@ -826,7 +826,7 @@ fn prepare_csr_write_rejects_read_only_vtype() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vtype as u16,
+        VectorCsr::Vtype.to_csr_index(),
         42,
         &mut output,
     );
@@ -841,7 +841,7 @@ fn prepare_csr_write_rejects_read_only_vlenb() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vlenb as u16,
+        VectorCsr::Vlenb.to_csr_index(),
         42,
         &mut output,
     );
@@ -856,7 +856,7 @@ fn prepare_csr_write_vxsat_masks_to_1_bit() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxsat as u16,
+        VectorCsr::Vxsat.to_csr_index(),
         0xFF,
         &mut output,
     );
@@ -872,7 +872,7 @@ fn prepare_csr_write_vxrm_masks_to_2_bits() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxrm as u16,
+        VectorCsr::Vxrm.to_csr_index(),
         0xFF,
         &mut output,
     );
@@ -888,7 +888,7 @@ fn prepare_csr_write_vcsr_masks_to_3_bits() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vcsr as u16,
+        VectorCsr::Vcsr.to_csr_index(),
         0xFFFF,
         &mut output,
     );
@@ -904,7 +904,7 @@ fn prepare_csr_write_vstart_passes_full_value() {
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vstart as u16,
+        VectorCsr::Vstart.to_csr_index(),
         0x1234,
         &mut output,
     );
@@ -943,7 +943,10 @@ fn vtype_csr_raw_value_matches_decoded() {
 
     execute(&mut state).unwrap();
 
-    let raw = state.ext_state.read_csr(VCsr::Vtype as u16).unwrap();
+    let raw = state
+        .ext_state
+        .read_csr(VectorCsr::Vtype.to_csr_index())
+        .unwrap();
     // Should match the encoded vtypei (low 8 bits)
     assert_eq!(raw, u64::from(vtypei));
 }
@@ -962,7 +965,10 @@ fn vtype_csr_vill_sets_bit_63() {
 
     execute(&mut state).unwrap();
 
-    let raw = state.ext_state.read_csr(VCsr::Vtype as u16).unwrap();
+    let raw = state
+        .ext_state
+        .read_csr(VectorCsr::Vtype.to_csr_index())
+        .unwrap();
     assert_eq!(raw, 1u64 << (u64::BITS - 1));
 }
 
@@ -980,7 +986,10 @@ fn vl_csr_matches_vl_value() {
 
     execute(&mut state).unwrap();
 
-    let raw = state.ext_state.read_csr(VCsr::Vl as u16).unwrap();
+    let raw = state
+        .ext_state
+        .read_csr(VectorCsr::Vl.to_csr_index())
+        .unwrap();
     assert_eq!(raw, 3);
 }
 
@@ -988,7 +997,10 @@ fn vl_csr_matches_vl_value() {
 fn vlenb_csr_returns_correct_value() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
-    let raw = state.ext_state.read_csr(VCsr::Vlenb as u16).unwrap();
+    let raw = state
+        .ext_state
+        .read_csr(VectorCsr::Vlenb.to_csr_index())
+        .unwrap();
     assert_eq!(raw, u64::from(ExtState::VLENB));
 }
 
@@ -1250,20 +1262,20 @@ fn vtype_from_raw_rejects_zero_vlmax() {
 
 #[test]
 fn vector_csr_from_index_all_valid() {
-    assert_eq!(VCsr::from_index(0x008), Some(VCsr::Vstart));
-    assert_eq!(VCsr::from_index(0x009), Some(VCsr::Vxsat));
-    assert_eq!(VCsr::from_index(0x00A), Some(VCsr::Vxrm));
-    assert_eq!(VCsr::from_index(0x00F), Some(VCsr::Vcsr));
-    assert_eq!(VCsr::from_index(0xC20), Some(VCsr::Vl));
-    assert_eq!(VCsr::from_index(0xC21), Some(VCsr::Vtype));
-    assert_eq!(VCsr::from_index(0xC22), Some(VCsr::Vlenb));
+    assert_eq!(VectorCsr::from_csr_index(0x008), Some(VectorCsr::Vstart));
+    assert_eq!(VectorCsr::from_csr_index(0x009), Some(VectorCsr::Vxsat));
+    assert_eq!(VectorCsr::from_csr_index(0x00A), Some(VectorCsr::Vxrm));
+    assert_eq!(VectorCsr::from_csr_index(0x00F), Some(VectorCsr::Vcsr));
+    assert_eq!(VectorCsr::from_csr_index(0xC20), Some(VectorCsr::Vl));
+    assert_eq!(VectorCsr::from_csr_index(0xC21), Some(VectorCsr::Vtype));
+    assert_eq!(VectorCsr::from_csr_index(0xC22), Some(VectorCsr::Vlenb));
 }
 
 #[test]
 fn vector_csr_from_index_invalid() {
-    assert_eq!(VCsr::from_index(0x000), None);
-    assert_eq!(VCsr::from_index(0x300), None);
-    assert_eq!(VCsr::from_index(0xFFF), None);
+    assert_eq!(VectorCsr::from_csr_index(0x000), None);
+    assert_eq!(VectorCsr::from_csr_index(0x300), None);
+    assert_eq!(VectorCsr::from_csr_index(0xFFF), None);
 }
 
 // VectorRegistersExt derived accessor tests
@@ -1325,12 +1337,15 @@ fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Pre-set vcsr to have vxrm=0b10 (bits [2:1]), vxsat=0 -> vcsr = 0b100
-    state.ext_state.write_csr(VCsr::Vcsr as u16, 0b100).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b100)
+        .unwrap();
 
     let mut output = 0u64;
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxsat as u16,
+        VectorCsr::Vxsat.to_csr_index(),
         1,
         &mut output,
     );
@@ -1338,7 +1353,10 @@ fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
     assert_eq!(output, 1);
 
     // vcsr should now be 0b101: vxrm=0b10 preserved, vxsat=1 mirrored
-    let vcsr = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
+    let vcsr = state
+        .ext_state
+        .read_csr(VectorCsr::Vcsr.to_csr_index())
+        .unwrap();
     assert_eq!(vcsr, 0b101);
 }
 
@@ -1347,19 +1365,25 @@ fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Pre-set vcsr = 0b111 (vxrm=0b11, vxsat=1)
-    state.ext_state.write_csr(VCsr::Vcsr as u16, 0b111).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b111)
+        .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxsat as u16,
+        VectorCsr::Vxsat.to_csr_index(),
         0,
         &mut output,
     )
     .unwrap();
 
     // vcsr should now be 0b110: vxrm=0b11 preserved, vxsat=0
-    let vcsr = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
+    let vcsr = state
+        .ext_state
+        .read_csr(VectorCsr::Vcsr.to_csr_index())
+        .unwrap();
     assert_eq!(vcsr, 0b110);
 }
 
@@ -1368,12 +1392,15 @@ fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Pre-set vcsr = 0b001 (vxrm=0b00, vxsat=1)
-    state.ext_state.write_csr(VCsr::Vcsr as u16, 0b001).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b001)
+        .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxrm as u16,
+        VectorCsr::Vxrm.to_csr_index(),
         0b11,
         &mut output,
     )
@@ -1381,7 +1408,10 @@ fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
     assert_eq!(output, 0b11);
 
     // vcsr should now be 0b111: vxrm=0b11 mirrored, vxsat=1 preserved
-    let vcsr = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
+    let vcsr = state
+        .ext_state
+        .read_csr(VectorCsr::Vcsr.to_csr_index())
+        .unwrap();
     assert_eq!(vcsr, 0b111);
 }
 
@@ -1390,19 +1420,25 @@ fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Pre-set vcsr = 0b111
-    state.ext_state.write_csr(VCsr::Vcsr as u16, 0b111).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b111)
+        .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxrm as u16,
+        VectorCsr::Vxrm.to_csr_index(),
         0b00,
         &mut output,
     )
     .unwrap();
 
     // vcsr should now be 0b001: vxrm=0b00, vxsat=1 preserved
-    let vcsr = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
+    let vcsr = state
+        .ext_state
+        .read_csr(VectorCsr::Vcsr.to_csr_index())
+        .unwrap();
     assert_eq!(vcsr, 0b001);
 }
 
@@ -1411,24 +1447,36 @@ fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Start with vxsat=0, vxrm=0
-    state.ext_state.write_csr(VCsr::Vxsat as u16, 0).unwrap();
-    state.ext_state.write_csr(VCsr::Vxrm as u16, 0).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vxsat.to_csr_index(), 0)
+        .unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vxrm.to_csr_index(), 0)
+        .unwrap();
 
     let mut output = 0u64;
     // Write vcsr = 0b101 (vxrm=0b10, vxsat=1)
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vcsr as u16,
+        VectorCsr::Vcsr.to_csr_index(),
         0b101,
         &mut output,
     )
     .unwrap();
     assert_eq!(output, 0b101);
 
-    let vxsat = state.ext_state.read_csr(VCsr::Vxsat as u16).unwrap();
+    let vxsat = state
+        .ext_state
+        .read_csr(VectorCsr::Vxsat.to_csr_index())
+        .unwrap();
     assert_eq!(vxsat, 1);
 
-    let vxrm = state.ext_state.read_csr(VCsr::Vxrm as u16).unwrap();
+    let vxrm = state
+        .ext_state
+        .read_csr(VectorCsr::Vxrm.to_csr_index())
+        .unwrap();
     assert_eq!(vxrm, 0b10);
 }
 
@@ -1437,22 +1485,34 @@ fn prepare_csr_write_vcsr_zero_clears_vxsat_and_vxrm() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Pre-set non-zero values
-    state.ext_state.write_csr(VCsr::Vxsat as u16, 1).unwrap();
-    state.ext_state.write_csr(VCsr::Vxrm as u16, 0b11).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vxsat.to_csr_index(), 1)
+        .unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vxrm.to_csr_index(), 0b11)
+        .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vcsr as u16,
+        VectorCsr::Vcsr.to_csr_index(),
         0,
         &mut output,
     )
     .unwrap();
 
-    let vxsat = state.ext_state.read_csr(VCsr::Vxsat as u16).unwrap();
+    let vxsat = state
+        .ext_state
+        .read_csr(VectorCsr::Vxsat.to_csr_index())
+        .unwrap();
     assert_eq!(vxsat, 0);
 
-    let vxrm = state.ext_state.read_csr(VCsr::Vxrm as u16).unwrap();
+    let vxrm = state
+        .ext_state
+        .read_csr(VectorCsr::Vxrm.to_csr_index())
+        .unwrap();
     assert_eq!(vxrm, 0);
 }
 
@@ -1465,17 +1525,23 @@ fn prepare_csr_write_vcsr_masks_then_mirrors() {
     // Write 0xFF to vcsr; should mask to 0b111, then mirror
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vcsr as u16,
+        VectorCsr::Vcsr.to_csr_index(),
         0xFF,
         &mut output,
     )
     .unwrap();
     assert_eq!(output, 0b111);
 
-    let vxsat = state.ext_state.read_csr(VCsr::Vxsat as u16).unwrap();
+    let vxsat = state
+        .ext_state
+        .read_csr(VectorCsr::Vxsat.to_csr_index())
+        .unwrap();
     assert_eq!(vxsat, 1);
 
-    let vxrm = state.ext_state.read_csr(VCsr::Vxrm as u16).unwrap();
+    let vxrm = state
+        .ext_state
+        .read_csr(VectorCsr::Vxrm.to_csr_index())
+        .unwrap();
     assert_eq!(vxrm, 0b11);
 }
 
@@ -1489,7 +1555,7 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
     // Write vxrm=0b10 via vcsr
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vcsr as u16,
+        VectorCsr::Vcsr.to_csr_index(),
         0b100,
         &mut output,
     )
@@ -1497,32 +1563,41 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
     // Now write the masked vcsr value to the CSR storage itself
     state
         .ext_state
-        .write_csr(VCsr::Vcsr as u16, output)
+        .write_csr(VectorCsr::Vcsr.to_csr_index(), output)
         .unwrap();
 
     // Write vxsat=1 directly
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
         &mut state.ext_state,
-        VCsr::Vxsat as u16,
+        VectorCsr::Vxsat.to_csr_index(),
         1,
         &mut output,
     )
     .unwrap();
     state
         .ext_state
-        .write_csr(VCsr::Vxsat as u16, output)
+        .write_csr(VectorCsr::Vxsat.to_csr_index(), output)
         .unwrap();
 
     // Read back: vcsr should reflect both
-    let vcsr = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
+    let vcsr = state
+        .ext_state
+        .read_csr(VectorCsr::Vcsr.to_csr_index())
+        .unwrap();
     assert_eq!(vcsr, 0b101);
 
     // vxrm standalone should still be 0b10
-    let vxrm = state.ext_state.read_csr(VCsr::Vxrm as u16).unwrap();
+    let vxrm = state
+        .ext_state
+        .read_csr(VectorCsr::Vxrm.to_csr_index())
+        .unwrap();
     assert_eq!(vxrm, 0b10);
 
     // vxsat standalone should be 1
-    let vxsat = state.ext_state.read_csr(VCsr::Vxsat as u16).unwrap();
+    let vxsat = state
+        .ext_state
+        .read_csr(VectorCsr::Vxsat.to_csr_index())
+        .unwrap();
     assert_eq!(vxsat, 1);
 }
 
@@ -1532,16 +1607,28 @@ fn prepare_csr_read_vcsr_reflects_separate_csr_values() {
     state.ext_state.init_vector_csrs();
 
     // Set vxsat=1 and vxrm=0b10 directly in storage
-    state.ext_state.write_csr(VCsr::Vxsat as u16, 1).unwrap();
-    state.ext_state.write_csr(VCsr::Vxrm as u16, 0b10).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vxsat.to_csr_index(), 1)
+        .unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vxrm.to_csr_index(), 0b10)
+        .unwrap();
     // Manually compose what vcsr should be: [2:1]=vxrm=0b10, [0]=vxsat=1 -> 0b101
-    state.ext_state.write_csr(VCsr::Vcsr as u16, 0b101).unwrap();
+    state
+        .ext_state
+        .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b101)
+        .unwrap();
 
     let mut output = 0u64;
-    let raw = state.ext_state.read_csr(VCsr::Vcsr as u16).unwrap();
+    let raw = state
+        .ext_state
+        .read_csr(VectorCsr::Vcsr.to_csr_index())
+        .unwrap();
     <ZveXxConfigInstruction<_>>::prepare_csr_read(
         &state.ext_state,
-        VCsr::Vcsr as u16,
+        VectorCsr::Vcsr.to_csr_index(),
         raw,
         &mut output,
     )

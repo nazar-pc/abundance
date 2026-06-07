@@ -157,7 +157,7 @@ where
     #[inline(always)]
     fn vstart(&self) -> u16 {
         let raw = self
-            .read_csr(VCsr::Vstart as u16)
+            .read_csr(VectorCsr::Vstart.to_csr_index())
             .unwrap_or_default()
             .as_u64();
         raw as u16
@@ -166,7 +166,7 @@ where
     /// Set `vstart`
     #[inline(always)]
     fn set_vstart(&mut self, vstart: u16) {
-        self.write_csr(VCsr::Vstart as u16, Reg::Type::from(vstart))
+        self.write_csr(VectorCsr::Vstart.to_csr_index(), Reg::Type::from(vstart))
             .expect("Implementation didn't initialize `vstart` CSR");
     }
 
@@ -182,7 +182,7 @@ where
     #[inline(always)]
     fn vxrm(&self) -> Vxrm {
         let raw = self
-            .read_csr(VCsr::Vxrm as u16)
+            .read_csr(VectorCsr::Vxrm.to_csr_index())
             .unwrap_or_default()
             .as_u64();
         Vxrm::from_bits(raw as u8)
@@ -192,12 +192,14 @@ where
     #[inline(always)]
     fn set_vxrm(&mut self, vxrm: Vxrm) {
         let masked = Reg::Type::from(vxrm.to_bits());
-        self.write_csr(VCsr::Vxrm as u16, masked)
+        self.write_csr(VectorCsr::Vxrm.to_csr_index(), masked)
             .expect("Implementation didn't initialize `vxrm` CSR");
         // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
-        let old_vcsr = self.read_csr(VCsr::Vcsr as u16).unwrap_or_default();
+        let old_vcsr = self
+            .read_csr(VectorCsr::Vcsr.to_csr_index())
+            .unwrap_or_default();
         let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
-        self.write_csr(VCsr::Vcsr as u16, new_vcsr)
+        self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)
             .expect("Implementation didn't initialize `vcsr` CSR");
     }
 
@@ -205,7 +207,7 @@ where
     #[inline(always)]
     fn vxsat(&self) -> bool {
         let raw = self
-            .read_csr(VCsr::Vxsat as u16)
+            .read_csr(VectorCsr::Vxsat.to_csr_index())
             .unwrap_or_default()
             .as_u64();
         (raw & 1) != 0
@@ -215,12 +217,14 @@ where
     #[inline(always)]
     fn set_vxsat(&mut self, vxsat: bool) {
         let masked = Reg::Type::from(u8::from(vxsat));
-        self.write_csr(VCsr::Vxsat as u16, masked)
+        self.write_csr(VectorCsr::Vxsat.to_csr_index(), masked)
             .expect("Implementation didn't initialize `vxsat` CSR");
         // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
-        let old_vcsr = self.read_csr(VCsr::Vcsr as u16).unwrap_or_default();
+        let old_vcsr = self
+            .read_csr(VectorCsr::Vcsr.to_csr_index())
+            .unwrap_or_default();
         let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-        self.write_csr(VCsr::Vcsr as u16, new_vcsr)
+        self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)
             .expect("Implementation didn't initialize `vcsr` CSR");
     }
 }

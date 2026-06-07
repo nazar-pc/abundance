@@ -34,7 +34,7 @@ where
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        if VCsr::from_index(csr_index).is_some() {
+        if VectorCsr::from_csr_index(csr_index).is_some() {
             *output_value = raw_value;
             Ok(true)
         } else {
@@ -57,42 +57,42 @@ where
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        if let Some(vcsr) = VCsr::from_index(csr_index) {
+        if let Some(vcsr) = VectorCsr::from_csr_index(csr_index) {
             // WARL: mask to valid bits, zero upper bits
             *output_value = match vcsr {
-                VCsr::Vstart => {
+                VectorCsr::Vstart => {
                     // WARL: allow full XLEN write, but clamp to implementation-supported range
                     let max = Reg::Type::from(u16::MAX);
                     write_value.min(max)
                 }
-                VCsr::Vxsat => {
+                VectorCsr::Vxsat => {
                     let masked = write_value & Reg::Type::from(1u8);
                     // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
-                    let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
+                    let old_vcsr = ext_state.read_csr(VectorCsr::Vcsr.to_csr_index())?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-                    ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
+                    ext_state.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
                     masked
                 }
-                VCsr::Vxrm => {
+                VectorCsr::Vxrm => {
                     let masked = write_value & Reg::Type::from(0b11u8);
                     // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
-                    let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
+                    let old_vcsr = ext_state.read_csr(VectorCsr::Vcsr.to_csr_index())?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
-                    ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
+                    ext_state.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
                     masked
                 }
-                VCsr::Vcsr => {
+                VectorCsr::Vcsr => {
                     // Mirror `vcsr[0]` -> `vxsat`
                     let new_vxsat = write_value & Reg::Type::from(1u8);
-                    ext_state.write_csr(VCsr::Vxsat as u16, new_vxsat)?;
+                    ext_state.write_csr(VectorCsr::Vxsat.to_csr_index(), new_vxsat)?;
 
                     // Mirror `vcsr[2:1]` -> `vxrm`
                     let new_vxrm = (write_value >> 1u8) & Reg::Type::from(0b11u8);
-                    ext_state.write_csr(VCsr::Vxrm as u16, new_vxrm)?;
+                    ext_state.write_csr(VectorCsr::Vxrm.to_csr_index(), new_vxrm)?;
 
                     write_value & Reg::Type::from(0b111u8)
                 }
-                VCsr::Vl | VCsr::Vtype | VCsr::Vlenb => {
+                VectorCsr::Vl | VectorCsr::Vtype | VectorCsr::Vlenb => {
                     // Read-only CSRs (from Zicsr perspective)
                     Err(CsrError::ReadOnly { csr_index })?
                 }

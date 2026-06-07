@@ -24,13 +24,13 @@ impl AbundanceRv32IMaxExtState {
             vl: 0,
         };
         // Vector CSRs
-        s.init_csr(VCsr::Vstart as u16, 0);
-        s.init_csr(VCsr::Vxsat as u16, 0);
-        s.init_csr(VCsr::Vxrm as u16, 0);
-        s.init_csr(VCsr::Vcsr as u16, 0);
-        s.init_csr(VCsr::Vl as u16, 0);
-        s.init_csr(VCsr::Vtype as u16, 1u32 << (u32::BITS - 1));
-        s.init_csr(VCsr::Vlenb as u16, Self::VLEN / u8::BITS);
+        s.init_csr(VectorCsr::Vstart.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vxsat.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vxrm.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vcsr.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vl.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vtype.to_csr_index(), 1u32 << (u32::BITS - 1));
+        s.init_csr(VectorCsr::Vlenb.to_csr_index(), Self::VLEN / u8::BITS);
         // Machine trap CSRs - zero-initialized, mtvec must be written by test
         // boot code before any trap can be taken.
         s.init_csr(MCsr::Mstatus as u16, 0);
@@ -117,7 +117,7 @@ where
             None => 1u32 << (u32::BITS - 1),
         };
         self.vtype_raw = raw;
-        self.write_csr(VCsr::Vtype as u16, raw)
+        self.write_csr(VectorCsr::Vtype.to_csr_index(), raw)
             .expect("vtype CSR not initialized");
     }
     fn vl(&self) -> u32 {
@@ -125,7 +125,7 @@ where
     }
     fn set_vl(&mut self, vl: u32) {
         self.vl = vl;
-        self.write_csr(VCsr::Vl as u16, vl)
+        self.write_csr(VectorCsr::Vl.to_csr_index(), vl)
             .expect("vl CSR not initialized");
     }
     fn vector_instructions_allowed(&self) -> bool {
