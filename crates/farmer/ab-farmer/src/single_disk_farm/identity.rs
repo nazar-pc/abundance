@@ -58,7 +58,10 @@ impl Identity {
     }
 
     /// Opens the existing identity, or creates a new one
-    pub fn open_or_create<B: AsRef<Path>>(base_directory: B) -> Result<Self, IdentityError> {
+    pub fn open_or_create<B>(base_directory: B) -> Result<Self, IdentityError>
+    where
+        B: AsRef<Path>,
+    {
         if let Some(identity) = Self::open(base_directory.as_ref())? {
             Ok(identity)
         } else {
@@ -67,7 +70,10 @@ impl Identity {
     }
 
     /// Opens the existing identity, returns `Ok(None)` if it doesn't exist
-    pub fn open<B: AsRef<Path>>(base_directory: B) -> Result<Option<Self>, IdentityError> {
+    pub fn open<B>(base_directory: B) -> Result<Option<Self>, IdentityError>
+    where
+        B: AsRef<Path>,
+    {
         let identity_file = base_directory.as_ref().join(Self::FILE_NAME);
         if identity_file.exists() {
             debug!("Opening existing keypair");
@@ -85,7 +91,10 @@ impl Identity {
     }
 
     /// Creates new identity, overrides identity that might already exist
-    pub fn create<B: AsRef<Path>>(base_directory: B) -> Result<Self, IdentityError> {
+    pub fn create<B>(base_directory: B) -> Result<Self, IdentityError>
+    where
+        B: AsRef<Path>,
+    {
         let identity_file = base_directory.as_ref().join(Self::FILE_NAME);
         debug!("Generating new keypair");
 

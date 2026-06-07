@@ -1,7 +1,7 @@
 use libp2p::PeerId;
 use libp2p::kad::{KBucketDistance, RecordKey};
 use std::cmp::Ordering;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 type KademliaBucketKey<T> = libp2p::kad::KBucketKey<T>;
 
@@ -56,7 +56,10 @@ impl Ord for KeyWithDistance {
 }
 
 impl Hash for KeyWithDistance {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.key.hash(state);
     }
 }

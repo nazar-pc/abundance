@@ -24,6 +24,7 @@ use rand::prelude::*;
 use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::future::ready;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -90,10 +91,10 @@ where
     /// Get pieces with provided indices from cache.
     ///
     /// Number of elements in returned stream is the same as number of unique `piece_indices`.
-    pub async fn get_from_cache<'a, PieceIndices>(
+    pub fn get_from_cache<'a, PieceIndices>(
         &'a self,
         piece_indices: PieceIndices,
-    ) -> impl Stream<Item = (PieceIndex, Option<Piece>)> + Unpin + 'a
+    ) -> impl Future<Output = impl Stream<Item = (PieceIndex, Option<Piece>)> + Unpin + 'a>
     where
         PieceIndices: IntoIterator<Item = PieceIndex> + 'a,
     {
@@ -125,7 +126,7 @@ where
         let mut fut = Box::pin(fut.instrument(tracing::info_span!("", %download_id)).fuse());
 
         // Drive above future and stream back any pieces that were downloaded so far
-        stream::poll_fn(move |cx| {
+        ready(stream::poll_fn(move |cx| {
             if !fut.is_terminated() {
                 // Result doesn't matter, we'll need to poll stream below anyway
                 let _: Poll<()> = fut.poll_unpin(cx);
@@ -137,7 +138,7 @@ where
 
             // Exit will be done by the stream above
             Poll::Pending
-        })
+        }))
     }
 
     /// Returns piece by its index from farmer's piece cache (L2)

@@ -52,7 +52,10 @@ impl Encode for FarmerAppInfo {
             .saturating_add(Encode::size_hint(&self.protocol_info))
     }
 
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         Encode::encode_to(&self.genesis_root, dest);
         Encode::encode_to(
             &self
@@ -71,7 +74,10 @@ impl Encode for FarmerAppInfo {
 impl EncodeLike for FarmerAppInfo {}
 
 impl Decode for FarmerAppInfo {
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         Ok(FarmerAppInfo {
             genesis_root: BlockRoot::decode(input)
                 .map_err(|error| error.chain("Could not decode `FarmerAppInfo::genesis_root`"))?,

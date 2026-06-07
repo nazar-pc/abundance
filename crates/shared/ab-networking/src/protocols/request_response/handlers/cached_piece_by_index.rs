@@ -62,7 +62,10 @@ impl Encode for ClosestPeers {
         size
     }
 
-    fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+    fn encode_to<T>(&self, dest: &mut T)
+    where
+        T: Output + ?Sized,
+    {
         Compact::from(self.0.len() as u32).encode_to(dest);
 
         for (peer_id, addresses) in &self.0 {
@@ -79,7 +82,10 @@ impl Encode for ClosestPeers {
 impl EncodeLike for ClosestPeers {}
 
 impl Decode for ClosestPeers {
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         let mut closest_peers = Vec::with_capacity(K_VALUE.get());
 
         let closest_peers_count = Compact::<u32>::decode(input)?.0 as usize;

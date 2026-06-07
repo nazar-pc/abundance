@@ -27,6 +27,7 @@ use ab_core_primitives::solutions::{
 use ab_proof_of_space::Table;
 use rand::prelude::*;
 use rayon::prelude::*;
+use std::future::ready;
 use std::iter;
 use std::marker::PhantomData;
 use std::time::SystemTime;
@@ -126,7 +127,7 @@ where
     CSS: ChainSyncStatus,
 {
     #[inline(always)]
-    async fn verify_concurrent<BCI>(
+    fn verify_concurrent<BCI>(
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         parent_block_mmr_root: &Blake3Hash,
@@ -134,32 +135,30 @@ where
         body: &GenericBody<'_, OwnedBeaconChainBlock>,
         origin: &BlockOrigin,
         beacon_chain_info: &BCI,
-    ) -> Result<(), BlockVerificationError>
+    ) -> impl Future<Output = Result<(), BlockVerificationError>>
     where
         BCI: DeriveConsensusParametersChainInfo + ShardMembershipEntropySourceChainInfo,
     {
-        self.verify_concurrent(
+        ready(self.verify_concurrent(
             parent_header,
             parent_block_mmr_root,
             header,
             body,
             origin,
             beacon_chain_info,
-        )
-        .await
+        ))
     }
 
     #[inline(always)]
-    async fn verify_sequential(
+    fn verify_sequential(
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         parent_block_mmr_root: &Blake3Hash,
         header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         body: &GenericBody<'_, OwnedBeaconChainBlock>,
         origin: &BlockOrigin,
-    ) -> Result<Option<SuperSegment>, BlockVerificationError> {
-        self.verify_sequential(parent_header, parent_block_mmr_root, header, body, origin)
-            .await
+    ) -> impl Future<Output = Result<Option<SuperSegment>, BlockVerificationError>> {
+        ready(self.verify_sequential(parent_header, parent_block_mmr_root, header, body, origin))
     }
 }
 
@@ -500,7 +499,7 @@ where
         Ok(())
     }
 
-    async fn verify_concurrent<BCI>(
+    fn verify_concurrent<BCI>(
         &self,
         parent_header: &BeaconChainHeader<'_>,
         parent_block_mmr_root: &Blake3Hash,
@@ -592,7 +591,7 @@ where
         Ok(())
     }
 
-    async fn verify_sequential(
+    fn verify_sequential(
         &self,
         parent_header: &BeaconChainHeader<'_>,
         // TODO: Probably remove unused arguments

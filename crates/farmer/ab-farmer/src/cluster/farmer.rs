@@ -52,7 +52,10 @@ impl Encode for ClusterFarmerId {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         Encode::encode_to(&self.0.0, dest);
     }
 }
@@ -61,7 +64,10 @@ impl EncodeLike for ClusterFarmerId {}
 
 impl Decode for ClusterFarmerId {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         u128::decode(input)
             .map(|ulid| Self(Ulid(ulid)))
             .map_err(|e| e.chain("Could not decode `ClusterFarmerId.0.0`"))

@@ -193,11 +193,10 @@ async fn test_reserved_peers_dial_event() {
     // We've received the reserved peer dialing event.
 }
 
-fn new_ephemeral<NB: NetworkBehaviour>(
-    identity: Keypair,
-    connection_timeout: Duration,
-    behaviour: NB,
-) -> Swarm<NB> {
+fn new_ephemeral<NB>(identity: Keypair, connection_timeout: Duration, behaviour: NB) -> Swarm<NB>
+where
+    NB: NetworkBehaviour,
+{
     SwarmBuilder::with_existing_identity(identity)
         .with_tokio()
         .with_other_transport(|identity| {

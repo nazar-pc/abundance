@@ -375,10 +375,13 @@ impl Deref for NatsClient {
 
 impl NatsClient {
     /// Create a new instance by connecting to specified addresses
-    pub async fn new<A: ToServerAddrs>(
+    pub async fn new<A>(
         addrs: A,
         request_retry_backoff_policy: ExponentialBuilder,
-    ) -> Result<Self, async_nats::Error> {
+    ) -> Result<Self, async_nats::Error>
+    where
+        A: ToServerAddrs,
+    {
         let servers = addrs.to_server_addrs()?.collect::<Vec<_>>();
         Self::from_client(
             async_nats::connect_with_options(
