@@ -42,9 +42,10 @@
 //! * Zknh (version 1.0.1)
 //! * Zicond (version 2.0)
 //! * Zicsr (version 2.0)
-//! * (experimental) Zve32x (version 1.0.0)
-//! * (experimental) Zve64x (version 1.0.0)
-//! * (experimental) Zvl*b (version 1.0.0), where `*` is anything allowed by the specification
+//! * ZveXx (version 1.0.0), where `X` is anything allowed by the specification like Zve32x or
+//!   Zve64x
+//! * Zvl*b (version 1.0.0), where `*` is anything allowed by the specification like Zvl128b or
+//!   Zvl512b
 //!
 //! All extensions except experimental pass all relevant RISC-V Architectural Certification Tests
 //! (ACTs) using the ACT4 framework.
