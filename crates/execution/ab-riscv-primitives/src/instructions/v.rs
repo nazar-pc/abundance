@@ -1,6 +1,6 @@
 //! V extension
 
-pub mod zve64x;
+pub mod zvexx;
 
 use crate::registers::general_purpose::{RegType, Register};
 use core::fmt;

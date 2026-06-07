@@ -2,4 +2,4 @@
 
 mod private;
 pub mod vector_registers;
-pub mod zve64x;
+pub mod zvexx;
