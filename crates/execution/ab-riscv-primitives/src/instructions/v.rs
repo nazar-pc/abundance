@@ -392,10 +392,11 @@ impl fmt::Display for Eew {
 /// Vector fixed-point rounding mode.
 ///
 /// Encoded in the `vxrm` CSR bits `[1:0]` and mirrored in `vcsr[2:1]`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Vxrm {
     /// Round-to-nearest-up (rnu)
+    #[default]
     Rnu = 0b00,
     /// Round-to-nearest-even (rne)
     Rne = 0b01,

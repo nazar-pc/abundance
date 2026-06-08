@@ -130,7 +130,7 @@ where
         self.set_vtype(None);
         self.set_vl(0);
         self.set_vstart(0);
-        self.set_vxrm(Vxrm::Rnu);
+        self.set_vxrm(Vxrm::default());
         self.set_vxsat(false);
     }
 
