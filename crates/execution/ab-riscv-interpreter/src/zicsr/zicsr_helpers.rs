@@ -2,6 +2,7 @@
 
 use crate::{CsrError, Csrs};
 use ab_riscv_primitives::prelude::*;
+use core::hint::cold_path;
 
 /// CSR privilege level check helper.
 ///
@@ -30,6 +31,7 @@ where
     if current >= required {
         Ok(())
     } else {
+        cold_path();
         Err(CsrError::InsufficientPrivilege {
             csr_index,
             required,

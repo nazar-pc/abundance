@@ -48,7 +48,7 @@ where
             rs1_value: _,
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
@@ -66,15 +66,17 @@ where
             // SEW or vl.
             Self::Vmandn { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: all VReg values are valid indices < 32; `vl <= VLEN` and
                 // `vstart <= vl` are architectural invariants; snapshot-before-write inside
                 // the helper means vd may overlap vs2 or vs1 safely.
@@ -86,15 +88,17 @@ where
             }
             Self::Vmand { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -104,15 +108,17 @@ where
             }
             Self::Vmor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -122,15 +128,17 @@ where
             }
             Self::Vmxor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -140,15 +148,17 @@ where
             }
             Self::Vmorn { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -158,15 +168,17 @@ where
             }
             Self::Vmnand { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -176,15 +188,17 @@ where
             }
             Self::Vmnor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -194,15 +208,17 @@ where
             }
             Self::Vmxnor { vd, vs2, vs1 } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // SAFETY: see `Vmandn`
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(ext_state, vd, vs2, vs1, |a, b| {
@@ -213,66 +229,75 @@ where
             // vcpop.m (§16.2): count set bits in vs2 over active elements, write to GPR rd.
             Self::Vcpop { rd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 // vcpop/vfirst require a valid vtype to know vl, but do not use SEW.
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
-                // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`; `vstart <= vl`
-                // by spec invariant.
-                unsafe {
-                    zvexx_mask_helpers::execute_vcpop(regs, ext_state, rd, vs2, vm);
-                }
-            }
-            // vfirst.m (§16.3): find lowest-numbered active set bit in vs2, write index to rd.
-            Self::Vfirst { rd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`; `vstart <= vl`
+                // by spec invariant.
+                let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(ext_state, vs2, vm) };
+
+                return Ok(ControlFlow::Continue((rd, rd_value)));
+            }
+            // vfirst.m (§16.3): find lowest-numbered active set bit in vs2, write index to rd.
+            Self::Vfirst { rd, vs2, vm } => {
+                if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
-                // SAFETY: same as `Vcpop`
-                unsafe {
-                    zvexx_mask_helpers::execute_vfirst(regs, ext_state, rd, vs2, vm);
+                    });
                 }
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                // SAFETY: same as `Vcpop`
+                let rd_value = unsafe { zvexx_mask_helpers::execute_vfirst(ext_state, vs2, vm) };
+
+                return Ok(ControlFlow::Continue((rd, rd_value)));
             }
             // vmsbf.m (§16.4): set-before-first mask bit.
             // Constraints: vd != vs2 (overlap illegal), vm=false implies vd != v0.
             Self::Vmsbf { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
                 if ext_state.vstart() != 0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 // Per spec §16.4: vd must not overlap vs2
                 if vd == vs2 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -288,28 +313,33 @@ where
             // Same overlap constraints as vmsbf.
             Self::Vmsof { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
                 if ext_state.vstart() != 0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if vd == vs2 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -324,28 +354,33 @@ where
             // Same overlap constraints as vmsbf.
             Self::Vmsif { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                if ext_state.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                }
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
                 if ext_state.vstart() != 0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if vd == vs2 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -364,17 +399,20 @@ where
             // rule rather than raising an exception.
             Self::Viota { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 // Spec §16.8: viota.m with vstart != 0 raises an illegal instruction exception.
                 if ext_state.vstart() != 0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -382,6 +420,7 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let vd_idx = vd.to_bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -390,11 +429,13 @@ where
                 let vd_start = u32::from(vd.to_bits());
                 let vs2_start = u32::from(vs2.to_bits());
                 if vd_start < vs2_start + 1 && vs2_start < vd_start + u32::from(group_regs) {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -412,23 +453,27 @@ where
             // Constraints: vm=false implies vd != v0; vd alignment per LMUL.
             Self::Vid { vd, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let vd_idx = vd.to_bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });

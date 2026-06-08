@@ -6,6 +6,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
@@ -21,6 +22,7 @@ where
 {
     let vreg_idx = vreg.to_bits();
     if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -49,6 +51,7 @@ where
         let vd_idx = vd.to_bits();
         let src = src_base.to_bits();
         if vd_idx >= src && vd_idx < src + group_regs {
+            cold_path();
             return Err(ExecutionError::IllegalInstruction {
                 address: program_counter.old_pc(INSTRUCTION_SIZE),
             });

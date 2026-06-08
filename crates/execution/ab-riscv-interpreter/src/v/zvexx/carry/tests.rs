@@ -5,6 +5,7 @@ use crate::{
     Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::ops::ControlFlow;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
@@ -33,16 +34,19 @@ fn exec(
         rs1_value: state.regs.read(rs1),
         rs2_value: state.regs.read(rs2),
     };
-    instr
-        .execute(
-            rs1rs2_values,
-            &mut state.regs,
-            &mut state.ext_state,
-            &mut state.memory,
-            &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
-        )
-        .map(|_| ())
+
+    if let ControlFlow::Continue((rd, rd_value)) = instr.execute(
+        rs1rs2_values,
+        &mut state.regs,
+        &mut state.ext_state,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+        &mut state.system_instruction_handler,
+    )? {
+        state.regs.write(rd, rd_value);
+    }
+
+    Ok(())
 }
 
 fn write_elem(

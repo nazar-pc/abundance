@@ -4,6 +4,7 @@ pub mod zvexx;
 
 use crate::registers::general_purpose::{RegType, Register};
 use core::fmt;
+use core::hint::cold_path;
 
 /// `mstatus.VS` / `sstatus.VS` / `vsstatus.VS` field encoding.
 ///
@@ -153,6 +154,7 @@ impl Vlmul {
             (1, 8) | (1, 4) | (1, 2) | (1, 1) | (2, 1) | (4, 1) | (8, 1)
         );
         if !legal {
+            cold_path();
             return None;
         }
         // Register count is max(1, n/d) = n when d==1, else 1
@@ -232,7 +234,10 @@ impl Vsew {
             0b001 => Some(Self::E16),
             0b010 => Some(Self::E32),
             0b011 => Some(Self::E64),
-            _ => None,
+            _ => {
+                cold_path();
+                None
+            }
         }
     }
 
@@ -253,17 +258,27 @@ impl Vsew {
             Self::E8 => Some(Self::E16),
             Self::E16 => Some(Self::E32),
             Self::E32 => Some(Self::E64),
-            Self::E64 => None,
+            Self::E64 => {
+                cold_path();
+                None
+            }
         }
     }
 
     /// Divide Vsew width by a given factor
     pub const fn divide_by_factor(self, factor: VsewFactor) -> Option<Self> {
-        match self.bits_width().div_exact(factor.factor())? {
+        let Some(divide_by_factor) = self.bits_width().div_exact(factor.factor()) else {
+            cold_path();
+            return None;
+        };
+        match divide_by_factor {
             8 => Some(Self::E8),
             16 => Some(Self::E16),
             32 => Some(Self::E32),
-            _ => None,
+            _ => {
+                cold_path();
+                None
+            }
         }
     }
 
@@ -342,7 +357,10 @@ impl Eew {
             0b101 => Some(Self::E16),
             0b110 => Some(Self::E32),
             0b111 => Some(Self::E64),
-            _ => None,
+            _ => {
+                cold_path();
+                None
+            }
         }
     }
 
@@ -481,6 +499,7 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
 
         // All bits in [XLEN-1:8] must be zero
         if (raw >> 8u8) != 0 {
+            cold_path();
             return None;
         }
 
@@ -489,15 +508,23 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
         let vta = ((raw >> 6u8) & 1) != 0;
         let vma = ((raw >> 7u8) & 1) != 0;
 
-        let vlmul = Vlmul::from_bits(vlmul_bits)?;
-        let vsew = Vsew::from_bits(vsew_bits)?;
+        let Some(vlmul) = Vlmul::from_bits(vlmul_bits) else {
+            cold_path();
+            return None;
+        };
+        let Some(vsew) = Vsew::from_bits(vsew_bits) else {
+            cold_path();
+            return None;
+        };
 
         let sew = vsew.bits_width();
         if u32::from(sew) > ELEN {
+            cold_path();
             return None;
         }
 
         if vlmul.vlmax(VLEN, u32::from(sew)) == 0 {
+            cold_path();
             return None;
         }
 

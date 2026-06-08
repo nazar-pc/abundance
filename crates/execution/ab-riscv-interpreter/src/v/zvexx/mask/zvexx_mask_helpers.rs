@@ -1,6 +1,5 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::RegisterFile;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::arith::zvexx_arith_helpers::{write_element_u64, write_mask_bit};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
@@ -62,17 +61,17 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
 /// - `vstart <= vl`
+///
+/// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
-    regs: &mut Regs,
+pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
-    rd: Reg,
     vs2: VReg,
     vm: bool,
-) where
+) -> Reg::Type
+where
     Reg: Register,
-    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -93,9 +92,11 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
             count += 1;
         }
     }
-    regs.write(rd, Reg::Type::from(count));
+
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();
+
+    Reg::Type::from(count)
 }
 
 /// Execute `vfirst.m`: find the index of the first set bit in vs2 for active elements `0..vl`,
@@ -107,17 +108,17 @@ pub unsafe fn execute_vcpop<Reg, Regs, ExtState, CustomError>(
 /// # Safety
 /// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
 /// - `vstart <= vl`
+///
+/// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
-    regs: &mut Regs,
+pub unsafe fn execute_vfirst<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
-    rd: Reg,
     vs2: VReg,
     vm: bool,
-) where
+) -> Reg::Type
+where
     Reg: Register,
-    Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); ExtState::ELEN as usize]:,
     [(); ExtState::VLEN as usize]:,
@@ -146,14 +147,15 @@ pub unsafe fn execute_vfirst<Reg, Regs, ExtState, CustomError>(
     // `!Reg::Type::from(0)` produces all-ones for both u32 (RV32) and u64 (RV64)
     // without depending on `From<u64>` (which is not in the `Register` trait bounds).
     // For the found index, element indices fit in u32 since vl <= VLEN <= 2^32.
-    let reg_value = if result == not_found {
+    let rd_value = if result == not_found {
         !Reg::Type::from(0u8)
     } else {
         Reg::Type::from(result as u32)
     };
-    regs.write(rd, reg_value);
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();
+
+    rd_value
 }
 
 /// Execute `vmsbf.m`: set all mask bits before (not including) the first set bit of vs2.

@@ -8,6 +8,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
 ///
@@ -32,6 +33,7 @@ where
     // each starts before the other ends. Arithmetic is widened to u16 to avoid u8 overflow
     // (e.g., b_start=30 + count=8 = 38, which overflows u8).
     if a_start < b_start + count && b_start < a_start + count {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -64,6 +66,7 @@ where
     // Intervals [a_start, a_start+a_count) and [b_start, b_start+b_count) overlap iff
     // each starts before the other ends.
     if a_start < b_start + b_count && b_start < a_start + a_count {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -670,37 +673,32 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     ext_state.reset_vstart();
 }
 
-/// Copy `count` whole vector registers from `src_base` to `dst_base`.
+/// Copy `COUNT` whole vector registers from `src_base` to `dst_base`.
 ///
 /// No masking, no vtype dependency. Uses snapshot semantics: all source registers are read into
 /// a stack buffer before any destination registers are written, giving correct memmove-style
 /// behaviour for all overlap patterns (including partial overlap such as src=V0, dst=V1, count=2).
 ///
-/// The stack allocation is at most 8 × VLENB bytes (`count <= 8` for vmv1r–vmv8r).
-///
 /// # Safety
-/// - `dst_base + count <= 32` and `src_base + count <= 32` (verified by caller via alignment
+/// - `dst_base + COUNT <= 32` and `src_base + COUNT <= 32` (verified by caller via alignment
 ///   checks).
-/// - `dst_base % count == 0` and `src_base % count == 0` (verified by caller).
+/// - `dst_base % COUNT == 0` and `src_base % COUNT == 0` (verified by caller).
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_whole_reg_move<const VLENB: usize>(
+pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLENB: usize>(
     vregs: &mut VectorRegisterFile<VLENB>,
     dst_base: VReg,
     src_base: VReg,
-    count: u8,
 ) {
-    let count = usize::from(count);
-    debug_assert!(count <= 8, "count must be <= 8 for vmvNr");
     // Snapshot all source registers before writing any destination registers.
     // This is correct for all overlap patterns without direction-dependent logic.
-    let mut tmp = [[0u8; VLENB]; 8];
-    for (k, item) in tmp.iter_mut().enumerate().take(count) {
+    let mut tmp = [[0u8; VLENB]; COUNT];
+    for (k, item) in tmp.iter_mut().enumerate() {
         // SAFETY: Guaranteed by function contract
         let src = unsafe { VReg::from_bits(src_base.to_bits() + k as u8).unwrap_unchecked() };
         *item = *vregs.get(src);
     }
-    for (k, item) in tmp.iter().enumerate().take(count) {
+    for (k, item) in tmp.iter().enumerate() {
         // SAFETY: Guaranteed by function contract
         let dst = unsafe { VReg::from_bits(dst_base.to_bits() + k as u8).unwrap_unchecked() };
         *vregs.get_mut(dst) = *item;

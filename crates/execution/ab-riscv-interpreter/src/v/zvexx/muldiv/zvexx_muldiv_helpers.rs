@@ -11,6 +11,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Compute the destination register count for a widening operation (`EMUL = 2 × LMUL`).
 ///
@@ -25,7 +26,10 @@ use core::fmt;
 pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
     let (lmul_num, lmul_den) = vlmul.as_fraction();
     // EMUL = 2 × LMUL = (2 * lmul_num) / lmul_den
-    let emul_num = 2u8.checked_mul(lmul_num)?;
+    let Some(emul_num) = 2u8.checked_mul(lmul_num) else {
+        cold_path();
+        return None;
+    };
     let emul_den = lmul_den;
     // Reduce the fraction by GCD (both are powers of two so min works as GCD)
     let g = emul_num.min(emul_den);
@@ -36,6 +40,7 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
         (1, 8) | (1, 4) | (1, 2) | (1, 1) | (2, 1) | (4, 1) | (8, 1)
     );
     if !legal {
+        cold_path();
         return None;
     }
     // Register count: max(1, n/d) = n when d==1, else 1
@@ -87,6 +92,8 @@ where
     if dest_group_regs > src_group_regs && vs_start == vd_end - src_group_regs {
         return Ok(());
     }
+
+    cold_path();
     Err(ExecutionError::IllegalInstruction {
         address: program_counter.old_pc(INSTRUCTION_SIZE),
     })

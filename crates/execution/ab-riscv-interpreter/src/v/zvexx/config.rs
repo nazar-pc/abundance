@@ -126,7 +126,7 @@ where
             rs1_value,
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
@@ -137,8 +137,7 @@ where
     > {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
-                zvexx_config_helpers::apply_vsetvl(
-                    regs,
+                let rd_value = zvexx_config_helpers::apply_vsetvl(
                     ext_state,
                     program_counter,
                     rd,
@@ -146,21 +145,18 @@ where
                     rs1_value,
                     Reg::Type::from(vtypei),
                 )?;
+
+                Ok(ControlFlow::Continue((rd, rd_value)))
             }
             Self::Vsetivli { rd, uimm, vtypei } => {
-                zvexx_config_helpers::apply_vsetivli(
-                    regs,
-                    ext_state,
-                    program_counter,
-                    rd,
-                    uimm,
-                    vtypei,
-                )?;
+                let rd_value =
+                    zvexx_config_helpers::apply_vsetivli(ext_state, program_counter, uimm, vtypei)?;
+
+                Ok(ControlFlow::Continue((rd, rd_value)))
             }
             Self::Vsetvl { rd, rs1, rs2: _ } => {
                 let vtype_raw = rs2_value;
-                zvexx_config_helpers::apply_vsetvl(
-                    regs,
+                let rd_value = zvexx_config_helpers::apply_vsetvl(
                     ext_state,
                     program_counter,
                     rd,
@@ -168,9 +164,9 @@ where
                     rs1_value,
                     vtype_raw,
                 )?;
+
+                Ok(ControlFlow::Continue((rd, rd_value)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

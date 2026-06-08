@@ -60,6 +60,7 @@ where
             } => {
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if csr_is_read_only {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
@@ -84,6 +85,7 @@ where
             Self::Csrrs { rd, rs1, csr_index } => {
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if rs1 != Reg::ZERO && csr_is_read_only {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
@@ -107,6 +109,7 @@ where
             Self::Csrrc { rd, rs1, csr_index } => {
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if rs1 != Reg::ZERO && csr_is_read_only {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
@@ -133,6 +136,7 @@ where
             } => {
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if csr_is_read_only {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
@@ -158,6 +162,7 @@ where
             } => {
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if zimm != 0 && csr_is_read_only {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
@@ -185,6 +190,7 @@ where
             } => {
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if zimm != 0 && csr_is_read_only {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;

@@ -7,6 +7,7 @@ use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Check that a widening destination `vd` is aligned to `wide_group_regs` and fits within
 /// `[0,32)`, without any source overlap check
@@ -23,6 +24,7 @@ where
 {
     let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -53,6 +55,7 @@ where
 {
     let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -60,6 +63,7 @@ where
     // The wide destination (group_regs) may overlap the narrow source (src_group_regs) only in the
     // highest-numbered part of the destination group, and only when the source EMUL >= 1.
     if widen_src_overlap_illegal(vd.to_bits(), group_regs, vs2_idx, src_group_regs) {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -95,11 +99,13 @@ where
 {
     let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     }
     if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.to_bits(), group_regs) {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -107,6 +113,7 @@ where
     if let Some(vs_b) = vs_b_opt
         && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.to_bits(), group_regs)
     {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -147,6 +154,7 @@ where
 {
     let vs_idx = vs.to_bits();
     if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -172,6 +180,7 @@ where
 {
     let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -335,8 +344,8 @@ fn scalar_signed_for_sew(val: u64, sew_bits: u8) -> u64 {
 /// Execute a widening integer add/subtract.
 ///
 /// Each source element is SEW-wide; the destination element is 2×SEW-wide.
-/// `zero_extend_a` and `zero_extend_b` select unsigned vs signed widening for each source
-/// (unsigned = zero-extend, signed = sign-extend).
+/// `ZERO_EXTEND_AB` selects unsigned or signed widening for sources (unsigned = zero-extend,
+/// signed = sign-extend).
 ///
 /// `op` receives `(wide_a: u64, wide_b: u64) -> u64`.
 ///
@@ -350,17 +359,14 @@ fn scalar_signed_for_sew(val: u64, sew_bits: u8) -> u64 {
 /// - SEW < 64
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
     vm: bool,
     sew: Vsew,
-    zero_extend_a: bool,
-    zero_extend_b: bool,
     op: F,
 ) where
     Reg: Register,
@@ -387,7 +393,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
         // SAFETY: `vs2` aligned to `group_regs`;
         // `i < vl <= group_regs * (VLENB / sew.bytes_width())`
         let raw_a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
-        let wide_a = if zero_extend_a {
+        let wide_a = if ZERO_EXTEND_AB {
             raw_a
         } else {
             sign_extend_bits(raw_a, sew.bits_width()).cast_unsigned()
@@ -396,14 +402,14 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
                 let raw_b = unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) };
-                if zero_extend_b {
+                if ZERO_EXTEND_AB {
                     raw_b
                 } else {
                     sign_extend_bits(raw_b, sew.bits_width()).cast_unsigned()
                 }
             }
             OpSrc::Scalar(val) => {
-                if zero_extend_b {
+                if ZERO_EXTEND_AB {
                     scalar_unsigned_for_sew(val, sew.bits_width())
                 } else {
                     scalar_signed_for_sew(val, sew.bits_width())
@@ -425,7 +431,7 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
 /// Execute a widening add/subtract where `vs2` is already 2×SEW wide.
 ///
 /// `vs2` is read at `wide_sew.bytes_width()`; `src` (narrow) is read at `sew.bytes_width()` and
-/// widened. `zero_extend_b` selects unsigned vs signed widening for the narrow source operand.
+/// widened. `ZERO_EXTEND_B` selects unsigned vs signed widening for the narrow source operand.
 ///
 /// # Safety
 /// - `vd` aligned to `2*group_regs`, fits in `[0,32)`, does not overlap `vs2` or `src`
@@ -435,16 +441,14 @@ pub unsafe fn execute_widen_op<Reg, ExtState, CustomError, F>(
 /// - SEW < 64
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
     vm: bool,
     sew: Vsew,
-    zero_extend_b: bool,
     op: F,
 ) where
     Reg: Register,
@@ -477,14 +481,14 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
                 // verified by caller; `i < vl <= group_regs * (VLENB / sew.bytes_width())`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
                 let raw_b = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, sew) };
-                if zero_extend_b {
+                if ZERO_EXTEND_B {
                     raw_b
                 } else {
                     sign_extend_bits(raw_b, sew.bits_width()).cast_unsigned()
                 }
             }
             OpSrc::Scalar(val) => {
-                if zero_extend_b {
+                if ZERO_EXTEND_B {
                     scalar_unsigned_for_sew(val, sew.bits_width())
                 } else {
                     scalar_signed_for_sew(val, sew.bits_width())
@@ -505,7 +509,7 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
 ///
 /// `vs2` is 2×SEW wide; the shift amount comes from `src` (SEW-wide or scalar).
 /// The shift amount is masked to `log2(2*SEW)` bits per spec §12.6.
-/// `arithmetic` selects sign-extending (true) vs zero-extending (false) before shifting.
+/// `ARITHMETIC` selects sign-extending (true) vs zero-extending (false) before shifting.
 ///
 /// # Safety
 /// - `vd` aligned to `group_regs`, fits in `[0,32)`
@@ -518,14 +522,13 @@ pub unsafe fn execute_widen_w_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
+pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
     vm: bool,
     sew: Vsew,
-    arithmetic: bool,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
@@ -562,7 +565,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
             // Scalar shift amount: only the low log2(2*SEW) bits are used per spec
             OpSrc::Scalar(val) => val & shamt_mask,
         };
-        let result_wide = if arithmetic {
+        let result_wide = if ARITHMETIC {
             // Sign-extend to i64 first, then shift arithmetically as i64 to
             // preserve sign bits, then cast back. Shifting u64 after cast_unsigned()
             // would be a logical shift and lose sign bits.
@@ -584,7 +587,7 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
 /// Execute an integer extension (vzext/vsext).
 ///
 /// Source element width is `sew.divide_by_factor(factor).bytes_width()`; destination is
-/// `sew.bytes_width()`. `sign_extend` selects sign- vs zero-extension.
+/// `sew.bytes_width()`. `SIGN` selects sign- or zero-extension.
 ///
 /// The source EMUL = LMUL / factor; the source register group is `max(1, group_regs / factor)`
 /// registers.
@@ -597,14 +600,13 @@ pub unsafe fn execute_narrow_shift<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
+pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     vm: bool,
     sew: Vsew,
     factor: VsewFactor,
-    sign: bool,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
@@ -628,7 +630,7 @@ pub unsafe fn execute_extension<Reg, ExtState, CustomError>(
         }
         // SAFETY: vs2 group covers `vl` narrow elements
         let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, src_sew) };
-        let result = if sign {
+        let result = if SIGN {
             sign_extend_bits(raw, src_sew.bits_width()).cast_unsigned()
         } else {
             raw
