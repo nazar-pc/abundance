@@ -295,7 +295,6 @@ impl Default for CsrExtState {
 struct VectorExtState {
     vregs: VectorRegisterFile<TEST_VLENB>,
     vtype: Option<Vtype<ZVE64X_ELEN, TEST_VLEN>>,
-    vtype_raw: u64,
     vl: u32,
     vs_dirty_count: u32,
     vector_allowed: bool,
@@ -306,7 +305,6 @@ impl Default for VectorExtState {
         Self {
             vregs: VectorRegisterFile::default(),
             vtype: None,
-            vtype_raw: 1u64 << (u64::BITS - 1),
             vl: 0,
             vs_dirty_count: 0,
             vector_allowed: true,
@@ -392,13 +390,14 @@ where
 
     fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
         self.vector.vtype = vtype;
-        self.vector.vtype_raw = if let Some(vt) = vtype {
+        let vtype_raw = if let Some(vt) = vtype {
             vt.to_raw::<Reg<u64>>()
         } else {
             // vill: bit `XLEN-1` set, rest zero
             1u64 << (u64::BITS - 1)
         };
-        self.write_csr(VectorCsr::Vtype.to_csr_index(), self.vector.vtype_raw)
+
+        self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw)
             .expect("Implementation didn't initialize `vtype` CSR");
     }
 

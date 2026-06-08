@@ -10,7 +10,6 @@ pub(crate) struct AbundanceRv64IMaxExtState {
     csrs: BTreeMap<u16, u64>,
     vregs: VectorRegisterFile<{ Self::VLENB as usize }>,
     vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>,
-    vtype_raw: u64,
     vl: u32,
 }
 
@@ -20,7 +19,6 @@ impl AbundanceRv64IMaxExtState {
             csrs: BTreeMap::new(),
             vregs: VectorRegisterFile::default(),
             vtype: None,
-            vtype_raw: 1u64 << (u64::BITS - 1),
             vl: 0,
         };
         // Vector CSRs
@@ -115,12 +113,11 @@ where
     }
     fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
         self.vtype = vtype;
-        let raw = match vtype {
+        let vtype_raw = match vtype {
             Some(vt) => vt.to_raw::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>(),
             None => 1u64 << (u64::BITS - 1),
         };
-        self.vtype_raw = raw;
-        self.write_csr(VectorCsr::Vtype.to_csr_index(), raw)
+        self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw)
             .expect("vtype CSR not initialized");
     }
     fn vl(&self) -> u32 {
