@@ -294,8 +294,6 @@ impl Default for CsrExtState {
 
 struct VectorExtState {
     vregs: VectorRegisterFile<TEST_VLENB>,
-    vtype: Option<Vtype<ZVE64X_ELEN, TEST_VLEN>>,
-    vl: u32,
     vs_dirty_count: u32,
     vector_allowed: bool,
 }
@@ -304,8 +302,6 @@ impl Default for VectorExtState {
     fn default() -> Self {
         Self {
             vregs: VectorRegisterFile::default(),
-            vtype: None,
-            vl: 0,
             vs_dirty_count: 0,
             vector_allowed: true,
         }
@@ -382,33 +378,6 @@ where
 
     fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
         &mut self.vector.vregs
-    }
-
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-        self.vector.vtype
-    }
-
-    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-        self.vector.vtype = vtype;
-        let vtype_raw = if let Some(vt) = vtype {
-            vt.to_raw::<Reg<u64>>()
-        } else {
-            // vill: bit `XLEN-1` set, rest zero
-            1u64 << (u64::BITS - 1)
-        };
-
-        self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw)
-            .expect("Implementation didn't initialize `vtype` CSR");
-    }
-
-    fn vl(&self) -> u32 {
-        self.vector.vl
-    }
-
-    fn set_vl(&mut self, vl: u32) {
-        self.vector.vl = vl;
-        self.write_csr(VectorCsr::Vl.to_csr_index(), u64::from(vl))
-            .expect("Implementation didn't initialize `vl` CSR");
     }
 
     fn vector_instructions_allowed(&self) -> bool {

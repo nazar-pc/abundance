@@ -1,5 +1,5 @@
 use crate::rv64::test_utils::{ExtState, execute, initialize_state};
-use crate::v::vector_registers::{VectorRegisters, VectorRegistersBase, VectorRegistersExt};
+use crate::v::vector_registers::{VectorRegistersBase, VectorRegistersExt};
 use crate::{Csrs, ExecutableInstructionCsr, RegisterFile};
 use ab_riscv_primitives::prelude::*;
 

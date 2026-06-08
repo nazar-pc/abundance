@@ -28,6 +28,7 @@ where
     ///
     /// All vector CSRs are accessible from unprivileged code (U-mode).
     /// Reads are pass-through: the raw value stored in the CSR is the output value.
+    #[inline(always)]
     fn prepare_csr_read(
         _ext_state: &ExtState,
         csr_index: u16,
@@ -51,6 +52,7 @@ where
     /// - `vxrm`: only bits `[1:0]` are writable; mirrors into `vcsr[2:1]`
     /// - `vcsr`: only bits `[2:0]` are writable; mirrors into `vxsat` and `vxrm`
     /// - `vstart`: full XLEN write allowed (WARL, implementation may restrict range)
+    #[inline(always)]
     fn prepare_csr_write(
         ext_state: &mut ExtState,
         csr_index: u16,
