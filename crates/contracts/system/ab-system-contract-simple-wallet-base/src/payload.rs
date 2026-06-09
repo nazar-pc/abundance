@@ -309,9 +309,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
             map_context,
         }
     }
-}
 
-impl<'a> TransactionPayloadDecoder<'a> {
     /// Decode the next method (if any) in the payload
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next_method(

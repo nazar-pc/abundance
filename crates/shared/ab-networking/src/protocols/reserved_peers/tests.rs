@@ -15,7 +15,7 @@ const DIALING_INTERVAL_IN_SECS: Duration = Duration::from_secs(1);
 
 // TODO: Un-ignore once test doesn't take forever to run
 #[tokio::test]
-#[ignore]
+#[ignore = "Very slow"]
 async fn test_connection_breaks_after_timeout_without_reservation() {
     let connection_timeout = Duration::from_millis(300);
     let long_delay = Duration::from_secs(12);
@@ -48,7 +48,7 @@ async fn test_connection_breaks_after_timeout_without_reservation() {
         select! {
             _ = peer1.select_next_some().fuse() => {},
             _ = peer2.select_next_some().fuse() => {},
-            _ = sleep(long_delay).fuse() => {
+            () = sleep(long_delay).fuse() => {
                 break;
             }
         }
@@ -61,7 +61,7 @@ async fn test_connection_breaks_after_timeout_without_reservation() {
 
 // TODO: Un-ignore once test doesn't take forever to run
 #[tokio::test]
-#[ignore]
+#[ignore = "Very slow"]
 async fn test_connection_reservation() {
     let connection_timeout = Duration::from_millis(300);
     let long_delay = Duration::from_secs(12);
@@ -98,7 +98,7 @@ async fn test_connection_reservation() {
         select! {
             _ = peer1.select_next_some().fuse() => {},
             _ = peer2.select_next_some().fuse() => {},
-            _ = sleep(long_delay).fuse() => {
+            () = sleep(long_delay).fuse() => {
                 break;
             }
         }
@@ -111,7 +111,7 @@ async fn test_connection_reservation() {
 
 // TODO: Un-ignore once test doesn't take forever to run
 #[tokio::test]
-#[ignore]
+#[ignore = "Very slow"]
 async fn test_connection_reservation_symmetry() {
     let connection_timeout = Duration::from_millis(300);
     let long_delay = Duration::from_secs(12);
@@ -146,7 +146,7 @@ async fn test_connection_reservation_symmetry() {
         select! {
             _ = peer1.select_next_some().fuse() => {},
             _ = peer2.select_next_some().fuse() => {},
-            _ = sleep(long_delay).fuse() => {
+            () = sleep(long_delay).fuse() => {
                 break;
             }
         }
@@ -185,7 +185,7 @@ async fn test_reserved_peers_dial_event() {
                 assert_eq!(peer_id, Some(peer2_id));
             }
         },
-        _ = sleep(long_delay).fuse() => {
+        () = sleep(long_delay).fuse() => {
             panic!("No reserved peers dialing.");
         }
     }

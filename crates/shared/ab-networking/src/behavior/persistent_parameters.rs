@@ -1,7 +1,7 @@
 use crate::utils::{AsyncJoinOnDrop, Handler, HandlerFn};
 use ab_core_primitives::hashes::Blake3Hash;
 use async_trait::async_trait;
-use event_listener_primitives::HandlerId;
+use event_listener_primitives::{Bag, HandlerId};
 use fs4::FileExt;
 use futures::FutureExt;
 use futures::future::{Fuse, pending};
@@ -275,7 +275,7 @@ impl Default for KnownPeersManagerConfig {
         Self {
             enable_known_peers_source: true,
             cache_size: KNOWN_PEERS_CACHE_SIZE,
-            ignore_peer_list: Default::default(),
+            ignore_peer_list: HashSet::new(),
             path: None,
             failed_address_cache_removal_interval: REMOVE_KNOWN_PEERS_GRACE_PERIOD,
             failed_address_kademlia_removal_interval: REMOVE_KNOWN_PEERS_GRACE_PERIOD_FOR_KADEMLIA,
@@ -474,7 +474,7 @@ impl KnownPeersManager {
             known_peers,
             networking_parameters_save_delay: Self::default_delay(),
             known_peers_slots,
-            address_removed: Default::default(),
+            address_removed: Bag::default(),
             config,
         })
     }

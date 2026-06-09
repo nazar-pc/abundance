@@ -1,6 +1,6 @@
 use quote::{ToTokens, quote};
 use std::{iter, mem};
-use syn::token::Semi;
+use syn::token::{DotDot, Semi};
 use syn::{
     Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Member, Pat, PatRest, PathArguments, Stmt,
     parse_quote,
@@ -93,7 +93,7 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                     }
                     pat_struct.rest.replace(PatRest {
                         attrs: vec![],
-                        dot2_token: Default::default(),
+                        dot2_token: DotDot::default(),
                     });
                 }
             }

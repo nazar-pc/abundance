@@ -236,7 +236,7 @@ impl NodeRunner {
 
         loop {
             futures::select! {
-                _ = &mut self.random_query_timeout => {
+                () = &mut self.random_query_timeout => {
                     self.handle_random_query_interval();
                     // Increase interval 2x, but to at most 1 minute.
                     self.random_query_timeout =
@@ -259,11 +259,11 @@ impl NodeRunner {
                         break;
                     }
                 },
-                _ = self.known_peers_registry.run().fuse() => {
+                () = self.known_peers_registry.run().fuse() => {
                     trace!("Network parameters registry runner exited");
                 },
-                _ = &mut self.periodical_tasks_interval => {
-                    self.handle_periodical_tasks().await;
+                () = &mut self.periodical_tasks_interval => {
+                    self.handle_periodical_tasks();
 
                     self.periodical_tasks_interval =
                         Box::pin(tokio::time::sleep(Duration::from_secs(5)).fuse());
@@ -379,7 +379,7 @@ impl NodeRunner {
     }
 
     /// Handles periodical tasks.
-    async fn handle_periodical_tasks(&mut self) {
+    fn handle_periodical_tasks(&mut self) {
         // Log current connections.
         let network_info = self.swarm.network_info();
         let connections = network_info.connection_counters();
@@ -454,9 +454,10 @@ impl NodeRunner {
     }
 
     async fn handle_swarm_event(&mut self, swarm_event: SwarmEvent<Event>) {
+        #[expect(clippy::ref_patterns, reason = "Much less awkward this way")]
         match swarm_event {
             SwarmEvent::Behaviour(Event::Identify(event)) => {
-                self.handle_identify_event(event);
+                self.handle_identify_event(*event);
             }
             SwarmEvent::Behaviour(Event::Kademlia(event)) => {
                 self.handle_kademlia_event(event);
@@ -929,7 +930,7 @@ impl NodeRunner {
                                     sender,
                                     peer.peer_id,
                                     "GetClosestPeersOk",
-                                    &id,
+                                    id,
                                 ) || cancelled;
                             }
                         }
@@ -946,7 +947,7 @@ impl NodeRunner {
                                     sender,
                                     peer.peer_id,
                                     "GetClosestPeersError::Timeout",
-                                    &id,
+                                    id,
                                 ) || cancelled;
                             }
                         }
@@ -980,7 +981,7 @@ impl NodeRunner {
                                 sender,
                                 rec,
                                 "GetRecordOk",
-                                &id,
+                                id,
                             ) || cancelled;
                         }
                         Ok(GetRecordOk::FinishedWithNoAdditionalRecord { .. }) => {
@@ -1029,7 +1030,7 @@ impl NodeRunner {
                                     sender,
                                     provider,
                                     "GetProvidersOk",
-                                    &id,
+                                    id,
                                 ) || cancelled;
                             }
                         }
@@ -1075,7 +1076,7 @@ impl NodeRunner {
                                 sender,
                                 (),
                                 "PutRecordOk",
-                                &id,
+                                id,
                             ) || cancelled;
                         }
                         Err(error) => {
@@ -1113,7 +1114,7 @@ impl NodeRunner {
                                 sender,
                                 (),
                                 "Bootstrap",
-                                &id,
+                                id,
                             ) || cancelled;
                         }
                         Err(error) => {
@@ -1137,13 +1138,13 @@ impl NodeRunner {
         sender: &mpsc::UnboundedSender<T>,
         value: T,
         channel: &'static str,
-        id: &QueryId,
+        id: QueryId,
     ) -> bool {
         if sender.unbounded_send(value).is_err() {
             debug!("{} channel was dropped", channel);
 
             // Cancel query
-            if let Some(mut query) = kademlia.query_mut(id) {
+            if let Some(mut query) = kademlia.query_mut(&id) {
                 query.finish();
             }
             true
@@ -1525,7 +1526,7 @@ impl NodeRunner {
                     metrics.record(ping_event);
                 }
                 SwarmEvent::Behaviour(Event::Identify(identify_event)) => {
-                    metrics.record(identify_event);
+                    metrics.record(identify_event.as_ref());
                 }
                 SwarmEvent::Behaviour(Event::Kademlia(kademlia_event)) => {
                     metrics.record(kademlia_event);

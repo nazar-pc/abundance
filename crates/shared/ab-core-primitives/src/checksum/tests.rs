@@ -29,7 +29,7 @@ fn basic() {
     assert_eq!(random_bytes, decoded_random_bytes);
 
     // Non-checksummed encoding fails to decode
-    assert!(Blake3Checksummed::<[u8; 64]>::decode(&mut plain_encoding.as_slice()).is_err());
+    Blake3Checksummed::<[u8; 64]>::decode(&mut plain_encoding.as_slice()).unwrap_err();
     // Incorrectly checksummed data fails to decode
-    assert!(Blake3Checksummed::<[u8; 32]>::decode(&mut random_bytes.as_ref()).is_err());
+    Blake3Checksummed::<[u8; 32]>::decode(&mut random_bytes.as_ref()).unwrap_err();
 }

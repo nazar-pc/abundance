@@ -147,7 +147,10 @@ unsafe fn compute_f7_into_buckets_inner(
     let mut right_position_or_skip = positions_offset;
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    #[expect(clippy::needless_range_loop)]
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "Intentional workaround for rust-gpu"
+    )]
     for offset in 0..REDUCED_BUCKET_SIZE {
         let position_r = bucket_scratch[offset];
         if position_r.r.get() == r_target {

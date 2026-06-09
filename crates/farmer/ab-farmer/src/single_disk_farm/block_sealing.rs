@@ -39,7 +39,7 @@ where
                 })
                 .await
             {
-                Ok(_) => {
+                Ok(()) => {
                     info!(
                         "Successfully sealed block pre-seal hash {}",
                         hex::encode(pre_seal_hash)

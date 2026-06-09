@@ -100,7 +100,10 @@ impl Decode for PieceCacheId {
     }
 }
 
-#[expect(clippy::new_without_default)]
+#[expect(
+    clippy::new_without_default,
+    reason = "Default has different semantics"
+)]
 impl PieceCacheId {
     /// Creates new ID
     #[inline]
@@ -535,7 +538,10 @@ impl Decode for FarmId {
     }
 }
 
-#[expect(clippy::new_without_default)]
+#[expect(
+    clippy::new_without_default,
+    reason = "Default has different semantics"
+)]
 impl FarmId {
     /// Creates new ID
     #[inline]

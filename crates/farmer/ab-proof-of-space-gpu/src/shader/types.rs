@@ -159,7 +159,7 @@ impl R {
 
     /// Get the inner stored value
     #[inline(always)]
-    pub(super) fn get(&self) -> u32 {
+    pub(super) fn get(self) -> u32 {
         self.0
     }
 }
@@ -239,7 +239,7 @@ impl Match {
 
     /// Returns `(bucket_offset, r_target, positions_offset)`
     #[inline(always)]
-    pub(super) fn split(&self) -> (u32, u32, u32) {
+    pub(super) fn split(self) -> (u32, u32, u32) {
         // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
         //  shouldn't be necessary otherwise
         (
@@ -251,7 +251,7 @@ impl Match {
 
     /// Extracts a key that can be used for sorting matches
     #[inline(always)]
-    pub(super) fn cmp_key(&self) -> u32 {
+    pub(super) fn cmp_key(self) -> u32 {
         self.0
     }
 }

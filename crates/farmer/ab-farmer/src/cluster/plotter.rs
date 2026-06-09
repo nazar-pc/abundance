@@ -56,7 +56,10 @@ pub enum ClusterPlotterId {
     Ulid(Ulid),
 }
 
-#[expect(clippy::new_without_default)]
+#[expect(
+    clippy::new_without_default,
+    reason = "Default has different semantics"
+)]
 impl ClusterPlotterId {
     /// Creates new ID
     pub fn new() -> Self {
@@ -297,7 +300,7 @@ impl ClusterPlotter {
         self.handlers.plotting_progress.add(callback)
     }
 
-    #[expect(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments, reason = "Internal API")]
     async fn plot_sector_internal<PS>(
         &self,
         start: Instant,
@@ -558,7 +561,7 @@ enum ResponseProcessingResult {
     Continue,
 }
 
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 async fn process_response_notification<PS>(
     start: &Instant,
     free_instance: &str,
@@ -911,10 +914,10 @@ async fn process_plot_sector_request<P>(
         };
 
         select! {
-            _ = progress_proxy_fut.fuse() => {
+            () = progress_proxy_fut.fuse() => {
                 // Done
             }
-            _ = ping_fut.fuse() => {
+            () = ping_fut.fuse() => {
                 unreachable!("Ping loop never ends");
             }
         }

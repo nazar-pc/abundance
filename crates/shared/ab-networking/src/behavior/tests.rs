@@ -11,6 +11,7 @@ use libp2p::{Multiaddr, PeerId};
 use parity_scale_codec::{Decode, Encode};
 use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
+use std::collections::HashSet;
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -289,7 +290,7 @@ async fn test_known_peers_removal_address_after_specified_interval() {
     let config = KnownPeersManagerConfig {
         enable_known_peers_source: false,
         cache_size: 100,
-        ignore_peer_list: Default::default(),
+        ignore_peer_list: HashSet::new(),
         path: None,
         failed_address_cache_removal_interval: Duration::from_millis(100),
         ..Default::default()

@@ -89,7 +89,7 @@ pub trait Plotter: fmt::Debug {
     ///
     /// Future returns once plotting is successfully scheduled (for backpressure purposes).
     // TODO: Struct for arguments
-    #[expect(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments, reason = "TODO")]
     async fn plot_sector(
         &self,
         public_key: Ed25519PublicKey,
@@ -106,7 +106,7 @@ pub trait Plotter: fmt::Debug {
     /// Returns `true` if plotting started successfully and `false` if there is no capacity to start
     /// plotting immediately.
     // TODO: Struct for arguments
-    #[expect(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments, reason = "TODO")]
     async fn try_plot_sector(
         &self,
         public_key: Ed25519PublicKey,

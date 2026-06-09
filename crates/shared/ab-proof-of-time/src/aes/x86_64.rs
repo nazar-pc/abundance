@@ -1,5 +1,13 @@
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput};
-use core::arch::x86_64::*;
+use core::arch::x86_64::{
+    __m128i, __m256i, __m512i, _mm_aesdec_si128, _mm_aesdeclast_si128, _mm_aesenc_si128,
+    _mm_aesenclast_si128, _mm_aesimc_si128, _mm_aeskeygenassist_si128, _mm_set1_epi8,
+    _mm_setzero_si128, _mm_shuffle_epi32, _mm_slli_si128, _mm_test_all_zeros, _mm_xor_si128,
+    _mm256_aesdec_epi128, _mm256_aesdeclast_epi128, _mm256_aesenc_epi128, _mm256_aesenclast_epi128,
+    _mm256_broadcastsi128_si256, _mm256_cmpeq_epi64, _mm256_set1_epi64x, _mm256_testc_si256,
+    _mm256_xor_si256, _mm512_aesdec_epi128, _mm512_aesdeclast_epi128, _mm512_aesenc_epi128,
+    _mm512_aesenclast_epi128, _mm512_broadcast_i32x4, _mm512_cmpeq_epu64_mask, _mm512_xor_si512,
+};
 use core::array;
 use core::simd::{u8x16, u8x32, u8x64};
 

@@ -29,8 +29,8 @@
 //! - Requests have a certain time limit before they time out. This time includes the time it takes
 //!   to send/receive the request and response.
 //!
-//! - If provided, a ["requests processing"](ProtocolConfig::inbound_queue) channel is used to
-//!   handle incoming requests.
+//! - If provided, a [requests processing](ProtocolConfig::inbound_queue) channel is used to handle
+//!   incoming requests.
 //!
 //! Original file commit: <https://github.com/paritytech/substrate/commit/c2fc4b3ca0d7a15cc3f9cb1e5f441d99ec8d6e0b>
 
@@ -40,6 +40,7 @@ mod tests;
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
+use futures::stream::FuturesUnordered;
 use libp2p::StreamProtocol;
 use libp2p::core::transport::PortUse;
 use libp2p::core::{Endpoint, Multiaddr};
@@ -330,10 +331,10 @@ struct RequestProcessingOutcome {
 impl RequestResponseFactoryBehaviour {
     /// Creates a new behaviour. Must be passed a list of supported protocols. Returns an error if
     /// the same protocol is passed twice.
-    pub fn new(
-        list: impl IntoIterator<Item = Box<dyn RequestHandler>>,
-        max_concurrent_streams: usize,
-    ) -> Result<Self, RegisterError> {
+    pub fn new<List>(list: List, max_concurrent_streams: usize) -> Result<Self, RegisterError>
+    where
+        List: IntoIterator<Item = Box<dyn RequestHandler>>,
+    {
         let mut protocols = HashMap::new();
         let mut request_handlers = Vec::new();
         for mut handler in list {
@@ -371,8 +372,8 @@ impl RequestResponseFactoryBehaviour {
 
         Ok(Self {
             protocols,
-            pending_requests: Default::default(),
-            pending_responses: Default::default(),
+            pending_requests: HashMap::new(),
+            pending_responses: FuturesUnordered::new(),
             message_request: None,
             request_handlers,
         })

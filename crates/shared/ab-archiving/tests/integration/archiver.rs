@@ -635,8 +635,8 @@ fn object_on_the_edge_of_segment() {
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader {
                 index: LocalSegmentIndex::ZERO.into(),
-                root: Default::default(),
-                prev_segment_header_hash: Default::default(),
+                root: SegmentRoot::default(),
+                prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO.into(),
                     archived_progress: ArchivedBlockProgress::new_complete(),

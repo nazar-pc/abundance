@@ -533,6 +533,10 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - Signed overflow (MIN % −1): remainder = 0
 #[inline(always)]
 #[doc(hidden)]
+#[expect(
+    clippy::modulo_arithmetic,
+    reason = "This is what the code is supposed to do"
+)]
 pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);

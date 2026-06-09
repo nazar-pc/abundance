@@ -1218,18 +1218,3 @@ impl InnerPiece {
         unsafe { mem::transmute(value) }
     }
 }
-
-#[cfg(feature = "alloc")]
-impl From<Box<InnerPiece>> for Vec<u8> {
-    fn from(value: Box<InnerPiece>) -> Self {
-        let mut value = mem::ManuallyDrop::new(value);
-        // SAFETY: Always contains fixed allocation of bytes
-        unsafe {
-            Vec::from_raw_parts(
-                value.as_bytes_mut().as_mut_ptr(),
-                InnerPiece::SIZE,
-                InnerPiece::SIZE,
-            )
-        }
-    }
-}

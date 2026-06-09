@@ -56,7 +56,7 @@ pub(crate) struct ChunkCandidate {
 /// This is primarily helpful in test environment, prefer [`audit_plot_sync`] for auditing real
 /// plots.
 // TODO: Struct for arguments
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "TODO")]
 pub fn audit_sector_sync<'a, Sector>(
     public_key_hash: &'a Blake3Hash,
     shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
@@ -125,7 +125,7 @@ where
 /// Plot is assumed to contain concatenated series of sectors as created by functions in
 /// [`plotting`](crate::plotting) module earlier.
 // TODO: Struct for arguments
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "TODO")]
 pub fn audit_plot_sync<'a, 'b, Plot>(
     public_key_hash: &'a Blake3Hash,
     shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,

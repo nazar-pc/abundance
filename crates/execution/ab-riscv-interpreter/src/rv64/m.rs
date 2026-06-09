@@ -92,6 +92,10 @@ where
             Self::Rem { rd, rs1: _, rs2: _ } => {
                 let dividend = rs1_value.cast_signed();
                 let divisor = rs2_value.cast_signed();
+                #[expect(
+                    clippy::modulo_arithmetic,
+                    reason = "This is what the code is supposed to do"
+                )]
                 let value = if divisor == 0 {
                     dividend
                 } else if dividend == i64::MIN && divisor == -1 {
@@ -140,6 +144,10 @@ where
             Self::Remw { rd, rs1: _, rs2: _ } => {
                 let dividend = rs1_value as i32;
                 let divisor = rs2_value as i32;
+                #[expect(
+                    clippy::modulo_arithmetic,
+                    reason = "This is what the code is supposed to do"
+                )]
                 let value = if divisor == 0 {
                     i64::from(dividend).cast_unsigned()
                 } else if dividend == i32::MIN && divisor == -1 {

@@ -1031,16 +1031,11 @@ where
             ys.write_copy_of_slice(&ys_batch);
         }
 
-        // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
-        // layout, all elements were initialized
-        let ys = unsafe {
-            let ys_len = ys.len();
-            let ys = Box::into_raw(ys);
-            Vec::from_raw_parts(ys.cast(), ys_len, ys_len)
-        };
+        // SAFETY: All elements were initialized
+        let ys = unsafe { ys.assume_init_ref() };
 
         // TODO: Try to group buckets in the process of collecting `y`s
-        let buckets = group_by_buckets::<K>(&ys);
+        let buckets = group_by_buckets::<K>(ys);
 
         Self::First { buckets }
     }
@@ -1082,16 +1077,11 @@ where
             ys.write_copy_of_slice(&ys_batch);
         }
 
-        // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
-        // layout, all elements were initialized
-        let ys = unsafe {
-            let ys_len = ys.len();
-            let ys = Box::into_raw(ys);
-            Vec::from_raw_parts(ys.cast(), ys_len, ys_len)
-        };
+        // SAFETY: All elements were initialized
+        let ys = unsafe { ys.assume_init_ref() };
 
         // TODO: Try to group buckets in the process of collecting `y`s
-        let buckets = group_by_buckets::<K>(&ys);
+        let buckets = group_by_buckets::<K>(ys);
 
         Self::First { buckets }
     }

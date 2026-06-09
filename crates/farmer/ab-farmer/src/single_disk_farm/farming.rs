@@ -122,7 +122,10 @@ where
     }
 
     /// Audit this plot
-    #[expect(clippy::type_complexity)]
+    #[expect(
+        clippy::type_complexity,
+        reason = "Probably not worth creating type aliases"
+    )]
     pub fn audit<'b, PosTable>(
         &'a self,
         options: PlotAuditOptions<'a, 'b, PosTable>,

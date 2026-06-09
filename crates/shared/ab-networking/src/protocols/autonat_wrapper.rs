@@ -44,7 +44,7 @@ impl Behaviour {
         Self {
             inner,
             private_ips_enabled: !config.inner_config.only_global_ips,
-            listen_addresses: Default::default(),
+            listen_addresses: HashSet::new(),
         }
     }
 

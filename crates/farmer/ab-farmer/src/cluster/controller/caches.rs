@@ -227,7 +227,7 @@ pub async fn maintain_caches(
                     );
                 }
             }
-            _ = cache_reinitialization => {
+            () = cache_reinitialization => {
                 // Nothing left to do
             }
         }

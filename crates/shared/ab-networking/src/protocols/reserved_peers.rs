@@ -212,7 +212,7 @@ impl NetworkBehaviour for Behaviour {
         &mut self,
         _: PeerId,
         _: ConnectionId,
-        _: THandlerOutEvent<Self>,
+        (): THandlerOutEvent<Self>,
     ) {
     }
 

@@ -119,6 +119,10 @@ impl OwnSegments<'_> {
 
 /// Information about intermediate shard block
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Intentionally exposing immediately decoded fields above and hiding the rest of the implementation"
+)]
 pub struct IntermediateShardBlockInfo<'a> {
     /// A block header that corresponds to an intermediate shard
     pub header: IntermediateShardHeader<'a>,

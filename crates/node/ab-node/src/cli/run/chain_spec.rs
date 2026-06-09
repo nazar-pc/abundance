@@ -5,6 +5,7 @@ use ab_core_primitives::block::header::{
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
+use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotOutput, SlotDuration, SlotNumber};
 use ab_core_primitives::segments::HistorySize;
@@ -122,8 +123,8 @@ impl ChainSpec {
             )
             .expect("Values of the genesis block are valid; qed")
             .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
-                public_key: Default::default(),
-                signature: Default::default(),
+                public_key: Ed25519PublicKey::default(),
+                signature: Ed25519Signature::default(),
             }))
     }
 }

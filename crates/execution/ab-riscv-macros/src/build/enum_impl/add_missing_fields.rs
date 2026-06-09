@@ -1,4 +1,5 @@
 use syn::punctuated::Punctuated;
+use syn::token::Brace;
 use syn::visit_mut::VisitMut;
 use syn::{
     Block, Expr, ExprPath, ExprStruct, Ident, Member, Path, PathArguments, PathSegment, parse_quote,
@@ -99,7 +100,7 @@ fn try_convert_unit_to_struct(expr_path: &ExprPath) -> Option<ExprStruct> {
         attrs: expr_path.attrs.clone(),
         qself: None,
         path,
-        brace_token: Default::default(),
+        brace_token: Brace::default(),
         fields,
         dot2_token: None,
         rest: None,

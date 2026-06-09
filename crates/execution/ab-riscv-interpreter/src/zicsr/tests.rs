@@ -822,7 +822,7 @@ fn test_csrrw_read_only_csr_is_rejected() {
 
     let result = execute(&mut state);
 
-    assert!(result.is_err());
+    result.unwrap_err();
     assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
@@ -842,7 +842,7 @@ fn test_csrrwi_read_only_csr_is_rejected() {
 
     let result = execute(&mut state);
 
-    assert!(result.is_err());
+    result.unwrap_err();
     assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
@@ -863,7 +863,7 @@ fn test_csrrs_read_only_csr_with_nonzero_rs1_is_rejected() {
 
     let result = execute(&mut state);
 
-    assert!(result.is_err());
+    result.unwrap_err();
     assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
@@ -884,7 +884,7 @@ fn test_csrrc_read_only_csr_with_nonzero_rs1_is_rejected() {
 
     let result = execute(&mut state);
 
-    assert!(result.is_err());
+    result.unwrap_err();
     assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
@@ -904,7 +904,7 @@ fn test_csrrsi_read_only_csr_with_nonzero_zimm_is_rejected() {
 
     let result = execute(&mut state);
 
-    assert!(result.is_err());
+    result.unwrap_err();
     assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 
@@ -924,7 +924,7 @@ fn test_csrrci_read_only_csr_with_nonzero_zimm_is_rejected() {
 
     let result = execute(&mut state);
 
-    assert!(result.is_err());
+    result.unwrap_err();
     assert_eq!(state.ext_state.read_csr(RO_CSR).unwrap(), 0x1234);
 }
 

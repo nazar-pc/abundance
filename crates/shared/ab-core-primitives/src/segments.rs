@@ -541,38 +541,6 @@ impl SegmentIndex {
 #[repr(C)]
 pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
 
-impl SegmentRoot {
-    /// Check whether a segment root is a part of the super segment
-    pub fn is_valid(
-        &self,
-        shard_index: ShardIndex,
-        local_segment_index: LocalSegmentIndex,
-        segment_position: SegmentPosition,
-        segment_proof: &SegmentProof,
-        num_segments: u32,
-        super_segment_root: &SuperSegmentRoot,
-    ) -> bool {
-        let shard_segment_root = ShardSegmentRootWithPosition {
-            shard_index,
-            segment_position,
-            local_segment_index,
-            segment_root: *self,
-        };
-        // The proof is fixed size and contains zero padding elements, which must be skipped for
-        // verification purposes
-        let segment_proof = segment_proof
-            .split_once(|hash| hash == &[0; _])
-            .map_or(segment_proof.as_slice(), |(before, _after)| before);
-        UnbalancedMerkleTree::verify(
-            super_segment_root,
-            segment_proof,
-            u64::from(segment_position),
-            shard_segment_root.hash(),
-            u64::from(num_segments),
-        )
-    }
-}
-
 impl fmt::Debug for SegmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
@@ -659,6 +627,36 @@ impl SegmentRoot {
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
+    }
+
+    /// Check whether a segment root is a part of the super segment
+    pub fn is_valid(
+        &self,
+        shard_index: ShardIndex,
+        local_segment_index: LocalSegmentIndex,
+        segment_position: SegmentPosition,
+        segment_proof: &SegmentProof,
+        num_segments: u32,
+        super_segment_root: &SuperSegmentRoot,
+    ) -> bool {
+        let shard_segment_root = ShardSegmentRootWithPosition {
+            shard_index,
+            segment_position,
+            local_segment_index,
+            segment_root: *self,
+        };
+        // The proof is fixed size and contains zero padding elements, which must be skipped for
+        // verification purposes
+        let segment_proof = segment_proof
+            .split_once(|hash| hash == &[0; _])
+            .map_or(segment_proof.as_slice(), |(before, _after)| before);
+        UnbalancedMerkleTree::verify(
+            super_segment_root,
+            segment_proof,
+            u64::from(segment_position),
+            shard_segment_root.hash(),
+            u64::from(num_segments),
+        )
     }
 }
 

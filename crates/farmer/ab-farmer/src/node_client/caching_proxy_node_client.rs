@@ -273,9 +273,9 @@ where
 
         let background_task = tokio::spawn(async move {
             select! {
-                _ = slot_info_proxy_fut.fuse() => {},
-                _ = super_segment_headers_maintenance_fut.fuse() => {},
-                _ = block_sealing_proxy_fut.fuse() => {},
+                () = slot_info_proxy_fut.fuse() => {},
+                () = super_segment_headers_maintenance_fut.fuse() => {},
+                () = block_sealing_proxy_fut.fuse() => {},
             }
         });
 
