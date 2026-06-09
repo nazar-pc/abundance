@@ -220,7 +220,6 @@ async fn find_proofs_adapter(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
     Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
-    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits) = select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter

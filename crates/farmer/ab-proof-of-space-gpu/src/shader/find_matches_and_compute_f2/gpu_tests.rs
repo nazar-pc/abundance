@@ -204,7 +204,6 @@ async fn find_matches_and_compute_f2_adapter(
     Box<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>,
     Box<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>,
 )> {
-    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits) = select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
