@@ -42,7 +42,7 @@ impl VsStatus {
     }
 }
 
-/// Vector length multiplier (LMUL) setting
+/// Vector length multiplier (LMUL) setting.
 ///
 /// Encoded in `vtype[2:0]` as a signed 3-bit value.
 /// `LMUL = 2^vlmul` where `vlmul` is sign-extended. Positive values give integer multipliers,
@@ -93,22 +93,23 @@ impl Vlmul {
     /// For fractional LMUL, this is `VLEN / (SEW * denominator)`.
     /// Returns 0 when the result would be less than 1 (insufficient bits).
     #[inline(always)]
-    pub const fn vlmax(self, vlen_bits: u32, sew_bits: u32) -> u32 {
+    pub const fn vlmax<const VLEN: u32>(self, sew: Vsew) -> u32 {
+        let sew_bits = u32::from(sew.bits_width());
         match self {
-            Self::M1 => vlen_bits / sew_bits,
-            Self::M2 => (vlen_bits * 2) / sew_bits,
-            Self::M4 => (vlen_bits * 4) / sew_bits,
-            Self::M8 => (vlen_bits * 8) / sew_bits,
-            Self::Mf2 => vlen_bits / (sew_bits * 2),
-            Self::Mf4 => vlen_bits / (sew_bits * 4),
-            Self::Mf8 => vlen_bits / (sew_bits * 8),
+            Self::M1 => VLEN / sew_bits,
+            Self::M2 => (VLEN * 2) / sew_bits,
+            Self::M4 => (VLEN * 4) / sew_bits,
+            Self::M8 => (VLEN * 8) / sew_bits,
+            Self::Mf2 => VLEN / (sew_bits * 2),
+            Self::Mf4 => VLEN / (sew_bits * 4),
+            Self::Mf8 => VLEN / (sew_bits * 8),
         }
     }
 
     /// Number of vector registers occupied by one register group at this `LMUL`.
     ///
-    /// Fractional `LMUL` values (`Mf2`, `Mf4`, `Mf8`) each occupy exactly `1` register.
-    /// Integer `LMUL` values occupy `1`, `2`, `4, or `8` registers respectively.
+    /// Fractional `LMUL` values (`Mf2`, `Mf4`, `Mf8`) each occupy exactly 1 register.
+    /// Integer `LMUL` values occupy 1, 2, 4, or 8 registers respectively.
     #[inline(always)]
     pub const fn register_count(self) -> u8 {
         match self {
@@ -203,7 +204,8 @@ pub enum VsewFactor {
 }
 
 impl VsewFactor {
-    /// Divide Vsew width by a given factor
+    /// Return the numeric divisor used to scale down a [`Vsew`] bit-width
+    #[inline(always)]
     pub const fn factor(self) -> u8 {
         self as u8
     }
@@ -253,6 +255,7 @@ impl Vsew {
     }
 
     /// Get the double element width, if available
+    #[inline(always)]
     pub const fn double_width(self) -> Option<Self> {
         match self {
             Self::E8 => Some(Self::E16),
@@ -266,6 +269,7 @@ impl Vsew {
     }
 
     /// Divide Vsew width by a given factor
+    #[inline(always)]
     pub const fn divide_by_factor(self, factor: VsewFactor) -> Option<Self> {
         let Some(divide_by_factor) = self.bits_width().div_exact(factor.factor()) else {
             cold_path();
@@ -523,7 +527,7 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
             return None;
         }
 
-        if vlmul.vlmax(VLEN, u32::from(sew)) == 0 {
+        if vlmul.vlmax::<VLEN>(vsew) == 0 {
             cold_path();
             return None;
         }

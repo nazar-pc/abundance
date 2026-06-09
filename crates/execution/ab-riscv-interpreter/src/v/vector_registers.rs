@@ -98,9 +98,7 @@ where
     /// Compute `VLMAX` for a given vtype
     #[inline(always)]
     fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> u32 {
-        vtype
-            .vlmul()
-            .vlmax(Self::VLEN, u32::from(vtype.vsew().bits_width()))
+        vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
     }
 }
 
