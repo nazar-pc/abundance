@@ -247,7 +247,7 @@ unsafe impl const ZcmpRegister for ContractRegister {
 
 /// An instruction type used by contracts
 #[instruction(
-    ignore = [Fence, FenceTso, Ecall],
+    ignore = [Ecall],
     inherit = [
         Rv64ZcaInstruction,
         Rv64ZcbInstruction,
@@ -258,7 +258,6 @@ unsafe impl const ZcmpRegister for ContractRegister {
         Rv64ZbcInstruction,
         Rv64ZknInstruction,
         ZicondInstruction,
-        Rv64ZknhInstruction,
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
