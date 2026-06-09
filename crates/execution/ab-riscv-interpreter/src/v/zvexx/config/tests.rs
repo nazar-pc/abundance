@@ -1144,45 +1144,45 @@ fn vsetvl_all_bits_set_in_rs2_sets_vill() {
 
 #[test]
 fn vlmul_vlmax_m1_e32_vlen128() {
-    assert_eq!(Vlmul::M1.vlmax(128, 32), 4);
+    assert_eq!(Vlmul::M1.vlmax::<128>(Vsew::E32), 4);
 }
 
 #[test]
 fn vlmul_vlmax_m2_e32_vlen128() {
-    assert_eq!(Vlmul::M2.vlmax(128, 32), 8);
+    assert_eq!(Vlmul::M2.vlmax::<128>(Vsew::E32), 8);
 }
 
 #[test]
 fn vlmul_vlmax_m4_e32_vlen128() {
-    assert_eq!(Vlmul::M4.vlmax(128, 32), 16);
+    assert_eq!(Vlmul::M4.vlmax::<128>(Vsew::E32), 16);
 }
 
 #[test]
 fn vlmul_vlmax_m8_e8_vlen128() {
-    assert_eq!(Vlmul::M8.vlmax(128, 8), 128);
+    assert_eq!(Vlmul::M8.vlmax::<128>(Vsew::E8), 128);
 }
 
 #[test]
 fn vlmul_vlmax_mf2_e32_vlen128() {
-    assert_eq!(Vlmul::Mf2.vlmax(128, 32), 2);
+    assert_eq!(Vlmul::Mf2.vlmax::<128>(Vsew::E32), 2);
 }
 
 #[test]
 fn vlmul_vlmax_mf4_e16_vlen128() {
     // 128 / (16*4) = 2
-    assert_eq!(Vlmul::Mf4.vlmax(128, 16), 2);
+    assert_eq!(Vlmul::Mf4.vlmax::<128>(Vsew::E16), 2);
 }
 
 #[test]
 fn vlmul_vlmax_mf8_e8_vlen128() {
     // 128 / (8*8) = 2
-    assert_eq!(Vlmul::Mf8.vlmax(128, 8), 2);
+    assert_eq!(Vlmul::Mf8.vlmax::<128>(Vsew::E8), 2);
 }
 
 #[test]
 fn vlmul_vlmax_zero_when_too_small() {
     // e64 with mf8 on VLEN=128: 128/(64*8) = 0
-    assert_eq!(Vlmul::Mf8.vlmax(128, 64), 0);
+    assert_eq!(Vlmul::Mf8.vlmax::<128>(Vsew::E64), 0);
 }
 
 // Vtype decode/encode round-trip tests
