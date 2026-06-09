@@ -294,9 +294,6 @@ impl Default for CsrExtState {
 
 struct VectorExtState {
     vregs: VectorRegisterFile<TEST_VLENB>,
-    vtype: Option<Vtype<ZVE64X_ELEN, TEST_VLEN>>,
-    vtype_raw: u64,
-    vl: u32,
     vs_dirty_count: u32,
     vector_allowed: bool,
 }
@@ -305,9 +302,6 @@ impl Default for VectorExtState {
     fn default() -> Self {
         Self {
             vregs: VectorRegisterFile::default(),
-            vtype: None,
-            vtype_raw: 1u64 << (u64::BITS - 1),
-            vl: 0,
             vs_dirty_count: 0,
             vector_allowed: true,
         }
@@ -386,32 +380,6 @@ where
         &mut self.vector.vregs
     }
 
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-        self.vector.vtype
-    }
-
-    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-        self.vector.vtype = vtype;
-        self.vector.vtype_raw = if let Some(vt) = vtype {
-            vt.to_raw::<Reg<u64>>()
-        } else {
-            // vill: bit `XLEN-1` set, rest zero
-            1u64 << (u64::BITS - 1)
-        };
-        self.write_csr(VCsr::Vtype as u16, self.vector.vtype_raw)
-            .expect("Implementation didn't initialize `vtype` CSR");
-    }
-
-    fn vl(&self) -> u32 {
-        self.vector.vl
-    }
-
-    fn set_vl(&mut self, vl: u32) {
-        self.vector.vl = vl;
-        self.write_csr(VCsr::Vl as u16, u64::from(vl))
-            .expect("Implementation didn't initialize `vl` CSR");
-    }
-
     fn vector_instructions_allowed(&self) -> bool {
         self.vector.vector_allowed
     }
@@ -445,13 +413,13 @@ impl ExtState {
     /// Initialize all vector CSRs with default values
     pub(crate) fn init_vector_csrs(&mut self) {
         // Initialize all vector CSRs
-        self.init_csr(VCsr::Vstart as u16, 0);
-        self.init_csr(VCsr::Vxsat as u16, 0);
-        self.init_csr(VCsr::Vxrm as u16, 0);
-        self.init_csr(VCsr::Vcsr as u16, 0);
-        self.init_csr(VCsr::Vl as u16, 0);
-        self.init_csr(VCsr::Vtype as u16, 1u64 << (u64::BITS - 1));
-        self.init_csr(VCsr::Vlenb as u16, u64::from(Self::VLENB));
+        self.init_csr(VectorCsr::Vstart.to_csr_index(), 0);
+        self.init_csr(VectorCsr::Vxsat.to_csr_index(), 0);
+        self.init_csr(VectorCsr::Vxrm.to_csr_index(), 0);
+        self.init_csr(VectorCsr::Vcsr.to_csr_index(), 0);
+        self.init_csr(VectorCsr::Vl.to_csr_index(), 0);
+        self.init_csr(VectorCsr::Vtype.to_csr_index(), 1u64 << (u64::BITS - 1));
+        self.init_csr(VectorCsr::Vlenb.to_csr_index(), u64::from(Self::VLENB));
         // Fill them with default values
         self.initialize_vector_state();
     }

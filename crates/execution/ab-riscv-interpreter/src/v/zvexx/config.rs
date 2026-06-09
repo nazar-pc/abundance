@@ -28,13 +28,14 @@ where
     ///
     /// All vector CSRs are accessible from unprivileged code (U-mode).
     /// Reads are pass-through: the raw value stored in the CSR is the output value.
+    #[inline(always)]
     fn prepare_csr_read(
         _ext_state: &ExtState,
         csr_index: u16,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        if VCsr::from_index(csr_index).is_some() {
+        if VectorCsr::from_csr_index(csr_index).is_some() {
             *output_value = raw_value;
             Ok(true)
         } else {
@@ -51,48 +52,49 @@ where
     /// - `vxrm`: only bits `[1:0]` are writable; mirrors into `vcsr[2:1]`
     /// - `vcsr`: only bits `[2:0]` are writable; mirrors into `vxsat` and `vxrm`
     /// - `vstart`: full XLEN write allowed (WARL, implementation may restrict range)
+    #[inline(always)]
     fn prepare_csr_write(
         ext_state: &mut ExtState,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        if let Some(vcsr) = VCsr::from_index(csr_index) {
+        if let Some(vcsr) = VectorCsr::from_csr_index(csr_index) {
             // WARL: mask to valid bits, zero upper bits
             *output_value = match vcsr {
-                VCsr::Vstart => {
+                VectorCsr::Vstart => {
                     // WARL: allow full XLEN write, but clamp to implementation-supported range
                     let max = Reg::Type::from(u16::MAX);
                     write_value.min(max)
                 }
-                VCsr::Vxsat => {
+                VectorCsr::Vxsat => {
                     let masked = write_value & Reg::Type::from(1u8);
                     // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
-                    let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
+                    let old_vcsr = ext_state.read_csr(VectorCsr::Vcsr.to_csr_index())?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-                    ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
+                    ext_state.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
                     masked
                 }
-                VCsr::Vxrm => {
+                VectorCsr::Vxrm => {
                     let masked = write_value & Reg::Type::from(0b11u8);
                     // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
-                    let old_vcsr = ext_state.read_csr(VCsr::Vcsr as u16)?;
+                    let old_vcsr = ext_state.read_csr(VectorCsr::Vcsr.to_csr_index())?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
-                    ext_state.write_csr(VCsr::Vcsr as u16, new_vcsr)?;
+                    ext_state.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
                     masked
                 }
-                VCsr::Vcsr => {
+                VectorCsr::Vcsr => {
                     // Mirror `vcsr[0]` -> `vxsat`
                     let new_vxsat = write_value & Reg::Type::from(1u8);
-                    ext_state.write_csr(VCsr::Vxsat as u16, new_vxsat)?;
+                    ext_state.write_csr(VectorCsr::Vxsat.to_csr_index(), new_vxsat)?;
 
                     // Mirror `vcsr[2:1]` -> `vxrm`
                     let new_vxrm = (write_value >> 1u8) & Reg::Type::from(0b11u8);
-                    ext_state.write_csr(VCsr::Vxrm as u16, new_vxrm)?;
+                    ext_state.write_csr(VectorCsr::Vxrm.to_csr_index(), new_vxrm)?;
 
                     write_value & Reg::Type::from(0b111u8)
                 }
-                VCsr::Vl | VCsr::Vtype | VCsr::Vlenb => {
+                VectorCsr::Vl | VectorCsr::Vtype | VectorCsr::Vlenb => {
                     // Read-only CSRs (from Zicsr perspective)
                     Err(CsrError::ReadOnly { csr_index })?
                 }
@@ -124,7 +126,7 @@ where
             rs1_value,
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         program_counter: &mut PC,
@@ -135,8 +137,7 @@ where
     > {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
-                zvexx_config_helpers::apply_vsetvl(
-                    regs,
+                let rd_value = zvexx_config_helpers::apply_vsetvl(
                     ext_state,
                     program_counter,
                     rd,
@@ -144,21 +145,18 @@ where
                     rs1_value,
                     Reg::Type::from(vtypei),
                 )?;
+
+                Ok(ControlFlow::Continue((rd, rd_value)))
             }
             Self::Vsetivli { rd, uimm, vtypei } => {
-                zvexx_config_helpers::apply_vsetivli(
-                    regs,
-                    ext_state,
-                    program_counter,
-                    rd,
-                    uimm,
-                    vtypei,
-                )?;
+                let rd_value =
+                    zvexx_config_helpers::apply_vsetivli(ext_state, program_counter, uimm, vtypei)?;
+
+                Ok(ControlFlow::Continue((rd, rd_value)))
             }
             Self::Vsetvl { rd, rs1, rs2: _ } => {
                 let vtype_raw = rs2_value;
-                zvexx_config_helpers::apply_vsetvl(
-                    regs,
+                let rd_value = zvexx_config_helpers::apply_vsetvl(
                     ext_state,
                     program_counter,
                     rd,
@@ -166,9 +164,9 @@ where
                     rs1_value,
                     vtype_raw,
                 )?;
+
+                Ok(ControlFlow::Continue((rd, rd_value)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }

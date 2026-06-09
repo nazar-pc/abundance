@@ -135,28 +135,27 @@ impl fmt::Debug for VReg {
 // TODO: CSR composition?
 /// Vector CSR addresses
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u16)]
-pub enum VCsr {
+pub enum VectorCsr {
     /// Vector start element index (URW)
-    Vstart = 0x008,
+    Vstart,
     /// Fixed-point saturation flag (URW)
-    Vxsat = 0x009,
+    Vxsat,
     /// Fixed-point rounding mode (URW)
-    Vxrm = 0x00A,
+    Vxrm,
     /// Vector control and status register (URW)
-    Vcsr = 0x00F,
+    Vcsr,
     /// Vector length (URO)
-    Vl = 0xC20,
+    Vl,
     /// Vector data type register (URO)
-    Vtype = 0xC21,
+    Vtype,
     /// VLEN/8 (vector register length in bytes) (URO)
-    Vlenb = 0xC22,
+    Vlenb,
 }
 
-impl VCsr {
+impl VectorCsr {
     /// Try to match a CSR index to a vector CSR
     #[inline(always)]
-    pub const fn from_index(index: u16) -> Option<Self> {
+    pub const fn from_csr_index(index: u16) -> Option<Self> {
         match index {
             0x008 => Some(Self::Vstart),
             0x009 => Some(Self::Vxsat),
@@ -166,6 +165,20 @@ impl VCsr {
             0xC21 => Some(Self::Vtype),
             0xC22 => Some(Self::Vlenb),
             _ => None,
+        }
+    }
+
+    /// Convert vector CSR to its corresponding CSR index
+    #[inline(always)]
+    pub const fn to_csr_index(self) -> u16 {
+        match self {
+            Self::Vstart => 0x008,
+            Self::Vxsat => 0x009,
+            Self::Vxrm => 0x00A,
+            Self::Vcsr => 0x00F,
+            Self::Vl => 0xC20,
+            Self::Vtype => 0xC21,
+            Self::Vlenb => 0xC22,
         }
     }
 }

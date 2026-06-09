@@ -73,27 +73,6 @@ where
     /// Mutable access to the vector register file
     fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }>;
 
-    /// Get the current decoded vtype
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>;
-
-    /// Set the vtype register from a decoded `Vtype`.
-    ///
-    /// The implementation must update both its internal decoded cache and the raw CSR value (for
-    /// reads via Zicsr, writes via Zicsr are not allowed).
-    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>);
-
-    // TODO: Consider new type for `vl`. It is guaranteed to be `at most u16::MAX + 1`, so can be a
-    //  wrapper around `u16`, which will make things nicer in some places like when iterating over
-    //  `vstart..vl`
-    /// Get the current vl
-    fn vl(&self) -> u32;
-
-    /// Set vl.
-    ///
-    /// The implementation must update both its internal decoded cache and the raw CSR value (for
-    /// reads via Zicsr, writes via Zicsr are not allowed).
-    fn set_vl(&mut self, vl: u32);
-
     /// Check whether vector instructions are currently permitted.
     ///
     /// Returns `false` when `mstatus.VS == Off` (or equivalent like `sstatus`/`vstatus`). In
@@ -129,9 +108,11 @@ where
 /// vxsat, vcsr).
 ///
 /// Intended for types that implement both [`VectorRegisters`] and [`Csrs`].
-// TODO: Should have been able to do this, but it doesn't compile right now:
-// /// Automatically implemented for any type that is both `VectorRegisters` and `Csrs`. These route
-// /// through the `Csrs` trait for consistency with the Zicsr instruction path.
+///
+/// NOTE: While the default methods implemented via the [`Csrs`] trait are correct, custom
+/// higher-performance implementations are often possible by overriding them and, for example,
+/// caching various CSRs as separate pre-decoded values rather than going through a generic code
+/// path with XLEN-sized raw CSR values during reads.
 pub trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
 where
     Self: Csrs<Reg, CustomError> + VectorRegisters<CustomError>,
@@ -149,7 +130,7 @@ where
         self.set_vtype(None);
         self.set_vl(0);
         self.set_vstart(0);
-        self.set_vxrm(Vxrm::Rnu);
+        self.set_vxrm(Vxrm::default());
         self.set_vxsat(false);
     }
 
@@ -157,7 +138,7 @@ where
     #[inline(always)]
     fn vstart(&self) -> u16 {
         let raw = self
-            .read_csr(VCsr::Vstart as u16)
+            .read_csr(VectorCsr::Vstart.to_csr_index())
             .unwrap_or_default()
             .as_u64();
         raw as u16
@@ -166,7 +147,7 @@ where
     /// Set `vstart`
     #[inline(always)]
     fn set_vstart(&mut self, vstart: u16) {
-        self.write_csr(VCsr::Vstart as u16, Reg::Type::from(vstart))
+        self.write_csr(VectorCsr::Vstart.to_csr_index(), Reg::Type::from(vstart))
             .expect("Implementation didn't initialize `vstart` CSR");
     }
 
@@ -178,11 +159,36 @@ where
         self.set_vstart(0);
     }
 
+    /// Get `vxsat` (single bit)
+    #[inline(always)]
+    fn vxsat(&self) -> bool {
+        let raw = self
+            .read_csr(VectorCsr::Vxsat.to_csr_index())
+            .unwrap_or_default()
+            .as_u64();
+        (raw & 1) == 1
+    }
+
+    /// Set `vxsat`
+    #[inline(always)]
+    fn set_vxsat(&mut self, vxsat: bool) {
+        let masked = Reg::Type::from(u8::from(vxsat));
+        self.write_csr(VectorCsr::Vxsat.to_csr_index(), masked)
+            .expect("Implementation didn't initialize `vxsat` CSR");
+        // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
+        let old_vcsr = self
+            .read_csr(VectorCsr::Vcsr.to_csr_index())
+            .unwrap_or_default();
+        let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
+        self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)
+            .expect("Implementation didn't initialize `vcsr` CSR");
+    }
+
     /// Get `vxrm`
     #[inline(always)]
     fn vxrm(&self) -> Vxrm {
         let raw = self
-            .read_csr(VCsr::Vxrm as u16)
+            .read_csr(VectorCsr::Vxrm.to_csr_index())
             .unwrap_or_default()
             .as_u64();
         Vxrm::from_bits(raw as u8)
@@ -192,46 +198,58 @@ where
     #[inline(always)]
     fn set_vxrm(&mut self, vxrm: Vxrm) {
         let masked = Reg::Type::from(vxrm.to_bits());
-        self.write_csr(VCsr::Vxrm as u16, masked)
+        self.write_csr(VectorCsr::Vxrm.to_csr_index(), masked)
             .expect("Implementation didn't initialize `vxrm` CSR");
         // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
-        let old_vcsr = self.read_csr(VCsr::Vcsr as u16).unwrap_or_default();
+        let old_vcsr = self
+            .read_csr(VectorCsr::Vcsr.to_csr_index())
+            .unwrap_or_default();
         let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
-        self.write_csr(VCsr::Vcsr as u16, new_vcsr)
+        self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)
             .expect("Implementation didn't initialize `vcsr` CSR");
     }
 
-    /// Get `vxsat` (single bit)
+    // TODO: Consider new type for `vl`. It is guaranteed to be `at most u16::MAX + 1`, so can be a
+    //  wrapper around `u16`, which will make things nicer in some places like when iterating over
+    //  `vstart..vl`
+    /// Get the current vl
     #[inline(always)]
-    fn vxsat(&self) -> bool {
-        let raw = self
-            .read_csr(VCsr::Vxsat as u16)
+    fn vl(&self) -> u32 {
+        self.read_csr(VectorCsr::Vl.to_csr_index())
             .unwrap_or_default()
-            .as_u64();
-        (raw & 1) != 0
+            .as_u64() as u32
     }
 
-    /// Set `vxsat`
+    /// Set vl.
+    ///
+    /// The implementation must update both its internal decoded cache and the raw CSR value (for
+    /// reads via Zicsr, writes via Zicsr are not allowed).
+    fn set_vl(&mut self, vl: u32) {
+        self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(vl))
+            .expect("Implementation didn't initialize `vl` CSR");
+    }
+
+    /// Get the current decoded vtype
     #[inline(always)]
-    fn set_vxsat(&mut self, vxsat: bool) {
-        let masked = Reg::Type::from(u8::from(vxsat));
-        self.write_csr(VCsr::Vxsat as u16, masked)
-            .expect("Implementation didn't initialize `vxsat` CSR");
-        // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
-        let old_vcsr = self.read_csr(VCsr::Vcsr as u16).unwrap_or_default();
-        let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-        self.write_csr(VCsr::Vcsr as u16, new_vcsr)
-            .expect("Implementation didn't initialize `vcsr` CSR");
+    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
+        self.read_csr(VectorCsr::Vtype.to_csr_index())
+            .ok()
+            .and_then(Vtype::from_raw::<Reg>)
+    }
+
+    /// Set the vtype register from a decoded `Vtype`.
+    ///
+    /// The implementation must update both its internal decoded cache and the raw CSR value (for
+    /// reads via Zicsr, writes via Zicsr are not allowed).
+    #[inline(always)]
+    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
+        let vtype_raw = if let Some(vt) = vtype {
+            vt.to_raw::<Reg>()
+        } else {
+            Vtype::<{ Self::ELEN }, { Self::VLEN }>::illegal_raw::<Reg>()
+        };
+
+        self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw)
+            .expect("Implementation didn't initialize `vtype` CSR");
     }
 }
-
-// TODO: Should have been able to do this, but it causes compilation errors for users right now with
-//  type system evaluation overflows for users
-// impl<const ELEN: u32, Reg, CustomError, T> VectorRegistersExt<ELEN, Reg, CustomError> for T
-// where
-//     T: Csrs<Reg, CustomError> + VectorRegisters<ELEN, CustomError>,
-//     [(); T::VLEN as usize]:,
-//     Reg: Register,
-//     CustomError: fmt::Debug,
-// {
-// }

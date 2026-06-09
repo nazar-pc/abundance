@@ -8,6 +8,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Interpret `buf[..index_eew.bytes()]` as a little-endian unsigned integer and return it as
 /// `u64`. Used to convert a packed index element into a byte offset.
@@ -52,10 +53,16 @@ where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    check_register_group_alignment::<Reg, _, _, _>(program_counter, vs3, group_regs)?;
+    if let Err(error) =
+        check_register_group_alignment::<Reg, _, _, _>(program_counter, vs3, group_regs)
+    {
+        cold_path();
+        return Err(error);
+    }
     let total =
         u32::from(vs3.to_bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs);
     if total > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -132,6 +139,7 @@ where
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
+                cold_path();
                 ext_state.set_vstart(i as u16);
                 return Err(ExecutionError::MemoryAccess(error));
             }
@@ -200,6 +208,7 @@ where
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
+                cold_path();
                 ext_state.set_vstart(i as u16);
                 return Err(ExecutionError::MemoryAccess(error));
             }
@@ -280,6 +289,7 @@ where
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
+                cold_path();
                 ext_state.set_vstart(i as u16);
                 return Err(ExecutionError::MemoryAccess(error));
             }

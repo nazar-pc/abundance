@@ -6,6 +6,7 @@ use crate::v::zvexx::arith::zvexx_arith_helpers::{
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Execute a single-width integer reduction.
 ///
@@ -39,6 +40,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     // vl == 0 (since caller has verified vstart == 0). In that case we must not write vd and
     // must not mark vs dirty.
     if vl == 0 {
+        cold_path();
         ext_state.reset_vstart();
         return;
     }
@@ -74,7 +76,13 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widening_reduce_op<
+    const SIGN_EXTEND_SRC: bool,
+    Reg,
+    ExtState,
+    CustomError,
+    F,
+>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -83,7 +91,6 @@ pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
     vl: u32,
     sew: Vsew,
     op: F,
-    sign_extend_src: bool,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
@@ -98,6 +105,7 @@ pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
         unsafe { core::hint::unreachable_unchecked() }
     };
     if vl == 0 {
+        cold_path();
         ext_state.reset_vstart();
         return;
     }
@@ -112,7 +120,7 @@ pub unsafe fn execute_widening_reduce_op<Reg, ExtState, CustomError, F>(
         }
         // SAFETY: same bounds argument as `execute_reduce_op`
         let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
-        let elem = if sign_extend_src {
+        let elem = if SIGN_EXTEND_SRC {
             sign_extend(raw, sew).cast_unsigned()
         } else {
             raw

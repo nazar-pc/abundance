@@ -9,9 +9,6 @@ const VLEN: u32 = 1024;
 pub(crate) struct AbundanceRv64IMaxExtState {
     csrs: BTreeMap<u16, u64>,
     vregs: VectorRegisterFile<{ Self::VLENB as usize }>,
-    vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>,
-    vtype_raw: u64,
-    vl: u32,
 }
 
 impl AbundanceRv64IMaxExtState {
@@ -19,18 +16,18 @@ impl AbundanceRv64IMaxExtState {
         let mut s = Self {
             csrs: BTreeMap::new(),
             vregs: VectorRegisterFile::default(),
-            vtype: None,
-            vtype_raw: 1u64 << (u64::BITS - 1),
-            vl: 0,
         };
         // Vector CSRs
-        s.init_csr(VCsr::Vstart as u16, 0);
-        s.init_csr(VCsr::Vxsat as u16, 0);
-        s.init_csr(VCsr::Vxrm as u16, 0);
-        s.init_csr(VCsr::Vcsr as u16, 0);
-        s.init_csr(VCsr::Vl as u16, 0);
-        s.init_csr(VCsr::Vtype as u16, 1u64 << (u64::BITS - 1));
-        s.init_csr(VCsr::Vlenb as u16, u64::from(Self::VLEN / u8::BITS));
+        s.init_csr(VectorCsr::Vstart.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vxsat.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vxrm.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vcsr.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vl.to_csr_index(), 0);
+        s.init_csr(VectorCsr::Vtype.to_csr_index(), 1u64 << (u64::BITS - 1));
+        s.init_csr(
+            VectorCsr::Vlenb.to_csr_index(),
+            u64::from(Self::VLEN / u8::BITS),
+        );
         // Machine trap CSRs - zero-initialized, mtvec must be written by test
         // boot code before any trap can be taken.
         s.init_csr(MCsr::Mstatus as u16, 0);
@@ -104,33 +101,15 @@ where
     fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
         &self.vregs
     }
+
     fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
         &mut self.vregs
     }
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-        self.vtype
-    }
-    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-        self.vtype = vtype;
-        let raw = match vtype {
-            Some(vt) => vt.to_raw::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>(),
-            None => 1u64 << (u64::BITS - 1),
-        };
-        self.vtype_raw = raw;
-        self.write_csr(VCsr::Vtype as u16, raw)
-            .expect("vtype CSR not initialized");
-    }
-    fn vl(&self) -> u32 {
-        self.vl
-    }
-    fn set_vl(&mut self, vl: u32) {
-        self.vl = vl;
-        self.write_csr(VCsr::Vl as u16, u64::from(vl))
-            .expect("vl CSR not initialized");
-    }
+
     fn vector_instructions_allowed(&self) -> bool {
         true
     }
+
     fn mark_vs_dirty(&mut self) {}
 }
 

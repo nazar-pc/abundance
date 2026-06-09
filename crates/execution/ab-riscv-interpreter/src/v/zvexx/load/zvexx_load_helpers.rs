@@ -6,6 +6,7 @@ use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Return whether mask bit `i` is set in the mask byte slice.
 ///
@@ -132,6 +133,7 @@ where
 {
     let vd = vd.to_bits();
     if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -161,6 +163,7 @@ where
     let nf = u32::from(nf.fields_per_segment());
     let vd_idx = u32::from(vd.to_bits());
     if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -169,6 +172,7 @@ where
     // contiguously from vd and vd is group-aligned, only the first field (f=0) could contain
     // v0, which happens exactly when vd == 0.
     if !vm && vd_idx == 0 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -256,9 +260,15 @@ fn read_mem_element(
     addr: u64,
     eew: Eew,
 ) -> Result<[u8; Eew::MAX_BYTES as usize], VirtualMemoryError> {
+    let source = match memory.read_slice(addr, u32::from(eew.bytes_width())) {
+        Ok(source) => source,
+        Err(err) => {
+            cold_path();
+            return Err(err);
+        }
+    };
     let mut out = [0; _];
-    out[..usize::from(eew.bytes_width())]
-        .copy_from_slice(memory.read_slice(addr, u32::from(eew.bytes_width()))?);
+    out[..usize::from(eew.bytes_width())].copy_from_slice(source);
     Ok(out)
 }
 
@@ -281,7 +291,13 @@ fn read_mem_element(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
+pub unsafe fn execute_unit_stride_load<
+    const FAULT_ONLY_FIRST: bool,
+    Reg,
+    ExtState,
+    Memory,
+    CustomError,
+>(
     ext_state: &mut ExtState,
     memory: &Memory,
     vd: VReg,
@@ -290,7 +306,6 @@ pub unsafe fn execute_unit_stride_load<Reg, ExtState, Memory, CustomError>(
     eew: Eew,
     group_regs: u8,
     nf: Nf,
-    fault_only_first: bool,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -339,7 +354,8 @@ where
                     }
                 }
                 Err(mem_err) => {
-                    if fault_only_first && i > 0 {
+                    cold_path();
+                    if FAULT_ONLY_FIRST && i > 0 {
                         ext_state.set_vl(i);
                         ext_state.mark_vs_dirty();
                         ext_state.reset_vstart();
@@ -446,6 +462,7 @@ where
             let data = match read_mem_element(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
+                    cold_path();
                     if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(i as u16);
@@ -548,6 +565,7 @@ where
             let data = match read_mem_element(memory, addr, data_eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
+                    cold_path();
                     if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(i as u16);

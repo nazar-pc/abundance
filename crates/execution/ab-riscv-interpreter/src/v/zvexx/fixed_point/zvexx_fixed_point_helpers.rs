@@ -12,6 +12,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 
 /// Compute the rounding increment for a right shift of `val` by `shift` bits.
 ///
@@ -273,6 +274,7 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // The only case where `product * 2` overflows a 2*SEW signed result is INT_MIN * INT_MIN.
     // Detect this before any multiply: for SEW=64 INT64_MIN^2 = 2^126 and <<1 would overflow i128.
     if sa == i128::from(min_sew) && sb == i128::from(min_sew) {
+        cold_path();
         *vxsat = true;
         return max_sew.cast_unsigned() & sew_mask(sew);
     }
@@ -549,6 +551,7 @@ where
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     if sew.bits_width() > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
@@ -584,20 +587,22 @@ where
         Vsew::E16 => Eew::E32,
         Vsew::E32 => Eew::E64,
         Vsew::E64 => {
+            cold_path();
             return Err(ExecutionError::IllegalInstruction {
                 address: program_counter.old_pc(INSTRUCTION_SIZE),
             });
         }
     };
     // `EMUL = 2*LMUL`; `None` when reserved (e.g. LMUL=8 -> EMUL=16).
-    let wide_group =
-        vlmul
-            .data_register_count(wide_eew, sew)
-            .ok_or(ExecutionError::IllegalInstruction {
-                address: program_counter.old_pc(INSTRUCTION_SIZE),
-            })?;
+    let Some(wide_group) = vlmul.data_register_count(wide_eew, sew) else {
+        cold_path();
+        return Err(ExecutionError::IllegalInstruction {
+            address: program_counter.old_pc(INSTRUCTION_SIZE),
+        });
+    };
     let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(wide_group) || vs2_idx + wide_group > 32 {
+        cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });

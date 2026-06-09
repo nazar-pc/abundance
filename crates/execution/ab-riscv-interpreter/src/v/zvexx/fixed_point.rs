@@ -61,15 +61,17 @@ where
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
             Self::VsadduVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -87,6 +89,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -114,15 +117,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -135,6 +140,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -158,15 +164,17 @@ where
             }
             Self::VsadduVi { vd, vs2, imm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -179,6 +187,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -205,15 +214,17 @@ where
             // vsadd.vv / vsadd.vx / vsadd.vi - saturating signed add
             Self::VsaddVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -231,6 +242,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -258,15 +270,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -279,6 +293,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -302,15 +317,17 @@ where
             }
             Self::VsaddVi { vd, vs2, imm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -323,6 +340,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -348,15 +366,17 @@ where
             // vssubu.vv / vssubu.vx - saturating unsigned subtract
             Self::VssubuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -374,6 +394,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -401,15 +422,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -422,6 +445,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -446,15 +470,17 @@ where
             // vssub.vv / vssub.vx - saturating signed subtract
             Self::VssubVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -472,6 +498,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -499,15 +526,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -520,6 +549,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -544,15 +574,17 @@ where
             // vaaddu.vv / vaaddu.vx - averaging unsigned add
             Self::VaadduVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -570,6 +602,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -597,15 +630,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -618,6 +653,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -642,15 +678,17 @@ where
             // vaadd.vv / vaadd.vx - averaging signed add
             Self::VaaddVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -668,6 +706,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -695,15 +734,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -716,6 +757,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -740,15 +782,17 @@ where
             // vasubu.vv / vasubu.vx - averaging unsigned subtract
             Self::VasubuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -766,6 +810,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -793,15 +838,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -814,6 +861,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -838,15 +886,17 @@ where
             // vasub.vv / vasub.vx - averaging signed subtract
             Self::VasubVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -864,6 +914,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -891,15 +942,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -912,6 +965,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -936,15 +990,17 @@ where
             // vsmul.vv / vsmul.vx - fractional multiply with rounding and saturation
             Self::VsmulVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -962,6 +1018,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -989,15 +1046,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1010,6 +1069,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1034,15 +1094,17 @@ where
             // vssrl.vv / vssrl.vx / vssrl.vi - scaling shift right logical
             Self::VssrlVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1060,6 +1122,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1091,15 +1154,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1112,6 +1177,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1138,15 +1204,17 @@ where
             }
             Self::VssrlVi { vd, vs2, imm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1159,6 +1227,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1187,15 +1256,17 @@ where
             // vssra.vv / vssra.vx / vssra.vi - scaling shift right arithmetic
             Self::VssraVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1213,6 +1284,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1242,15 +1314,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1263,6 +1337,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1288,15 +1363,17 @@ where
             }
             Self::VssraVi { vd, vs2, imm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1309,6 +1386,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1335,15 +1413,17 @@ where
             // vnclipu.wv / vnclipu.wx / vnclipu.wi - narrowing unsigned clip
             Self::VnclipuWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 // Destination SEW must be <= 32 so that 2*SEW fits in 64 bits
                 let sew = vtype.vsew();
                 zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
@@ -1370,6 +1450,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1396,15 +1477,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let sew = vtype.vsew();
                 zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
                     program_counter,
@@ -1423,6 +1506,7 @@ where
                     sew,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1445,15 +1529,17 @@ where
             }
             Self::VnclipuWi { vd, vs2, imm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let sew = vtype.vsew();
                 zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
                     program_counter,
@@ -1472,6 +1558,7 @@ where
                     sew,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1495,15 +1582,17 @@ where
             // vnclip.wv / vnclip.wx / vnclip.wi - narrowing signed clip
             Self::VnclipWv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let sew = vtype.vsew();
                 zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
                     program_counter,
@@ -1527,6 +1616,7 @@ where
                     group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1553,15 +1643,17 @@ where
                 vm,
             } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let sew = vtype.vsew();
                 zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
                     program_counter,
@@ -1580,6 +1672,7 @@ where
                     sew,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
@@ -1602,15 +1695,17 @@ where
             }
             Self::VnclipWi { vd, vs2, imm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vtype = ext_state
-                    .vtype()
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let Some(vtype) = ext_state.vtype() else {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    })?;
+                    });
+                };
                 let sew = vtype.vsew();
                 zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
                     program_counter,
@@ -1629,6 +1724,7 @@ where
                     sew,
                 )?;
                 if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });

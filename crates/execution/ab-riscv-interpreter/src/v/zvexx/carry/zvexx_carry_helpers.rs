@@ -30,7 +30,7 @@ pub(in super::super) unsafe fn carry_bit<const VLENB: usize>(
 /// Execute an element-wise add-with-carry over `vstart..vl`, writing SEW-wide data results into
 /// `vd`.
 ///
-/// Carry-in for each element is read from `v0[i]` when `with_carry` is true. All elements in
+/// Carry-in for each element is read from `v0[i]` when `WITH_CARRY` is true. All elements in
 /// `vstart..vl` are processed unconditionally (no execution mask).
 ///
 /// # Safety
@@ -41,12 +41,11 @@ pub(in super::super) unsafe fn carry_bit<const VLENB: usize>(
 /// - `vl <= group_regs * VLENB / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
+pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
-    with_carry: bool,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -72,7 +71,7 @@ pub unsafe fn execute_carry_add<Reg, ExtState, CustomError>(
             }
             OpSrc::Scalar(val) => val,
         };
-        let c = if with_carry {
+        let c = if WITH_CARRY {
             // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
             unsafe { carry_bit(ext_state.read_vregs(), i) }
         } else {
@@ -152,7 +151,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 /// Execute an element-wise add-with-carry over `vstart..vl`, writing the carry-out as a single mask
 /// bit per element into `vd`.
 ///
-/// When `with_carry` is true, carry-in for element `i` is read from `v0[i]`. When false, carry-in
+/// When `WITH_CARRY` is true, carry-in for element `i` is read from `v0[i]`. When false, carry-in
 /// is treated as zero.
 ///
 /// All elements are processed unconditionally (no execution mask).
@@ -166,12 +165,11 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 /// - vd overlap constraints checked by caller
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
+pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
-    with_carry: bool,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -199,7 +197,7 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
             }
             OpSrc::Scalar(val) => val,
         };
-        let c = if with_carry {
+        let c = if WITH_CARRY {
             // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
             unsafe { carry_bit(ext_state.read_vregs(), i) }
         } else {
@@ -223,7 +221,7 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
 /// Execute an element-wise subtract-with-borrow over `vstart..vl`, writing the borrow-out as a
 /// single mask bit per element into `vd`.
 ///
-/// When `with_borrow` is true, borrow-in for element `i` is read from `v0[i]`. When false,
+/// When `WITH_BORROW` is true, borrow-in for element `i` is read from `v0[i]`. When false,
 /// borrow-in is treated as zero.
 ///
 /// Borrow-out is 1 when the subtraction underflows unsigned:
@@ -233,12 +231,11 @@ pub unsafe fn execute_carry_add_mask<Reg, ExtState, CustomError>(
 /// Same as [`execute_carry_add_mask()`].
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
+pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
-    with_borrow: bool,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -266,7 +263,7 @@ pub unsafe fn execute_carry_sub_mask<Reg, ExtState, CustomError>(
             }
             OpSrc::Scalar(val) => val,
         };
-        let borrow_in = if with_borrow {
+        let borrow_in = if WITH_BORROW {
             // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
             unsafe { carry_bit(ext_state.read_vregs(), i) }
         } else {

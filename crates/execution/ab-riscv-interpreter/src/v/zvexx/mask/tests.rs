@@ -5,6 +5,7 @@ use crate::{
     Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::ops::ControlFlow;
 
 // With TEST_VLEN=256, VLENB=32:
 //   E8/M1 -> VLMAX=32, 1 reg
@@ -43,16 +44,18 @@ fn exec(
         rs2_value: state.regs.read(rs2),
     };
 
-    instr
-        .execute(
-            rs1rs2_values,
-            &mut state.regs,
-            &mut state.ext_state,
-            &mut state.memory,
-            &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
-        )
-        .map(|_| ())
+    if let ControlFlow::Continue((rd, rd_value)) = instr.execute(
+        rs1rs2_values,
+        &mut state.regs,
+        &mut state.ext_state,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+        &mut state.system_instruction_handler,
+    )? {
+        state.regs.write(rd, rd_value);
+    }
+
+    Ok(())
 }
 
 fn get_vreg(state: &TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
