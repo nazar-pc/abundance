@@ -442,6 +442,10 @@ where
 
 /// Mostly opaque sector encoding result ready for writing
 #[derive(Debug)]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Intentionally hiding some fields such that they can only be used by internal APIs"
+)]
 pub struct EncodedSector {
     /// Information about sector that was plotted
     pub plotted_sector: PlottedSector,

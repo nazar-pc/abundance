@@ -820,6 +820,7 @@ where
     }
 }
 
+#[expect(clippy::empty_drop, reason = "Not implemented yet")]
 impl<Block, StorageBackend> Drop for ClientDatabase<Block, StorageBackend>
 where
     Block: GenericOwnedBlock,

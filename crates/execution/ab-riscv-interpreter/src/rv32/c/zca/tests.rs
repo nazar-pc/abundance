@@ -1,5 +1,8 @@
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use crate::{ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    VirtualMemory,
+};
 use ab_riscv_primitives::prelude::*;
 
 // C.ADDI4SPN
@@ -112,7 +115,7 @@ fn test_cjal_negative_offset() {
     };
     let (rd, rd_value) = instruction
         .execute(
-            Default::default(),
+            Rs1Rs2OperandValues::default(),
             &mut state.regs,
             &mut state.ext_state,
             &mut state.memory,

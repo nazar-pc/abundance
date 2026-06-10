@@ -2,7 +2,9 @@ use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
 use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::token::Paren;
 use syn::{
     Attribute, Error, GenericArgument, Meta, Pat, PatType, PathArguments, ReturnType, Signature,
     Token, Type, TypeTuple,
@@ -73,8 +75,8 @@ enum MethodReturnType {
 impl MethodReturnType {
     fn unit_type() -> Type {
         Type::Tuple(TypeTuple {
-            paren_token: Default::default(),
-            elems: Default::default(),
+            paren_token: Paren::default(),
+            elems: Punctuated::default(),
         })
     }
 
@@ -983,10 +985,16 @@ impl MethodDetails {
                 #[doc = #args_struct_doc]
                 #[derive(::core::fmt::Debug)]
                 #[repr(C)]
+                #[expect(
+                    clippy::partial_pub_fields,
+                    reason = "Not needed to be constructed publicly, but does need to always store \
+                    the lifetime"
+                )]
+                #[allow(clippy::pub_underscore_fields, reason = "Comes from user-provided arguments")]
                 pub struct InternalArgs<'internal_args>
                 {
                     #( #internal_args_pointers )*
-                    _phantom: ::core::marker::PhantomData<&'internal_args ()>,
+                    lifetime: ::core::marker::PhantomData<&'internal_args ()>,
                 }
             }
         };
@@ -1082,6 +1090,7 @@ impl MethodDetails {
 
             quote! {
                 #[doc(hidden)]
+                #[expect(clippy::wildcard_imports, reason = "Macro-generated")]
                 pub mod fn_pointer {
                     use super::*;
 
@@ -1260,9 +1269,11 @@ impl MethodDetails {
             #[doc = #args_struct_doc]
             #[derive(::core::fmt::Debug)]
             #[repr(C)]
+            #[allow(clippy::pub_underscore_fields, reason = "Comes from user-provided arguments")]
             pub struct #args_struct_name<'external_args> {
                 #( #external_args_fields )*
-                lifetime: ::core::marker::PhantomData<&'external_args ()>,
+                /// Lifetime of the struct
+                pub _lifetime: ::core::marker::PhantomData<&'external_args ()>,
             }
 
             #[automatically_derived]
@@ -1287,7 +1298,7 @@ impl MethodDetails {
                 ) -> Self {
                     Self {
                         #( #method_args_fields )*
-                        lifetime: ::core::marker::PhantomData,
+                        _lifetime: ::core::marker::PhantomData,
                     }
                 }
             }
@@ -1576,6 +1587,7 @@ impl MethodDetails {
             quote_spanned! {fn_sig.span() =>
                 #[allow(dead_code, reason = "Macro-generated")]
                 #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
+                #[allow(clippy::semicolon_if_nothing_returned, reason = "Macro-generated")]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg

@@ -104,10 +104,9 @@ impl Behavior {
     }
 }
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug, From)]
 pub(crate) enum Event {
-    Identify(IdentifyEvent),
+    Identify(Box<IdentifyEvent>),
     Kademlia(KademliaEvent),
     Gossipsub(GossipsubEvent),
     Ping(PingEvent),
@@ -122,5 +121,11 @@ pub(crate) enum Event {
 impl From<Infallible> for Event {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl From<IdentifyEvent> for Event {
+    fn from(event: IdentifyEvent) -> Self {
+        Self::Identify(Box::new(event))
     }
 }

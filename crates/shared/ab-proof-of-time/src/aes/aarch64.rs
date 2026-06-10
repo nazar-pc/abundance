@@ -1,5 +1,8 @@
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput};
-use core::arch::aarch64::*;
+use core::arch::aarch64::{
+    uint8x16_t, vaesdq_u8, vaeseq_u8, vaesimcq_u8, vaesmcq_u8, vceqq_u8, vdupq_n_u8, vdupq_n_u32,
+    veorq_u8, vgetq_lane_u32, vminvq_u8, vreinterpretq_u8_u32, vreinterpretq_u32_u8,
+};
 use core::simd::u8x16;
 use core::slice;
 

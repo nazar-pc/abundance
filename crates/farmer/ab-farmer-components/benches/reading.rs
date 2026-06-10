@@ -18,6 +18,7 @@ use ab_farmer_components::shard_commitment::derive_shard_commitments_root;
 use ab_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
 use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
+use async_lock::Mutex as AsyncMutex;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -27,6 +28,7 @@ use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
 use std::num::NonZeroU64;
+use std::sync::atomic::AtomicBool;
 use std::{env, fs, slice};
 
 type PosTable = ChiaTable;
@@ -59,10 +61,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut archiver = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding.clone());
     let table_generator = PosTable::generator();
     let archived_history_segment = archiver
-        .add_block(
-            AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
-            Default::default(),
-        )
+        .add_block(AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(), Vec::new())
         .unwrap()
         .archived_segments
         .into_iter()
@@ -138,9 +137,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             records_encoder: &mut CpuRecordsEncoder::<PosTable>::new(
                 slice::from_ref(&table_generator),
                 &erasure_coding,
-                &Default::default(),
+                &AsyncMutex::default(),
             ),
-            abort_early: &Default::default(),
+            abort_early: &AtomicBool::new(false),
         }))
         .unwrap();
 

@@ -15,15 +15,13 @@ use spirv_std::glam::{UVec3, UVec4};
 use spirv_std::memory::{Scope, Semantics};
 use spirv_std::spirv;
 
-const fn gcd(a: u32, b: u32) -> u32 {
-    let mut x = a;
-    let mut y = b;
-    while y != 0 {
-        let t = y;
-        y = x % y;
-        x = t;
+const fn gcd(mut a: u32, mut b: u32) -> u32 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
     }
-    x
+    a
 }
 
 const fn lcm(a: u32, b: u32) -> u32 {

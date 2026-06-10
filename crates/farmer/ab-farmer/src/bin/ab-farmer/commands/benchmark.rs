@@ -2,7 +2,7 @@ use crate::PosTable;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::shard::NumShards;
-use ab_core_primitives::solutions::SolutionRange;
+use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use ab_farmer::single_disk_farm::farming::rayon_files::RayonFiles;
@@ -191,7 +191,7 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                shard_membership_entropy: Default::default(),
+                                shard_membership_entropy: ShardMembershipEntropy::default(),
                                 num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                                     .expect("Values are statically known to be valid; qed"),
                             },
@@ -226,7 +226,7 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                shard_membership_entropy: Default::default(),
+                                shard_membership_entropy: ShardMembershipEntropy::default(),
                                 num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                                     .expect("Values are statically known to be valid; qed"),
                             },
@@ -259,7 +259,7 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                shard_membership_entropy: Default::default(),
+                                shard_membership_entropy: ShardMembershipEntropy::default(),
                                 num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                                     .expect("Values are statically known to be valid; qed"),
                             },
@@ -358,7 +358,7 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    shard_membership_entropy: Default::default(),
+                    shard_membership_entropy: ShardMembershipEntropy::default(),
                     num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                         .expect("Values are statically known to be valid; qed"),
                 },
@@ -406,7 +406,7 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    shard_membership_entropy: Default::default(),
+                    shard_membership_entropy: ShardMembershipEntropy::default(),
                     num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                         .expect("Values are statically known to be valid; qed"),
                 },
@@ -452,7 +452,7 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    shard_membership_entropy: Default::default(),
+                    shard_membership_entropy: ShardMembershipEntropy::default(),
                     num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                         .expect("Values are statically known to be valid; qed"),
                 },

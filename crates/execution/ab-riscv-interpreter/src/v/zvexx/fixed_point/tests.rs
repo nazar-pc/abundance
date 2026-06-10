@@ -2175,7 +2175,7 @@ fn vsaddu_aligned_m4_ok() {
         write_elem(&mut state, VReg::V8, i, Vsew::E8, 1);
         write_elem(&mut state, VReg::V12, i, Vsew::E8, 2);
     }
-    let result = exec(
+    exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
             vd: VReg::V4,
@@ -2185,8 +2185,8 @@ fn vsaddu_aligned_m4_ok() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    );
-    assert!(result.is_ok());
+    )
+    .unwrap();
 }
 
 // vs_dirty_count and vstart reset

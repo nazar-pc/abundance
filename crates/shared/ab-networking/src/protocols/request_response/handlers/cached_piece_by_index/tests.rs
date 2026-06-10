@@ -52,7 +52,7 @@ fn closest_peers_encoding() {
             (peer_id, addresses)
         }]);
 
-        assert!(ClosestPeers::decode(&mut closest_peers.encode().as_ref()).is_err());
+        ClosestPeers::decode(&mut closest_peers.encode().as_ref()).unwrap_err();
     }
 
     // Addresses must end with correct `/p2p`
@@ -69,13 +69,13 @@ fn closest_peers_encoding() {
             (peer_id, addresses)
         }]);
 
-        assert!(ClosestPeers::decode(&mut closest_peers.encode().as_ref()).is_err());
+        ClosestPeers::decode(&mut closest_peers.encode().as_ref()).unwrap_err();
     }
 
     // Addresses list must not be empty
     {
         let closest_peers = ClosestPeers::from(vec![(PeerId::random(), vec![])]);
 
-        assert!(ClosestPeers::decode(&mut closest_peers.encode().as_ref()).is_err());
+        ClosestPeers::decode(&mut closest_peers.encode().as_ref()).unwrap_err();
     }
 }

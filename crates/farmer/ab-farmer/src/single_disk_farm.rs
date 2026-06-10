@@ -613,21 +613,21 @@ impl FromStr for ScrubTarget {
 }
 
 impl ScrubTarget {
-    fn metadata(&self) -> bool {
+    fn metadata(self) -> bool {
         match self {
             Self::All | Self::Metadata | Self::Plot => true,
             Self::Cache => false,
         }
     }
 
-    fn plot(&self) -> bool {
+    fn plot(self) -> bool {
         match self {
             Self::All | Self::Plot => true,
             Self::Metadata | Self::Cache => false,
         }
     }
 
-    fn cache(&self) -> bool {
+    fn cache(self) -> bool {
         match self {
             Self::All | Self::Cache => true,
             Self::Metadata | Self::Plot => false,
@@ -1185,7 +1185,7 @@ impl SingleDiskFarm {
             move || {
                 Handle::current().block_on(async {
                     select! {
-                        _ = reading_fut.fuse() => {
+                        () = reading_fut.fuse() => {
                             // Nothing, just exit
                         }
                         _ = stop_receiver.recv().fuse() => {

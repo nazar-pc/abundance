@@ -132,12 +132,10 @@ impl FlatPieces {
             CowBytes::Owned(bytes) => CowBytes::Shared(bytes.freeze()),
         })
     }
-}
 
-#[cfg(feature = "parallel")]
-impl FlatPieces {
     /// Parallel iterator over source pieces (even indices)
     #[inline]
+    #[cfg(feature = "parallel")]
     pub fn par_source(&self) -> impl IndexedParallelIterator<Item = &'_ InnerPiece> + '_ {
         self.par_iter()
             .take(RecordedHistorySegment::NUM_RAW_RECORDS)
@@ -145,6 +143,7 @@ impl FlatPieces {
 
     /// Mutable parallel iterator over source pieces (even indices)
     #[inline]
+    #[cfg(feature = "parallel")]
     pub fn par_source_mut(
         &mut self,
     ) -> impl IndexedParallelIterator<Item = &'_ mut InnerPiece> + '_ {
@@ -154,6 +153,7 @@ impl FlatPieces {
 
     /// Parallel iterator over parity pieces (odd indices)
     #[inline]
+    #[cfg(feature = "parallel")]
     pub fn par_parity(&self) -> impl IndexedParallelIterator<Item = &'_ InnerPiece> + '_ {
         self.par_iter()
             .skip(RecordedHistorySegment::NUM_RAW_RECORDS)
@@ -161,6 +161,7 @@ impl FlatPieces {
 
     /// Mutable parallel iterator over parity pieces (odd indices)
     #[inline]
+    #[cfg(feature = "parallel")]
     pub fn par_parity_mut(
         &mut self,
     ) -> impl IndexedParallelIterator<Item = &'_ mut InnerPiece> + '_ {

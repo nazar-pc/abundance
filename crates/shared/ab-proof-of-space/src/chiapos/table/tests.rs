@@ -84,24 +84,31 @@ fn test_compute_f1_k22() {
 }
 
 #[cfg(feature = "alloc")]
-fn check_match(yl: usize, yr: usize) -> bool {
-    let yl = (yl as u64).cast_signed();
-    let yr = (yr as u64).cast_signed();
-    let param_b = i64::from(PARAM_B);
-    let param_c = i64::from(PARAM_C);
-    let param_bc = i64::from(PARAM_BC);
+fn check_match(yl: u32, yr: u32) -> bool {
+    let param_b = u64::from(PARAM_B);
+    let param_c = u64::from(PARAM_C);
+    let param_bc = u64::from(PARAM_BC);
+    let yl = u64::from(yl);
+    let yr = u64::from(yr);
+
     let bl = yl / param_bc;
     let br = yr / param_bc;
     if bl + 1 != br {
         // Buckets don't match
         return false;
     }
+
+    let lp = (yl % param_bc) / param_c;
+    let rp = (yr % param_bc) / param_c;
+    let lc = (yl % param_bc) % param_c;
+    let rc = (yr % param_bc) % param_c;
+
     for m in 0..(1 << PARAM_EXT) {
-        if (((yr % param_bc) / param_c - (yl % param_bc) / param_c) - m) % param_b == 0 {
+        if rp % param_b == (lp + m) % param_b {
             let mut c_diff = 2 * m + bl % 2;
             c_diff *= c_diff;
 
-            if (((yr % param_bc) % param_c - (yl % param_bc) % param_c) - c_diff) % param_c == 0 {
+            if rc == (lc + c_diff) % param_c {
                 return true;
             }
         }
@@ -187,10 +194,8 @@ fn test_matches() {
             )
         };
         for m in matches {
-            // SAFETY: All `y`s are initialized
-            let yl = usize::from(parent_table_ys[usize::from(m.left_position)]);
-            // SAFETY: All `y`s are initialized
-            let yr = usize::from(parent_table_ys[usize::from(m.right_position)]);
+            let yl = u32::from(parent_table_ys[usize::from(m.left_position)]);
+            let yr = u32::from(parent_table_ys[usize::from(m.right_position)]);
 
             assert!(check_match(yl, yr));
             total_matches += 1;

@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter, mem};
+use syn::token::DotDot;
 use syn::{
     Block, Expr, Fields, FnArg, Ident, ImplItem, ItemImpl, Member, Pat, PatRest, Stmt, Type,
     parse_file, parse_quote, parse_str,
@@ -606,7 +607,7 @@ pub(super) fn process_enum_display_impl(
             }
             pat_struct.rest.replace(PatRest {
                 attrs: vec![],
-                dot2_token: Default::default(),
+                dot2_token: DotDot::default(),
             });
         }
 

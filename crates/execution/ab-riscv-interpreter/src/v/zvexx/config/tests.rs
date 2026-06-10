@@ -707,7 +707,7 @@ fn vsetvli_fails_when_vector_disabled() {
     state.ext_state.set_vector_allowed(false);
 
     let result = execute(&mut state);
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 #[test]
@@ -724,7 +724,7 @@ fn vsetivli_fails_when_vector_disabled() {
     state.ext_state.set_vector_allowed(false);
 
     let result = execute(&mut state);
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 #[test]
@@ -743,7 +743,7 @@ fn vsetvl_fails_when_vector_disabled() {
     state.ext_state.set_vector_allowed(false);
 
     let result = execute(&mut state);
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 // CSR read/write via prepare_csr_read/prepare_csr_write
@@ -815,7 +815,7 @@ fn prepare_csr_write_rejects_read_only_vl() {
         42,
         &mut output,
     );
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 #[test]
@@ -830,7 +830,7 @@ fn prepare_csr_write_rejects_read_only_vtype() {
         42,
         &mut output,
     );
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 #[test]
@@ -845,7 +845,7 @@ fn prepare_csr_write_rejects_read_only_vlenb() {
         42,
         &mut output,
     );
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 #[test]

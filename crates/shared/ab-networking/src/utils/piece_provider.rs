@@ -245,7 +245,7 @@ where
                 Err(err) => {
                     debug!(%piece_index, ?err, "Cannot get connected peers (DSN L1 lookup)");
 
-                    Default::default()
+                    Vec::new()
                 }
             };
 
@@ -833,7 +833,7 @@ struct DownloadedPieceFromPeer<'a> {
 /// `check_cached_pieces` contains a list of pieces for peer to filter-out according to locally
 /// caches pieces, `cached_pieces` and `not_cached_pieces` contain piece indices peer claims is
 /// known to have or not have already
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 async fn download_cached_piece_from_peer<'a, PV>(
     node: &'a Node,
     piece_validator: &'a PV,

@@ -552,7 +552,7 @@ where
 
 /// Outer error is used to indicate irrecoverable plotting errors, while inner result is for
 /// recoverable errors
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 async fn plot_single_sector_internal(
     sector_index: SectorIndex,
     sector_size: usize,
@@ -841,7 +841,7 @@ struct SectorToReplot {
     expires_at: SegmentIndex,
 }
 
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 async fn send_plotting_notifications<NC>(
     public_key_hash: Blake3Hash,
     shard_commitments_roots_cache: &ShardCommitmentsRootsCache,

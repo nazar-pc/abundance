@@ -6,7 +6,7 @@ use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::transaction::{Transaction, TransactionHeader, TransactionSlot};
+use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::bool::Bool;
@@ -88,7 +88,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let header = TransactionHeader {
         version: 0,
         block_root: BlockRoot::default(),
-        gas_limit: Default::default(),
+        gas_limit: Gas::default(),
         contract: wallet_address,
     };
     let payload = {

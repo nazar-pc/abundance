@@ -78,7 +78,10 @@ impl Decode for ClusterCacheId {
     }
 }
 
-#[expect(clippy::new_without_default)]
+#[expect(
+    clippy::new_without_default,
+    reason = "Default has different semantics"
+)]
 impl ClusterCacheId {
     /// Creates new ID
     #[inline]

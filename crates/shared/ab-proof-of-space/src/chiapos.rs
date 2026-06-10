@@ -93,7 +93,7 @@ where
         s_bucket: SBucket,
     ) -> Option<[u8; 2usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]>
     {
-        let proof_index = PosProofs::proof_index_for_s_bucket(self.found_proofs, s_bucket)?;
+        let proof_index = PosProofs::proof_index_for_s_bucket(&self.found_proofs, s_bucket)?;
 
         Some(self.proofs[proof_index])
     }

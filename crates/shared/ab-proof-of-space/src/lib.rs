@@ -71,14 +71,14 @@ impl PosProofs {
     /// directly if the use case allows.
     #[inline]
     pub fn for_s_bucket(&self, s_bucket: SBucket) -> Option<PosProof> {
-        let proof_index = Self::proof_index_for_s_bucket(self.found_proofs, s_bucket)?;
+        let proof_index = Self::proof_index_for_s_bucket(&self.found_proofs, s_bucket)?;
 
         Some(self.proofs[proof_index])
     }
 
     #[inline(always)]
     fn proof_index_for_s_bucket(
-        found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+        found_proofs: &[u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
         s_bucket: SBucket,
     ) -> Option<usize> {
         let bits_offset = usize::from(s_bucket);

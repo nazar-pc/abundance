@@ -1040,7 +1040,7 @@ fn vwmulu_mf2_no_false_overlap_rejection() {
     let mut state = setup(2, Vsew::E8, Vlmul::Mf2);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
     write_elem(&mut state, VReg::V4, 0, Vsew::E8, 6);
-    let result = exec(
+    exec(
         &mut state,
         ZveXxMulDivInstruction::VwmuluVv {
             vd: VReg::V8,
@@ -1050,8 +1050,8 @@ fn vwmulu_mf2_no_false_overlap_rejection() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    );
-    assert!(result.is_ok());
+    )
+    .unwrap();
     assert_eq!(read_wide_elem(&state, VReg::V8, 0, Vsew::E8), 30u64);
 }
 
@@ -1110,7 +1110,7 @@ fn vwmulu_m1_vs2_in_upper_dest_reg_is_legal() {
         write_elem(&mut state, VReg::V5, i, Vsew::E8, (i + 1) as u64);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 2);
     }
-    let result = exec(
+    exec(
         &mut state,
         ZveXxMulDivInstruction::VwmuluVv {
             vd: VReg::V4,
@@ -1120,8 +1120,8 @@ fn vwmulu_m1_vs2_in_upper_dest_reg_is_legal() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    );
-    assert!(result.is_ok());
+    )
+    .unwrap();
     for i in 0..4usize {
         assert_eq!(
             read_wide_elem(&state, VReg::V4, i, Vsew::E8),
@@ -1141,7 +1141,7 @@ fn vwmulu_m1_vs1_in_upper_dest_reg_is_legal() {
         write_elem(&mut state, VReg::V7, i, Vsew::E8, (i + 1) as u64);
         write_elem(&mut state, VReg::V11, i, Vsew::E8, 3);
     }
-    let result = exec(
+    exec(
         &mut state,
         ZveXxMulDivInstruction::VwmuluVv {
             vd: VReg::V10,
@@ -1151,8 +1151,8 @@ fn vwmulu_m1_vs1_in_upper_dest_reg_is_legal() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    );
-    assert!(result.is_ok());
+    )
+    .unwrap();
     for i in 0..4usize {
         assert_eq!(
             read_wide_elem(&state, VReg::V10, i, Vsew::E8),
@@ -1212,7 +1212,7 @@ fn vwmulu_m2_top_half_overlap_is_legal() {
     // With M2, vd=V8 occupies V8..V12. vs1=V10 occupies exactly the top half (V10+V11) of the
     // destination group -> legal per spec §5.2.
     let mut state = setup(4, Vsew::E8, Vlmul::M2);
-    let result = exec(
+    exec(
         &mut state,
         ZveXxMulDivInstruction::VwmuluVv {
             vd: VReg::V8,
@@ -1222,8 +1222,8 @@ fn vwmulu_m2_top_half_overlap_is_legal() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    );
-    assert!(result.is_ok());
+    )
+    .unwrap();
 }
 
 // vwmul (signed widening)

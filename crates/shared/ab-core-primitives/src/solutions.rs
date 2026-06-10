@@ -850,9 +850,9 @@ impl Solution {
         Self {
             public_key_hash: Ed25519PublicKey::default().hash(),
             shard_commitment: SolutionShardCommitment {
-                root: Default::default(),
-                proof: [Default::default(); _],
-                leaf: Default::default(),
+                root: ShardCommitmentHash::default(),
+                proof: [ShardCommitmentHash::default(); _],
+                leaf: ShardCommitmentHash::default(),
             },
             piece_local_segment_index: LocalSegmentIndex::ZERO,
             piece_super_segment_index: SuperSegmentIndex::ZERO,

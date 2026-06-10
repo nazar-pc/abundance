@@ -1026,7 +1026,7 @@ pub(super) fn process_pending_enum_definitions(
         last_pending_enums_count = pending_enums.len();
 
         for PendingEnumDefinition { original_item_enum } in pending_enums {
-            process_enum_definition(original_item_enum, out_dir, state)?
+            process_enum_definition(original_item_enum, out_dir, state)?;
         }
     }
 

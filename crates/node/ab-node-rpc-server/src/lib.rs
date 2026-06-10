@@ -347,27 +347,27 @@ where
 
         loop {
             select! {
-                _ = server_fut => {}
+                () = server_fut => {}
                 maybe_new_slot_notification = self.new_slot_notification_receiver.next() => {
                     let Some(new_slot_notification) = maybe_new_slot_notification else {
                         break;
                     };
 
-                    self.handle_new_slot_notification(new_slot_notification).await;
+                    self.handle_new_slot_notification(new_slot_notification);
                 }
                 maybe_block_sealing_notification = self.block_sealing_notification_receiver.next() => {
                     let Some(block_sealing_notification) = maybe_block_sealing_notification else {
                         break;
                     };
 
-                    self.handle_block_sealing_notification(block_sealing_notification).await;
+                    self.handle_block_sealing_notification(block_sealing_notification);
                 }
                 maybe_new_super_segment = self.new_super_segment_notification_receiver.next() => {
                     let Some(new_super_segment) = maybe_new_super_segment else {
                         break;
                     };
 
-                    self.handle_new_super_segment(new_super_segment).await;
+                    self.handle_new_super_segment(new_super_segment);
                 }
                 _ = archived_segment_cache_cleanup_interval.tick().fuse() => {
                     if let Some(mut maybe_cached_archived_segment) = self.cached_archived_segment.try_lock()
@@ -381,7 +381,7 @@ where
         }
     }
 
-    async fn handle_new_slot_notification(&mut self, new_slot_notification: NewSlotNotification) {
+    fn handle_new_slot_notification(&mut self, new_slot_notification: NewSlotNotification) {
         let NewSlotNotification {
             new_slot_info,
             solution_sender,
@@ -435,7 +435,7 @@ where
         });
     }
 
-    async fn handle_block_sealing_notification(
+    fn handle_block_sealing_notification(
         &mut self,
         block_sealing_notification: BlockSealNotification,
     ) {
@@ -485,7 +485,7 @@ where
         });
     }
 
-    async fn handle_new_super_segment(&mut self, super_segment: SuperSegment) {
+    fn handle_new_super_segment(&mut self, super_segment: SuperSegment) {
         // This will be sent to the farmer
         let super_segment_header = serde_json::value::to_raw_value(&super_segment.header)
             .expect("Serialization of super segment info never fails; qed");

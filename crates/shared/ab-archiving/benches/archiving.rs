@@ -21,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             archiver
                 .clone()
-                .add_block(black_box(input.clone()), black_box(Default::default()));
+                .add_block(black_box(input.clone()), black_box(Vec::new()));
         });
     });
 
@@ -29,7 +29,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut archiver = archiver.clone();
             for chunk in input.chunks(SMALL_BLOCK_SIZE) {
-                archiver.add_block(black_box(chunk.to_vec()), black_box(Default::default()));
+                archiver.add_block(black_box(chunk.to_vec()), black_box(Vec::new()));
             }
         });
     });

@@ -132,7 +132,7 @@ impl Timekeeper {
                 return Ok(());
             }
 
-            slot_duration.as_duration() - duration
+            slot_duration.as_duration().saturating_sub(duration)
         };
 
         loop {

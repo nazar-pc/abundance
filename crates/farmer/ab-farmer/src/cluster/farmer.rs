@@ -74,7 +74,10 @@ impl Decode for ClusterFarmerId {
     }
 }
 
-#[expect(clippy::new_without_default)]
+#[expect(
+    clippy::new_without_default,
+    reason = "Default has different semantics"
+)]
 impl ClusterFarmerId {
     /// Create a new cluster farmer ID
     pub fn new() -> Self {
@@ -374,9 +377,9 @@ impl ClusterFarm {
                 };
 
                 select! {
-                    _ = sector_updates_fut.fuse() => {}
-                    _ = farming_notifications_fut.fuse() => {}
-                    _ = solutions_fut.fuse() => {}
+                    () = sector_updates_fut.fuse() => {}
+                    () = farming_notifications_fut.fuse() => {}
+                    () = solutions_fut.fuse() => {}
                 }
             }
         };
@@ -516,9 +519,9 @@ where
                         };
 
                         select! {
-                            _ = sector_updates_fut.fuse() => {}
-                            _ = farming_notifications_fut.fuse() => {}
-                            _ = solutions_fut.fuse() => {}
+                            () = sector_updates_fut.fuse() => {}
+                            () = farming_notifications_fut.fuse() => {}
+                            () = solutions_fut.fuse() => {}
                         }
 
                         drop(sector_updates_handler_id);

@@ -1,3 +1,9 @@
+// TODO: Remove once fixed
+#![expect(
+    clippy::borrow_as_ptr,
+    reason = "https://github.com/NobodyXu/derive_destructure2/pull/6"
+)]
+
 use crate::metadata::ContractMetadataKind;
 use ab_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use core::mem::ManuallyDrop;

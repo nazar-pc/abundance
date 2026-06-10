@@ -11,9 +11,10 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
-    BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
-    DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PollType, ShaderStages,
+    BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePassDescriptor,
+    ComputePipelineDescriptor, DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags,
+    MapMode, MemoryBudgetThresholds, PipelineCompilationOptions, PipelineLayoutDescriptor,
+    PollType, ShaderStages,
 };
 
 const NUM_BUCKETS: usize = 3;
@@ -247,7 +248,7 @@ async fn find_matches_in_buckets_adapter(
     let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 
     {
-        let mut cpass = encoder.begin_compute_pass(&Default::default());
+        let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
         cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);

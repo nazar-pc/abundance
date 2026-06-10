@@ -8,6 +8,7 @@ use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+use std::assert_matches;
 
 const TEST_SHARD_INDEX: ShardIndex = ShardIndex::new(ShardIndex::MAX_SHARD_INDEX - 1).unwrap();
 
@@ -131,14 +132,10 @@ fn segment_reconstruction_fails() {
     let pieces = vec![None];
     let result = reconstructor.reconstruct_segment(&pieces);
 
-    assert!(result.is_err());
-
-    if let Err(error) = result {
-        assert!(matches!(
-            error,
-            ReconstructorError::NotEnoughShards { num_shards: 1 }
-        ));
-    }
+    assert_matches!(
+        result.unwrap_err(),
+        ReconstructorError::NotEnoughShards { num_shards: 1 }
+    );
 }
 
 #[test]
@@ -149,12 +146,8 @@ fn piece_reconstruction_fails() {
     let pieces = vec![None];
     let result = reconstructor.reconstruct_piece(&pieces, PiecePosition::from(0));
 
-    assert!(result.is_err());
-
-    if let Err(error) = result {
-        assert!(matches!(
-            error,
-            ReconstructorError::NotEnoughShards { num_shards: 1 }
-        ));
-    }
+    assert_matches!(
+        result.unwrap_err(),
+        ReconstructorError::NotEnoughShards { num_shards: 1 }
+    );
 }

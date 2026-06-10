@@ -101,11 +101,11 @@ fn test_parse_cpu_cores_sets() {
         assert_eq!(cores[1].cores, vec![4, 5, 6, 7]);
     }
 
-    assert!(parse_cpu_cores_sets("").is_err());
-    assert!(parse_cpu_cores_sets("a").is_err());
-    assert!(parse_cpu_cores_sets("0,").is_err());
-    assert!(parse_cpu_cores_sets("0,a").is_err());
-    assert!(parse_cpu_cores_sets("0 a").is_err());
+    parse_cpu_cores_sets("").unwrap_err();
+    parse_cpu_cores_sets("a").unwrap_err();
+    parse_cpu_cores_sets("0,").unwrap_err();
+    parse_cpu_cores_sets("0,a").unwrap_err();
+    parse_cpu_cores_sets("0 a").unwrap_err();
 }
 
 #[test]
