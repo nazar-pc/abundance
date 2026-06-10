@@ -112,6 +112,7 @@ pub mod rv64;
 pub mod v;
 pub mod zicond;
 pub mod zicsr;
+pub mod zvbb;
 
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;

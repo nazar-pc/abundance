@@ -71,7 +71,7 @@ where
 /// # Safety
 /// `base_reg + elem_i / (VLENB / sew_bytes) < 32` must hold.
 #[inline(always)]
-pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
+pub(crate) unsafe fn read_element_u64<const VLENB: usize>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
@@ -99,7 +99,7 @@ pub(in super::super) unsafe fn read_element_u64<const VLENB: usize>(
 /// # Safety
 /// `base_reg + elem_i / (VLENB / sew_bytes) < 32` must hold.
 #[inline(always)]
-pub(in super::super) unsafe fn write_element_u64<const VLENB: usize>(
+pub(crate) unsafe fn write_element_u64<const VLENB: usize>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
