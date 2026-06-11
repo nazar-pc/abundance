@@ -141,7 +141,7 @@ fn vadc_vvm_no_carry() {
 
 #[test]
 fn vadc_vvm_with_carry_propagates() {
-    // For each element: vs2=0xFF, vs1=0x00, carry-in=1 → result=0x100 → wraps to 0x00
+    // For each element: vs2=0xFF, vs1=0x00, carry-in=1 -> result=0x100 -> wraps to 0x00
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
@@ -161,7 +161,7 @@ fn vadc_vvm_with_carry_propagates() {
     )
     .unwrap();
     for i in 0..4usize {
-        // 0xFF + 0x00 + 1 = 0x100 → truncated to E8 = 0x00
+        // 0xFF + 0x00 + 1 = 0x100 -> truncated to E8 = 0x00
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x00, "elem {i}");
     }
 }
@@ -239,9 +239,9 @@ fn vadc_vim_sign_extended_imm() {
         },
     )
     .unwrap();
-    // 0x0001 + 0xFFFF + 0 = 0x10000 → truncated to E16 = 0x0000
+    // 0x0001 + 0xFFFF + 0 = 0x10000 -> truncated to E16 = 0x0000
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 0x0000);
-    // 0x0001 + 0xFFFF + 1 = 0x10001 → truncated to E16 = 0x0001
+    // 0x0001 + 0xFFFF + 1 = 0x10001 -> truncated to E16 = 0x0001
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E16), 0x0001);
 }
 
@@ -249,10 +249,10 @@ fn vadc_vim_sign_extended_imm() {
 
 #[test]
 fn vmadc_vvm_carry_out_when_overflow() {
-    // Element 0: 0xFF + 0x01 + carry=0 → 0x100, carry-out=1
-    // Element 1: 0x01 + 0x01 + carry=0 → 0x02, carry-out=0
-    // Element 2: 0xFE + 0x01 + carry=1 → 0x100, carry-out=1
-    // Element 3: 0x01 + 0x00 + carry=1 → 0x02, carry-out=0
+    // Element 0: 0xFF + 0x01 + carry=0 -> 0x100, carry-out=1
+    // Element 1: 0x01 + 0x01 + carry=0 -> 0x02, carry-out=0
+    // Element 2: 0xFE + 0x01 + carry=1 -> 0x100, carry-out=1
+    // Element 3: 0x01 + 0x00 + carry=1 -> 0x02, carry-out=0
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x01);
@@ -287,7 +287,7 @@ fn vmadc_vvm_carry_out_when_overflow() {
 
 #[test]
 fn vmadc_vv_no_carry_in_overflow_check() {
-    // Without carry-in: 0xFF + 0x01 = 0x100 → carry-out=1
+    // Without carry-in: 0xFF + 0x01 = 0x100 -> carry-out=1
     let mut state = setup(2, Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x10);
@@ -304,9 +304,9 @@ fn vmadc_vv_no_carry_in_overflow_check() {
         },
     )
     .unwrap();
-    // 0xFF + 0x01 = overflow → carry-out=1
+    // 0xFF + 0x01 = overflow -> carry-out=1
     assert!(read_mask_bit(&state, VReg::V4, 0));
-    // 0x10 + 0x10 = 0x20 → no overflow
+    // 0x10 + 0x10 = 0x20 -> no overflow
     assert!(!read_mask_bit(&state, VReg::V4, 1));
 }
 
@@ -401,7 +401,7 @@ fn vsbc_vvm_no_borrow() {
 
 #[test]
 fn vsbc_vvm_with_borrow_propagates() {
-    // vs2=0, vs1=0, borrow-in=1 → 0 - 0 - 1 = -1 = 0xFFFFFFFF (E32)
+    // vs2=0, vs1=0, borrow-in=1 -> 0 - 0 - 1 = -1 = 0xFFFFFFFF (E32)
     let mut state = setup(2, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 10);
@@ -453,10 +453,10 @@ fn vsbc_vxm_basic() {
 
 #[test]
 fn vmsbc_vvm_borrow_out() {
-    // vs2=5, vs1=10, borrow-in=0 → underflow → borrow-out=1
-    // vs2=10, vs1=5, borrow-in=0 → no underflow → borrow-out=0
-    // vs2=5, vs1=4, borrow-in=1 → 5 - 4 - 1 = 0 → no underflow → borrow-out=0
-    // vs2=5, vs1=5, borrow-in=1 → 5 - 5 - 1 = -1 → underflow → borrow-out=1
+    // vs2=5, vs1=10, borrow-in=0 -> underflow -> borrow-out=1
+    // vs2=10, vs1=5, borrow-in=0 -> no underflow -> borrow-out=0
+    // vs2=5, vs1=4, borrow-in=1 -> 5 - 4 - 1 = 0 -> no underflow -> borrow-out=0
+    // vs2=5, vs1=5, borrow-in=1 -> 5 - 5 - 1 = -1 -> underflow -> borrow-out=1
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 5);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 10);
@@ -534,9 +534,9 @@ fn vmsbc_vxm_e64_exact_boundary() {
         },
     )
     .unwrap();
-    // 0 < u64::MAX → underflow
+    // 0 < u64::MAX -> underflow
     assert!(read_mask_bit(&state, VReg::V4, 0));
-    // u64::MAX == u64::MAX → no underflow
+    // u64::MAX == u64::MAX -> no underflow
     assert!(!read_mask_bit(&state, VReg::V4, 1));
 }
 
@@ -557,11 +557,11 @@ fn vmsbc_vx_no_borrow() {
         },
     )
     .unwrap();
-    // 0 < 1 → underflow
+    // 0 < 1 -> underflow
     assert!(read_mask_bit(&state, VReg::V4, 0));
-    // 10 >= 1 → no underflow
+    // 10 >= 1 -> no underflow
     assert!(!read_mask_bit(&state, VReg::V4, 1));
-    // 0xFFFF_FFFF >= 1 → no underflow
+    // 0xFFFF_FFFF >= 1 -> no underflow
     assert!(!read_mask_bit(&state, VReg::V4, 2));
 }
 

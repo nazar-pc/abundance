@@ -100,7 +100,7 @@ fn vadc_vim_positive() {
 
 #[test]
 fn vadc_vim_negative() {
-    // imm = -1 → 5-bit = 0b11111 = 31
+    // imm = -1 -> 5-bit = 0b11111 = 31
     let inst = make_vop(0b01_0000, 0, 8, 0b11111, OPIVI, 2);
     let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
@@ -195,7 +195,7 @@ fn vmadc_vx_no_carry() {
 
 #[test]
 fn vmadc_vim_with_carry() {
-    // imm = -16 → 5-bit = 0b10000 = 16
+    // imm = -16 -> 5-bit = 0b10000 = 16
     let inst = make_vop(0b01_0001, 0, 6, 0b10000, OPIVI, 2);
     let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(

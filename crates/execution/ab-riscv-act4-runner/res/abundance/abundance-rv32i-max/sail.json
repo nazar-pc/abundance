@@ -340,6 +340,15 @@
     "Zknh": {
       "supported": true
     },
+    "Zvbb": {
+      "supported": true
+    },
+    "Zvbc": {
+      "supported": false
+    },
+    "Zvkb": {
+      "supported": true
+    },
     "Zkr": {
       "supported": false,
       "sseed_reset_value": false,
@@ -544,12 +553,6 @@
     "Zvabd": {
       "supported": false
     },
-    "Zvbb": {
-      "supported": false
-    },
-    "Zvbc": {
-      "supported": false
-    },
     "Zvfbfmin": {
       "supported": false
     },
@@ -560,9 +563,6 @@
       "supported": false
     },
     "Zvfhmin": {
-      "supported": false
-    },
-    "Zvkb": {
       "supported": false
     },
     "Zvkg": {

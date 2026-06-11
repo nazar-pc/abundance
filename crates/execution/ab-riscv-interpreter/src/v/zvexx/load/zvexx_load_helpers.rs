@@ -13,7 +13,7 @@ use core::hint::cold_path;
 /// Bits are stored LSB-first within each byte: bit `i` is at byte `i / 8`, position `i % 8`.
 /// Returns `false` for any `i` outside the slice bounds.
 #[inline(always)]
-pub(in super::super) fn mask_bit(mask: &[u8], i: u32) -> bool {
+pub(crate) fn mask_bit(mask: &[u8], i: u32) -> bool {
     mask.get((i / u8::BITS) as usize)
         .is_some_and(|b| (b >> (i % u8::BITS)) & 1 != 0)
 }
