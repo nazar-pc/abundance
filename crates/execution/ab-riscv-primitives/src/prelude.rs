@@ -55,6 +55,7 @@ pub use crate::instructions::v::zvexx::widen_narrow::ZveXxWidenNarrowInstruction
 pub use crate::instructions::v::{Eew, Vlmul, VsStatus, Vsew, VsewFactor, Vtype, Vxrm};
 pub use crate::instructions::zicond::ZicondInstruction;
 pub use crate::instructions::zicsr::ZicsrInstruction;
+pub use crate::instructions::zvbb::ZvbbInstruction;
 pub use crate::instructions::zvbb::zvkb::ZvkbInstruction;
 pub use crate::privilege::*;
 pub use crate::registers::general_purpose::*;
