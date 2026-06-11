@@ -81,6 +81,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -107,6 +113,12 @@ where
             // vclz: count leading zeros within each SEW-wide element; result in [0, SEW]
             Self::VclzV { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -143,6 +155,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -169,6 +187,12 @@ where
             // vcpop: population count (number of set bits) within each SEW-wide element
             Self::VcpopV { vd, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -201,6 +225,12 @@ where
             // SEW=E64 is illegal (cannot double); LMUL=M8 is illegal (EMUL(vd)=16 out of range).
             Self::VwsllVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -268,6 +298,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -317,6 +353,12 @@ where
             // vwsll.vi: standard 5-bit immediate; vm is the normal mask-control bit
             Self::VwsllVi { vd, vs2, uimm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),

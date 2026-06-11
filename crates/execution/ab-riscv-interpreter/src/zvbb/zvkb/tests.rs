@@ -5,6 +5,7 @@ use crate::{
     Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 use core::ops::ControlFlow;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
@@ -1248,10 +1249,7 @@ fn error_vector_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1271,10 +1269,7 @@ fn error_vill_vtype() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1291,10 +1286,7 @@ fn error_misaligned_vd_lmul_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1311,10 +1303,7 @@ fn error_misaligned_vs2_lmul_m4() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1331,10 +1320,7 @@ fn error_misaligned_vs1_lmul_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vstart partial execution
@@ -1401,4 +1387,155 @@ fn vandn_vv_vl_zero_no_writes() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
+}
+
+// vm=false with vd==v0 is illegal: a masked instruction's destination must not overlap the
+// mask register v0.
+
+#[test]
+fn error_vandn_vv_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VandnVv {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vandn_vx_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VandnVx {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            rs1: Reg::Zero,
+            vm: false,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vbrev8_v_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::Vbrev8V {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vrev8_v_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::Vrev8V {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vrol_vv_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VrolVv {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vrol_vx_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VrolVx {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            rs1: Reg::Zero,
+            vm: false,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vror_vv_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VrorVv {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            vs1: VReg::V1,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vror_vx_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VrorVx {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            rs1: Reg::Zero,
+            vm: false,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
+fn error_vror_vi_masked_dest_v0() {
+    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvkbInstruction::VrorVi {
+            vd: VReg::V0,
+            vs2: VReg::V2,
+            uimm: 1,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
