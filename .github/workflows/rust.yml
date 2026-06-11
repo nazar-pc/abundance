@@ -596,7 +596,7 @@ jobs:
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
         with:
           path: &act4-work-cache-path |
-            crates/execution/ab-riscv-act4-runner/work
+            crates/execution/ab-riscv-act4-runner/work/*/elfs
           key: &act4-work-cache-key act4-work-${{ steps.sources-hash.outputs.value }}
 
       - name: Clone ACT4 repo
