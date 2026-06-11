@@ -27,8 +27,10 @@ implemented_extensions:
   - { name: Zkne,     version: "= 1.0.1" }
   - { name: Zknh,     version: "= 1.0.1" }
   - { name: Zmmul,    version: "= 1.0.0" }
+  - { name: Zvbb,     version: "= 1.0.0" }
   - { name: Zve32x,   version: "= 1.0.0" }
   - { name: Zve64x,   version: "= 1.0.0" }
+  - { name: Zvkb,     version: "= 1.0.0" }
   - { name: Zvl32b,   version: "= 1.0.0" }
   - { name: Zvl64b,   version: "= 1.0.0" }
   - { name: Zvl128b,  version: "= 1.0.0" }
