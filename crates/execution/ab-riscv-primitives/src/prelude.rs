@@ -57,6 +57,7 @@ pub use crate::instructions::zicond::ZicondInstruction;
 pub use crate::instructions::zicsr::ZicsrInstruction;
 pub use crate::instructions::zvbb::ZvbbInstruction;
 pub use crate::instructions::zvbb::zvkb::ZvkbInstruction;
+pub use crate::instructions::zvbc::ZvbcInstruction;
 pub use crate::privilege::*;
 pub use crate::registers::general_purpose::*;
 pub use crate::registers::machine::*;

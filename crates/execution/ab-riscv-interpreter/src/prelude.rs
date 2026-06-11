@@ -31,6 +31,7 @@ pub use crate::v::zvexx::zvexx_helpers;
 pub use crate::zicsr::zicsr_helpers;
 pub use crate::zvbb::zvbb_helpers;
 pub use crate::zvbb::zvkb::zvkb_helpers;
+pub use crate::zvbc::zvbc_helpers;
 pub use crate::{
     BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
     ExecutableInstructionOperands, ExecutionError, FetchInstructionResult, InstructionFetcher,
