@@ -79,6 +79,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -126,6 +132,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -165,6 +177,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -196,6 +214,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -222,6 +246,12 @@ where
             // vrol: vd[i] = rotate_left(vs2[i], src[i] % SEW)
             Self::VrolVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -274,6 +304,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -308,6 +344,12 @@ where
             // vror: vd[i] = rotate_right(vs2[i], src[i] % SEW)
             Self::VrorVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -360,6 +402,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
+                if !vm && vd == VReg::V0 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
@@ -394,6 +442,12 @@ where
             // vror.vi: 5-bit immediate in vs1[19:15]; bit[25] is the standard vm mask-control bit
             Self::VrorVi { vd, vs2, uimm, vm } => {
                 if !ext_state.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
+                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
