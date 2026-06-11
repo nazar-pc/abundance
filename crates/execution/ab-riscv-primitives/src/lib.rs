@@ -44,8 +44,11 @@
 //! * Zknh (version 1.0.1)
 //! * Zicond (version 2.0)
 //! * Zicsr (version 2.0)
+//! * Zvbb (version 1.0.0)
+//! * Zvbc (version 1.0.0)
 //! * ZveXx (version 1.0.0), where `X` is anything allowed by the specification like Zve32x or
 //!   Zve64x
+//! * Zvkb (version 1.0.0)
 //! * Zvl*b (version 1.0.0), where `*` is anything allowed by the specification like Zvl128b or
 //!   Zvl512b
 //!

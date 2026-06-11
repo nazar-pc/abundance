@@ -9,6 +9,7 @@ pub mod v;
 pub mod zicond;
 pub mod zicsr;
 pub mod zvbb;
+pub mod zvbc;
 
 use crate::registers::general_purpose::Register;
 use core::fmt;

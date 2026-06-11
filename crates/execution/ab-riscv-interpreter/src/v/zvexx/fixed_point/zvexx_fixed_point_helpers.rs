@@ -345,6 +345,7 @@ pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool
 pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Sign-extend vs2_elem to full i64 treating it as a 2*SEW-bit signed value.
     // For SEW=8 the source is 16-bit, for SEW=16 it is 32-bit, for SEW=32 it is 64-bit.
+    // TODO: Use `sew.double_width()`
     let double_sew_bits = sew.bits_width() * 2;
     let shift_amt = i64::BITS - u32::from(double_sew_bits);
     let signed_wide = (vs2_elem.cast_signed() << shift_amt) >> shift_amt;
