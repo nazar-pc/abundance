@@ -23,6 +23,8 @@
 ARG RISCV_TOOLCHAIN_PREFIX=/opt/riscv
 ARG SAIL_VERSION=0.11
 ARG RISCV_TOOLCHAIN_VERSION=2026.05.06
+# Ice Lake (server) is the oldest CPU available in GitHub Actions right now
+ARG RISCV_TOOLCHAIN_HOST_MARCH_X86_64=icelake-server
 
 # Stage 1: build riscv-gnu-toolchain
 #
@@ -66,6 +68,10 @@ RUN git clone --depth 1 --branch "${RISCV_TOOLCHAIN_VERSION}" https://github.com
   && cd /tmp/riscv-gnu-toolchain \
   && sed -i 's/c,c++/c/g' Makefile.in \
   && sed -i 's/c,c++,fortran/c/g' Makefile.in \
+  && if [ -n "${RISCV_TOOLCHAIN_HOST_MARCH_X86_64}" ] && [ "$(uname -m)" = "x86_64" ]; then \
+       export CFLAGS="-march=${RISCV_TOOLCHAIN_HOST_MARCH_X86_64}"; \
+       export CXXFLAGS="$CFLAGS"; \
+     fi \
   && ./configure \
   --prefix="${RISCV_TOOLCHAIN_PREFIX}" \
   --disable-gdb \
