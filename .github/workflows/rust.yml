@@ -23,7 +23,7 @@ env:
 
 jobs:
   cargo-fmt:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -50,10 +50,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
           - macos-26
-          - windows-11-arm
+          - windows-11-vs2026-arm
           - windows-2025
         type:
           - together
@@ -62,22 +62,22 @@ jobs:
         target:
           - ""
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: together
             target: "riscv64gc-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: features
             target: "riscv64gc-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: individually
             target: "riscv64gc-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: together
             target: "riscv64a23-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: features
             target: "riscv64a23-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: individually
             target: "riscv64a23-unknown-linux-gnu"
       fail-fast: false
@@ -202,10 +202,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
           - macos-26
-          - windows-11-arm
+          - windows-11-vs2026-arm
           - windows-2025
         miri:
           - true
@@ -220,26 +220,26 @@ jobs:
           # - guest-feature
         # Test a few RISC-V targets (both Linux and one used for contracts) using Miri
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             miri: true
             type: guest-feature
             target: ""
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             miri: false
             type: guest-feature
             target: ""
 
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             miri: true
             type: features
             target: "riscv64a23-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             miri: true
             type: guest-feature
             target: "riscv64a23-unknown-linux-gnu"
 
           # TODO: Tests will need custom allocator to work under this target
-          # - os: ubuntu-24.04
+          # - os: ubuntu-26.04
           #   miri: true
           #   type: guest-feature
           #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json"
@@ -392,10 +392,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
           - macos-26
-          - windows-11-arm
+          - windows-11-vs2026-arm
           - windows-2025
         miri:
           - true
@@ -407,7 +407,7 @@ jobs:
           # - features
           # - guest-feature
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             miri: true
             type: together
             target: "riscv64a23-unknown-linux-gnu"
@@ -425,10 +425,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
           - macos-26
-          - windows-11-arm
+          - windows-11-vs2026-arm
           - windows-2025
         type:
           - default
@@ -438,15 +438,15 @@ jobs:
         target:
           - ""
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: default
             target: "riscv64a23-unknown-linux-gnu"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             type: features
             target: "riscv64a23-unknown-linux-gnu"
 
           # TODO: Tests will need custom allocator to work under this target
-          # - os: ubuntu-24.04
+          # - os: ubuntu-26.04
           #   type: guest-feature
           #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json"
       fail-fast: false
@@ -541,7 +541,7 @@ jobs:
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
   contracts:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -567,8 +567,8 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
 
     runs-on: ${{ matrix.os }}
 
@@ -657,7 +657,7 @@ jobs:
           path: *act4-work-cache-path
           key: *act4-work-cache-key
         # Only save on `main` branch and only from one OS since the contents will be identical for all OSes
-        if: steps.restore-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04'
+        if: steps.restore-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-26.04'
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
