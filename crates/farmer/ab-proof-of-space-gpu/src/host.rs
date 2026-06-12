@@ -36,7 +36,7 @@ use wgpu::{
     ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor,
     DeviceType, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
     PipelineCompilationOptions, PipelineLayoutDescriptor, PollError, PollType, Queue,
-    RequestDeviceError, ShaderModule, ShaderStages,
+    RequestDeviceError, ShaderModule, ShaderRuntimeChecks, ShaderStages,
 };
 
 /// Proof creation error
@@ -151,7 +151,19 @@ impl Device {
                         .inspect_err(|error| {
                             warn!(%id, ?adapter_info, %error, "Failed to request the device");
                         })?;
-                    let module = device.create_shader_module(shader.clone());
+                    let module = if cfg!(debug_assertions) {
+                        device.create_shader_module(shader.clone())
+                    } else {
+                        // SAFETY: The shader is trusted, individual tests include correctness
+                        // checks and debug builds of this crate too only release version skips
+                        // checks for better runtime performance
+                        unsafe {
+                            device.create_shader_module_trusted(
+                                shader.clone(),
+                                ShaderRuntimeChecks::unchecked(),
+                            )
+                        }
+                    };
 
                     Ok::<_, RequestDeviceError>((device, queue, module))
                 })

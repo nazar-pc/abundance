@@ -100,7 +100,6 @@ async fn compute_f1_adapter(
     initial_state: &ChaCha8State,
     adapter: Adapter,
 ) -> Option<Vec<Vec<PositionR>>> {
-    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits) = select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
