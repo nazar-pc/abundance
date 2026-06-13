@@ -68,8 +68,7 @@ impl ShortHrp {
     /// Create a new instance.
     ///
     /// Returns `None` if length of human-readable part is longer than [`Self::MAX_HRP_LENGTH`].
-    // TODO: `const fn` once `bech32 > 0.12.0` is released
-    pub fn new(hrp: Hrp) -> Option<Self> {
+    pub const fn new(hrp: Hrp) -> Option<Self> {
         if hrp.len() > Self::MAX_HRP_LENGTH {
             return None;
         }
