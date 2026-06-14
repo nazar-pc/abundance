@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>announcement on Project Abundance</title><link>https://abundance.build/tags/announcement/</link><description>Recent content in announcement on Project Abundance</description><generator>Hugo -- gohugo.io</generator><language>en</language><copyright>&lt;a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="license noopener noreferrer">CC0 1.0 Universal&lt;/a></copyright><lastBuildDate>Sat, 14 Mar 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/tags/announcement/index.xml" rel="self" type="application/rss+xml"/><item><title>First crates on crates.io</title><link>https://abundance.build/blog/2026-03-14-first-crates-on-crates.io/</link><pubDate>Sat, 14 Mar 2026 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2026-03-14-first-crates-on-crates.io/</guid><description>&lt;p>The first batch of crates is now available on &lt;a
+href="https://crates.io/users/nazar-pc"
+target="_blank"
+>crates.io&lt;/a>!&lt;/p>
+&lt;p>I&amp;rsquo;ve been working on a lot of stuff during the last year, but being buried deep in the repository, the code is not easy
+to discover and reuse. I picked the first batch of crates that should be useful for the broader public and published
+them on crates.io with the hope to attract some users and contributors.&lt;/p>
+&lt;p>All of these crates are completely independent and do not have dependencies on anything blockchain-specific in this
+repository. Most of them are &lt;code>no_std&lt;/code> and do not even require an allocator.&lt;/p>
+&lt;p>But wait, there is more! In many cases APIs are guaranteed to never ever panic (at compile time!). For example, Merkle
+Tree construction and verification have those guarantees. This is awesome for high reliability and compiler
+optimizations!&lt;/p>
+&lt;p>A short &amp;ldquo;advertisement&amp;rdquo; for each of the crates follows below, all these crates are also now mentioned in the main readme
+in the repository.&lt;/p>
+&lt;p>Note that most crates leverage Nightly Rust features heavily and may be unusable on Stable Rust (for now).&lt;/p></description></item><item><title>A year of Abundance</title><link>https://abundance.build/blog/2026-01-01-a-year-of-abundance/</link><pubDate>Thu, 01 Jan 2026 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2026-01-01-a-year-of-abundance/</guid><description>&lt;p>It has been around a year since the project started, and I would like to share a brief summary of what has happened so
+far, where the project is at and what&amp;rsquo;s coming next. I&amp;rsquo;ll only capture the highlights and key outcomes here, presented
+in rough chronological order.&lt;/p></description></item><item><title>We are building a blockchain</title><link>https://abundance.build/blog/2025-04-08-we-are-building-a-blockchain/</link><pubDate>Tue, 08 Apr 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-04-08-we-are-building-a-blockchain/</guid><description>&lt;p>&lt;a
+href="../2025-01-13-welcome">Welcome&lt;/a> post mentioned briefly &lt;a
+href="https://gist.github.com/nazar-pc/760505c5ad7d56c20b2c75c1484e672f"
+target="_blank"
+>initial set of constraints&lt;/a> that led to the creation of this project, but I figured it
+might be helpful to have a short writeup about it that might be helpful for sharing.&lt;/p>
+&lt;p>In short: we&amp;rsquo;re building a blockchain.&lt;/p>
+&lt;p>By &amp;ldquo;we&amp;rdquo; I really mean just me and Alfonso so far, but I hope more people will join over time if they find it
+interesting.&lt;/p></description></item><item><title>There is two of us now</title><link>https://abundance.build/blog/2025-03-09-there-is-two-of-us-now/</link><pubDate>Sun, 09 Mar 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-03-09-there-is-two-of-us-now/</guid><description>&lt;p>The big change from the last update is that &lt;a
+href="https://www.linkedin.com/in/adlrocha/"
+target="_blank"
+>Alfonso de la Rocha&lt;/a> has joined me
+as a part-time researcher to help with sharding designing. Code-wise, there were also a bunch of performance benchmarks
+and optimizations.&lt;/p></description></item><item><title>Welcome!</title><link>https://abundance.build/blog/2025-01-13-welcome/</link><pubDate>Mon, 13 Jan 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-01-13-welcome/</guid><description>&lt;p>Hello, world 👋!&lt;/p>
+&lt;p>This is the beginning of hopefully successful thing I call &amp;ldquo;Project Abundance&amp;rdquo;.&lt;/p>
+&lt;p>After &lt;a
+href="https://gist.github.com/nazar-pc/760505c5ad7d56c20b2c75c1484e672f"
+target="_blank"
+>writing initial set of constraints&lt;/a> and thinking about it for quite a while, it is finally time to dedicate all
+my time to it and see where it leads us.&lt;/p></description></item></channel></rss>

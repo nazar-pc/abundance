@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["FixedCapacityStringU16","FixedCapacityStringU8"]};

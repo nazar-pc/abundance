@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["rv32","rv64","utils","v","zicond","zicsr","zvbb","zvbc"],"trait":["Instruction"]};

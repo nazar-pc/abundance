@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["example_wallet_initialize"],"struct":["ExampleWalletInitializeArgs","InternalArgs"]};

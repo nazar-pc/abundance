@@ -1,0 +1,641 @@
+<!doctype html><html lang=en dir=ltr class=scroll-smooth data-default-appearance=dark data-auto-appearance=true><head><meta charset=utf-8><meta http-equiv=content-language content="en"><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><meta name=theme-color><title>How to not make interpreter faster &#183; Project Abundance</title><meta name=title content="How to not make interpreter faster &#183; Project Abundance"><meta name=description content="Lessons learned from trying to improve RISC-V interpreter performance"><meta name=keywords content="status-update,"><link rel=canonical href=https://abundance.build/blog/2026-04-16-how-to-not-make-interpreter-faster/><link type=text/css rel=stylesheet href=/css/main.bundle.min.fd951ea54edeca1b6b08c8bbf3c93c284de4c78daf63a71d8016939775734cf68700f1662ed31d870100c676cbe1f65d150635cf368b874c49fc75147bcb04a9.css integrity="sha512-/ZUepU7eyhtrCMi788k8KE3kx42vY6cdgBaTl3VzTPaHAPFmLtMdhwEAxnbL4fZdFQY1zzaLh0xJ/HUUe8sEqQ=="><script type=text/javascript src=/js/appearance.min.516a16745bea5a9bd011138d254cc0fd3973cd55ce6e15f3dec763e7c7c2c7448f8fe7b54cca811cb821b0c7e12cd161caace1dd794ac3d34d40937cbcc9ee12.js integrity="sha512-UWoWdFvqWpvQERONJUzA/TlzzVXObhXz3sdj58fCx0SPj+e1TMqBHLghsMfhLNFhyqzh3XlKw9NNQJN8vMnuEg=="></script><script defer type=text/javascript id=script-bundle src=/js/main.bundle.min.e4b2d9aece2aa7a740c3ee7a0efc5acf56b204868ab0fb5bba9be32aed1cd0c9262979d98050759068d58144297f74b12ed05b5173cf2df2e6c097a066b984a8.js integrity="sha512-5LLZrs4qp6dAw+56Dvxaz1ayBIaKsPtbupvjKu0c0MkmKXnZgFB1kGjVgUQpf3SxLtBbUXPPLfLmwJegZrmEqA==" data-copy=Copy data-copied=Copied></script><script src=/lib/zoom/zoom.min.umd.a527109b68c082a70f3697716dd72a9d5aa8b545cf800cecbbc7399f2ca6f6e0ce3e431f2062b48bbfa47c9ea42822714060bef309be073f49b9c0e30d318d7b.js integrity="sha512-pScQm2jAgqcPNpdxbdcqnVqotUXPgAzsu8c5nyym9uDOPkMfIGK0i7+kfJ6kKCJxQGC+8wm+Bz9JucDjDTGNew=="></script><link rel=apple-touch-icon sizes=180x180 href=/apple-touch-icon.png><link rel=icon type=image/png sizes=32x32 href=/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=/favicon-16x16.png><link rel=manifest href=/site.webmanifest><meta property="og:url" content="https://abundance.build/blog/2026-04-16-how-to-not-make-interpreter-faster/"><meta property="og:site_name" content="Project Abundance"><meta property="og:title" content="How to not make interpreter faster"><meta property="og:description" content="Lessons learned from trying to improve RISC-V interpreter performance"><meta property="og:locale" content="en"><meta property="og:type" content="article"><meta property="article:section" content="blog"><meta property="article:published_time" content="2026-04-16T00:00:00+00:00"><meta property="article:modified_time" content="2026-04-16T00:00:00+00:00"><meta property="article:tag" content="status-update"><meta name=twitter:card content="summary"><meta name=twitter:title content="How to not make interpreter faster"><meta name=twitter:description content="Lessons learned from trying to improve RISC-V interpreter performance"><script type=application/ld+json>[{"@context":"https://schema.org","@type":"Article","articleSection":"Blog","name":"How to not make interpreter faster","headline":"How to not make interpreter faster","description":"Lessons learned from trying to improve RISC-V interpreter performance","abstract":"\u003cp\u003eI like posting updates with substantial performance improvements, but sometimes that is just not happening despite\nplausible approaches and substantial effort. It is still a useful learning experience to share, though. And I have\nnon-performance improvements to share too, so let\u0026rsquo;s get to it.\u003c\/p\u003e","inLanguage":"en","url":"https:\/\/abundance.build\/blog\/2026-04-16-how-to-not-make-interpreter-faster\/","author":{"@type":"Person","name":""},"copyrightYear":"2026","dateCreated":"2026-04-16T00:00:00\u002b00:00","datePublished":"2026-04-16T00:00:00\u002b00:00","dateModified":"2026-04-16T00:00:00\u002b00:00","keywords":["status-update"],"mainEntityOfPage":"true","wordCount":"3763"}]</script><script src=/lib/jquery/jquery.slim.min.b0dca576e87d7eaa5850ae4e61759c065786cdb6489d68fcc82240539eebd5da522bdb4fda085ffd245808c8fe2acb2516408eb774ef26b5f6015fc6737c0ea8.js integrity="sha512-sNylduh9fqpYUK5OYXWcBleGzbZInWj8yCJAU57r1dpSK9tP2ghf/SRYCMj+KsslFkCOt3TvJrX2AV/Gc3wOqA=="></script></head><body class="flex flex-col h-screen px-6 m-auto text-lg leading-7 max-w-7xl bg-neutral text-neutral-900 dark:bg-neutral-800 dark:text-neutral sm:px-14 md:px-24 lg:px-32 scrollbar-thin scrollbar-track-neutral-200 scrollbar-thumb-neutral-400 dark:scrollbar-track-neutral-800 dark:scrollbar-thumb-neutral-600"><div id=the-top class="absolute flex self-center"><a class="px-3 py-1 text-sm -translate-y-8 rounded-b-lg bg-primary-200 focus:translate-y-0 dark:bg-neutral-600" href=#main-content><span class="font-bold text-primary-600 ltr:pr-2 rtl:pl-2 dark:text-primary-400">&darr;</span>
+Skip to main content</a></div><div class="main-menu flex items-center justify-between px-4 py-6 sm:px-6 md:justify-start gap-x-3 pt-[2px] pr-0 pb-[3px] pl-0"><div class="flex flex-1 items-center justify-between"><nav class="flex space-x-3"><a href=/ class="text-base font-medium text-gray-500 hover:text-gray-900">Project Abundance</a></nav><nav class="hidden md:flex items-center gap-x-5 md:ml-12 h-12"></nav><div class="flex md:hidden items-center gap-x-5 md:ml-12 h-12"><span></span></div></div><div class="-my-2 md:hidden"><div id=menu-button class=block></div></div></div><div class="relative flex flex-col grow"><main id=main-content class=grow><article><header id=single_header class="mt-5 max-w-prose"><h1 class="mt-0 text-4xl font-extrabold text-neutral-900 dark:text-neutral">How to not make interpreter faster</h1><div class="mt-1 mb-6 text-base text-neutral-500 dark:text-neutral-400 print:hidden"><div class="flex flex-row flex-wrap items-center"><time datetime=2026-04-16T00:00:00+00:00>16 April 2026</time><span class="px-2 text-primary-500">&#183;</span><span title="Reading time">18 mins</span><span class="px-2 text-primary-500">&#183;</span>
+<span class=mb-[2px]><a href=https://github.com/nazar-pc/abundance/tree/main/website/main/content/blog/2026/2026-04-16-how-to-not-make-interpreter-faster.md class="text-lg hover:text-primary-500" rel="noopener noreferrer" target=_blank title="Edit content"><span class="inline-block align-text-bottom"><span class="relative block icon"><svg height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="M441 58.9 453.1 71c9.4 9.4 9.4 24.6.0 33.9L424 134.1 377.9 88 407 58.9c9.4-9.4 24.6-9.4 33.9.0zM209.8 256.2 344 121.9 390.1 168 255.8 302.2c-2.9 2.9-6.5 5-10.4 6.1L186.9 325l16.7-58.5c1.1-3.9 3.2-7.5 6.1-10.4zM373.1 25 175.8 222.2c-8.7 8.7-15 19.4-18.3 31.1l-28.6 1e2c-2.4 8.4-.1 17.4 6.1 23.6s15.2 8.5 23.6 6.1l1e2-28.6c11.8-3.4 22.5-9.7 31.1-18.3L487 138.9c28.1-28.1 28.1-73.7.0-101.8L474.9 25C446.8-3.1 401.2-3.1 373.1 25zM88 64C39.4 64 0 103.4.0 152V424c0 48.6 39.4 88 88 88H360c48.6.0 88-39.4 88-88V312c0-13.3-10.7-24-24-24s-24 10.7-24 24V424c0 22.1-17.9 40-40 40H88c-22.1.0-40-17.9-40-40V152c0-22.1 17.9-40 40-40H2e2c13.3.0 24-10.7 24-24s-10.7-24-24-24H88z"/></svg></span></span></a></span></div><div class="flex flex-row flex-wrap items-center"><a class="relative mt-[0.5rem] mr-2" href=/tags/status-update/><span class="flex cursor-pointer"><span class="rounded-md border border-primary-400 px-1 py-[1px] text-xs font-normal text-primary-700 dark:border-primary-600 dark:text-primary-400">status-update</span></span></a></div></div><div class="flex author"><div class=place-self-center><div class="text-2xl sm:text-lg"></div></div></div><div class="flex author author-extra mt-4"><img class="!mt-0 !mb-0 h-24 w-24 rounded-full ltr:mr-4 rtl:ml-4" width=96 height=96 src=/3d67cc976284fd62356e2edd8a8dfc49_2651210052118205119_hu_2fd6f6eca7f7083d.jpg><div class=place-self-center><div class="text-[0.6rem] uppercase leading-3 text-neutral-500 dark:text-neutral-400">Author</div><a href=https://abundance.build/authors/nazar-pc/ class="font-semibold leading-6 text-neutral-800 dark:text-neutral-300">Nazar Mokrynskyi</a><div class="text-2xl sm:text-lg"><div class="flex flex-wrap text-neutral-400 dark:text-neutral-500"><a class="px-1 hover:text-primary-700 dark:hover:text-primary-400" href=https://linkedin.com/in/nazarpc target=_blank aria-label=Linkedin rel="me noopener noreferrer"><span class="inline-block align-text-bottom"><span class="relative block icon"><svg viewBox="0 0 448 512"><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5.0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6.0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3.0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2.0 38.5 17.3 38.5 38.5.0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6.0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2.0 79.7 44.3 79.7 101.9V416z"/></svg>
+</span></span></a><a class="px-1 hover:text-primary-700 dark:hover:text-primary-400" href=https://x.com/nazarpc target=_blank aria-label=X-Twitter rel="me noopener noreferrer"><span class="inline-block align-text-bottom"><span class="relative block icon"><svg viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg></span></span></a>
+<a class="px-1 hover:text-primary-700 dark:hover:text-primary-400" href=https://github.com/nazar-pc target=_blank aria-label=Github rel="me noopener noreferrer"><span class="inline-block align-text-bottom"><span class="relative block icon"><svg viewBox="0 0 496 512"><path fill="currentColor" d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6.0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6.0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3.0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1.0-6.2-.3-40.4-.3-61.4.0.0-70 15-84.7-29.8.0.0-11.4-29.1-27.8-36.6.0.0-22.9-15.7 1.6-15.4.0.0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5.0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9.0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4.0 33.7-.3 75.4-.3 83.6.0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6.0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9.0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+</span></span></a><a class="px-1 hover:text-primary-700 dark:hover:text-primary-400" href=mailto:nazar@mokrynskyi.com target=_blank aria-label=Email rel="me noopener noreferrer"><span class="inline-block align-text-bottom"><span class="relative block icon"><svg viewBox="0 0 512 512"><path fill="currentColor" d="M207.8 20.73c-93.45 18.32-168.7 93.66-187 187.1-27.64 140.9 68.65 266.2 199.1 285.1 19.01 2.888 36.17-12.26 36.17-31.49l1e-4-.6631c0-15.74-11.44-28.88-26.84-31.24-84.35-12.98-149.2-86.13-149.2-174.2.0-102.9 88.61-185.5 193.4-175.4 91.54 8.869 158.6 91.25 158.6 183.2v16.16c0 22.09-17.94 40.05-40 40.05s-40.01-17.96-40.01-40.05v-120.1c0-8.847-7.161-16.02-16.01-16.02l-31.98.0036c-7.299.0-13.2 4.992-15.12 11.68-24.85-12.15-54.24-16.38-86.06-5.106-38.75 13.73-68.12 48.91-73.72 89.64-9.483 69.01 43.81 128 110.9 128 26.44.0 50.43-9.544 69.59-24.88 24 31.3 65.23 48.69 109.4 37.49C465.2 369.3 496 324.1 495.1 277.2V256.3c0-149.2-133.9-265.632-287.3-235.57zM239.1 304.3c-26.47.0-48-21.56-48-48.05s21.53-48.05 48-48.05 48 21.56 48 48.05-20.6 48.05-48 48.05z"/></svg></span></span></a></div></div></div></div><div class=mb-5></div></header><section class="flex flex-col max-w-full mt-0 prose dark:prose-invert lg:flex-row"><div class="min-w-0 min-h-0 max-w-fit"><div class="article-content max-w-prose mb-20"><p>I like posting updates with substantial performance improvements, but sometimes that is just not happening despite
+plausible approaches and substantial effort. It is still a useful learning experience to share, though. And I have
+non-performance improvements to share too, so let&rsquo;s get to it.</p><h2 class="relative group">New releases<div id=new-releases class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#new-releases aria-label=Anchor>#</a></span></h2><p>Before getting to optimization efforts, I shipped new releases of <a href=https://crates.io/crates/ab-riscv-primitives target=_blank>ab-riscv-primitives</a>, <a href=https://crates.io/crates/ab-riscv-interpreter target=_blank>ab-riscv-interpreter</a> and
+related macro crates. The biggest change this time is a large number of additional implemented extensions:</p><ul><li>Full support for Zk (NIST Suite) extension, which required:<ul><li>Zbkb (Bit manipulation instructions for cryptography) - added</li><li>Zbkc (Carry-less multiply instructions) - already supported before</li><li>Zbkx (Cross-bar Permutation instructions) - added</li><li>Zkne (AES encryption instructions) - added</li><li>Zknd (AES decryption instructions) - added</li><li>Zknh (SHA2 hash function instructions) - already supported before</li></ul></li><li>Some compressed instructions:<ul><li>Zca</li><li>Zcb</li><li>Zcmp</li></ul></li><li>Zicond (Integer Conditional Operations)</li></ul><p>All extensions are implemented for both RV32 and RV64 and pass RISC-V Architectural Certification Tests except Zcmp,
+which simply <a href=https://github.com/riscv/riscv-arch-test/issues/1260 target=_blank>doesn&rsquo;t have certification tests yet</a>.</p><p>Moreover, AES instructions take advantage of hardware intrinsics on x86-64 and aarch64 where possible. Of course, on
+RV32 and RV64 native intrinsics are also used where possible too.</p><h2 class="relative group">Optimizing instruction dispatch<div id=optimizing-instruction-dispatch class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#optimizing-instruction-dispatch aria-label=Anchor>#</a></span></h2><p>Previously (and still) the general workflow of the interpreter is instruction decoding followed by execution. Not only
+that, the two are modular rather than fused, so first, decoding happens like this (smaller extension for shorter
+examples):</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span> <span style=color:#ff6ac1>const</span> Instruction <span style=color:#ff6ac1>for</span> Rv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: [ <span style=color:#ff6ac1>const</span> ] Register<span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>type</span> <span style=color:#f3f99d>Reg</span> <span style=color:#ff6ac1>=</span> Reg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>try_decode</span>(instruction: <span style=color:#9aedfe>u32</span>) -&gt; <span style=color:#ff5c57>Option</span><span style=color:#ff6ac1>&lt;</span><span style=color:#ff5c57>Self</span><span style=color:#ff6ac1>&gt;</span> {
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> opcode <span style=color:#ff6ac1>=</span> (instruction <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0b111_1111</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> rd_bits <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>7</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0x1f</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> funct3 <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>12</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0b111</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> rs1_bits <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>15</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0x1f</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> rs2_bits <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>20</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0x1f</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> funct7 <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>25</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0b111_1111</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>match</span> opcode {
+</span></span><span style=display:flex><span>            <span style=color:#78787e>// R-type
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>            <span style=color:#ff9f43>0b0110011</span> <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> rd <span style=color:#ff6ac1>=</span> Reg::from_bits(rd_bits)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> rs1 <span style=color:#ff6ac1>=</span> Reg::from_bits(rs1_bits)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> rs2 <span style=color:#ff6ac1>=</span> Reg::from_bits(rs2_bits)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>                <span style=color:#ff6ac1>match</span> (funct3, funct7) {
+</span></span><span style=display:flex><span>                    (<span style=color:#ff9f43>0b010</span>, <span style=color:#ff9f43>0b0010000</span>) <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>Some</span>(<span style=color:#ff5c57>Self</span>::Sh1add { rd, rs1, rs2 }),
+</span></span><span style=display:flex><span>                    (<span style=color:#ff9f43>0b100</span>, <span style=color:#ff9f43>0b0010000</span>) <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>Some</span>(<span style=color:#ff5c57>Self</span>::Sh2add { rd, rs1, rs2 }),
+</span></span><span style=display:flex><span>                    (<span style=color:#ff9f43>0b110</span>, <span style=color:#ff9f43>0b0010000</span>) <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>Some</span>(<span style=color:#ff5c57>Self</span>::Sh3add { rd, rs1, rs2 }),
+</span></span><span style=display:flex><span>                    _ <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>None</span>,
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            _ <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>None</span>,
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#78787e>// ...
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>}
+</span></span></code></pre></div><p>Here we parse the 32-bit instruction and then create enum variants for each distinct instruction. Now that instruction
+is decoded, it is matched on for execution:</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg, Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span>ExecutableInstruction<span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>    InterpreterState<span style=color:#ff6ac1>&lt;</span>Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    CustomError,
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>&gt;</span> <span style=color:#ff6ac1>for</span> Rv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: <span style=color:#f3f99d>Register</span><span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>execute</span>(
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>self</span>,
+</span></span><span style=display:flex><span>        state: <span style=color:#ff6ac1>&amp;</span><span style=color:#f3f99d>mut</span> InterpreterState<span style=color:#ff6ac1>&lt;</span>Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    ) -&gt; <span style=color:#ff5c57>Result</span><span style=color:#ff6ac1>&lt;</span>ControlFlow<span style=color:#ff6ac1>&lt;</span>()<span style=color:#ff6ac1>&gt;</span>, ExecutionError<span style=color:#ff6ac1>&lt;</span>Reg::Type, CustomError<span style=color:#ff6ac1>&gt;&gt;</span> {
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>match</span> <span style=color:#ff5c57>self</span> {
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>Self</span>::Sh1add { rd, rs1, rs2 } <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> value <span style=color:#ff6ac1>=</span> (state.regs.read(rs1) <span style=color:#ff6ac1>&lt;&lt;</span> <span style=color:#ff9f43>1</span>).wrapping_add(state.regs.read(rs2));
+</span></span><span style=display:flex><span>                state.regs.write(rd, value);
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>Self</span>::Sh2add { rd, rs1, rs2 } <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> value <span style=color:#ff6ac1>=</span> (state.regs.read(rs1) <span style=color:#ff6ac1>&lt;&lt;</span> <span style=color:#ff9f43>2</span>).wrapping_add(state.regs.read(rs2));
+</span></span><span style=display:flex><span>                state.regs.write(rd, value);
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>Self</span>::Sh3add { rd, rs1, rs2 } <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> value <span style=color:#ff6ac1>=</span> (state.regs.read(rs1) <span style=color:#ff6ac1>&lt;&lt;</span> <span style=color:#ff9f43>3</span>).wrapping_add(state.regs.read(rs2));
+</span></span><span style=display:flex><span>                state.regs.write(rd, value);
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>Ok</span>(ControlFlow::Continue(()))
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>In real cases the enum is processed by macros, and there are many more variants in both decoding and execution that
+correspond to the composition of the base ISA and all selected extensions, but the idea is the same.</p><p>The observation is that we match on the enum that was just decoded, which is the cost of modularity, but it still feels
+wasteful. Since enums are already processed by macros, I can generate more code to eliminate the extra match. For
+example, we can decode instructions into tuple <code>(Instruction, execution_fn)</code>, so instead of doing match on the enum,
+execution is just a function call. Now the <code>execution_fn</code> is a function pointer, so on 64-bit platform it is 8 extra
+bytes per instruction, so considering that the total number of unique instructions is limited, pointers to execution
+functions can be replaced with indexing into a dense array of function pointers, reducing the overhead to 16 bits, or
+possibly even 8 bits in case the number of selected instructions is small enough.</p><p>All that can be done with a bit of macro magic. For the following extra code is generated automatically:</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#5af78e>/// Decode and map [`Rv32ZbaInstruction`].
+</span></span></span><span style=display:flex><span><span style=color:#5af78e>///
+</span></span></span><span style=display:flex><span><span style=color:#5af78e>/// Each method is guaranteed to receive a corresponding enum variant as `instruction`.
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span><span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>const</span> <span style=color:#ff6ac1>trait</span> Rv32ZbaInstructionMap<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span> {
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>type</span> <span style=color:#f3f99d>Output</span>: [ <span style=color:#ff6ac1>const</span> ] ::core::marker::Destruct;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>/// Decode and map [`Rv32ZbaInstruction::Sh1add`] instruction
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>sh1add</span>(instruction: <span style=color:#f3f99d>Rv32ZbaInstruction</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>) -&gt; <span style=color:#f3f99d>Self</span>::Output;
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>/// Decode and map [`Rv32ZbaInstruction::Sh2add`] instruction
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>sh2add</span>(instruction: <span style=color:#f3f99d>Rv32ZbaInstruction</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>) -&gt; <span style=color:#f3f99d>Self</span>::Output;
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>/// Decode and map [`Rv32ZbaInstruction::Sh3add`] instruction
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>sh3add</span>(instruction: <span style=color:#f3f99d>Rv32ZbaInstruction</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>) -&gt; <span style=color:#f3f99d>Self</span>::Output;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span> Rv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span> {
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>///   Decode an instruction and immediately map it
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>const</span> <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>try_decode_and_map</span><span style=color:#ff6ac1>&lt;</span>Map<span style=color:#ff6ac1>&gt;</span>(instruction: <span style=color:#9aedfe>u32</span>) -&gt; ::core::option::<span style=color:#ff5c57>Option</span><span style=color:#ff6ac1>&lt;</span>Map::Output<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>        Reg: [ <span style=color:#ff6ac1>const</span> ] Register<span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>        Map: [ <span style=color:#ff6ac1>const</span> ] Rv32ZbaInstructionMap<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> opcode <span style=color:#ff6ac1>=</span> (instruction <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0b111_1111</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> rd_bits <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>7</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0x1f</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> funct3 <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>12</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0b111</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> rs1_bits <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>15</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0x1f</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> rs2_bits <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>20</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0x1f</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> funct7 <span style=color:#ff6ac1>=</span> ((instruction <span style=color:#ff6ac1>&gt;&gt;</span> <span style=color:#ff9f43>25</span>) <span style=color:#ff6ac1>&amp;</span> <span style=color:#ff9f43>0b111_1111</span>) <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u8</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>match</span> opcode {
+</span></span><span style=display:flex><span>            <span style=color:#ff9f43>0b0110011</span> <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> rd <span style=color:#ff6ac1>=</span> Reg::from_bits(rd_bits)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> rs1 <span style=color:#ff6ac1>=</span> Reg::from_bits(rs1_bits)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> rs2 <span style=color:#ff6ac1>=</span> Reg::from_bits(rs2_bits)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>                <span style=color:#ff6ac1>match</span> (funct3, funct7) {
+</span></span><span style=display:flex><span>                    (<span style=color:#ff9f43>0b010</span>, <span style=color:#ff9f43>0b0010000</span>) <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>Some</span>(Map::sh1add(<span style=color:#ff5c57>Self</span>::Sh1add { rd, rs1, rs2 }))
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                    (<span style=color:#ff9f43>0b100</span>, <span style=color:#ff9f43>0b0010000</span>) <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>Some</span>(Map::sh2add(<span style=color:#ff5c57>Self</span>::Sh2add { rd, rs1, rs2 }))
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                    (<span style=color:#ff9f43>0b110</span>, <span style=color:#ff9f43>0b0010000</span>) <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>Some</span>(Map::sh3add(<span style=color:#ff5c57>Self</span>::Sh3add { rd, rs1, rs2 }))
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                    _ <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>None</span>,
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            _ <span style=color:#ff6ac1>=&gt;</span> <span style=color:#ff5c57>None</span>,
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>Essentially, we get <code>*Map</code> trait and <code>try_decode_and_map()</code> method that instead of <code>Self::Variant</code> returns
+<code>Map::variant(Self::Variant)</code> result, allowing to immediately map the instruction without matching it first.</p><p>And the execution side gains a corresponding generated mapping implementation:</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#5af78e>/// Decode and map [`Rv32ZbaInstruction`] for execution
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span><span style=color:#78787e>#[derive(Debug)]</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>struct</span> <span style=color:#f3f99d>Rv32ZbaInstructionMapExecute</span><span style=color:#ff6ac1>&lt;</span>Reg, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    phantom: <span style=color:#f3f99d>PhantomData</span><span style=color:#ff6ac1>&lt;</span>(Reg, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError)<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg, Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span> <span style=color:#ff6ac1>const</span> Rv32ZbaInstructionMap<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>for</span> Rv32ZbaInstructionMapExecute<span style=color:#ff6ac1>&lt;</span>Reg, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: <span style=color:#f3f99d>Register</span><span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    Reg: [ <span style=color:#ff6ac1>const</span> ] Register,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>type</span> <span style=color:#f3f99d>Output</span> <span style=color:#ff6ac1>=</span> (
+</span></span><span style=display:flex><span>        Rv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>fn</span>(
+</span></span><span style=display:flex><span>            Rv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff6ac1>&amp;</span><span style=color:#ff6ac1>mut</span> InterpreterState<span style=color:#ff6ac1>&lt;</span>Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>        ) -&gt; <span style=color:#ff5c57>Result</span><span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>            ControlFlow<span style=color:#ff6ac1>&lt;</span>()<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>            ExecutionError<span style=color:#ff6ac1>&lt;&lt;</span>Reg <span style=color:#ff6ac1>as</span> Register<span style=color:#ff6ac1>&gt;</span>::Type, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    );
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>sh1add</span>(
+</span></span><span style=display:flex><span>        instruction: <span style=color:#f3f99d>Rv32ZbaInstruction</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    ) -&gt; <span style=color:#ff6ac1>&lt;</span><span style=color:#ff5c57>Self</span> <span style=color:#ff6ac1>as</span> Rv32ZbaInstructionMap<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;&gt;</span>::Output {
+</span></span><span style=display:flex><span>        (instruction, <span style=color:#ff6ac1>|</span>instruction, state<span style=color:#ff6ac1>|</span> {
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>let</span> __self <span style=color:#ff6ac1>=</span> instruction;
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>let</span> Rv32ZbaInstruction::Sh1add { rd, rs1, rs2 } <span style=color:#ff6ac1>=</span> instruction <span style=color:#ff6ac1>else</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff6ac1>unsafe</span> {
+</span></span><span style=display:flex><span>                    unreachable_unchecked();
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            };
+</span></span><span style=display:flex><span>            {
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>let</span> value <span style=color:#ff6ac1>=</span> (state.regs.read(rs1) <span style=color:#ff6ac1>&lt;&lt;</span> <span style=color:#ff9f43>1</span>).wrapping_add(state.regs.read(rs2));
+</span></span><span style=display:flex><span>                state.regs.write(rd, value);
+</span></span><span style=display:flex><span>                <span style=color:#ff5c57>Ok</span>(ControlFlow::Continue(()))
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>        })
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#78787e>// ..
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#5af78e>/// Mapped executable [`Rv32ZbaInstruction`] that doesn&#39;t match on instruction variant for
+</span></span></span><span style=display:flex><span><span style=color:#5af78e>/// execution at the cost of a larger data structure size
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span><span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>struct</span> <span style=color:#f3f99d>MappedExecutableRv32ZbaInstruction</span><span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>    Reg,
+</span></span><span style=display:flex><span>    ExtState,
+</span></span><span style=display:flex><span>    Memory,
+</span></span><span style=display:flex><span>    <span style=color:#ff9f43>PC</span>,
+</span></span><span style=display:flex><span>    InstructionHandler,
+</span></span><span style=display:flex><span>    CustomError,
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: <span style=color:#f3f99d>Register</span><span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    instruction: <span style=color:#f3f99d>Rv32ZbaInstruction</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    execute_fn: <span style=color:#f3f99d>fn</span>(
+</span></span><span style=display:flex><span>        Rv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>&amp;</span><span style=color:#ff6ac1>mut</span> InterpreterState<span style=color:#ff6ac1>&lt;</span>Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    ) -&gt; <span style=color:#ff5c57>Result</span><span style=color:#ff6ac1>&lt;</span>ControlFlow<span style=color:#ff6ac1>&lt;</span>()<span style=color:#ff6ac1>&gt;</span>, ExecutionError<span style=color:#ff6ac1>&lt;</span>Reg::Type, CustomError<span style=color:#ff6ac1>&gt;&gt;</span>,
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg, Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span> <span style=color:#ff6ac1>const</span> Instruction
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>for</span> MappedExecutableRv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>    Reg,
+</span></span><span style=display:flex><span>    ExtState,
+</span></span><span style=display:flex><span>    Memory,
+</span></span><span style=display:flex><span>    <span style=color:#ff9f43>PC</span>,
+</span></span><span style=display:flex><span>    InstructionHandler,
+</span></span><span style=display:flex><span>    CustomError,
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: <span style=color:#f3f99d>Register</span><span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    Reg: [ <span style=color:#ff6ac1>const</span> ] Register,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>type</span> <span style=color:#f3f99d>Reg</span> <span style=color:#ff6ac1>=</span> Reg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>try_decode</span>(instruction: <span style=color:#9aedfe>u32</span>) -&gt; <span style=color:#ff5c57>Option</span><span style=color:#ff6ac1>&lt;</span><span style=color:#ff5c57>Self</span><span style=color:#ff6ac1>&gt;</span> {
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>let</span> (instruction, execute_fn) <span style=color:#ff6ac1>=</span> Rv32ZbaInstruction::try_decode_and_map::<span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>            Rv32ZbaInstructionMapExecute<span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>                Reg,
+</span></span><span style=display:flex><span>                ExtState,
+</span></span><span style=display:flex><span>                Memory,
+</span></span><span style=display:flex><span>                <span style=color:#ff9f43>PC</span>,
+</span></span><span style=display:flex><span>                InstructionHandler,
+</span></span><span style=display:flex><span>                CustomError,
+</span></span><span style=display:flex><span>            <span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>&gt;</span>(instruction)<span style=color:#ff6ac1>?</span>;
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>Some</span>(<span style=color:#ff5c57>Self</span> { instruction, execute_fn })
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#78787e>// ...
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg, Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span>ExecutableInstruction<span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>    InterpreterState<span style=color:#ff6ac1>&lt;</span>Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    CustomError,
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>for</span> MappedExecutableRv32ZbaInstruction<span style=color:#ff6ac1>&lt;</span>
+</span></span><span style=display:flex><span>    Reg,
+</span></span><span style=display:flex><span>    ExtState,
+</span></span><span style=display:flex><span>    Memory,
+</span></span><span style=display:flex><span>    <span style=color:#ff9f43>PC</span>,
+</span></span><span style=display:flex><span>    InstructionHandler,
+</span></span><span style=display:flex><span>    CustomError,
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: <span style=color:#f3f99d>Register</span><span style=color:#ff6ac1>&lt;</span>Type<span style=color:#ff6ac1>=</span><span style=color:#9aedfe>u32</span><span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>execute</span>(
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>self</span>,
+</span></span><span style=display:flex><span>        state: <span style=color:#ff6ac1>&amp;</span><span style=color:#f3f99d>mut</span> InterpreterState<span style=color:#ff6ac1>&lt;</span>Regs, ExtState, Memory, <span style=color:#ff9f43>PC</span>, InstructionHandler, CustomError<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    ) -&gt; <span style=color:#ff5c57>Result</span><span style=color:#ff6ac1>&lt;</span>ControlFlow<span style=color:#ff6ac1>&lt;</span>()<span style=color:#ff6ac1>&gt;</span>, ExecutionError<span style=color:#ff6ac1>&lt;</span>Reg::Type, CustomError<span style=color:#ff6ac1>&gt;&gt;</span> {
+</span></span><span style=display:flex><span>        (<span style=color:#ff5c57>self</span>.execute_fn)(<span style=color:#ff5c57>self</span>.instruction, state)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>Now <code>MappedExecutableRv32ZbaInstruction</code> can be used in place of a regular instruction, but its execution bypasses the
+<code>match</code> statement, jumping straight into logic execution.</p><p>However, when I benchmarked all three cases, the results were not positive, quite the opposite! I did some profiling and
+saw the following:</p><pre tabindex=0><code>Here is `perf stat` with initial `match` approach:
+     7.010864158                  0      context-switches:u               #      0,0 cs/sec  cs_per_second     
+     7.010864158                  0      cpu-migrations:u                 #      0,0 migrations/sec  migrations_per_second
+     7.010864158                  0      page-faults:u                    #      0,0 faults/sec  page_faults_per_second
+     7.010864158           1 004,12 msec task-clock:u                     #      1,0 CPUs  CPUs_utilized       
+     7.010864158         17 233 877      branch-misses:u                  #      0,6 %  branch_miss_rate         (50,19%)
+     7.010864158      2 822 333 279      branches:u                       #   2810,8 M/sec  branch_frequency     (50,19%)
+     7.010864158      4 890 961 395      cpu-cycles:u                     #      4,9 GHz  cycles_frequency       (66,91%)
+     7.010864158     14 510 845 517      instructions:u                   #      3,0 instructions  insn_per_cycle  (49,81%)
+     7.010864158      1 079 796 046      stalled-cycles-frontend:u        #     0,22 frontend_cycles_idle        (49,81%)
+
+Function pointers:
+     7.009750022                  0      context-switches:u               #      0,0 cs/sec  cs_per_second     
+     7.009750022                  0      cpu-migrations:u                 #      0,0 migrations/sec  migrations_per_second
+     7.009750022                  0      page-faults:u                    #      0,0 faults/sec  page_faults_per_second
+     7.009750022           1 000,71 msec task-clock:u                     #      1,0 CPUs  CPUs_utilized       
+     7.009750022         62 386 430      branch-misses:u                  #      2,6 %  branch_miss_rate         (49,79%)
+     7.009750022      2 406 122 728      branches:u                       #   2404,4 M/sec  branch_frequency     (49,66%)
+     7.009750022      4 873 086 373      cpu-cycles:u                     #      4,9 GHz  cycles_frequency       (66,43%)
+     7.009750022     12 020 645 675      instructions:u                   #      2,5 instructions  insn_per_cycle  (50,21%)
+     7.009750022      1 531 688 449      stalled-cycles-frontend:u        #     0,31 frontend_cycles_idle        (50,34%)
+
+Function pointers through intermediate array indexing using `u16` offset:
+     7.010677687                  0      context-switches:u               #      0,0 cs/sec  cs_per_second     
+     7.010677687                  0      cpu-migrations:u                 #      0,0 migrations/sec  migrations_per_second
+     7.010677687                  0      page-faults:u                    #      0,0 faults/sec  page_faults_per_second
+     7.010677687           1 004,16 msec task-clock:u                     #      1,0 CPUs  CPUs_utilized       
+     7.010677687         20 015 515      branch-misses:u                  #      0,7 %  branch_miss_rate         (50,19%)
+     7.010677687      2 862 855 104      branches:u                       #   2851,0 M/sec  branch_frequency     (50,19%)
+     7.010677687      4 889 795 691      cpu-cycles:u                     #      4,9 GHz  cycles_frequency       (66,92%)
+     7.010677687     13 933 760 493      instructions:u                   #      2,8 instructions  insn_per_cycle  (49,81%)
+     7.010677687        908 685 544      stalled-cycles-frontend:u        #     0,19 frontend_cycles_idle        (49,81%)
+</code></pre><p>The interesting thing is that function pointers were the slowest, followed by <code>u16</code> indexing and lastly <code>match</code> I had
+before was the fastest 🤔</p><p>The branch miss rate is especially bad for direct function pointer calls, and IPC was worse for both &ldquo;optimized&rdquo;
+versions, while <code>match</code> was sometimes reaching 4.0 IPC. Can&rsquo;t explain it better than that LLVM just can&rsquo;t optimize
+multiple function calls nearly as well as a simple loop with a large <code>match</code> in it. And computed goto is not a thing in
+Rust to avoid the function call cost, unfortunately.</p><p>So after spending a bunch of time on macros, I was back to the square one.</p><h2 class="relative group">Instruction fusion and unchecked memory access<div id=instruction-fusion-and-unchecked-memory-access class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#instruction-fusion-and-unchecked-memory-access aria-label=Anchor>#</a></span></h2><p>The high IPC is a testament to carefully written code that CPU can predict efficiently, but high IPC doesn&rsquo;t mean those
+instructions are doing something useful. I thought that since calling functions and instruction dispatch more generally
+is relatively expensive in a basic interpreter, it&rsquo;d be nice to reduce it.</p><p>The next thing I tried was instruction fusion. Essentially, detecting sequences of instructions and replacing them with
+macro-fused instruction, which does the same thing but requires a single physical dispatch to the interpreter side,
+amortizing dispatch cost.</p><p>To start, I noticed <code>ld</code> (64-bit load) and <code>sd</code> (64-bit store) instructions are quite common and often share the same
+<code>rs1</code> register and have monotonically increasing/decreasing <code>rd</code> register and <code>imm</code> values in the same or opposite
+direction. Granted, often those are used at the start/end of the function, but it still is a frequent pattern in a real
+execution trace with double-digit percentage of runtime instruction. I&rsquo;m talking about code patterns like this:</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-asm data-lang=asm><span style=display:flex><span><span style=color:#78787e># Loads
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span><span style=color:#57c7ff>ld</span> <span style=color:#ff9f43>s2</span>,<span style=color:#ff9f43>464</span>(<span style=color:#ff9f43>sp</span>)
+</span></span><span style=display:flex><span><span style=color:#57c7ff>ld</span> <span style=color:#ff9f43>s3</span>,<span style=color:#ff9f43>456</span>(<span style=color:#ff9f43>sp</span>)
+</span></span><span style=display:flex><span><span style=color:#57c7ff>ld</span> <span style=color:#ff9f43>s4</span>,<span style=color:#ff9f43>448</span>(<span style=color:#ff9f43>sp</span>)
+</span></span><span style=display:flex><span><span style=color:#78787e># Stores
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span><span style=color:#57c7ff>sd</span> <span style=color:#ff9f43>a0</span>,<span style=color:#ff9f43>32</span>(<span style=color:#ff9f43>sp</span>)
+</span></span><span style=display:flex><span><span style=color:#57c7ff>sd</span> <span style=color:#ff9f43>a1</span>,<span style=color:#ff9f43>40</span>(<span style=color:#ff9f43>sp</span>)
+</span></span><span style=display:flex><span><span style=color:#57c7ff>sd</span> <span style=color:#ff9f43>a2</span>,<span style=color:#ff9f43>48</span>(<span style=color:#ff9f43>sp</span>)
+</span></span><span style=display:flex><span><span style=color:#57c7ff>sd</span> <span style=color:#ff9f43>a3</span>,<span style=color:#ff9f43>56</span>(<span style=color:#ff9f43>sp</span>)
+</span></span></code></pre></div><p>Another observation is that often <code>rs1 = sp</code>, meaning a memory location relative to the stack pointer. If we know where
+the stack is in memory and the whole memory layout is static (like it is in contracts), often those locations can be
+statically determined to be in-bounds and bound checks can be skipped both for individual instructions and the whole
+batches of instructions like above.</p><p>So I wrote an instruction optimizer that walks decoded instructions backwards, and for a sequence of matching
+instructions it rewrites an earlier instruction with a fuse instruction of a &ldquo;larger&rdquo; size. This way it is possible to
+process all instructions strictly sequentially, retain support for jumping at any instruction dynamically, while
+&ldquo;stepping over&rdquo; fused instructions when executing instructions sequentially.</p><p>The code is quite tedious, so I&rsquo;ll just show load implementation as a representative instruction:</p><details><summary>Load implementation</summary><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#5af78e>/// Optimize instructions into macro and unchecked instructions whenever possible.
+</span></span></span><span style=display:flex><span><span style=color:#5af78e>///
+</span></span></span><span style=display:flex><span><span style=color:#5af78e>/// `sp_range` is the range of stack pointer addresses.
+</span></span></span><span style=display:flex><span><span style=color:#5af78e>/// `ro_memory_range` and `rw_memory_range` are valid memory addresses for reads and writes.
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span><span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>optimize</span>(
+</span></span><span style=display:flex><span>    instructions: <span style=color:#ff6ac1>&amp;</span><span style=color:#f3f99d>mut</span> [<span style=color:#ff5c57>Self</span>],
+</span></span><span style=display:flex><span>    sp_range: <span style=color:#f3f99d>RangeInclusive</span><span style=color:#ff6ac1>&lt;</span>Reg::Type<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    ro_memory_range: <span style=color:#f3f99d>RangeInclusive</span><span style=color:#ff6ac1>&lt;</span>Reg::Type<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>    rw_memory_range: <span style=color:#f3f99d>RangeInclusive</span><span style=color:#ff6ac1>&lt;</span>Reg::Type<span style=color:#ff6ac1>&gt;</span>,
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>for</span> index <span style=color:#ff6ac1>in</span> (<span style=color:#ff9f43>0</span><span style=color:#ff6ac1>..</span>instructions.len().saturating_sub(<span style=color:#ff9f43>1</span>)).rev() {
+</span></span><span style=display:flex><span>        <span style=color:#78787e>// SAFETY: `index` and `index + 1` are always valid, in-bounds and distinct
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>        <span style=color:#ff5c57>let</span> [prev_instruction, <span style=color:#ff6ac1>&amp;</span><span style=color:#ff6ac1>mut</span> next_instruction] <span style=color:#ff6ac1>=</span>
+</span></span><span style=display:flex><span>            <span style=color:#ff6ac1>unsafe</span> { instructions.get_disjoint_unchecked_mut([index, index <span style=color:#ff6ac1>+</span> <span style=color:#ff9f43>1</span>]) };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>match</span> <span style=color:#ff6ac1>*</span>prev_instruction {
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>Self</span>::Ld { rd, rs1, imm } <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#ff6ac1>if</span> rd.is_zero() {
+</span></span><span style=display:flex><span>                    <span style=color:#78787e>// Writes to zero are no-op and fusion must ignore it
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                    <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>                <span style=color:#78787e>// Fusing `ld` instructions when possible
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                <span style=color:#ff6ac1>match</span> next_instruction {
+</span></span><span style=display:flex><span>                    <span style=color:#ff5c57>Self</span>::FusedLdSameDirection(fused_instruction) <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>if</span> rs1 <span style=color:#ff6ac1>!=</span> fused_instruction.rs1 {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        }
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> <span style=color:#ff5c57>Some</span>(new_fuse_count) <span style=color:#ff6ac1>=</span> fused_instruction.fuse_count.increment()
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>else</span> {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> rd_offset <span style=color:#ff6ac1>=</span> rd.offset();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> base_rd_offset <span style=color:#ff6ac1>=</span> fused_instruction.rd_base.offset();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> imm_unsigned <span style=color:#ff6ac1>=</span> <span style=color:#9aedfe>i64</span>::from(imm).cast_unsigned();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> imm_base_unsigned <span style=color:#ff6ac1>=</span>
+</span></span><span style=display:flex><span>                            <span style=color:#9aedfe>i64</span>::from(fused_instruction.imm_base).cast_unsigned();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> step <span style=color:#ff6ac1>=</span> size_of::<span style=color:#ff6ac1>&lt;</span>Reg::Type<span style=color:#ff6ac1>&gt;</span>() <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u64</span>;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> count <span style=color:#ff6ac1>=</span> <span style=color:#9aedfe>u8</span>::from(fused_instruction.fuse_count);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Extension from the low end:
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.rd == rd_base - 1
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.imm == imm_base - size_of::&lt;Reg::Type&gt;()
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff5c57>let</span> low_rd_matches <span style=color:#ff6ac1>=</span> rd_offset <span style=color:#ff6ac1>==</span> base_rd_offset <span style=color:#ff6ac1>-</span> <span style=color:#ff9f43>1</span>;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> low_imm_matches <span style=color:#ff6ac1>=</span>
+</span></span><span style=display:flex><span>                            imm_unsigned <span style=color:#ff6ac1>==</span> imm_base_unsigned.wrapping_sub(step);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Extension from the high end:
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.rd == rd_base + count
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.imm == imm_base + count * size_of::&lt;Reg::Type&gt;()
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff5c57>let</span> high_rd_matches <span style=color:#ff6ac1>=</span> rd_offset <span style=color:#ff6ac1>==</span> base_rd_offset <span style=color:#ff6ac1>+</span> count;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> high_imm_matches <span style=color:#ff6ac1>=</span> imm_unsigned
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>==</span> imm_base_unsigned.wrapping_add(<span style=color:#9aedfe>u64</span>::from(count) <span style=color:#ff6ac1>*</span> step);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> (new_rd_base, new_imm_base) <span style=color:#ff6ac1>=</span> <span style=color:#ff6ac1>if</span> low_rd_matches <span style=color:#ff6ac1>&amp;&amp;</span> low_imm_matches {
+</span></span><span style=display:flex><span>                            <span style=color:#78787e>// New instruction becomes the new base
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                            (rd, imm)
+</span></span><span style=display:flex><span>                        } <span style=color:#ff6ac1>else</span> <span style=color:#ff6ac1>if</span> high_rd_matches <span style=color:#ff6ac1>&amp;&amp;</span> high_imm_matches {
+</span></span><span style=display:flex><span>                            <span style=color:#78787e>// Base stays the same, just count increases
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                            (fused_instruction.rd_base, fused_instruction.imm_base)
+</span></span><span style=display:flex><span>                        } <span style=color:#ff6ac1>else</span> {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> unchecked <span style=color:#ff6ac1>=</span> rs1.is_sp()
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;&amp;</span> sp_access_in_range(
+</span></span><span style=display:flex><span>                            new_imm_base,
+</span></span><span style=display:flex><span>                            <span style=color:#9aedfe>u8</span>::from(new_fuse_count),
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;</span>sp_range,
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;</span>ro_memory_range,
+</span></span><span style=display:flex><span>                        );
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>*</span>prev_instruction <span style=color:#ff6ac1>=</span> <span style=color:#ff5c57>Self</span>::FusedLdSameDirection(FusedLdSameDirection {
+</span></span><span style=display:flex><span>                            rd_base: <span style=color:#f3f99d>new_rd_base</span>,
+</span></span><span style=display:flex><span>                            fuse_count: <span style=color:#f3f99d>new_fuse_count</span>,
+</span></span><span style=display:flex><span>                            rs1,
+</span></span><span style=display:flex><span>                            imm_base: <span style=color:#f3f99d>new_imm_base</span>,
+</span></span><span style=display:flex><span>                            unchecked,
+</span></span><span style=display:flex><span>                        });
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                    <span style=color:#ff5c57>Self</span>::FusedLdOppositeDirection(fused_instruction) <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>if</span> rs1 <span style=color:#ff6ac1>!=</span> fused_instruction.rs1 {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        }
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> <span style=color:#ff5c57>Some</span>(new_fuse_count) <span style=color:#ff6ac1>=</span> fused_instruction.fuse_count.increment()
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>else</span> {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> rd_offset <span style=color:#ff6ac1>=</span> rd.offset();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> base_rd_offset <span style=color:#ff6ac1>=</span> fused_instruction.rd_base.offset();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> imm_unsigned <span style=color:#ff6ac1>=</span> <span style=color:#9aedfe>i64</span>::from(imm).cast_unsigned();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> imm_base_unsigned <span style=color:#ff6ac1>=</span>
+</span></span><span style=display:flex><span>                            <span style=color:#9aedfe>i64</span>::from(fused_instruction.imm_base).cast_unsigned();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> step <span style=color:#ff6ac1>=</span> size_of::<span style=color:#ff6ac1>&lt;</span>Reg::Type<span style=color:#ff6ac1>&gt;</span>() <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u64</span>;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> count <span style=color:#ff6ac1>=</span> <span style=color:#9aedfe>u8</span>::from(fused_instruction.fuse_count);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Extension from the low end (rd goes down, imm goes up):
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.rd == rd_base - 1
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.imm == imm_base + count * size_of::&lt;Reg::Type&gt;()
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff5c57>let</span> low_rd_matches <span style=color:#ff6ac1>=</span> rd_offset <span style=color:#ff6ac1>==</span> base_rd_offset <span style=color:#ff6ac1>-</span> <span style=color:#ff9f43>1</span>;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> low_imm_matches <span style=color:#ff6ac1>=</span> imm_unsigned
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>==</span> imm_base_unsigned.wrapping_add(<span style=color:#9aedfe>u64</span>::from(count) <span style=color:#ff6ac1>*</span> step);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Extension from the high end (rd goes up, imm goes down):
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.rd == rd_base + count
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#78787e>// prev.imm == imm_base - 8
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff5c57>let</span> high_rd_matches <span style=color:#ff6ac1>=</span> rd_offset <span style=color:#ff6ac1>==</span> base_rd_offset <span style=color:#ff6ac1>+</span> count;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> high_imm_matches <span style=color:#ff6ac1>=</span>
+</span></span><span style=display:flex><span>                            imm_unsigned <span style=color:#ff6ac1>==</span> imm_base_unsigned.wrapping_sub(step);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> (new_rd_base, new_imm_base) <span style=color:#ff6ac1>=</span> <span style=color:#ff6ac1>if</span> low_rd_matches <span style=color:#ff6ac1>&amp;&amp;</span> low_imm_matches {
+</span></span><span style=display:flex><span>                            <span style=color:#78787e>// New lowest `rd_base`, `imm_base` unchanged
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                            (rd, fused_instruction.imm_base)
+</span></span><span style=display:flex><span>                        } <span style=color:#ff6ac1>else</span> <span style=color:#ff6ac1>if</span> high_rd_matches <span style=color:#ff6ac1>&amp;&amp;</span> high_imm_matches {
+</span></span><span style=display:flex><span>                            <span style=color:#78787e>// New lowest `imm_base`, `rd_base` unchanged
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                            (fused_instruction.rd_base, imm)
+</span></span><span style=display:flex><span>                        } <span style=color:#ff6ac1>else</span> {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> unchecked <span style=color:#ff6ac1>=</span> rs1.is_sp()
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;&amp;</span> sp_access_in_range(
+</span></span><span style=display:flex><span>                            new_imm_base,
+</span></span><span style=display:flex><span>                            <span style=color:#9aedfe>u8</span>::from(new_fuse_count),
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;</span>sp_range,
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;</span>ro_memory_range,
+</span></span><span style=display:flex><span>                        );
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>*</span>prev_instruction <span style=color:#ff6ac1>=</span>
+</span></span><span style=display:flex><span>                            <span style=color:#ff5c57>Self</span>::FusedLdOppositeDirection(FusedLdOppositeDirection {
+</span></span><span style=display:flex><span>                                rd_base: <span style=color:#f3f99d>new_rd_base</span>,
+</span></span><span style=display:flex><span>                                fuse_count: <span style=color:#f3f99d>new_fuse_count</span>,
+</span></span><span style=display:flex><span>                                rs1,
+</span></span><span style=display:flex><span>                                imm_base: <span style=color:#f3f99d>new_imm_base</span>,
+</span></span><span style=display:flex><span>                                unchecked,
+</span></span><span style=display:flex><span>                            });
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                    <span style=color:#ff5c57>Self</span>::Ld {
+</span></span><span style=display:flex><span>                        rd: <span style=color:#f3f99d>next_rd</span>,
+</span></span><span style=display:flex><span>                        rs1: <span style=color:#f3f99d>next_rs1</span>,
+</span></span><span style=display:flex><span>                        imm: <span style=color:#f3f99d>next_imm</span>,
+</span></span><span style=display:flex><span>                    } <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>if</span> rs1 <span style=color:#ff6ac1>!=</span> next_rs1 {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> rd_offset <span style=color:#ff6ac1>=</span> rd.offset();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> next_rd_offset <span style=color:#ff6ac1>=</span> next_rd.offset();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> imm_unsigned <span style=color:#ff6ac1>=</span> <span style=color:#9aedfe>i64</span>::from(imm).cast_unsigned();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> next_imm_unsigned <span style=color:#ff6ac1>=</span> <span style=color:#9aedfe>i64</span>::from(next_imm).cast_unsigned();
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> step <span style=color:#ff6ac1>=</span> size_of::<span style=color:#ff6ac1>&lt;</span>Reg::Type<span style=color:#ff6ac1>&gt;</span>() <span style=color:#ff6ac1>as</span> <span style=color:#9aedfe>u64</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff6ac1>if</span> <span style=color:#ff6ac1>!</span>(rd_offset.abs_diff(next_rd_offset) <span style=color:#ff6ac1>==</span> <span style=color:#ff9f43>1</span>
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;&amp;</span> imm_unsigned.abs_diff(next_imm_unsigned) <span style=color:#ff6ac1>==</span> step)
+</span></span><span style=display:flex><span>                        {
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>continue</span>;
+</span></span><span style=display:flex><span>                        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> rd_increasing <span style=color:#ff6ac1>=</span> rd_offset <span style=color:#ff6ac1>&lt;</span> next_rd_offset;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> imm_increasing <span style=color:#ff6ac1>=</span> imm_unsigned <span style=color:#ff6ac1>&lt;</span> next_imm_unsigned;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Ensure base `imm` is always increasing, starting at the `imm_base`
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff5c57>let</span> imm_base <span style=color:#ff6ac1>=</span> <span style=color:#ff6ac1>if</span> imm_increasing { imm } <span style=color:#ff6ac1>else</span> { next_imm };
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Ensure `rd` is always increasing, starting at the `rd_base`
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff5c57>let</span> rd_base <span style=color:#ff6ac1>=</span> <span style=color:#ff6ac1>if</span> rd_increasing { rd } <span style=color:#ff6ac1>else</span> { next_rd };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> fuse_count <span style=color:#ff6ac1>=</span> FuseCount::X2;
+</span></span><span style=display:flex><span>                        <span style=color:#ff5c57>let</span> unchecked <span style=color:#ff6ac1>=</span> rs1.is_sp()
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;&amp;</span> sp_access_in_range(
+</span></span><span style=display:flex><span>                            imm_base,
+</span></span><span style=display:flex><span>                            <span style=color:#9aedfe>u8</span>::from(fuse_count),
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;</span>sp_range,
+</span></span><span style=display:flex><span>                            <span style=color:#ff6ac1>&amp;</span>ro_memory_range,
+</span></span><span style=display:flex><span>                        );
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// Pick the correct direction of the fused instruction
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                        <span style=color:#ff6ac1>*</span>prev_instruction <span style=color:#ff6ac1>=</span> <span style=color:#ff6ac1>if</span> rd_increasing <span style=color:#ff6ac1>==</span> imm_increasing {
+</span></span><span style=display:flex><span>                            <span style=color:#ff5c57>Self</span>::FusedLdSameDirection(FusedLdSameDirection {
+</span></span><span style=display:flex><span>                                rd_base,
+</span></span><span style=display:flex><span>                                fuse_count,
+</span></span><span style=display:flex><span>                                rs1,
+</span></span><span style=display:flex><span>                                imm_base,
+</span></span><span style=display:flex><span>                                unchecked,
+</span></span><span style=display:flex><span>                            })
+</span></span><span style=display:flex><span>                        } <span style=color:#ff6ac1>else</span> {
+</span></span><span style=display:flex><span>                            <span style=color:#ff5c57>Self</span>::FusedLdOppositeDirection(FusedLdOppositeDirection {
+</span></span><span style=display:flex><span>                                rd_base,
+</span></span><span style=display:flex><span>                                fuse_count,
+</span></span><span style=display:flex><span>                                rs1,
+</span></span><span style=display:flex><span>                                imm_base,
+</span></span><span style=display:flex><span>                                unchecked,
+</span></span><span style=display:flex><span>                            })
+</span></span><span style=display:flex><span>                        };
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                    _ <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                        <span style=color:#78787e>// ..
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>                    }
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#ff5c57>Self</span>::Sd { rs2, rs1, imm } <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#78787e>// Very similar
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>            }
+</span></span><span style=display:flex><span>            _ <span style=color:#ff6ac1>=&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#78787e>// Ignore
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>            }
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div></details><p>The big question is: did it work?</p><p>Well, kinda. Sometimes a bit faster, sometimes substantially slower, sometimes about the same. Overall, it wasn&rsquo;t a
+clear win I was hoping for, which left me puzzled.</p><h2 class="relative group">Zero register check improves performance<div id=zero-register-check-improves-performance class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#zero-register-check-improves-performance aria-label=Anchor>#</a></span></h2><p>Zero register in RISC-V is special: it is always read as <code>0</code> and any write to it is no-op. So the implementation of the
+register file I had looks like this:</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#5af78e>/// A set of RISC-V GPRs (General Purpose Registers)
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span><span style=color:#78787e>#[derive(Debug, Clone, Copy)]</span>
+</span></span><span style=display:flex><span><span style=color:#78787e>#[repr(align(16))]</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>struct</span> <span style=color:#f3f99d>Registers</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: <span style=color:#f3f99d>Register</span>,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    regs: [Reg::Type; Reg::N],
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>const</span> <span style=color:#ff6ac1>impl</span><span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span> Registers<span style=color:#ff6ac1>&lt;</span>Reg<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    Reg: [ <span style=color:#ff6ac1>const</span> ] Register,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>/// Read register value
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>read</span>(<span style=color:#ff6ac1>&amp;</span><span style=color:#ff5c57>self</span>, reg: <span style=color:#f3f99d>Reg</span>) -&gt; <span style=color:#f3f99d>Reg</span>::Type {
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>if</span> reg.is_zero() {
+</span></span><span style=display:flex><span>            <span style=color:#78787e>// Always zero
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>            <span style=color:#ff6ac1>return</span> Reg::Type::default();
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#78787e>// SAFETY: register offset is always within bounds
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>        <span style=color:#ff6ac1>*</span><span style=color:#ff6ac1>unsafe</span> { <span style=color:#ff5c57>self</span>.regs.get_unchecked(<span style=color:#9aedfe>usize</span>::from(reg.offset())) }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>/// Write register value
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#78787e>#[inline(always)]</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>write</span>(<span style=color:#ff6ac1>&amp;</span><span style=color:#ff6ac1>mut</span> <span style=color:#ff5c57>self</span>, reg: <span style=color:#f3f99d>Reg</span>, value: <span style=color:#f3f99d>Reg</span>::Type) {
+</span></span><span style=display:flex><span>        <span style=color:#ff6ac1>if</span> reg.is_zero() {
+</span></span><span style=display:flex><span>            <span style=color:#78787e>// Writes are ignored
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>            <span style=color:#ff6ac1>return</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#78787e>// SAFETY: register offset is always within bounds
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>        <span style=color:#ff6ac1>*</span><span style=color:#ff6ac1>unsafe</span> { <span style=color:#ff5c57>self</span>.regs.get_unchecked_mut(<span style=color:#9aedfe>usize</span>::from(reg.offset())) } <span style=color:#ff6ac1>=</span> value;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>Note two <code>reg.is_zero()</code> checks. They seem redundant, I should be able to remove one or the other, and the result will
+still be correct since either writes will still be ignored (registers are initialized to zero) or reads will ignore
+whatever was written at the offset of zero register. At the same time, fewer branches should mean higher performance.</p><p>However, as I removed either of those, the performance was measurably and consistently A LOT worse. Hm&mldr;</p><h2 class="relative group">More profiling<div id=more-profiling class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#more-profiling aria-label=Anchor>#</a></span></h2><p>I went back to profiling, this time with Claude&rsquo;s help since I can&rsquo;t make sense of a lot of the metrics quite as
+productively.</p><p>IPC was hitting 4.1, 0.6% data cache miss rate, 99.96% op cache hit rate:</p><pre tabindex=0><code>     3.003641903         21 958 894      ex_ret_brn_misp                  #      5,5 %  bad_speculation_mispredicts
+     3.003641903                                                          #      0,0 %  bad_speculation_pipeline_restarts  (19,97%)
+     3.003641903     20 284 275 971      de_src_op_disp.all               #      5,5 %  bad_speculation          (19,97%)
+     3.003641903             51 318      resyncs_or_nc_redirects                                                 (19,97%)
+     3.003641903      4 895 089 444      ls_not_halted_cyc                                                       (19,97%)
+     3.003641903     18 657 737 631      ex_ret_ops                       #     63,5 %  retiring                 (19,97%)
+     3.003641903        681 847 357      ex_no_retire.load_not_complete   #      4,4 %  backend_bound_cpu      
+     3.003641903                                                          #      7,8 %  backend_bound_memory     (20,10%)
+     3.003641903      3 602 363 546      de_no_dispatch_per_slot.backend_stalls #     12,3 %  backend_bound            (20,10%)
+     3.003641903      1 068 036 530      ex_no_retire.not_complete                                               (20,10%)
+     3.003641903      4 894 584 247      ls_not_halted_cyc                                                       (20,10%)
+     3.003641903          8 854 312      ex_ret_ucode_ops                 #     63,4 %  retiring_fastpath      
+     3.003641903                                                          #      0,0 %  retiring_microcode       (19,97%)
+     3.003641903      4 895 098 597      ls_not_halted_cyc                                                       (19,97%)
+     3.003641903     18 620 594 832      ex_ret_ops                                                              (19,97%)
+     3.003641903      5 460 578 458      de_no_dispatch_per_slot.no_ops_from_frontend #     18,6 %  frontend_bound         
+     3.003641903                                                          #      7,1 %  frontend_bound_bandwidth  (19,98%)
+     3.003641903        563 718 873      cpu/de_no_dispatch_per_slot.no_ops_from_frontend,cmask=0x6/ #     11,5 %  frontend_bound_latency   (19,98%)
+     3.003641903      4 894 729 709      ls_not_halted_cyc                                                       (19,98%)
+     3.003641903         79 739 703      de_no_dispatch_per_slot.smt_contention #      0,3 %  smt_contention           (39,95%)
+     3.003641903      4 894 939 755      ls_not_halted_cyc                                                       (39,95%)
+</code></pre><p>We then discovered a suspiciously high <code>ls_bad_status2.stli_other</code>:</p><pre tabindex=0><code>     3.003264296      4 878 085 756      cycles                                                                  (83,62%)
+     3.003264296      3 047 870 159      ls_dispatch.ld_dispatch                                                 (83,44%)
+     3.003264296            566 760      l1-dcache-load-misses                                                   (83,22%)
+     3.003264296      3 312 510 978      l1-dcache-loads                                                         (83,22%)
+     3.003264296         46 457 934      ls_stlf                                                                 (83,22%)
+     3.003264296        434 670 576      ls_bad_status2.stli_other                                               (83,28%)
+</code></pre><p>This is non-forwardable store-to-load conflicts: a store and a subsequent load overlap in address space but the CPU
+can&rsquo;t forward the value directly, so the load has to wait for the store to commit and then re-read from cache. This is
+expensive (~15 cycles penalty each).</p><p>Claude suggested this is the most likely performance constraint right now, likely caused by the register file, which is
+hit on every single instruction, often multiple times. This also explains why removing a seemingly harmless
+<code>reg.is_zero()</code> check was a bad trade of branch for extra memory access (zero register usage is ubiquitous in RISC-V).</p><h2 class="relative group">Memory is slow<div id=memory-is-slow class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#memory-is-slow aria-label=Anchor>#</a></span></h2><p>Turns out, accessing registers is almost free and accessing memory for each register access is very expensive. What do
+we do about that then?</p><p>Well, the obvious solution would be to not access memory in the first place, but how? Essentially, we need to convince
+LLVM during code generation to use native registers for at least some of the most popular RISC-V registers. Right now
+with <code>[Reg::Type; Reg::N]</code> used for the register file, this is prevented fundamentally due to aliasing, but even if it
+wasn&rsquo;t the case, the fact that instruction execution takes the whole state as an argument, even if it wasn&rsquo;t an array,
+accessing registers would still be a memory operation anyway:</p><div class=highlight><pre tabindex=0 style=color:#e2e4e5;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=display:flex><span><span style=color:#5af78e>/// Trait for executable instructions
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span><span style=color:#ff6ac1>pub</span> <span style=color:#ff6ac1>trait</span> ExecutableInstruction<span style=color:#ff6ac1>&lt;</span>State, CustomError <span style=color:#ff6ac1>=</span> CustomErrorPlaceholder<span style=color:#ff6ac1>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#ff6ac1>where</span>
+</span></span><span style=display:flex><span>    <span style=color:#ff5c57>Self</span>: <span style=color:#f3f99d>Instruction</span>,
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#78787e>// ..
+</span></span></span><span style=display:flex><span><span style=color:#78787e></span>
+</span></span><span style=display:flex><span>    <span style=color:#5af78e>/// Execute instruction
+</span></span></span><span style=display:flex><span><span style=color:#5af78e></span>    <span style=color:#ff6ac1>fn</span> <span style=color:#57c7ff>execute</span>(
+</span></span><span style=display:flex><span>        <span style=color:#ff5c57>self</span>,
+</span></span><span style=display:flex><span>        state: <span style=color:#ff6ac1>&amp;</span><span style=color:#f3f99d>mut</span> State,
+</span></span><span style=display:flex><span>    ) -&gt; <span style=color:#ff5c57>Result</span><span style=color:#ff6ac1>&lt;</span>ControlFlow<span style=color:#ff6ac1>&lt;</span>()<span style=color:#ff6ac1>&gt;</span>, ExecutionError<span style=color:#ff6ac1>&lt;</span>Address<span style=color:#ff6ac1>&lt;</span><span style=color:#ff5c57>Self</span><span style=color:#ff6ac1>&gt;</span>, CustomError<span style=color:#ff6ac1>&gt;&gt;</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>The solution is to store the register file in a local variable at the beginning of the execution loop with at least
+popular registers being its separate fields and carefully design and inline everything such that the register file is
+never aliased as a whole. If the conditions are right, LLVM should be able to treat popular registers as, effectively,
+standalone variables, and if we can convince it (with explicit hints or PGO) that those &ldquo;variables&rdquo; are really hot,
+it&rsquo;ll generate code that uses native registers for them.</p><h2 class="relative group">Conclusion (so far)<div id=conclusion-so-far class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#conclusion-so-far aria-label=Anchor>#</a></span></h2><p>That is basically where I am right now in terms of performance optimizations. I believe there is a substantial uplift to
+be unlocked soon while keeping the design modular and easy to use, but it&rsquo;ll require a small architectural change to
+make it happen.</p><p>This discovery with expensive registers is also what led me to implement support for some compressed instructions, which
+often encapsulate RISC-V idioms more compactly and can avoid even trying to access zero register, for example. I have
+not added them to the benchmark to estimate the practical performance implications, though.</p><h2 class="relative group">Upcoming plans<div id=upcoming-plans class=anchor></div><span class="absolute top-0 w-6 transition-opacity opacity-0 ltr:-left-6 rtl:-right-6 not-prose group-hover:opacity-100 select-none"><a class="group-hover:text-primary-300 dark:group-hover:text-neutral-700 !no-underline" href=#upcoming-plans aria-label=Anchor>#</a></span></h2><p>That was a lot of words, I hope you found it at least somewhat useful for whatever you work on today or may work in the
+future. If you have some lessons learned to share that might help here, please let me know on <a href=https://abundance.zulipchat.com/ target=_blank>Zulip</a>.</p><p>In the nearest future I want to tackle that architectural change and see if I can promote host RISC-V registers to
+native registers and see what it does to performance. If it helps, I&rsquo;ll revisit if instruction fusion is still worth
+doing after that. It is quite fun working on this stuff, and the fact that it is generic and potentially usable by
+others only adds to the value of this work in my eyes.</p><p>I also plan to add some interpreter usage examples for others to be able to start with. There are quite a few in the
+repo already, but having something simple and standalone would be great to have.</p><p>I&rsquo;ll write again some time soon with more updates, see you then!</p></div></div><script type=text/javascript src=/js/page.min.54b6f4371722649edbe871e431d8670d670878c22be8f36e229fe53cc9b786fe25a834def5e6de621f7a3e37b72bc8cd73839aa5ed907ed6cbd45cd3e1b0fa20.js integrity="sha512-VLb0NxciZJ7b6HHkMdhnDWcIeMIr6PNuIp/lPMm3hv4lqDTe9ebeYh96Pje3K8jNc4Oape2QftbL1FzT4bD6IA==" data-oid=views_blog/2026/2026-04-16-how-to-not-make-interpreter-faster.md data-oid-likes=likes_blog/2026/2026-04-16-how-to-not-make-interpreter-faster.md></script></section><footer class="pt-8 max-w-prose print:hidden"><div class=pt-8><hr class="border-dotted border-neutral-300 dark:border-neutral-600"><div class="flex justify-between pt-3"><span><a class="flex group mr-3" href=/blog/2026-04-04-major-risc-v-improvements/><span class="mr-3 text-neutral-700 group-hover:text-primary-600 ltr:inline rtl:hidden dark:text-neutral dark:group-hover:text-primary-400">&larr;</span>
+<span class="ml-3 text-neutral-700 group-hover:text-primary-600 ltr:hidden rtl:inline dark:text-neutral dark:group-hover:text-primary-400">&rarr;</span>
+<span class="flex flex-col"><span class="mt-[0.1rem] leading-6 group-hover:underline group-hover:decoration-primary-500">Major RISC-V improvements</span>
+<span class="mt-[0.1rem] text-xs text-neutral-500 dark:text-neutral-400"><time datetime=2026-04-04T00:00:00+00:00>4 April 2026</time>
+</span></span></a></span><span><a class="flex text-right group ml-3" href=/blog/2026-04-30-coremark-score-and-more-failed-optimizations/><span class="flex flex-col"><span class="mt-[0.1rem] leading-6 group-hover:underline group-hover:decoration-primary-500">CoreMark score and more failed optimizations</span>
+<span class="mt-[0.1rem] text-xs text-neutral-500 dark:text-neutral-400"><time datetime=2026-04-30T00:00:00+00:00>30 April 2026</time>
+</span></span><span class="ml-3 text-neutral-700 group-hover:text-primary-600 ltr:inline rtl:hidden dark:text-neutral dark:group-hover:text-primary-400">&rarr;</span>
+<span class="mr-3 text-neutral-700 group-hover:text-primary-600 ltr:hidden rtl:inline dark:text-neutral dark:group-hover:text-primary-400">&larr;</span></a></span></div></div></footer></article><div id=top-scroller class="pointer-events-none absolute top-[110vh] bottom-0 w-12 ltr:right-0 rtl:left-0 z-10"><a href=#the-top class="pointer-events-auto sticky top-[calc(100vh-5.5rem)] flex h-12 w-12 mb-16 items-center justify-center rounded-full bg-neutral/50 text-xl text-neutral-700 hover:text-primary-600 dark:bg-neutral-800/50 dark:text-neutral dark:hover:text-primary-400" aria-label="Scroll to top" title="Scroll to top">&uarr;</a></div></main><footer id=site-footer class="py-10 print:hidden"><div class="flex items-center justify-between"><p class="text-sm text-neutral-500 dark:text-neutral-400"><a href=https://creativecommons.org/publicdomain/zero/1.0/ target=_blank rel="license noopener noreferrer">CC0 1.0 Universal</a></p><p class="text-xs text-neutral-500 dark:text-neutral-400">Powered by <a class="hover:underline hover:decoration-primary-400 hover:text-primary-500" href=https://gohugo.io/ target=_blank rel="noopener noreferrer">Hugo</a> & <a class="hover:underline hover:decoration-primary-400 hover:text-primary-500" href=https://blowfish.page/ target=_blank rel="noopener noreferrer">Blowfish</a></p></div><script>mediumZoom(document.querySelectorAll("img:not(.nozoom)"),{margin:24,background:"rgba(0,0,0,0.5)",scrollOffset:0})</script><script type=text/javascript src=/js/process.min.ee03488f19c93c2efb199e2e3014ea5f3cb2ce7d45154adb3399a158cac27ca52831db249ede5bb602700ef87eb02434139de0858af1818ab0fb4182472204a4.js integrity="sha512-7gNIjxnJPC77GZ4uMBTqXzyyzn1FFUrbM5mhWMrCfKUoMdsknt5btgJwDvh+sCQ0E53ghYrxgYqw+0GCRyIEpA=="></script></footer></div></body></html>

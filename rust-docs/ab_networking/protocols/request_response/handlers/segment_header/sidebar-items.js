@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SuperSegmentHeaderRequest"],"struct":["SuperSegmentHeaderResponse"],"type":["SuperSegmentHeaderBySegmentIndexesRequestHandler"]};
