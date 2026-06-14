@@ -7,6 +7,10 @@ use ab_riscv_primitives::prelude::*;
 /// Both instructions share the same S-box and MixColumn machinery; the only difference is whether
 /// forward MixColumns is applied.
 #[cfg(not(all(not(miri), target_arch = "riscv32", target_feature = "zkne")))]
+#[expect(
+    clippy::inline_modules,
+    reason = "Small internal API, it is more readable this way"
+)]
 pub(in super::super) mod soft {
     use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{SBOX, gmul};
 

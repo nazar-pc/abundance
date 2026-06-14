@@ -259,13 +259,7 @@ where
             .map_err(ProvingError::RecordReadingError)?;
             drop(sector_record_chunks);
 
-            // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
-            //  allows the code to compile. Constant 65536 is hardcoded here and below for
-            //  compilation to succeed.
-            const {
-                assert!(Record::NUM_S_BUCKETS == 65536);
-            }
-            let record_merkle_tree = BalancedMerkleTree::<65536>::new_boxed(
+            let record_merkle_tree = BalancedMerkleTree::<{ Record::NUM_S_BUCKETS }>::new_boxed(
                 RecordChunk::slice_to_repr(chunks.as_slice())
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),

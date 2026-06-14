@@ -58,16 +58,17 @@
 //! Experimental extensions are known to have bugs and need more work. They are not tested against
 //! ACTs yet.
 
-#![expect(incomplete_features, reason = "generic_const_exprs")]
+#![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
-    bool_to_result,
     const_cmp,
     const_convert,
     const_default,
     const_index,
     const_trait_impl,
-    generic_const_exprs,
-    result_option_map_or_default,
+    generic_const_args,
+    generic_const_items,
+    inherent_associated_types,
+    min_generic_const_args,
     signed_bigint_helpers
 )]
 #![cfg_attr(

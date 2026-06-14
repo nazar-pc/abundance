@@ -29,7 +29,10 @@ impl Encode for Piece {
     }
 
     #[inline]
-    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
         self.as_ref().encode_to(dest);
     }
 
@@ -39,7 +42,10 @@ impl Encode for Piece {
     }
 
     #[inline]
-    fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+    fn using_encoded<R, F>(&self, f: F) -> R
+    where
+        F: FnOnce(&[u8]) -> R,
+    {
         self.as_ref().using_encoded(f)
     }
 }
@@ -49,7 +55,10 @@ impl EncodeLike for Piece {}
 
 #[cfg(feature = "scale-codec")]
 impl Decode for Piece {
-    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
         let bytes =
             Bytes::decode(input).map_err(|error| error.chain("Could not decode `Piece`"))?;
 

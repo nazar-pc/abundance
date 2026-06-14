@@ -6,6 +6,10 @@ use ab_riscv_primitives::prelude::*;
 ///
 /// Neither `aes64ks1i` nor `aes64ks2` has a hardware mapping on non-riscv64.
 #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknd")))]
+#[expect(
+    clippy::inline_modules,
+    reason = "Small internal API, it is more readable this way"
+)]
 mod ks {
     use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::SBOX;
     use ab_riscv_primitives::prelude::*;
@@ -71,6 +75,10 @@ cfg_select! {
     }
     all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
         /// x86-64 AES-NI implementation
+        #[expect(
+            clippy::inline_modules,
+            reason = "Small internal API, it is more readable this way"
+        )]
         mod x86_64 {
             use core::arch::x86_64::{
                 _mm_aesdec_si128, _mm_aesdeclast_si128, _mm_aesimc_si128, _mm_extract_epi64,
@@ -112,6 +120,10 @@ cfg_select! {
     }
     all(target_arch = "aarch64", target_feature = "aes") => {
         /// AArch64 AES implementation
+        #[expect(
+            clippy::inline_modules,
+            reason = "Small internal API, it is more readable this way"
+        )]
         mod aarch64 {
             use core::arch::aarch64::{
                 vaesdq_u8, vaesimcq_u8, vcombine_u64, vcreate_u64, vdupq_n_u8, vgetq_lane_u64,
@@ -152,6 +164,10 @@ cfg_select! {
     }
     _ => {
         /// Software fallback for aes64ds, aes64dsm, aes64im
+        #[expect(
+            clippy::inline_modules,
+            reason = "Small internal API, it is more readable this way"
+        )]
         mod soft {
             use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{INV_SBOX, gmul};
 

@@ -100,7 +100,7 @@ pub enum Rv32ZkndInstruction<Reg> {
 /// the accumulator in both rd and rs1 (the `rt` pattern), but the hardware
 /// does not require rd == rs1 and the decoder must not enforce it.
 #[instruction]
-impl<Reg> const Instruction for Rv32ZkndInstruction<Reg>
+const impl<Reg> Instruction for Rv32ZkndInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {

@@ -34,7 +34,7 @@ where
 }
 
 // SAFETY: `Self::offset()` returns values within `0..Self::N` range
-unsafe impl<Type> const BasicRegister for EReg<Type>
+const unsafe impl<Type> BasicRegister for EReg<Type>
 where
     Self: [const] Register,
 {
@@ -48,7 +48,7 @@ where
 }
 
 // SAFETY: `Self::offset()` returns values within `0..Self::N` range
-unsafe impl<Type> const BasicRegister for Reg<Type>
+const unsafe impl<Type> BasicRegister for Reg<Type>
 where
     Self: [const] Register,
 {
@@ -67,7 +67,6 @@ where
 pub struct BasicRegisters<Reg>
 where
     Reg: BasicRegister,
-    [(); Reg::N]:,
 {
     regs: [Reg::Type; Reg::N],
 }
@@ -75,20 +74,18 @@ where
 impl<Reg> Default for BasicRegisters<Reg>
 where
     Reg: BasicRegister,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn default() -> Self {
         Self {
-            regs: [Reg::Type::default(); Reg::N],
+            regs: [Reg::Type::default(); _],
         }
     }
 }
 
-impl<Reg> const RegisterFile<Reg> for BasicRegisters<Reg>
+const impl<Reg> RegisterFile<Reg> for BasicRegisters<Reg>
 where
     Reg: [const] BasicRegister,
-    [(); Reg::N]:,
 {
     #[inline(always)]
     fn read(&self, reg: Reg) -> Reg::Type {

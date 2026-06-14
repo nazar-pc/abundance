@@ -69,7 +69,7 @@ bech32 = { version = "0.12.0", default-features = false }
 blake3 = { version = "1.8.5", default-features = false }
 bytes = { version = "1.11.1", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
-cargo-gpu-install = "=0.10.0-alpha.1"
+cargo-gpu-install = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "dfdd6e0ac0ce92df79c24fea49b5832dd1a7d059" }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0", default-features = false }
 clap = { version = "4.6.1", features = ["derive"] }
@@ -127,7 +127,7 @@ serde_json = "1.0.150"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0", default-features = false }
 smallvec = { version = "1.15.2", features = ["union"] }
-spirv-std = "=0.10.0-alpha.1"
+spirv-std = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "dfdd6e0ac0ce92df79c24fea49b5832dd1a7d059" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "2.0.117"
@@ -242,7 +242,6 @@ exit = "allow"
 field_scoped_visibility_modifiers = "allow"
 float_arithmetic = "allow"
 float_cmp = "allow"
-from_iter_instead_of_collect = "allow"
 get_unwrap = "allow"
 iter_over_hash_type = "allow"
 infinite_loop = "allow"
@@ -284,8 +283,6 @@ as_conversions = "allow"
 cast_possible_truncation = "allow"
 cast_ptr_alignment = "allow"
 indexing_slicing = "allow"
-# TODO: Currently used for very context-specific workarounds for `generic_const_exprs` that would be awkward to rewrite
-items_after_statements = "allow"
 missing_assert_message = "allow"
 missing_inline_in_public_items = "allow"
 return_self_not_must_use = "allow"

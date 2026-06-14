@@ -3,21 +3,13 @@
 #[cfg(test)]
 mod tests;
 
-use crate::registers::general_purpose::private::PhantomRegister;
 use core::fmt;
 use core::hint::unreachable_unchecked;
-use core::marker::Destruct;
+use core::marker::{Destruct, PhantomData};
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr,
     Sub, SubAssign,
 };
-
-mod private {
-    use core::marker::PhantomData;
-
-    #[derive(Debug, Clone, Copy)]
-    pub struct PhantomRegister<Type>(PhantomData<Type>);
-}
 
 /// Register type.
 ///
@@ -70,7 +62,7 @@ where
     fn as_i64(&self) -> i64;
 }
 
-impl const RegType for u32 {
+const impl RegType for u32 {
     const BITS: u8 = u32::BITS as u8;
 
     #[inline(always)]
@@ -84,7 +76,7 @@ impl const RegType for u32 {
     }
 }
 
-impl const RegType for u64 {
+const impl RegType for u64 {
     const BITS: u8 = u64::BITS as u8;
 
     #[inline(always)]
@@ -173,10 +165,10 @@ pub enum EReg<Type> {
     A5 = 15,
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
-    Phantom(PhantomRegister<Type>),
+    Phantom(PhantomData<(!, Type)>),
 }
 
-impl<Type> const Default for EReg<Type> {
+const impl<Type> Default for EReg<Type> {
     #[inline(always)]
     fn default() -> Self {
         Self::Zero
@@ -203,7 +195,7 @@ impl<Type> fmt::Display for EReg<Type> {
             Self::A4 => write!(f, "a4"),
             Self::A5 => write!(f, "a5"),
             Self::Phantom(_) => {
-                // SAFETY: Phantom register is never constructed
+                // SAFETY: Phantom register can't be constructed
                 unsafe { unreachable_unchecked() }
             }
         }
@@ -216,7 +208,7 @@ impl<Type> fmt::Debug for EReg<Type> {
     }
 }
 
-impl<Type> const PartialEq for EReg<Type> {
+const impl<Type> PartialEq for EReg<Type> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         // This is quite ugly, but there doesn't seem to be a much better way with `Phantom` variant
@@ -243,9 +235,9 @@ impl<Type> const PartialEq for EReg<Type> {
     }
 }
 
-impl<Type> const Eq for EReg<Type> {}
+const impl<Type> Eq for EReg<Type> {}
 
-impl const Register for EReg<u32> {
+const impl Register for EReg<u32> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -277,7 +269,7 @@ impl const Register for EReg<u32> {
     }
 }
 
-impl const Register for EReg<u64> {
+const impl Register for EReg<u64> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -381,17 +373,17 @@ pub enum Reg<Type> {
     T6 = 31,
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
-    Phantom(PhantomRegister<Type>),
+    Phantom(PhantomData<(!, Type)>),
 }
 
-impl<Type> const Default for Reg<Type> {
+const impl<Type> Default for Reg<Type> {
     #[inline(always)]
     fn default() -> Self {
         Self::Zero
     }
 }
 
-impl<Type> const From<EReg<u64>> for Reg<Type> {
+const impl<Type> From<EReg<u64>> for Reg<Type> {
     #[inline(always)]
     fn from(reg: EReg<u64>) -> Self {
         match reg {
@@ -412,7 +404,7 @@ impl<Type> const From<EReg<u64>> for Reg<Type> {
             EReg::A4 => Self::A4,
             EReg::A5 => Self::A5,
             EReg::Phantom(_) => {
-                // SAFETY: Phantom register is never constructed
+                // SAFETY: Phantom register can't be constructed
                 unsafe { unreachable_unchecked() }
             }
         }
@@ -455,7 +447,7 @@ impl<Type> fmt::Display for Reg<Type> {
             Self::T5 => write!(f, "t5"),
             Self::T6 => write!(f, "t6"),
             Self::Phantom(_) => {
-                // SAFETY: Phantom register is never constructed
+                // SAFETY: Phantom register can't be constructed
                 unsafe { unreachable_unchecked() }
             }
         }
@@ -468,7 +460,7 @@ impl<Type> fmt::Debug for Reg<Type> {
     }
 }
 
-impl<Type> const PartialEq for Reg<Type> {
+const impl<Type> PartialEq for Reg<Type> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         // This is quite ugly, but there doesn't seem to be a much better way with `Phantom` variant
@@ -511,9 +503,9 @@ impl<Type> const PartialEq for Reg<Type> {
     }
 }
 
-impl<Type> const Eq for Reg<Type> {}
+const impl<Type> Eq for Reg<Type> {}
 
-impl const Register for Reg<u32> {
+const impl Register for Reg<u32> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -561,7 +553,7 @@ impl const Register for Reg<u32> {
     }
 }
 
-impl const Register for Reg<u64> {
+const impl Register for Reg<u64> {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;

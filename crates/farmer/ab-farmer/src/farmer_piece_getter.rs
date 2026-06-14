@@ -1,5 +1,11 @@
 //! Farmer-specific piece getter
 
+// TODO: Remove once https://github.com/someguynamedjosh/ouroboros/issues/140 is resolved
+#![expect(
+    clippy::extra_unused_lifetimes,
+    reason = "https://github.com/someguynamedjosh/ouroboros/issues/140"
+)]
+
 use crate::farm::plotted_pieces::PlottedPieces;
 use crate::farmer_cache::FarmerCaches;
 use crate::node_client::NodeClient;

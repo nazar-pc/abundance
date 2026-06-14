@@ -28,12 +28,16 @@
 //!
 //! Does not require a standard library (`no_std`), most APIs are usable without an allocator.
 
-#![expect(incomplete_features, reason = "generic_const_exprs")]
+#![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
     const_block_items,
-    generic_const_exprs,
+    const_convert,
+    const_trait_impl,
+    generic_const_args,
+    generic_const_items,
     iter_advance_by,
     maybe_uninit_uninit_array_transpose,
+    min_generic_const_args,
     trusted_len
 )]
 #![no_std]
@@ -62,7 +66,7 @@ pub const INNER_NODE_DOMAIN_SEPARATOR: [u8; KEY_LEN] =
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
-    let mut pair = [0u8; OUT_LEN * 2];
+    let mut pair = [0u8; const { OUT_LEN * 2 }];
     pair[..OUT_LEN].copy_from_slice(left);
     pair[OUT_LEN..].copy_from_slice(right);
 

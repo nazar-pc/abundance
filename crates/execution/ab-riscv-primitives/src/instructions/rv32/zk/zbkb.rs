@@ -32,7 +32,7 @@ pub enum Rv32ZbkbInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv32ZbkbInstruction<Reg>
+const impl<Reg> Instruction for Rv32ZbkbInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {

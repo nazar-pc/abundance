@@ -1,6 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
@@ -208,14 +208,14 @@ fn mask_bit(mask: &[u8], i: u32) -> bool {
 /// # Safety
 /// `vl.div_ceil(8) <= VLENB` must hold. This is guaranteed when `vl <= VLEN`.
 #[inline(always)]
-unsafe fn snapshot_mask<const VLENB: usize>(
+unsafe fn snapshot_mask<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     vm: bool,
     vl: u32,
-) -> [u8; VLENB] {
-    let mut buf = [0u8; VLENB];
+) -> [u8; VLENB_USIZE::<VLENB>] {
+    let mut buf = [0u8; _];
     if vm {
-        buf = [0xffu8; VLENB];
+        buf = [0xffu8; _];
     } else {
         let mask_bytes = vl.div_ceil(u8::BITS) as usize;
         // SAFETY: `mask_bytes <= VLENB` by precondition
@@ -233,25 +233,25 @@ unsafe fn snapshot_mask<const VLENB: usize>(
 /// # Safety
 /// `base_reg + elem_i / (VLENB / sew.bytes_width()) < 32`
 #[inline(always)]
-unsafe fn read_element_u64<const VLENB: usize>(
+unsafe fn read_element_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes_width());
+    let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
-    let src = unsafe { reg.get_unchecked(byte_off..byte_off + sew_bytes) };
+    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + sew_bytes) as usize) };
     let mut buf = [0u8; 8];
     // SAFETY: `sew_bytes <= 8`
-    unsafe { buf.get_unchecked_mut(..sew_bytes) }.copy_from_slice(src);
+    unsafe { buf.get_unchecked_mut(..sew_bytes as usize) }.copy_from_slice(src);
     u64::from_le_bytes(buf)
 }
 
@@ -260,26 +260,26 @@ unsafe fn read_element_u64<const VLENB: usize>(
 /// # Safety
 /// `base_reg + elem_i / (VLENB / sew.bytes_width()) < 32`
 #[inline(always)]
-unsafe fn write_element_u64<const VLENB: usize>(
+unsafe fn write_element_u64<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     elem_i: u32,
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes_width());
+    let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i as usize / elems_per_reg;
-    let byte_off = (elem_i as usize % elems_per_reg) * sew_bytes;
+    let reg_off = elem_i / elems_per_reg;
+    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = unsafe {
         vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
     // SAFETY: `byte_off + sew_bytes <= VLENB`
-    let dst = unsafe { reg.get_unchecked_mut(byte_off..byte_off + sew_bytes) };
+    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + sew_bytes) as usize) };
     // SAFETY: `sew_bytes <= 8`
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes) });
+    dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes as usize) });
 }
 
 /// Sign-extend the low `bits` of `val` to `i64`.
@@ -371,9 +371,6 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64) -> u64,
 {
@@ -453,9 +450,6 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
     F: Fn(u64, u64) -> u64,
 {
@@ -532,9 +526,6 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -610,9 +601,6 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();

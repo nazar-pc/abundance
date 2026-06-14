@@ -26,8 +26,6 @@ pub fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
@@ -67,7 +65,15 @@ where
         // spec).
         let current_vl = ext_state.vl();
         let old_vtype = ext_state.vtype();
-        let old_vlmax = old_vtype.map_or_default(|old_vtype| ext_state.vlmax_for_vtype(old_vtype));
+        // TODO: `Option::map_or_default()` here causes ICE:
+        //  https://github.com/rust-lang/rust/issues/156744
+        // let old_vlmax = old_vtype.map_or_default(|old_vtype|
+        // ext_state.vlmax_for_vtype(old_vtype));
+        let old_vlmax = if let Some(old_vtype) = old_vtype {
+            ext_state.vlmax_for_vtype(old_vtype)
+        } else {
+            0
+        };
 
         if vlmax != old_vlmax {
             cold_path();
@@ -107,8 +113,6 @@ pub fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {

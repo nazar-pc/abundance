@@ -1,14 +1,6 @@
 //! Macros for RISC-V primitives
 
-#![cfg_attr(
-    feature = "build",
-    feature(
-        bool_to_result,
-        map_try_insert,
-        result_option_map_or_default,
-        try_blocks
-    )
-)]
+#![cfg_attr(feature = "build", feature(map_try_insert, try_blocks))]
 
 #[cfg(feature = "build")]
 mod build;

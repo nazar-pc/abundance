@@ -21,7 +21,7 @@ pub enum ZicsrInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for ZicsrInstruction<Reg>
+const impl<Reg> Instruction for ZicsrInstruction<Reg>
 where
     Reg: [const] Register,
 {

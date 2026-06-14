@@ -98,7 +98,8 @@ where
     for retry in 0..=retries {
         match download_missing_segment_pieces(segment_index, piece_getter, existing_pieces).await {
             Ok(segment_pieces) => return Ok(segment_pieces),
-            Err((error, incomplete_segment_pieces)) => {
+            Err(error) => {
+                let (error, incomplete_segment_pieces) = *error;
                 existing_pieces = incomplete_segment_pieces;
 
                 if retry < retries {
@@ -145,10 +146,10 @@ async fn download_missing_segment_pieces<PG>(
     existing_pieces: [Option<Piece>; ArchivedHistorySegment::NUM_PIECES],
 ) -> Result<
     Vec<Option<Piece>>,
-    (
+    Box<(
         SegmentDownloadingError,
         [Option<Piece>; ArchivedHistorySegment::NUM_PIECES],
-    ),
+    )>,
 >
 where
     PG: PieceGetter,
@@ -179,7 +180,7 @@ where
 
         let mut received_segment_pieces = match piece_getter.get_pieces(piece_indices).await {
             Ok(pieces) => pieces,
-            Err(error) => return Err((error.into(), segment_pieces)),
+            Err(error) => return Err(Box::new((error.into(), segment_pieces))),
         };
 
         while let Some((piece_index, result)) = received_segment_pieces.next().await {
@@ -231,7 +232,7 @@ where
             "Failed to retrieve pieces for segment"
         );
 
-        return Err((
+        return Err(Box::new((
             SegmentDownloadingError::NotEnoughPieces {
                 segment_index,
                 downloaded_pieces: segment_pieces
@@ -240,7 +241,7 @@ where
                     .count(),
             },
             segment_pieces,
-        ));
+        )));
     }
 
     Ok(segment_pieces.to_vec())

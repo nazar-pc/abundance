@@ -8,23 +8,27 @@
 use crate::{OUT_LEN, hash_pair};
 use core::num::NonZeroU128;
 
+/// Number of elements in a proof for a tree with `BITS`
+pub const PROOF_ELEMENTS<const BITS: u8>: usize = usize::from(BITS);
+const STACK_SIZE<const BITS: u8>: usize = usize::from(BITS) + 1;
+
 /// Ensuring only supported `NUM_BITS` can be specified for [`SparseMerkleTree`].
 ///
 /// This is essentially a workaround for the current Rust type system constraints that do not allow
 /// a nicer way to do the same thing at compile time.
-pub const fn ensure_supported_bits(bits: u8) -> usize {
+const ENSURE_SUPPORTED_BITS<const BITS: u8>: usize = {
     assert!(
-        bits <= 128,
+        BITS <= 128,
         "This Sparse Merkle Tree doesn't support more than 2^128 leaves"
     );
 
     assert!(
-        bits != 0,
+        BITS != 0,
         "This Sparse Merkle Tree must have more than one leaf"
     );
 
     0
-}
+};
 
 /// Sparse Merkle Tree Leaf
 #[derive(Debug)]
@@ -68,7 +72,7 @@ pub struct SparseMerkleTree<const BITS: u8>;
 //  https://github.com/BLAKE3-team/BLAKE3/issues/478
 impl<const BITS: u8> SparseMerkleTree<BITS>
 where
-    [(); ensure_supported_bits(BITS)]:,
+    [(); ENSURE_SUPPORTED_BITS::<BITS>]:,
 {
     // TODO: Method that generates not only root, but also proof, like Unbalanced Merkle Tree
     /// Compute Merkle Tree root.
@@ -83,11 +87,10 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_only<'a, Iter>(leaves: Iter) -> Option<[u8; OUT_LEN]>
     where
-        [(); BITS as usize + 1]:,
         Iter: IntoIterator<Item = Leaf<'a>> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; BITS as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; _];
         let mut processed_some = false;
         let mut num_leaves = 0u128;
 
@@ -163,14 +166,11 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn skip_leaves(
-        stack: &mut [[u8; OUT_LEN]; BITS as usize + 1],
+        stack: &mut [[u8; OUT_LEN]; STACK_SIZE::<BITS>],
         processed_some: &mut bool,
         mut num_leaves: u128,
         mut skip_count: u128,
-    ) -> Option<u128>
-    where
-        [(); BITS as usize + 1]:,
-    {
+    ) -> Option<u128> {
         const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
 
         if u32::from(BITS) < u128::BITS {
@@ -235,13 +235,10 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
         root: &[u8; OUT_LEN],
-        proof: &[[u8; OUT_LEN]; BITS as usize],
+        proof: &[[u8; OUT_LEN]; PROOF_ELEMENTS::<BITS>],
         leaf_index: u128,
         leaf: [u8; OUT_LEN],
-    ) -> bool
-    where
-        [(); BITS as usize]:,
-    {
+    ) -> bool {
         // For `BITS == u128::BITS` any index is valid by definition
         if u32::from(BITS) < u128::BITS && leaf_index >= 2u128.pow(u32::from(BITS)) {
             return false;

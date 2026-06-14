@@ -40,10 +40,6 @@
 //! expected (but depends on the storage backend) that the whole file size is pre-allocated on disk
 //! and no writes will fail due to lack of disk space (which could be the case with a sparse file).
 
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-// TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/141492
-#![feature(generic_const_exprs)]
 #![feature(
     const_block_items,
     const_convert,

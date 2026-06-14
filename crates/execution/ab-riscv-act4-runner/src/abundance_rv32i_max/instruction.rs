@@ -30,7 +30,7 @@ pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionProto
 pub(crate) enum AbundanceRv32IMaxInstructionPrototype<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for AbundanceRv32IMaxInstructionPrototype<Reg>
+const impl<Reg> Instruction for AbundanceRv32IMaxInstructionPrototype<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {

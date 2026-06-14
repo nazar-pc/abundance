@@ -13,23 +13,28 @@ pub(super) fn find_proofs_correct(
     bucket_sizes: &[u32; NUM_S_BUCKETS],
     buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
 ) -> (
-    Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
+    Box<[u8; const { Record::NUM_S_BUCKETS / u8::BITS as usize }]>,
     Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
 ) {
     // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut found_proofs = unsafe {
-        Box::<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>::new_zeroed().assume_init()
+        Box::<[u8; const { Record::NUM_S_BUCKETS / u8::BITS as usize }]>::new_zeroed().assume_init()
     };
     // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut proofs =
         unsafe { Box::<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>::new_zeroed().assume_init() };
 
     for (((bucket_sizes, table_6_proof_targets), proofs), found_proofs) in bucket_sizes
-        .as_chunks::<{ u8::BITS as usize }>()
+        .as_chunks::<const { u8::BITS as usize }>()
         .0
         .iter()
-        .zip(buckets.as_chunks::<{ u8::BITS as usize }>().0.iter())
-        .zip(proofs.as_chunks_mut::<{ u8::BITS as usize }>().0.iter_mut())
+        .zip(buckets.as_chunks::<const { u8::BITS as usize }>().0.iter())
+        .zip(
+            proofs
+                .as_chunks_mut::<const { u8::BITS as usize }>()
+                .0
+                .iter_mut(),
+        )
         .zip(found_proofs.iter_mut())
     {
         for (proof_offset, ((&bucket_size, proof), table_6_proof_targets)) in bucket_sizes

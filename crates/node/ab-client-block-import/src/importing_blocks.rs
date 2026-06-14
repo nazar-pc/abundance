@@ -13,6 +13,7 @@ use std::ops::Deref;
 use std::sync::Arc as StdArc;
 use yoke::{Yoke, Yokeable};
 
+#[expect(clippy::inline_modules, reason = "Intentional tiny module inline")]
 mod private {
     use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
     use ab_core_primitives::block::BlockRoot;
