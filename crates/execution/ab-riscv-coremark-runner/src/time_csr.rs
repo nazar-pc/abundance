@@ -157,7 +157,7 @@ where
             rs1_value,
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,

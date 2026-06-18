@@ -60,7 +60,6 @@
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
-    bool_to_result,
     const_cmp,
     const_convert,
     const_default,
@@ -121,6 +120,7 @@ pub mod zvbc;
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::hint::cold_path;
 use core::ops::{ControlFlow, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
@@ -392,6 +392,7 @@ where
     /// and return the output value on success. The default implementation of the method should be
     /// fine most of the time but can be overridden in special cases or for testing purposes.
     #[doc(hidden)]
+    #[inline(always)]
     fn process_csr_read<I>(
         &self,
         csr_index: u16,
@@ -401,10 +402,17 @@ where
         I: ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
     {
         let mut out = Reg::Type::default();
-        I::prepare_csr_read(self, csr_index, raw_value, &mut out)?
-            .ok_or(CsrError::IllegalRead { csr_index })?;
-
-        Ok(out)
+        match I::prepare_csr_read(self, csr_index, raw_value, &mut out) {
+            Ok(true) => Ok(out),
+            Ok(false) => {
+                cold_path();
+                Err(CsrError::IllegalRead { csr_index })
+            }
+            Err(err) => {
+                cold_path();
+                Err(err)
+            }
+        }
     }
 
     // TODO: Remove this method once tests do not need to customize it
@@ -415,6 +423,7 @@ where
     /// should be fine most of the time but can be overridden in special cases or for testing
     /// purposes.
     #[doc(hidden)]
+    #[inline(always)]
     fn process_csr_write<I>(
         &mut self,
         csr_index: u16,
@@ -424,10 +433,17 @@ where
         I: ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
     {
         let mut out = Reg::Type::default();
-        I::prepare_csr_write(self, csr_index, write_value, &mut out)?
-            .ok_or(CsrError::IllegalWrite { csr_index })?;
-
-        Ok(out)
+        match I::prepare_csr_write(self, csr_index, write_value, &mut out) {
+            Ok(true) => Ok(out),
+            Ok(false) => {
+                cold_path();
+                Err(CsrError::IllegalWrite { csr_index })
+            }
+            Err(err) => {
+                cold_path();
+                Err(err)
+            }
+        }
     }
 }
 
