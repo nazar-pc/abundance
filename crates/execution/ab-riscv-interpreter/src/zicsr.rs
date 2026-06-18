@@ -39,7 +39,7 @@ where
             rs1_value,
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
-        regs: &mut Regs,
+        _regs: &mut Regs,
         ext_state: &mut ExtState,
         _memory: &mut Memory,
         _program_counter: &mut PC,
@@ -68,14 +68,28 @@ where
                 let write_value = rs1_value;
 
                 // Per spec: if `rd == x0`, the CSR read (and its side effects) must not occur
-                if rd != Reg::ZERO {
-                    let raw_value = ext_state.read_csr(csr_index)?;
-                    let output_value = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
-                    regs.write(rd, output_value);
-                }
+                let read_output = if rd == Reg::ZERO {
+                    ::core::hint::cold_path();
+                    Reg::Type::from(0u8)
+                } else {
+                    let read_value = match ext_state.read_csr(csr_index) {
+                        Ok(read_value) => read_value,
+                        Err(err) => {
+                            ::core::hint::cold_path();
+                            return Err(ExecutionError::CsrError(err));
+                        }
+                    };
+                    ext_state.process_csr_read::<Self>(csr_index, read_value)?
+                };
 
-                let output_value = ext_state.process_csr_write::<Self>(csr_index, write_value)?;
-                ext_state.write_csr(csr_index, output_value)?;
+                let write_output = ext_state.process_csr_write::<Self>(csr_index, write_value)?;
+                match ext_state.write_csr(csr_index, write_output) {
+                    Ok(()) => Ok(ControlFlow::Continue((rd, read_output))),
+                    Err(err) => {
+                        ::core::hint::cold_path();
+                        Err(ExecutionError::CsrError(err))
+                    }
+                }
             }
 
             // Atomic read and set bits in CSR.
@@ -90,16 +104,27 @@ where
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
-                regs.write(rd, read_output);
+                let read_value = match ext_state.read_csr(csr_index) {
+                    Ok(read_value) => read_value,
+                    Err(error) => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
+                };
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, read_value)?;
 
-                if rs1 != Reg::ZERO {
-                    let write_value = raw_value | rs1_value;
+                if rs1 == Reg::ZERO {
+                    ::core::hint::cold_path();
+                } else {
+                    let write_value = read_value | rs1_value;
                     let write_output =
                         ext_state.process_csr_write::<Self>(csr_index, write_value)?;
-                    ext_state.write_csr(csr_index, write_output)?;
+                    if let Err(error) = ext_state.write_csr(csr_index, write_output) {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
                 }
+                Ok(ControlFlow::Continue((rd, read_output)))
             }
 
             // Atomic read and clear bits in CSR.
@@ -114,16 +139,28 @@ where
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
-                regs.write(rd, read_output);
+                let read_value = match ext_state.read_csr(csr_index) {
+                    Ok(read_value) => read_value,
+                    Err(error) => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
+                };
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, read_value)?;
 
-                if rs1 != Reg::ZERO {
-                    let write_value = raw_value & !rs1_value;
+                if rs1 == Reg::ZERO {
+                    ::core::hint::cold_path();
+                } else {
+                    let write_value = read_value & !rs1_value;
                     let write_output =
                         ext_state.process_csr_write::<Self>(csr_index, write_value)?;
-                    ext_state.write_csr(csr_index, write_output)?;
+                    if let Err(error) = ext_state.write_csr(csr_index, write_output) {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
                 }
+
+                Ok(ControlFlow::Continue((rd, read_output)))
             }
 
             // Atomic read/write CSR immediate.
@@ -141,14 +178,28 @@ where
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                if rd != Reg::ZERO {
-                    let raw_value = ext_state.read_csr(csr_index)?;
-                    let output_value = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
-                    regs.write(rd, output_value);
-                }
+                let read_output = if rd == Reg::ZERO {
+                    ::core::hint::cold_path();
+                    Reg::Type::from(0u8)
+                } else {
+                    let read_value = match ext_state.read_csr(csr_index) {
+                        Ok(read_value) => read_value,
+                        Err(error) => {
+                            ::core::hint::cold_path();
+                            return Err(ExecutionError::CsrError(error));
+                        }
+                    };
+                    ext_state.process_csr_read::<Self>(csr_index, read_value)?
+                };
 
-                let output_value = ext_state.process_csr_write::<Self>(csr_index, zimm.into())?;
-                ext_state.write_csr(csr_index, output_value)?;
+                let write_output = ext_state.process_csr_write::<Self>(csr_index, zimm.into())?;
+                match ext_state.write_csr(csr_index, write_output) {
+                    Ok(()) => Ok(ControlFlow::Continue((rd, read_output))),
+                    Err(error) => {
+                        ::core::hint::cold_path();
+                        Err(ExecutionError::CsrError(error))
+                    }
+                }
             }
 
             // Atomic read and set bits in CSR immediate.
@@ -167,16 +218,28 @@ where
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
-                regs.write(rd, read_output);
+                let read_value = match ext_state.read_csr(csr_index) {
+                    Ok(read_value) => read_value,
+                    Err(error) => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
+                };
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, read_value)?;
 
-                if zimm != 0 {
-                    let write_value = raw_value | Reg::Type::from(zimm);
+                if zimm == 0 {
+                    ::core::hint::cold_path();
+                } else {
+                    let write_value = read_value | Reg::Type::from(zimm);
                     let write_output =
                         ext_state.process_csr_write::<Self>(csr_index, write_value)?;
-                    ext_state.write_csr(csr_index, write_output)?;
+                    if let Err(error) = ext_state.write_csr(csr_index, write_output) {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
                 }
+
+                Ok(ControlFlow::Continue((rd, read_output)))
             }
 
             // Atomic read and clear bits in CSR immediate.
@@ -195,19 +258,29 @@ where
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
-                let raw_value = ext_state.read_csr(csr_index)?;
-                let read_output = ext_state.process_csr_read::<Self>(csr_index, raw_value)?;
-                regs.write(rd, read_output);
+                let read_value = match ext_state.read_csr(csr_index) {
+                    Ok(read_value) => read_value,
+                    Err(error) => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
+                };
+                let read_output = ext_state.process_csr_read::<Self>(csr_index, read_value)?;
 
-                if zimm != 0 {
-                    let write_value = raw_value & !Reg::Type::from(zimm);
+                if zimm == 0 {
+                    ::core::hint::cold_path();
+                } else {
+                    let write_value = read_value & !Reg::Type::from(zimm);
                     let write_output =
                         ext_state.process_csr_write::<Self>(csr_index, write_value)?;
-                    ext_state.write_csr(csr_index, write_output)?;
+                    if let Err(error) = ext_state.write_csr(csr_index, write_output) {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::CsrError(error));
+                    }
                 }
+
+                Ok(ControlFlow::Continue((rd, read_output)))
             }
         }
-
-        Ok(ControlFlow::Continue(Default::default()))
     }
 }
