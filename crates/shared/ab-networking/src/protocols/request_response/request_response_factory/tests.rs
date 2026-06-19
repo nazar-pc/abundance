@@ -190,7 +190,7 @@ async fn max_response_size_exceeded() {
             if let SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) =
                 swarm_0.select_next_some().await
             {
-                result.unwrap_err();
+                result.unwrap();
             }
         }
     });
