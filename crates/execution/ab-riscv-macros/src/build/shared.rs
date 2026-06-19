@@ -1,5 +1,5 @@
 use crate::build::state::{KnownEnumDefinition, State};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use syn::Ident;
 
 pub(super) fn collect_all_dependencies<InitialDependencies>(
@@ -9,6 +9,7 @@ pub(super) fn collect_all_dependencies<InitialDependencies>(
 where
     InitialDependencies: Iterator<Item = Ident>,
 {
+    let mut already_inserted = HashSet::new();
     let mut all_dependencies = Vec::new();
     let mut new_dependencies = VecDeque::from_iter(initial_dependencies);
 
@@ -18,6 +19,10 @@ where
         else {
             return Err(dependency_enum_name);
         };
+
+        if !already_inserted.insert(dependency_enum_name.clone()) {
+            continue;
+        }
 
         all_dependencies.push((dependency_enum_name, dependency_enum_definition));
         new_dependencies.extend(

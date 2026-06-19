@@ -434,7 +434,6 @@ pub(super) fn process_enum_decoding_impl(
         // Variants covered by at least one dependency entry
         let mut already_covered = HashSet::new();
 
-        let mut all_dependency_size_entries = all_dependency_size_entries;
         // Filter-out extra elements
         all_dependency_size_entries.retain_mut(|(idents, _block)| {
             idents.retain(|ident| {
