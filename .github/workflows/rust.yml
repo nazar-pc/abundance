@@ -106,12 +106,6 @@ jobs:
           sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
         if: contains(matrix.target, 'riscv64')
 
-      # Needed for hwloc
-      - &hwloc-deps-step
-        name: Install automake and glibtoolize (macOS)
-        run: brew install automake libtool
-        if: runner.os == 'macOS'
-
       - &mold-setup-step
         uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
         if: runner.os == 'Linux' && matrix.target == ''
@@ -266,7 +260,6 @@ jobs:
       - *checkout-step
       - *cache-restore-step
       - *riscv-support-step
-      - *hwloc-deps-step
       - *mold-setup-step
       - *mold-use-step
       - *lld-step
@@ -463,7 +456,6 @@ jobs:
       - *checkout-step
       - *cache-restore-step
       - *riscv-support-step
-      - *hwloc-deps-step
       - *mold-setup-step
       - *mold-use-step
       - *lld-step

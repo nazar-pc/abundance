@@ -89,10 +89,10 @@ fdlimit = "0.3.0"
 fs4 = "1.1.0"
 futures = { version = "0.3.32", default-features = false, features = ["async-await"] }
 futures-timer = "3.0.4"
+gdt-cpus = "0.2606.0"
 halfbrown = "0.4.0"
 heck = { version = "0.5.0" }
 hex = { version = "0.4.3", default-features = false }
-hwlocality = "1.0.0-alpha.12"
 jsonrpsee = "0.26.0"
 libc = "0.2.186"
 libp2p = { version = "0.57.0", git = "https://github.com/autonomys/rust-libp2p", rev = "676c687c2f7a6e92f8f4f77a6934022aec3ba16c", default-features = false }
@@ -133,7 +133,6 @@ strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "2.0.117"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.18", default-features = false }
-thread-priority = "3.1.0"
 tokio = { version = "1.52.3", default-features = false }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
