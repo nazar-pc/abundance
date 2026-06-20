@@ -867,7 +867,7 @@ where
                 // The default behavior is to use all CPU cores, but for replotting we just want
                 // half
                 for set in &mut replotting_thread_pool_core_indices {
-                    set.truncate(set.cpu_cores().len() / 2);
+                    set.truncate(set.cpu_cores().count() / 2);
                 }
             }
             replotting_thread_pool_core_indices
@@ -892,7 +892,7 @@ where
             .first()
             .expect("Guaranteed to have some CPU cores; qed");
 
-        NonZeroUsize::new((cpu_cores.cpu_cores().len() / 2).clamp(1, 8)).expect("Not zero; qed")
+        NonZeroUsize::new((cpu_cores.cpu_cores().count() / 2).clamp(1, 8)).expect("Not zero; qed")
     });
 
     info!(

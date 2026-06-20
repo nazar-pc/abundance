@@ -44,8 +44,8 @@ event-listener = { workspace = true }
 event-listener-primitives = { workspace = true }
 fs4 = { workspace = true }
 futures = { workspace = true }
+gdt-cpus = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
-hwlocality = { workspace = true, features = ["vendored"], optional = true }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
 mimalloc = { workspace = true, optional = true }
 num_cpus = { workspace = true }
@@ -60,7 +60,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
@@ -70,13 +69,12 @@ zeroize = { workspace = true }
 [features]
 default = ["default-library", "binary"]
 cluster = ["dep:async-nats"]
-numa = ["dep:hwlocality"]
 
 # TODO: This is a hack for https://github.com/rust-lang/cargo/issues/1982, `default-library` is what would essentially
 #  be default, but because binary compilation will require explicit feature to be specified without `binary` feature we
 #  make `binary` the default feature and allow user of the library to opt-out when then need just a library instead,
 #  while still being able to leverage default feature
-default-library = ["cluster", "numa"]
+default-library = ["cluster"]
 binary = [
     "dep:ab-cli-utils",
     "dep:clap",

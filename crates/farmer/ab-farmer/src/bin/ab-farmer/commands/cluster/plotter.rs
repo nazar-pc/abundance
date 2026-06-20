@@ -220,7 +220,7 @@ where
             .first()
             .expect("Guaranteed to have some CPU cores; qed");
 
-        NonZeroUsize::new((cpu_cores.cpu_cores().len() / 2).clamp(1, 8)).expect("Not zero; qed")
+        NonZeroUsize::new((cpu_cores.cpu_cores().count() / 2).clamp(1, 8)).expect("Not zero; qed")
     });
 
     info!(

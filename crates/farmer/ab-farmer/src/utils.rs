@@ -7,6 +7,7 @@ use crate::thread_pool_manager::{PlottingThreadPoolManager, PlottingThreadPoolPa
 use futures::channel::oneshot;
 use futures::channel::oneshot::Canceled;
 use futures::future::Either;
+use gdt_cpus::{AffinityMask, CpuInfo, ThreadPriority, set_thread_affinity, set_thread_priority};
 use rayon::{
     ThreadBuilder, ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder, current_thread_index,
 };
@@ -15,9 +16,9 @@ use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::pin::{Pin, pin};
 use std::process::exit;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{fmt, io, iter, thread};
-use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tokio::runtime::Handle;
 use tokio::task;
 use tracing::{debug, warn};
@@ -153,58 +154,23 @@ where
 #[derive(Clone)]
 pub struct CpuCoreSet {
     /// CPU cores that belong to this set
-    cores: Vec<usize>,
-    #[cfg(feature = "numa")]
-    topology: Option<std::sync::Arc<hwlocality::Topology>>,
+    affinity_mask: AffinityMask,
+    cpu_info: Option<Arc<CpuInfo>>,
 }
 
 impl fmt::Debug for CpuCoreSet {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = f.debug_struct("CpuCoreSet");
-        #[cfg(not(feature = "numa"))]
-        if self.cores.array_windows::<2>().all(|&[a, b]| a + 1 == b) {
-            s.field(
-                "cores",
-                &format!(
-                    "{}-{}",
-                    self.cores.first().expect("List of cores is not empty; qed"),
-                    self.cores.last().expect("List of cores is not empty; qed")
-                ),
-            );
-        } else {
-            s.field(
-                "cores",
-                &self
-                    .cores
-                    .iter()
-                    .map(usize::to_string)
-                    .collect::<Vec<_>>()
-                    .join(","),
-            );
-        }
-        #[cfg(feature = "numa")]
-        {
-            use hwlocality::cpu::cpuset::CpuSet;
-            use hwlocality::ffi::PositiveInt;
-
-            s.field(
-                "cores",
-                &CpuSet::from_iter(
-                    self.cores.iter().map(|&core| {
-                        PositiveInt::try_from(core).expect("Valid CPU core index; qed")
-                    }),
-                ),
-            );
-        }
-        s.finish_non_exhaustive()
+        f.debug_struct("CpuCoreSet")
+            .field("affinity_mask", &self.affinity_mask)
+            .finish_non_exhaustive()
     }
 }
 
 impl CpuCoreSet {
     /// Get cpu core numbers in this set
-    pub fn cpu_cores(&self) -> &[usize] {
-        &self.cores
+    pub fn cpu_cores(&self) -> &AffinityMask {
+        &self.affinity_mask
     }
 
     /// Will truncate list of CPU cores to this number.
@@ -214,92 +180,73 @@ impl CpuCoreSet {
     ///
     /// If `cores` is zero, call will do nothing since zero number of cores is not allowed.
     pub fn truncate(&mut self, num_cores: usize) {
-        let num_cores = num_cores.clamp(1, self.cores.len());
+        let num_cores = num_cores.clamp(1, self.affinity_mask.count());
 
-        #[cfg(feature = "numa")]
-        if let Some(topology) = &self.topology {
-            use hwlocality::object::attributes::ObjectAttributes;
-            use hwlocality::object::types::ObjectType;
-
-            let mut grouped_by_l2_cache_size_and_core_count =
-                std::collections::HashMap::<(usize, usize), Vec<usize>>::new();
-            topology
-                .objects_with_type(ObjectType::L2Cache)
-                .for_each(|object| {
-                    let l2_cache_size =
-                        if let Some(ObjectAttributes::Cache(cache)) = object.attributes() {
-                            cache
-                                .size()
-                                .map(|size| size.get() as usize)
-                                .unwrap_or_default()
-                        } else {
-                            0
-                        };
-                    if let Some(cpuset) = object.complete_cpuset() {
-                        let cpuset = cpuset
-                            .into_iter()
-                            .map(usize::from)
-                            .filter(|core| self.cores.contains(core))
-                            .collect::<Vec<_>>();
-                        let cpuset_len = cpuset.len();
-
-                        if !cpuset.is_empty() {
-                            grouped_by_l2_cache_size_and_core_count
-                                .entry((l2_cache_size, cpuset_len))
-                                .or_default()
-                                .extend(cpuset);
-                        }
-                    }
-                });
-
-            // Make sure all CPU cores in this set were found
-            if grouped_by_l2_cache_size_and_core_count
-                .values()
-                .flatten()
-                .count()
-                == self.cores.len()
-            {
-                // Walk through groups of cores for each (L2 cache size + number of cores in set)
-                // tuple and pull number of CPU cores proportional to the fraction of the cores that
-                // should be returned according to function argument
-                self.cores = grouped_by_l2_cache_size_and_core_count
-                    .into_values()
-                    .flat_map(|cores| {
-                        let limit = cores.len() * num_cores / self.cores.len();
-                        // At least 1 CPU core is needed
-                        cores.into_iter().take(limit.max(1))
-                    })
-                    .collect();
-
-                self.cores.sort();
-
-                return;
-            }
-        }
-        self.cores.truncate(num_cores);
+        // TODO: Needs a better API: https://github.com/gdt-tools/gdt-cpus-rs/issues/10
+        self.affinity_mask = self.affinity_mask.iter().take(num_cores).collect();
+        // let Some(cpu_info) = &self.cpu_info else {
+        //     self.affinity_mask = self.affinity_mask.iter().take(num_cores).collect();
+        //     return;
+        // };
+        //
+        // let mut grouped_by_l2_cache_size_and_core_count =
+        //     HashMap::<(usize, usize), Vec<usize>>::new();
+        // cpu_info
+        //     .objects_with_type(ObjectType::L2Cache)
+        //     .for_each(|object| {
+        //         let l2_cache_size =
+        //             if let Some(ObjectAttributes::Cache(cache)) = object.attributes() {
+        //                 cache
+        //                     .size()
+        //                     .map(|size| size.get() as usize)
+        //                     .unwrap_or_default()
+        //             } else {
+        //                 0
+        //             };
+        //         if let Some(cpuset) = object.complete_cpuset() {
+        //             let cpuset = cpuset
+        //                 .into_iter()
+        //                 .map(usize::from)
+        //                 .filter(|core| self.affinity_mask.contains(core))
+        //                 .collect::<Vec<_>>();
+        //             let cpuset_len = cpuset.len();
+        //
+        //             if !cpuset.is_empty() {
+        //                 grouped_by_l2_cache_size_and_core_count
+        //                     .entry((l2_cache_size, cpuset_len))
+        //                     .or_default()
+        //                     .extend(cpuset);
+        //             }
+        //         }
+        //     });
+        //
+        // // Make sure all CPU cores in this set were found
+        // if grouped_by_l2_cache_size_and_core_count
+        //     .values()
+        //     .flatten()
+        //     .count()
+        //     == self.affinity_mask.len()
+        // {
+        //     // Walk through groups of cores for each (L2 cache size + number of cores in set)
+        // tuple     // and pull number of CPU cores proportional to the fraction of the
+        // cores that should be     // returned according to function argument
+        //     self.affinity_mask = grouped_by_l2_cache_size_and_core_count
+        //         .into_values()
+        //         .flat_map(|cores| {
+        //             let limit = cores.len() * num_cores / self.affinity_mask.len();
+        //             // At least 1 CPU core is needed
+        //             cores.into_iter().take(limit.max(1))
+        //         })
+        //         .collect();
+        //
+        //     return;
+        // }
     }
 
-    /// Pin current thread to this NUMA node (not just one CPU core)
+    /// Pin current thread to this CPU core set
     pub fn pin_current_thread(&self) {
-        #[cfg(feature = "numa")]
-        if let Some(topology) = &self.topology {
-            use hwlocality::cpu::binding::CpuBindingFlags;
-            use hwlocality::cpu::cpuset::CpuSet;
-            use hwlocality::current_thread_id;
-            use hwlocality::ffi::PositiveInt;
-
-            // load the cpuset for the given core index.
-            let cpu_cores = CpuSet::from_iter(
-                self.cores
-                    .iter()
-                    .map(|&core| PositiveInt::try_from(core).expect("Valid CPU core index; qed")),
-            );
-
-            if let Err(error) =
-                topology.bind_thread_cpu(current_thread_id(), &cpu_cores, CpuBindingFlags::empty())
-            {
-                warn!(%error, ?cpu_cores, "Failed to pin thread to CPU cores");
-            }
+        if let Err(error) = set_thread_affinity(&self.affinity_mask) {
+            warn!(%error, cpu_cores = ?self.affinity_mask, "Failed to pin thread to CPU cores");
         }
     }
 }
@@ -307,25 +254,18 @@ impl CpuCoreSet {
 /// Recommended number of thread pool size for farming, equal to number of CPU cores in the first
 /// NUMA node
 pub fn recommended_number_of_farming_threads() -> usize {
-    #[cfg(feature = "numa")]
-    match hwlocality::Topology::new().map(std::sync::Arc::new) {
-        Ok(topology) => {
-            return topology
-                // Iterate over NUMA nodes
-                .objects_at_depth(hwlocality::object::depth::Depth::NUMANode)
-                // For each NUMA nodes get CPU set
-                .filter_map(hwlocality::object::TopologyObject::cpuset)
-                // Get number of CPU cores
-                .map(|cpuset| cpuset.iter_set().count())
-                .find(|&count| count > 0)
-                .unwrap_or_else(num_cpus::get)
-                .min(MAX_DEFAULT_FARMING_THREADS);
-        }
+    match CpuInfo::detect() {
+        Ok(cpu_info) => (0..cpu_info.numa_node_count)
+            .map(|numa_node| cpu_info.numa_node_mask(numa_node).count())
+            .find(|&count| count > 0)
+            .unwrap_or_else(num_cpus::get)
+            .min(MAX_DEFAULT_FARMING_THREADS),
         Err(error) => {
-            warn!(%error, "Failed to get NUMA topology");
+            warn!(%error, "Failed to get CPU info");
+
+            num_cpus::get().min(MAX_DEFAULT_FARMING_THREADS)
         }
     }
-    num_cpus::get().min(MAX_DEFAULT_FARMING_THREADS)
 }
 
 /// Get all cpu cores, grouped into sets according to NUMA nodes or L3 cache groups on large CPUs.
@@ -333,36 +273,38 @@ pub fn recommended_number_of_farming_threads() -> usize {
 /// Returned vector is guaranteed to have at least one element and have non-zero number of CPU cores
 /// in each set.
 pub fn all_cpu_cores() -> Vec<CpuCoreSet> {
-    #[cfg(feature = "numa")]
-    match hwlocality::Topology::new().map(std::sync::Arc::new) {
-        Ok(topology) => {
-            let cpu_cores = topology
-                // Iterate over groups of L3 caches
-                .objects_with_type(hwlocality::object::types::ObjectType::L3Cache)
-                // For each NUMA nodes get CPU set
-                .filter_map(hwlocality::object::TopologyObject::cpuset)
-                // For each CPU set extract individual cores
-                .map(|cpuset| cpuset.iter_set().map(usize::from).collect::<Vec<_>>())
-                .filter(|cores| !cores.is_empty())
-                .map(|cores| CpuCoreSet {
-                    cores,
-                    topology: Some(std::sync::Arc::clone(&topology)),
+    match CpuInfo::detect() {
+        Ok(cpu_info) => {
+            let cpu_info = Arc::new(cpu_info);
+            let cpu_cores = cpu_info
+                .l3_domains
+                .iter()
+                .map(|domain| domain.mask)
+                .filter(|affinity_mask| !affinity_mask.is_empty())
+                .map(|affinity_mask| CpuCoreSet {
+                    affinity_mask,
+                    cpu_info: Some(Arc::clone(&cpu_info)),
                 })
                 .collect::<Vec<_>>();
 
-            if !cpu_cores.is_empty() {
-                return cpu_cores;
+            if cpu_cores.is_empty() {
+                vec![CpuCoreSet {
+                    affinity_mask: (0..num_cpus::get()).collect(),
+                    cpu_info: Some(cpu_info),
+                }]
+            } else {
+                cpu_cores
             }
         }
         Err(error) => {
             warn!(%error, "Failed to get L3 cache topology");
+
+            vec![CpuCoreSet {
+                affinity_mask: (0..num_cpus::get()).collect(),
+                cpu_info: None,
+            }]
         }
     }
-    vec![CpuCoreSet {
-        cores: (0..num_cpus::get()).collect(),
-        #[cfg(feature = "numa")]
-        topology: None,
-    }]
 }
 
 /// Parse space-separated set of groups of CPU cores (individual cores are coma-separated) into
@@ -370,12 +312,11 @@ pub fn all_cpu_cores() -> Vec<CpuCoreSet> {
 pub fn parse_cpu_cores_sets(
     s: &str,
 ) -> Result<Vec<CpuCoreSet>, Box<dyn std::error::Error + Send + Sync>> {
-    #[cfg(feature = "numa")]
-    let topology = hwlocality::Topology::new().map(std::sync::Arc::new).ok();
+    let cpu_info = CpuInfo::detect().ok().map(Arc::new);
 
     s.split(' ')
         .map(|s| {
-            let mut cores = Vec::new();
+            let mut cores = AffinityMask::empty();
             for s in s.split(',') {
                 let mut parts = s.split('-');
                 let range_start = parts
@@ -388,16 +329,19 @@ pub fn parse_cpu_cores_sets(
                 if let Some(range_end) = parts.next() {
                     let range_end = range_end.parse()?;
 
-                    cores.extend(range_start..=range_end);
+                    // TODO: https://github.com/gdt-tools/gdt-cpus-rs/pull/11
+                    // cores.extend(range_start..=range_end);
+                    for core in range_start..=range_end {
+                        cores.add(core);
+                    }
                 } else {
-                    cores.push(range_start);
+                    cores.add(range_start);
                 }
             }
 
             Ok(CpuCoreSet {
-                cores,
-                #[cfg(feature = "numa")]
-                topology: topology.clone(),
+                affinity_mask: cores,
+                cpu_info: cpu_info.clone(),
             })
         })
         .collect()
@@ -416,11 +360,10 @@ fn thread_pool_core_indices_internal(
     thread_pool_size: Option<NonZeroUsize>,
     thread_pools: Option<NonZeroUsize>,
 ) -> Vec<CpuCoreSet> {
-    #[cfg(feature = "numa")]
-    let topology = &all_cpu_cores
+    let cpu_info = &all_cpu_cores
         .first()
         .expect("Not empty according to function description; qed")
-        .topology;
+        .cpu_info;
 
     // In case number of thread pools is not specified, but user did customize thread pool size,
     // default to auto-detected number of thread pools
@@ -429,6 +372,7 @@ fn thread_pool_core_indices_internal(
         .or_else(|| thread_pool_size.map(|_| all_cpu_cores.len()));
 
     if let Some(thread_pools) = thread_pools {
+        let all_cpu_cores = &all_cpu_cores;
         let mut thread_pool_core_indices = Vec::<CpuCoreSet>::with_capacity(thread_pools);
 
         let total_cpu_cores = all_cpu_cores.iter().flat_map(CpuCoreSet::cpu_cores).count();
@@ -436,12 +380,11 @@ fn thread_pool_core_indices_internal(
         if let Some(thread_pool_size) = thread_pool_size {
             // If thread pool size is fixed, loop over all CPU cores as many times as necessary and
             // assign contiguous ranges of CPU cores to corresponding thread pools
-            let mut cpu_cores_iterator = iter::repeat(
+            let mut cpu_cores_iterator = iter::repeat_with(|| {
                 all_cpu_cores
                     .iter()
-                    .flat_map(|cpu_core_set| cpu_core_set.cores.iter())
-                    .copied(),
-            )
+                    .flat_map(|cpu_core_set| cpu_core_set.affinity_mask.iter())
+            })
             .flatten();
 
             for _ in 0..thread_pools {
@@ -454,9 +397,8 @@ fn thread_pool_core_indices_internal(
                     .collect();
 
                 thread_pool_core_indices.push(CpuCoreSet {
-                    cores: cpu_cores,
-                    #[cfg(feature = "numa")]
-                    topology: topology.clone(),
+                    affinity_mask: cpu_cores,
+                    cpu_info: cpu_info.clone(),
                 });
             }
         } else {
@@ -465,16 +407,14 @@ fn thread_pool_core_indices_internal(
 
             let all_cpu_cores = all_cpu_cores
                 .iter()
-                .flat_map(|cpu_core_set| cpu_core_set.cores.iter())
-                .copied()
+                .flat_map(|cpu_core_set| cpu_core_set.affinity_mask.iter())
                 .collect::<Vec<_>>();
 
             thread_pool_core_indices = all_cpu_cores
                 .chunks(total_cpu_cores.div_ceil(thread_pools))
                 .map(|cpu_cores| CpuCoreSet {
-                    cores: cpu_cores.to_vec(),
-                    #[cfg(feature = "numa")]
-                    topology: topology.clone(),
+                    affinity_mask: AffinityMask::from_cores(cpu_cores),
+                    cpu_info: cpu_info.clone(),
                 })
                 .collect();
         }
@@ -508,7 +448,7 @@ fn create_plotting_thread_pool_manager_thread_pool_pair(
 
     ThreadPoolBuilder::new()
         .thread_name(thread_name)
-        .num_threads(cpu_core_set.cpu_cores().len())
+        .num_threads(cpu_core_set.cpu_cores().count())
         .panic_handler(panic_handler)
         .spawn_handler({
             let handle = Handle::current();
@@ -520,7 +460,7 @@ fn create_plotting_thread_pool_manager_thread_pool_pair(
                 move || {
                     cpu_core_set.pin_current_thread();
                     if let Some(thread_priority) = thread_priority
-                        && let Err(error) = set_current_thread_priority(thread_priority)
+                        && let Err(error) = set_thread_priority(thread_priority)
                     {
                         warn!(%error, "Failed to set thread priority");
                     }

@@ -7,10 +7,10 @@ use ab_farmer::single_disk_farm::{SingleDiskFarm, SingleDiskFarmSummary};
 use ab_networking::libp2p::identity::{Keypair, ed25519};
 use bytesize::ByteSize;
 use clap::Parser;
+use gdt_cpus::ThreadPriority;
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
-use thread_priority::ThreadPriority;
 
 /// Plotting thread priority
 #[derive(Debug, Parser, Copy, Clone)]
@@ -52,9 +52,9 @@ impl From<PlottingThreadPriority> for Option<ThreadPriority> {
     #[inline]
     fn from(value: PlottingThreadPriority) -> Self {
         match value {
-            PlottingThreadPriority::Min => Some(ThreadPriority::Min),
+            PlottingThreadPriority::Min => Some(ThreadPriority::Lowest),
             PlottingThreadPriority::Default => None,
-            PlottingThreadPriority::Max => Some(ThreadPriority::Max),
+            PlottingThreadPriority::Max => Some(ThreadPriority::TimeCritical),
         }
     }
 }

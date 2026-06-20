@@ -36,6 +36,7 @@ use futures::channel::mpsc;
 use futures::prelude::*;
 use futures::select;
 use futures::task::noop_waker_ref;
+use gdt_cpus::{ThreadPriority, set_thread_priority};
 use rclite::Arc;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
@@ -46,7 +47,6 @@ use std::sync::Arc as StdArc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use std::{io, thread};
-use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tokio::runtime::Handle;
 use tracing::{Span, debug, error, info, warn};
 
@@ -494,7 +494,7 @@ impl Run {
                         );
                     }
 
-                    if let Err(error) = set_current_thread_priority(ThreadPriority::Max) {
+                    if let Err(error) = set_thread_priority(ThreadPriority::TimeCritical) {
                         warn!(
                             %error,
                             "Failed to set thread priority, timekeeper performance may be \
