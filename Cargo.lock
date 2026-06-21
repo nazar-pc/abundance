@@ -326,7 +326,7 @@ dependencies = [
  "bytes",
  "chacha20 0.10.0",
  "derive_more",
- "ed25519-dalek 3.0.0-rc.0",
+ "ed25519-dalek 3.0.0-rc.1",
  "hex",
  "once_cell",
  "parity-scale-codec",
@@ -477,7 +477,7 @@ dependencies = [
  "clap",
  "criterion",
  "derive_more",
- "ed25519-dalek 3.0.0-rc.0",
+ "ed25519-dalek 3.0.0-rc.1",
  "event-listener",
  "event-listener-primitives",
  "fs4",
@@ -756,7 +756,7 @@ dependencies = [
  "ab-riscv-interpreter",
  "ab-riscv-primitives",
  "criterion",
- "ed25519-dalek 3.0.0-rc.0",
+ "ed25519-dalek 3.0.0-rc.1",
  "replace_with",
 ]
 
@@ -1060,9 +1060,9 @@ checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
 
 [[package]]
 name = "arrayvec"
-version = "0.7.6"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+checksum = "f02882884d3e1bc524fb12c79f107f6ad0e1cfd498c536ffb494301740995dfe"
 
 [[package]]
 name = "ash"
@@ -1426,18 +1426,18 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "bytesize"
-version = "2.3.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bd91ee7b2422bcb158d90ef4d14f75ef67f340943fc4149891dcce8f8b972a3"
+checksum = "49e78e506b9d7633710dab98996f22f95f3d0f488e8f1aa162830556ed9fc14d"
 
 [[package]]
 name = "camino"
@@ -1977,9 +1977,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "5.0.0-rc.0"
+version = "5.0.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f359e08ca85e7bd759e1fd933ff2bccd81864c60a8fba0e259c7f822b0924bf"
+checksum = "c906a87e53a36ff795d72e06e8162a83c5436e3ea89e942a9cb9fc083f0a384f"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
@@ -2216,11 +2216,11 @@ dependencies = [
 
 [[package]]
 name = "ed25519-dalek"
-version = "3.0.0-rc.0"
+version = "3.0.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b011170fe4f04665565b4110afef66774fe9ffff278f3eb5b81cc73d26e27d60"
+checksum = "1685663e23882cd8517dcbcb1c23a6ebff4433c22dfb681d760219b62cd1b849"
 dependencies = [
- "curve25519-dalek 5.0.0-rc.0",
+ "curve25519-dalek 5.0.0-rc.1",
  "ed25519 3.0.0",
  "sha2 0.11.0",
  "subtle",
@@ -2524,9 +2524,9 @@ dependencies = [
 
 [[package]]
 name = "gdt-cpus"
-version = "0.2606.0"
+version = "0.2606.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d067c5829784b35bb9b912791639568b23e74771af2856e5fe97418de1171cee"
+checksum = "f60f6baf9eb03f64b3b2c0ab79160b535c7460f12252e9965a4a67e22c518c27"
 dependencies = [
  "bitflags 2.13.0",
  "libc",
@@ -5840,9 +5840,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.117"
+version = "2.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
+checksum = "1b9ae57f904213ebb649ce6895b8a66c66f0203b9319718f69a5612a065b1422"
 dependencies = [
  "proc-macro2",
  "quote",
