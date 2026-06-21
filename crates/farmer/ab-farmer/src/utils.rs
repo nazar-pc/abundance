@@ -11,6 +11,7 @@ use gdt_cpus::{AffinityMask, CpuInfo, ThreadPriority, set_thread_affinity, set_t
 use rayon::{
     ThreadBuilder, ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder, current_thread_index,
 };
+use std::collections::HashMap;
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::ops::Deref;
@@ -173,74 +174,55 @@ impl CpuCoreSet {
         &self.affinity_mask
     }
 
-    /// Will truncate list of CPU cores to this number.
+    /// Will truncate a set of CPU cores to this number.
     ///
-    /// Truncation will take into account L2 and L3 cache topology in order to use half of the
-    /// actual physical cores and half of each core type in case of heterogeneous CPUs.
-    ///
-    /// If `cores` is zero, call will do nothing since zero number of cores is not allowed.
+    /// Truncation will take into account L2 cache topology to use a half of the actual physical
+    /// cores and half of each core type in the case of heterogeneous CPUs.
     pub fn truncate(&mut self, num_cores: usize) {
         let num_cores = num_cores.clamp(1, self.affinity_mask.count());
 
-        // TODO: Needs a better API: https://github.com/gdt-tools/gdt-cpus-rs/issues/10
-        self.affinity_mask = self.affinity_mask.iter().take(num_cores).collect();
-        // let Some(cpu_info) = &self.cpu_info else {
-        //     self.affinity_mask = self.affinity_mask.iter().take(num_cores).collect();
-        //     return;
-        // };
-        //
-        // let mut grouped_by_l2_cache_size_and_core_count =
-        //     HashMap::<(usize, usize), Vec<usize>>::new();
-        // cpu_info
-        //     .objects_with_type(ObjectType::L2Cache)
-        //     .for_each(|object| {
-        //         let l2_cache_size =
-        //             if let Some(ObjectAttributes::Cache(cache)) = object.attributes() {
-        //                 cache
-        //                     .size()
-        //                     .map(|size| size.get() as usize)
-        //                     .unwrap_or_default()
-        //             } else {
-        //                 0
-        //             };
-        //         if let Some(cpuset) = object.complete_cpuset() {
-        //             let cpuset = cpuset
-        //                 .into_iter()
-        //                 .map(usize::from)
-        //                 .filter(|core| self.affinity_mask.contains(core))
-        //                 .collect::<Vec<_>>();
-        //             let cpuset_len = cpuset.len();
-        //
-        //             if !cpuset.is_empty() {
-        //                 grouped_by_l2_cache_size_and_core_count
-        //                     .entry((l2_cache_size, cpuset_len))
-        //                     .or_default()
-        //                     .extend(cpuset);
-        //             }
-        //         }
-        //     });
-        //
-        // // Make sure all CPU cores in this set were found
-        // if grouped_by_l2_cache_size_and_core_count
-        //     .values()
-        //     .flatten()
-        //     .count()
-        //     == self.affinity_mask.len()
-        // {
-        //     // Walk through groups of cores for each (L2 cache size + number of cores in set)
-        // tuple     // and pull number of CPU cores proportional to the fraction of the
-        // cores that should be     // returned according to function argument
-        //     self.affinity_mask = grouped_by_l2_cache_size_and_core_count
-        //         .into_values()
-        //         .flat_map(|cores| {
-        //             let limit = cores.len() * num_cores / self.affinity_mask.len();
-        //             // At least 1 CPU core is needed
-        //             cores.into_iter().take(limit.max(1))
-        //         })
-        //         .collect();
-        //
-        //     return;
-        // }
+        let Some(cpu_info) = &self.cpu_info else {
+            self.affinity_mask = self.affinity_mask.iter().take(num_cores).collect();
+            return;
+        };
+
+        let mut grouped_by_l2_cache_size_and_core_count = HashMap::<_, Vec<_>>::new();
+        for domain in &cpu_info.l2_domains {
+            let domain_mask = domain.mask.intersection(&self.affinity_mask);
+
+            if domain_mask.is_empty() {
+                continue;
+            }
+
+            grouped_by_l2_cache_size_and_core_count
+                .entry((domain.size_bytes, domain_mask.count()))
+                .or_default()
+                .extend(domain_mask.iter());
+        }
+
+        // Make sure all CPU cores in this set were found
+        if grouped_by_l2_cache_size_and_core_count
+            .values()
+            .flatten()
+            .count()
+            != self.affinity_mask.count()
+        {
+            self.affinity_mask = self.affinity_mask.iter().take(num_cores).collect();
+            return;
+        }
+
+        // Walk through groups of cores for each (L2 cache size + number of cores in set) tuple and
+        // pull number of CPU cores proportional to the fraction of the cores that should be
+        // returned according to function argument
+        self.affinity_mask = grouped_by_l2_cache_size_and_core_count
+            .into_values()
+            .flat_map(|cores| {
+                let limit = (cores.len() * num_cores).div_ceil(self.affinity_mask.count());
+                // At least 1 CPU core is needed
+                cores.into_iter().take(limit)
+            })
+            .take(num_cores)
+            .collect();
     }
 
     /// Pin current thread to this CPU core set
