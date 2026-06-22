@@ -92,7 +92,7 @@ where
                         let src =
                             unsafe { ext_state.read_vregs().get(reg).get_unchecked(in_reg..) };
                         if let Err(error) = memory.write_slice(base + byte_off, src) {
-                            ext_state.set_vstart(byte_off as u16);
+                            ext_state.set_vstart(Vstart::from(byte_off as u16));
                             return Err(ExecutionError::MemoryAccess(error));
                         }
                         byte_off += src.len() as u64;
@@ -122,7 +122,7 @@ where
                         ext_state
                             .read_vregs()
                             .get(vs3)
-                            .get_unchecked(usize::from(start_byte)..evl_bytes as usize)
+                            .get_unchecked(usize::from(u16::from(start_byte))..evl_bytes as usize)
                     };
                     memory
                         .write_slice(base + u64::from(start_byte), src)

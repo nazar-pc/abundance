@@ -280,7 +280,7 @@ where
                 }
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
-                if ext_state.vstart() != 0 {
+                if ext_state.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -323,7 +323,7 @@ where
                 }
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
-                if ext_state.vstart() != 0 {
+                if ext_state.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -364,7 +364,7 @@ where
                 }
                 // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
                 // exception.
-                if ext_state.vstart() != 0 {
+                if ext_state.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -408,7 +408,7 @@ where
                     });
                 };
                 // Spec §16.8: viota.m with vstart != 0 raises an illegal instruction exception.
-                if ext_state.vstart() != 0 {
+                if ext_state.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),

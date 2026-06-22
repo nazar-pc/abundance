@@ -18,7 +18,7 @@ fn setup(vl: u32, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZvkbInstruct
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -488,7 +488,7 @@ fn vandn_vv_basic_e8() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x14, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -582,7 +582,7 @@ fn vandn_vx_basic() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xC0, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -630,7 +630,7 @@ fn vbrev8_v_e8_reverses_all_bits() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x8D, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -726,7 +726,7 @@ fn vrev8_v_e8_is_noop() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xAB, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -828,7 +828,7 @@ fn vrol_vv_e8_basic() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x9D, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -918,7 +918,7 @@ fn vrol_vx_basic() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x10, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vror
@@ -947,7 +947,7 @@ fn vror_vv_e8_basic() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x76, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1053,7 +1053,7 @@ fn vror_vx_basic() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x01, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vror.vi
@@ -1082,7 +1082,7 @@ fn vror_vi_uimm_0_is_identity() {
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x1234_5678);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xDEAD_BEEF);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1337,7 +1337,7 @@ fn vror_vi_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x80);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
     }
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZvkbInstruction::VrorVi {
@@ -1356,7 +1356,7 @@ fn vror_vi_vstart_skips_earlier_elements() {
     // Elements 2,3 processed: rotate_right(0x80, 1) = 0x40
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 0x40);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0x40);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vl=0

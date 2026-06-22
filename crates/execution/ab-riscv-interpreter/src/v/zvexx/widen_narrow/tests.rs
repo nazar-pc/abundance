@@ -21,7 +21,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -136,7 +136,7 @@ fn vwaddu_vv_e8_m1_zero_extends() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -998,7 +998,7 @@ fn vnsrl_wv_e8_m1_logical_shift() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1195,7 +1195,7 @@ fn vzext_vf2_e16_m1_zero_extends() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1343,7 +1343,7 @@ fn vsext_vf2_e16_m1_sign_extends() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1563,7 +1563,7 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 2);
         write_elem(&mut state, VReg::V8, i, Vsew::E16, 0xdead);
     }
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxWidenNarrowInstruction::VwadduVv {
@@ -1583,7 +1583,7 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V8, 2, Vsew::E16), 3u64);
     assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E16), 3u64);
     // vstart must be reset to 0 after execution
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // Illegal instruction: SEW=64 for widening
@@ -2115,7 +2115,7 @@ fn vwaddu_vv_vl_zero_nop() {
     }
     // vs_dirty and vstart still updated (instruction did execute)
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vnsrl shamt mask boundary

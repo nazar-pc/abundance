@@ -24,7 +24,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -198,7 +198,7 @@ fn vlr_ignores_vtype_and_vl() {
 fn vlr_resets_vstart_on_success() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
-    state.ext_state.set_vstart(7);
+    state.ext_state.set_vstart(Vstart::from(7));
     let data = [0u8; 32];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -217,7 +217,7 @@ fn vlr_resets_vstart_on_success() {
 
     assert_eq!(
         state.ext_state.vstart(),
-        0,
+        Vstart::ZERO,
         "Vlr must reset vstart on completion"
     );
 }
@@ -285,7 +285,11 @@ fn vlm_loads_ceil_vl_over_8_bytes() {
     assert_eq!(vreg_byte(&state, VReg::V3, 0), 0b1011_0101);
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 0b0000_0011);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0, "vstart must be reset");
+    assert_eq!(
+        state.ext_state.vstart(),
+        Vstart::ZERO,
+        "vstart must be reset"
+    );
 }
 
 #[test]
@@ -394,7 +398,7 @@ fn vle_e8_loads_vl_bytes_sequentially() {
     assert_eq!(vreg_byte(&state, VReg::V1, 2), 30);
     assert_eq!(vreg_byte(&state, VReg::V1, 3), 40);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -521,7 +525,7 @@ fn vle_respects_vstart_skips_earlier_elements() {
     set_vreg(&mut state, VReg::V1, &[0xCCu8; 16]);
     write_mem(&mut state, TEST_BASE_ADDR, &[10, 20, 30, 40]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
 
     exec_one(
         &mut state,
@@ -542,7 +546,11 @@ fn vle_respects_vstart_skips_earlier_elements() {
     // Elements 2,3 loaded. Address offsets: element 2 is at base + 2*1 = base+2
     assert_eq!(reg[2], 30, "element 2 loaded");
     assert_eq!(reg[3], 40, "element 3 loaded");
-    assert_eq!(state.ext_state.vstart(), 0, "vstart reset after completion");
+    assert_eq!(
+        state.ext_state.vstart(),
+        Vstart::ZERO,
+        "vstart reset after completion"
+    );
 }
 
 #[test]
@@ -696,7 +704,7 @@ fn vleff_no_fault_behaves_like_vle() {
     assert_eq!(reg[3], 4);
     // vl unchanged
     assert_eq!(state.ext_state.vl(), 4);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -749,7 +757,7 @@ fn vleff_fault_at_i1_truncates_vl_to_1() {
     // vl truncated to 1 (fault at element 1)
     assert_eq!(state.ext_state.vl(), 1);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -826,7 +834,7 @@ fn vlse_positive_stride_loads_at_stride_intervals() {
         u32::from_le_bytes(reg[8..12].try_into().unwrap()),
         0xCCCC_CCCC
     );
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -995,7 +1003,7 @@ fn vluxei_e32_data_e32_index_basic() {
         0x2222_2222,
         "elem2 at offset 8"
     );
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1371,7 +1379,7 @@ fn vlseg_nf2_e8_interleaved_fields() {
     assert_eq!(v3[1], 21);
     assert_eq!(v3[2], 22);
     assert_eq!(v3[3], 23);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -1568,7 +1576,7 @@ fn vlsseg_nf2_e32_with_stride() {
         u32::from_le_bytes(v3[4..8].try_into().unwrap()),
         0xDDDD_DDDD
     );
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // Fault cases
@@ -1606,7 +1614,7 @@ fn vlsseg_fault_at_f1_of_i0_marks_vs_dirty_and_sets_vstart() {
     );
     assert_eq!(
         state.ext_state.vstart(),
-        0u16,
+        Vstart::ZERO,
         "vstart must record the faulting element"
     );
     // Field 0 of element 0 was written
@@ -1644,7 +1652,7 @@ fn vlsseg_fault_at_i1_f0_marks_vs_dirty_and_sets_vstart() {
 
     assert!(matches!(err, ExecutionError::MemoryAccess(_)));
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 2u16);
+    assert_eq!(state.ext_state.vstart(), Vstart::from(2));
 }
 
 // `Vluxseg` tests
@@ -1712,7 +1720,7 @@ fn vluxseg_nf2_e32_indexed() {
         u32::from_le_bytes(v3[4..8].try_into().unwrap()),
         0x2222_2222
     );
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1845,11 +1853,11 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
             rs2: Reg::Zero,
         },
     ] {
-        state.ext_state.set_vstart(5);
+        state.ext_state.set_vstart(Vstart::from(5));
         exec_one(&mut state, instr).unwrap();
         assert_eq!(
             state.ext_state.vstart(),
-            0,
+            Vstart::ZERO,
             "vstart not reset for {instr:?}"
         );
     }
@@ -2110,7 +2118,7 @@ fn vle_fault_after_first_element_sets_vstart_to_faulting_index() {
     assert!(matches!(err, ExecutionError::MemoryAccess(_)));
     assert_eq!(
         state.ext_state.vstart(),
-        2,
+        Vstart::from(2),
         "vstart must record the faulting element index"
     );
 }
@@ -2142,7 +2150,7 @@ fn vle_fault_at_first_element_does_not_mark_vs_dirty() {
     );
     assert_eq!(
         state.ext_state.vstart(),
-        0,
+        Vstart::ZERO,
         "vstart must not be modified when fault is at the first element"
     );
 }

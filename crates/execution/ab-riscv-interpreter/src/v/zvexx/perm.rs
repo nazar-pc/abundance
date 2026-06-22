@@ -806,7 +806,7 @@ where
                     });
                 };
                 // Spec §16.5: vstart must be zero.
-                if ext_state.vstart() != 0 {
+                if ext_state.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),

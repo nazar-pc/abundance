@@ -1289,8 +1289,11 @@ fn vector_csr_from_index_invalid() {
 fn ext_vstart_read_write() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
-    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, 42);
-    assert_eq!(VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state), 42);
+    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, Vstart::from(42));
+    assert_eq!(
+        VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state),
+        Vstart::from(42)
+    );
 }
 
 #[test]
@@ -1318,7 +1321,7 @@ fn ext_initialize_vector_state() {
     state.ext_state.init_vector_csrs();
     // Dirty it up
     state.ext_state.set_vl(42);
-    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, 7);
+    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, Vstart::from(7));
     VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.ext_state, Vxrm::Rne);
     VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.ext_state, true);
 
@@ -1327,7 +1330,10 @@ fn ext_initialize_vector_state() {
 
     assert!(state.ext_state.vtype().is_none());
     assert_eq!(state.ext_state.vl(), 0);
-    assert_eq!(VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state), 0);
+    assert_eq!(
+        VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state),
+        Vstart::ZERO
+    );
     assert_eq!(
         VectorRegistersExt::<Reg<u64>>::vxrm(&state.ext_state),
         Vxrm::Rnu

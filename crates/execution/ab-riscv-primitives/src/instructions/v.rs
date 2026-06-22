@@ -6,6 +6,51 @@ use crate::registers::general_purpose::{RegType, Register};
 use core::fmt;
 use core::hint::cold_path;
 
+/// Vector start element index
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub struct Vstart(u16);
+
+impl fmt::Display for Vstart {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+const impl From<u16> for Vstart {
+    #[inline(always)]
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+const impl From<Vstart> for u16 {
+    #[inline(always)]
+    fn from(value: Vstart) -> Self {
+        value.0
+    }
+}
+
+// TODO: Remove this impl once `Vl` type exists that returns `vstart..vl` ranges
+const impl From<Vstart> for u32 {
+    #[inline(always)]
+    fn from(value: Vstart) -> Self {
+        u32::from(value.0)
+    }
+}
+
+// TODO: Probably remove this too
+const impl From<Vstart> for u64 {
+    #[inline(always)]
+    fn from(value: Vstart) -> Self {
+        u64::from(value.0)
+    }
+}
+
+impl Vstart {
+    /// Zero vector start element index
+    pub const ZERO: Self = Self(0);
+}
+
 /// `mstatus.VS` / `sstatus.VS` / `vsstatus.VS` field encoding.
 ///
 /// Context status for the vector extension, analogous to `mstatus.FS`.

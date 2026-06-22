@@ -363,7 +363,7 @@ where
                         // Elements [vstart, i) were committed; VS is now dirty.
                         ext_state.mark_vs_dirty();
                         // vstart records the faulting element for restartability.
-                        ext_state.set_vstart(i as u16);
+                        ext_state.set_vstart(Vstart::from(i as u16));
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -460,7 +460,7 @@ where
                     cold_path();
                     if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
-                        ext_state.set_vstart(i as u16);
+                        ext_state.set_vstart(Vstart::from(i as u16));
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -560,7 +560,7 @@ where
                     cold_path();
                     if f > 0 || i > u32::from(vstart) {
                         ext_state.mark_vs_dirty();
-                        ext_state.set_vstart(i as u16);
+                        ext_state.set_vstart(Vstart::from(i as u16));
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }

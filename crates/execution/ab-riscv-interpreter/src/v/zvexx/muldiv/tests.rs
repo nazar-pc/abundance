@@ -32,7 +32,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -179,7 +179,7 @@ fn vmul_vv_e32_m1_basic() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1353,7 +1353,7 @@ fn vmacc_vv_e32_basic() {
         assert_eq!(read_elem(&state, VReg::V8, i, Vsew::E32), 121, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1872,7 +1872,7 @@ fn vstart_respected_for_mul() {
         write_elem(&mut state, VReg::V8, i, Vsew::E32, 0xDEAD);
     }
     // Only elements 2..4 should be processed
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxMulDivInstruction::VmulVv {
@@ -1892,7 +1892,7 @@ fn vstart_respected_for_mul() {
     assert_eq!(read_elem(&state, VReg::V8, 2, Vsew::E32), 35);
     assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E32), 35);
     // vstart reset to 0
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]

@@ -21,7 +21,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -136,7 +136,7 @@ fn vadc_vvm_no_carry() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E32), 15, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -282,7 +282,7 @@ fn vmadc_vvm_carry_out_when_overflow() {
     assert!(read_mask_bit(&state, VReg::V4, 2));
     assert!(!read_mask_bit(&state, VReg::V4, 3));
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -396,7 +396,7 @@ fn vsbc_vvm_no_borrow() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E32), 90, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -486,7 +486,7 @@ fn vmsbc_vvm_borrow_out() {
     assert!(!read_mask_bit(&state, VReg::V4, 2));
     assert!(read_mask_bit(&state, VReg::V4, 3));
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -695,7 +695,7 @@ fn vadc_vstart_skips_elements() {
         write_elem(&mut state, VReg::V1, i, Vsew::E32, 1);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxCarryInstruction::VadcVvm {
@@ -711,7 +711,7 @@ fn vadc_vstart_skips_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xDEAD);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 11);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 11);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vl=0

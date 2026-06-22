@@ -18,7 +18,7 @@ fn setup(vl: u32, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZvbcInstruct
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -313,7 +313,7 @@ fn vclmul_vv_e8_squaring_polynomial() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x41, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // Multiplying by the identity polynomial (1 = 0x01) must return vs2 unchanged.
@@ -433,7 +433,7 @@ fn vclmul_vv_e64_high_bit_product_is_zero_in_low_half() {
         0x0000_0000_0000_0000
     );
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vclmul.vx
@@ -461,7 +461,7 @@ fn vclmul_vx_basic_e8() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x41, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // VV and VX produce identical results when the scalar matches the vector element value.
@@ -567,7 +567,7 @@ fn vclmulh_vv_e8_nontrivial_upper_bits() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x7F, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // When the product fits in SEW bits, the upper half is zero.
@@ -625,7 +625,7 @@ fn vclmulh_vv_e16_nontrivial_upper_bits() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // At E64, x^63 * x^63 = x^126; this lies entirely in the upper half at bit 126 = bit 62 of
@@ -652,7 +652,7 @@ fn vclmulh_vv_e64_high_bit_product_in_upper_half() {
         0x4000_0000_0000_0000
     );
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vclmul and vclmulh together reconstruct the full 2*SEW product.
@@ -722,7 +722,7 @@ fn vclmulh_vx_basic_e8() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x7F, "elem {i}");
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // VV and VX produce identical results for vclmulh when the scalar matches.
@@ -774,7 +774,7 @@ fn vclmul_vv_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x09);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
     }
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZvbcInstruction::VclmulVv {
@@ -793,7 +793,7 @@ fn vclmul_vv_vstart_skips_earlier_elements() {
     // Elements 2,3: clmul(0x09, 0x09) = 0x41
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 0x41);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0x41);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vl=0

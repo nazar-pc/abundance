@@ -132,26 +132,29 @@ where
     fn initialize_vector_state(&mut self) {
         self.set_vtype(None);
         self.set_vl(0);
-        self.set_vstart(0);
+        self.set_vstart(Vstart::ZERO);
         self.set_vxrm(Vxrm::default());
         self.set_vxsat(false);
     }
 
     /// Get current `vstart`
     #[inline(always)]
-    fn vstart(&self) -> u16 {
+    fn vstart(&self) -> Vstart {
         let raw = self
             .read_csr(VectorCsr::Vstart.to_csr_index())
             .unwrap_or_default()
             .as_u64();
-        raw as u16
+        Vstart::from(raw as u16)
     }
 
     /// Set `vstart`
     #[inline(always)]
-    fn set_vstart(&mut self, vstart: u16) {
-        self.write_csr(VectorCsr::Vstart.to_csr_index(), Reg::Type::from(vstart))
-            .expect("Implementation didn't initialize `vstart` CSR");
+    fn set_vstart(&mut self, vstart: Vstart) {
+        self.write_csr(
+            VectorCsr::Vstart.to_csr_index(),
+            Reg::Type::from(u16::from(vstart)),
+        )
+        .expect("Implementation didn't initialize `vstart` CSR");
     }
 
     /// Reset `vstart` to zero.
@@ -159,7 +162,7 @@ where
     /// Per spec, all vector instructions reset `vstart` to zero at the end of execution.
     #[inline(always)]
     fn reset_vstart(&mut self) {
-        self.set_vstart(0);
+        self.set_vstart(Vstart::ZERO);
     }
 
     /// Get `vxsat` (single bit)

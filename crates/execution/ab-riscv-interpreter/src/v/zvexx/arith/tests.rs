@@ -23,7 +23,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -157,7 +157,7 @@ fn vadd_vv_e8_m1_basic() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -793,7 +793,7 @@ fn vmseq_vv_e8_m1_writes_mask_bits() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1210,7 +1210,7 @@ fn vstart_skips_elements_before_vstart() {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
     // Start at element 2: elements 0,1 should remain as sentinel
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1232,7 +1232,7 @@ fn vstart_skips_elements_before_vstart() {
     // executed
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 2);
     // vstart must be reset to 0
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1244,7 +1244,7 @@ fn vstart_skips_elements_before_vstart_compare() {
     }
     // Pre-fill vd bits with 0
     state.ext_state.write_vregs().get_mut(VReg::V4)[0] = 0x00;
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1260,7 +1260,7 @@ fn vstart_skips_elements_before_vstart_compare() {
     // Bits 0,1 undisturbed (0); bits 2,3 written (eq = 1)
     let vd = state.ext_state.read_vregs().get(VReg::V4)[0];
     assert_eq!(vd & 0x0F, 0b1100);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vl=0: no writes, dirty still incremented
@@ -1559,7 +1559,7 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
         );
         assert_eq!(
             state.ext_state.vstart(),
-            0,
+            Vstart::ZERO,
             "instr #{n} didn't reset vstart"
         );
     }

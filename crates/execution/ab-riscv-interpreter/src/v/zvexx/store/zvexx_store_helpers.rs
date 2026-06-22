@@ -140,7 +140,7 @@ where
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
-                ext_state.set_vstart(i as u16);
+                ext_state.set_vstart(Vstart::from(i as u16));
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
@@ -206,7 +206,7 @@ where
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
-                ext_state.set_vstart(i as u16);
+                ext_state.set_vstart(Vstart::from(i as u16));
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
@@ -284,7 +284,7 @@ where
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
                 cold_path();
-                ext_state.set_vstart(i as u16);
+                ext_state.set_vstart(Vstart::from(i as u16));
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }

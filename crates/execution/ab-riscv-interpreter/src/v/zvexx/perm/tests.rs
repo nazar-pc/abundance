@@ -32,7 +32,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -145,7 +145,7 @@ fn vmv_x_s_e8_reads_element_0() {
     )
     .unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0x42u64);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -293,7 +293,7 @@ fn vmv_s_x_e8_writes_element_0() {
     for i in 1..16 {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xFF, "elem {i}");
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -373,7 +373,7 @@ fn vmv_s_x_vstart_ge_vl_suppresses_write() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     set_vreg_bytes(&mut state, VReg::V4, 0xAA);
     state.regs.write(Reg::A0, 0x1234_5678);
-    state.ext_state.set_vstart(4);
+    state.ext_state.set_vstart(Vstart::from(4));
     exec(
         &mut state,
         ZveXxPermInstruction::VmvSX {
@@ -384,7 +384,7 @@ fn vmv_s_x_vstart_ge_vl_suppresses_write() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xAAAA_AAAA);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -392,7 +392,7 @@ fn vmv_s_x_vstart_nonzero_below_vl_still_writes() {
     // vstart=1, vl=4: vstart < vl, so write proceeds (spec says element 0 is updated).
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, 0x1234_5678);
-    state.ext_state.set_vstart(1);
+    state.ext_state.set_vstart(Vstart::from(1));
     exec(
         &mut state,
         ZveXxPermInstruction::VmvSX {
@@ -436,7 +436,7 @@ fn vslideup_vx_e8_basic() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -591,7 +591,7 @@ fn vslideup_vstart_skips_lower_elements() {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 10) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xBB);
     }
-    state.ext_state.set_vstart(3);
+    state.ext_state.set_vstart(Vstart::from(3));
     state.regs.write(Reg::A0, 2u64);
     exec(
         &mut state,
@@ -616,7 +616,7 @@ fn vslideup_vstart_skips_lower_elements() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vslidedown
@@ -646,7 +646,7 @@ fn vslidedown_vx_e8_basic() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -801,7 +801,7 @@ fn vslide1up_vx_e32_basic() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 10);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 20);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 30);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -900,7 +900,7 @@ fn vslide1down_vx_e32_basic() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 30);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 40);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 999);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1023,7 +1023,7 @@ fn vrgather_vv_e8_basic() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 10);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 30);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 20);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1346,7 +1346,7 @@ fn vmv_v_v_broadcasts_all_elements() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -1409,7 +1409,7 @@ fn vmerge_vvm_blends_vs2_and_vs1() {
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 200);
     // v0[3]=1 -> vs1[3]=31
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 31);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1525,7 +1525,7 @@ fn vmerge_vvm_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xBEEF);
     }
     state.ext_state.write_vregs().get_mut(VReg::V0).fill(0xFF);
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxPermInstruction::VmergeVvm {
@@ -1544,7 +1544,7 @@ fn vmerge_vvm_vstart_skips_early_elements() {
     // Elements 2..4: mask=1 so from vs1.
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 21);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 31);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1604,7 +1604,7 @@ fn vmv_v_x_broadcasts_scalar() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -1748,7 +1748,7 @@ fn vmv_v_i_broadcasts_positive_immediate() {
     for i in 0..4usize {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E32), 15, "elem {i}");
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -1902,7 +1902,7 @@ fn vmerge_vim_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xABCD);
     }
     state.ext_state.write_vregs().get_mut(VReg::V0).fill(0xFF);
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxPermInstruction::VmergeVim {
@@ -1919,7 +1919,7 @@ fn vmerge_vim_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xABCD);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 42);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 42);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // Vector-disabled / vtype-invalid
@@ -2060,10 +2060,14 @@ fn vmerge_variants_reset_vstart_and_mark_dirty() {
             write_elem(&mut state, VReg::V1, i, Vsew::E32, (i + 1) as u64);
         }
         state.regs.write(Reg::A0, 99u64);
-        state.ext_state.set_vstart(2);
+        state.ext_state.set_vstart(Vstart::from(2));
         let before = state.ext_state.vs_dirty_count();
         exec(&mut state, *instr).unwrap();
-        assert_eq!(state.ext_state.vstart(), 0, "vstart not reset for {name}");
+        assert_eq!(
+            state.ext_state.vstart(),
+            Vstart::ZERO,
+            "vstart not reset for {name}"
+        );
         assert_eq!(
             state.ext_state.vs_dirty_count(),
             before + 1,
@@ -2159,7 +2163,7 @@ fn vcompress_vm_e32_basic() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 40);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 0xBEEF);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 0xBEEF);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -2286,7 +2290,7 @@ fn vcompress_vm_rejects_nonzero_vstart() {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
     }
     state.ext_state.write_vregs().get_mut(VReg::V1).fill(0xFF);
-    state.ext_state.set_vstart(1);
+    state.ext_state.set_vstart(Vstart::from(1));
     let err = exec(
         &mut state,
         ZveXxPermInstruction::VcompressVm {
@@ -2350,7 +2354,7 @@ fn vmv1r_v_copies_single_register() {
     )
     .unwrap();
     assert_eq!(get_vreg_bytes(&state, VReg::V4), src);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -2458,7 +2462,7 @@ fn vmv4r_v_copies_four_registers() {
             "reg offset {k}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -2704,7 +2708,7 @@ fn vslide1down_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xAA);
     }
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     state.regs.write(Reg::A0, 999u64);
     exec(
         &mut state,
@@ -2721,7 +2725,7 @@ fn vslide1down_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xAA);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 40);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 999);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -2732,7 +2736,7 @@ fn vrgather_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V1, i, Vsew::E32, (3 - i) as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xCC);
     }
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxPermInstruction::VrgatherVv {
@@ -2749,7 +2753,7 @@ fn vrgather_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xCC);
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 2);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vstart reset and vs_dirty invariants (array-based, no macros)
@@ -2916,10 +2920,14 @@ fn all_instructions_reset_vstart() {
             write_elem(&mut state, VReg::V1, i, Vsew::E32, i as u64);
         }
         state.ext_state.write_vregs().get_mut(VReg::V1).fill(0xFF);
-        state.ext_state.set_vstart(2);
+        state.ext_state.set_vstart(Vstart::from(2));
         state.regs.write(Reg::A0, 1u64);
         exec(&mut state, *instr).unwrap();
-        assert_eq!(state.ext_state.vstart(), 0, "vstart not reset for {name}");
+        assert_eq!(
+            state.ext_state.vstart(),
+            Vstart::ZERO,
+            "vstart not reset for {name}"
+        );
     }
 }
 

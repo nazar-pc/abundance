@@ -21,7 +21,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -123,7 +123,7 @@ fn vredsum_e8_m1_basic() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 20);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn vredsum_vl_zero_leaves_vd_undisturbed() {
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xdead_beef);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xcafe_babe);
     assert_eq!(state.ext_state.vs_dirty_count(), dirty_before);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -717,7 +717,7 @@ fn vwredsumu_e8_to_e16_basic() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 20);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1030,7 +1030,7 @@ fn reduction_misaligned_vs2_m2_is_illegal() {
 #[test]
 fn reduction_nonzero_vstart_is_illegal() {
     let mut state = setup(4, Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vstart(1);
+    state.ext_state.set_vstart(Vstart::from(1));
     let result = exec(
         &mut state,
         ZveXxReductionInstruction::Vredsum {
@@ -1051,7 +1051,7 @@ fn reduction_nonzero_vstart_is_illegal() {
 #[test]
 fn widening_reduction_nonzero_vstart_is_illegal() {
     let mut state = setup(4, Vsew::E16, Vlmul::M1);
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     let result = exec(
         &mut state,
         ZveXxReductionInstruction::Vwredsum {
@@ -1088,7 +1088,7 @@ fn reduction_vstart_reset_after_execution() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]

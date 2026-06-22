@@ -22,7 +22,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -162,7 +162,7 @@ fn vsaddu_vv_e8_no_overflow() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 30, "elem {i}");
     }
     assert!(!vxsat(&state), "vxsat must not be set on no-overflow");
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
@@ -1898,7 +1898,7 @@ fn vsaddu_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x55);
     }
     // Set vstart = 2: skip elements 0 and 1
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -1918,7 +1918,7 @@ fn vsaddu_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 255);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 255);
     // vstart is reset to 0 after execution
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vector not allowed
@@ -2227,7 +2227,7 @@ fn vs_dirty_increments_per_instruction() {
 #[test]
 fn vstart_resets_to_zero_after_execution() {
     let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 1);
     write_elem(&mut state, VReg::V1, 2, Vsew::E8, 1);
     exec(
@@ -2242,7 +2242,11 @@ fn vstart_resets_to_zero_after_execution() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.vstart(), 0, "vstart must be reset to 0");
+    assert_eq!(
+        state.ext_state.vstart(),
+        Vstart::ZERO,
+        "vstart must be reset to 0"
+    );
 }
 
 // vl=0 does nothing
@@ -2273,7 +2277,7 @@ fn vsaddu_vl_zero_no_writes() {
         );
     }
     // mark_vs_dirty is still called; vstart still reset
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // multiple SEW sizes for saturation arithmetic
