@@ -3,8 +3,8 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
 
-const ELEN: u32 = u64::BITS;
-const VLEN: u32 = 1024;
+const ELEN: Elen = Elen::L64;
+const VLEN: Vlen = Vlen::L1024;
 
 pub(crate) struct AbundanceRv32IMaxExtState {
     csrs: BTreeMap<u16, u32>,
@@ -24,7 +24,7 @@ impl AbundanceRv32IMaxExtState {
         s.init_csr(VectorCsr::Vcsr.to_csr_index(), 0);
         s.init_csr(VectorCsr::Vl.to_csr_index(), 0);
         s.init_csr(VectorCsr::Vtype.to_csr_index(), 1u32 << (u32::BITS - 1));
-        s.init_csr(VectorCsr::Vlenb.to_csr_index(), Self::VLEN / u8::BITS);
+        s.init_csr(VectorCsr::Vlenb.to_csr_index(), Self::VLEN.bytes());
         // Machine trap CSRs - zero-initialized, mtvec must be written by test
         // boot code before any trap can be taken.
         s.init_csr(MCsr::Mstatus as u16, 0);
@@ -87,8 +87,8 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
 }
 
 impl VectorRegistersBase for AbundanceRv32IMaxExtState {
-    const ELEN: u32 = ELEN;
-    const VLEN: u32 = VLEN;
+    const ELEN: Elen = ELEN;
+    const VLEN: Vlen = VLEN;
 }
 
 impl VectorRegisters for AbundanceRv32IMaxExtState

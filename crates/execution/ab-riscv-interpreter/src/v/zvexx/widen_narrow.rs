@@ -34,6 +34,7 @@ where
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
@@ -71,7 +72,7 @@ where
                 };
                 let sew = vtype.vsew();
                 // Widening requires SEW < 64; 2*SEW must fit in ELEN=64
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -146,7 +147,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -213,7 +214,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -288,7 +289,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -357,7 +358,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -432,7 +433,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -498,7 +499,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -573,7 +574,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -641,7 +642,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -717,7 +718,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -780,7 +781,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -855,7 +856,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -919,7 +920,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -994,7 +995,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1056,7 +1057,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1131,7 +1132,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1196,7 +1197,7 @@ where
                 };
                 let sew = vtype.vsew();
                 // SEW must be < 64 so that 2*SEW fits in ELEN
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1267,7 +1268,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1329,7 +1330,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1390,7 +1391,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1461,7 +1462,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1523,7 +1524,7 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),

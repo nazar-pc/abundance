@@ -310,6 +310,7 @@ pub unsafe fn execute_unit_stride_load<
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -435,6 +436,7 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
@@ -524,6 +526,7 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {

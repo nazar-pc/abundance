@@ -19,11 +19,11 @@ use core::ops::ControlFlow;
 pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
 /// Zve64x element width
-const ZVE64X_ELEN: u32 = 64;
+const ZVE64X_ELEN: Elen = Elen::L64;
 /// VLEN in bits for the test vector register file
-const TEST_VLEN: u32 = 256;
+const TEST_VLEN: Vlen = Vlen::L256;
 /// VLEN in bytes
-const TEST_VLENB: u32 = TEST_VLEN / u8::BITS;
+const TEST_VLENB: u32 = u32::from(TEST_VLEN) / u8::BITS;
 
 /// Simple test memory implementation
 pub(crate) struct TestMemory {
@@ -362,8 +362,8 @@ impl Csrs<Reg<u64>> for ExtState {
 }
 
 impl VectorRegistersBase for ExtState {
-    const ELEN: u32 = ZVE64X_ELEN;
-    const VLEN: u32 = TEST_VLEN;
+    const ELEN: Elen = ZVE64X_ELEN;
+    const VLEN: Vlen = TEST_VLEN;
 }
 
 impl VectorRegisters for ExtState

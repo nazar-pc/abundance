@@ -1,11 +1,9 @@
 //! Vector registers
 
-use crate::v::private::SupportedElenVlen;
 use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
-const VLENB<const VLEN: u32>: u32 = VLEN / u8::BITS;
 pub(crate) const VLENB_USIZE<const VLENB: u32>: usize = VLENB as usize;
 
 /// Alignment wrapper for vector registers
@@ -43,15 +41,12 @@ impl<const VLENB: u32> VectorRegisterFile<VLENB> {
 /// This is primarily a workaround for type system cycles.
 pub trait VectorRegistersBase {
     /// Maximum vector element width `ELEN` in bits
-    const ELEN: u32;
+    const ELEN: Elen;
     /// Vector register width `VLEN` in bits
-    const VLEN: u32;
-    /// Vector register width in bytes (`vlenb = VLEN / 8`)
-    const VLENB: u32 = VLENB::<{ Self::VLEN }>;
-    /// Vector register width in bytes (`vlenb = VLEN / 8`).
-    ///
-    /// The same as `Self::VLENB`, but `usize`.
-    const VLENB_USIZE: usize = VLENB_USIZE::<{ Self::VLENB }>;
+    const VLEN: Vlen;
+    // TODO: Try removing this and only using `Vlen`
+    /// Vector register width in bytes
+    const VLENB: u32 = Self::VLEN.bytes();
 }
 
 // TODO: Figure out a way to make `VectorRegisters + VectorRegistersExt` trait bounds work without
@@ -72,7 +67,8 @@ pub trait VectorRegistersBase {
 /// `ELEN` is the maximum element width in bits.
 pub trait VectorRegisters<CustomError = CustomErrorPlaceholder>
 where
-    Self: VectorRegistersBase + SupportedElenVlen<{ Self::ELEN }, { Self::VLEN }>,
+    Self: VectorRegistersBase,
+    [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
 {
     /// Read the vector register file
     fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }>;
@@ -121,6 +117,7 @@ where
 pub trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
 where
     Self: Csrs<Reg, CustomError> + VectorRegisters<CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
     Reg: Register,
     CustomError: fmt::Debug,
 {

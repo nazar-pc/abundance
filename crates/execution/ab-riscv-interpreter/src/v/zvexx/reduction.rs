@@ -35,6 +35,7 @@ where
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
@@ -428,7 +429,7 @@ where
                     });
                 }
                 // Widening: 2*SEW must fit in ELEN
-                if u32::from(vtype.vsew().bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -477,7 +478,7 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if u32::from(vtype.vsew().bits_width()) * 2 > ExtState::ELEN {
+                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),

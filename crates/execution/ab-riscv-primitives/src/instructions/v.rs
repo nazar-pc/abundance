@@ -5,6 +5,7 @@ pub mod zvexx;
 use crate::registers::general_purpose::{RegType, Register};
 use core::fmt;
 use core::hint::cold_path;
+use core::marker::ConstParamTy;
 
 /// Vector start element index
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
@@ -50,6 +51,106 @@ impl Vstart {
     /// Zero vector start element index
     pub const ZERO: Self = Self(0);
 }
+
+/// Element length
+#[derive(ConstParamTy, Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum Elen {
+    /// Element length is 8 bits
+    L8 = 8,
+    /// Element length is 16 bits
+    L16 = 16,
+    /// Element length is 32 bits
+    L32 = 32,
+    /// Element length is 64 bits
+    L64 = 64,
+    /// Element length is 128 bits
+    L128 = 128,
+    /// Element length is 256 bits
+    L256 = 256,
+    /// Element length is 512 bits
+    L512 = 512,
+    /// Element length is 1024 bits
+    L1024 = 1024,
+    /// Element length is 2048 bits
+    L2048 = 2048,
+    /// Element length is 4096 bits
+    L4096 = 4096,
+    /// Element length is 8192 bits
+    L8192 = 8192,
+    /// Element length is 16_384 bits
+    L16_384 = 16_384,
+    /// Element length is 32_768 bits
+    L32_768 = 32_768,
+    /// Element length is 65_536 bits
+    L65_536 = 65_536,
+}
+
+const impl From<Elen> for u32 {
+    #[inline(always)]
+    fn from(value: Elen) -> Self {
+        value as u32
+    }
+}
+
+/// Vector length
+#[derive(ConstParamTy, Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum Vlen {
+    /// Vector length is 8 bits
+    L8 = 8,
+    /// Vector length is 16 bits
+    L16 = 16,
+    /// Vector length is 32 bits
+    L32 = 32,
+    /// Vector length is 64 bits
+    L64 = 64,
+    /// Vector length is 128 bits
+    L128 = 128,
+    /// Vector length is 256 bits
+    L256 = 256,
+    /// Vector length is 512 bits
+    L512 = 512,
+    /// Vector length is 1024 bits
+    L1024 = 1024,
+    /// Vector length is 2048 bits
+    L2048 = 2048,
+    /// Vector length is 4096 bits
+    L4096 = 4096,
+    /// Vector length is 8192 bits
+    L8192 = 8192,
+    /// Vector length is 16_384 bits
+    L16_384 = 16_384,
+    /// Vector length is 32_768 bits
+    L32_768 = 32_768,
+    /// Vector length is 65_536 bits
+    L65_536 = 65_536,
+}
+
+const impl From<Vlen> for u32 {
+    #[inline(always)]
+    fn from(value: Vlen) -> Self {
+        value as u32
+    }
+}
+
+impl Vlen {
+    /// Vlen in bytes
+    #[inline(always)]
+    pub const fn bytes(self) -> u32 {
+        self as u32 / u8::BITS
+    }
+}
+
+/// Assertion for supported ELEN + VLEN combinations, to be used in `where` bounds (panics on
+/// invalid input)
+pub const SUPPORTED_ELEN_VLEN<const ELEN: Elen, const VLEN: Vlen>: usize = {
+    assert!(
+        u32::from(ELEN) <= u32::from(VLEN),
+        "ELEN must be smaller than VLEN"
+    );
+    0
+};
 
 /// `mstatus.VS` / `sstatus.VS` / `vsstatus.VS` field encoding.
 ///
@@ -138,16 +239,16 @@ impl Vlmul {
     /// For fractional LMUL, this is `VLEN / (SEW * denominator)`.
     /// Returns 0 when the result would be less than 1 (insufficient bits).
     #[inline(always)]
-    pub const fn vlmax<const VLEN: u32>(self, sew: Vsew) -> u32 {
+    pub const fn vlmax<const VLEN: Vlen>(self, sew: Vsew) -> u32 {
         let sew_bits = u32::from(sew.bits_width());
         match self {
-            Self::M1 => VLEN / sew_bits,
-            Self::M2 => (VLEN * 2) / sew_bits,
-            Self::M4 => (VLEN * 4) / sew_bits,
-            Self::M8 => (VLEN * 8) / sew_bits,
-            Self::Mf2 => VLEN / (sew_bits * 2),
-            Self::Mf4 => VLEN / (sew_bits * 4),
-            Self::Mf8 => VLEN / (sew_bits * 8),
+            Self::M1 => u32::from(VLEN) / sew_bits,
+            Self::M2 => (u32::from(VLEN) * 2) / sew_bits,
+            Self::M4 => (u32::from(VLEN) * 4) / sew_bits,
+            Self::M8 => (u32::from(VLEN) * 8) / sew_bits,
+            Self::Mf2 => u32::from(VLEN) / (sew_bits * 2),
+            Self::Mf4 => u32::from(VLEN) / (sew_bits * 4),
+            Self::Mf8 => u32::from(VLEN) / (sew_bits * 8),
         }
     }
 
@@ -500,7 +601,10 @@ impl Vxrm {
 /// The raw encoding is XLEN-dependent (vill is at bit XLEN-1), but this decoded form is
 /// XLEN-independent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Vtype<const ELEN: u32, const VLEN: u32> {
+pub struct Vtype<const ELEN: Elen, const VLEN: Vlen>
+where
+    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+{
     /// Vector mask agnostic policy (bit `7`)
     vma: bool,
     /// Vector tail agnostic policy (bit `6`)
@@ -511,7 +615,10 @@ pub struct Vtype<const ELEN: u32, const VLEN: u32> {
     vlmul: Vlmul,
 }
 
-impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
+impl<const ELEN: Elen, const VLEN: Vlen> Vtype<ELEN, VLEN>
+where
+    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+{
     /// Vector mask agnostic policy (bit `7`)
     pub const fn vma(&self) -> bool {
         self.vma
@@ -567,7 +674,7 @@ impl<const ELEN: u32, const VLEN: u32> Vtype<ELEN, VLEN> {
         };
 
         let sew = vsew.bits_width();
-        if u32::from(sew) > ELEN {
+        if u32::from(sew) > u32::from(ELEN) {
             cold_path();
             return None;
         }
