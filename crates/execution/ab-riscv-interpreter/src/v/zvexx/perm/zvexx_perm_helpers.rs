@@ -182,14 +182,16 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     // The active range starts at max(vstart, offset).
-    let start = u32::from(vstart).max(offset.min(u64::from(u32::MAX)) as u32);
-    for i in start..vl {
+    for i in vstart
+        .max(Vstart::from(offset.saturating_truncate::<u16>()))
+        .range_to(vl)
+    {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        let src_idx = u64::from(i) - offset;
+        let src_idx = i - offset.saturating_truncate::<u16>();
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
-        let val = unsafe { read_element_u64(ext_state.read_vregs(), vs2, src_idx as u32, sew) };
+        let val = unsafe { read_element_u64(ext_state.read_vregs(), vs2, src_idx, sew) };
         // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
         unsafe {
             write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
@@ -215,7 +217,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     vs2: VReg,
     vm: bool,
     sew: Vsew,
-    vlmax: u32,
+    vlmax: Vl,
     offset: u64,
 ) where
     Reg: Register,
@@ -227,7 +229,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -237,7 +239,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
             && src_idx < u64::from(vlmax)
         {
             // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, src_idx as u32, sew) }
+            unsafe { read_element_u64(ext_state.read_vregs(), vs2, src_idx as u16, sew) }
         } else {
             0
         };
@@ -279,7 +281,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -331,11 +333,12 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    let range = vstart.range_to(vl);
+    for i in range.clone() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        let val = if i + 1 < vl {
+        let val = if i < *range.end() {
             // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
             unsafe { read_element_u64(ext_state.read_vregs(), vs2, i + 1, sew) }
         } else {
@@ -365,7 +368,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     vs1: VReg,
     vm: bool,
     sew: Vsew,
-    vlmax: u32,
+    vlmax: Vl,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
@@ -376,7 +379,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     let vstart = ext_state.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -384,7 +387,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
         let index = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, sew) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u32, sew) }
+            unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u16, sew) }
         } else {
             0u64
         };
@@ -411,7 +414,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     vs2: VReg,
     vm: bool,
     sew: Vsew,
-    vlmax: u32,
+    vlmax: Vl,
     index: u64,
 ) where
     Reg: Register,
@@ -426,11 +429,11 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-        unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u32, sew) }
+        unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u16, sew) }
     } else {
         0u64
     };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -463,7 +466,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     vs1: VReg,
     vm: bool,
     sew: Vsew,
-    vlmax: u32,
+    vlmax: Vl,
     index_group_regs: u8,
 ) where
     Reg: Register,
@@ -479,12 +482,12 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     // `vl` must not exceed either the data VLMAX or the index register group capacity.
     // Both bounds are guaranteed by the caller; this debug assertion catches misuse early.
     debug_assert!(
-        vl <= vlmax && vl <= index_capacity,
+        vl <= vlmax && u32::from(vl) <= index_capacity,
         "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
     );
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -494,7 +497,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
         let index = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u32, sew) }
+            unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u16, sew) }
         } else {
             0u64
         };
@@ -537,7 +540,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
@@ -586,7 +589,7 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         let val = if mask_bit(&mask_buf, i) {
             scalar
         } else {
@@ -619,7 +622,7 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
-    vl: u32,
+    vl: Vl,
     sew: Vsew,
 ) where
     Reg: Register,
@@ -627,7 +630,7 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
-    let mask_bytes = vl.div_ceil(u8::BITS) as usize;
+    let mask_bytes = usize::from(vl.bytes());
     let vreg = ext_state.read_vregs();
     let mut vs1_buf = [0u8; VLENB_USIZE::<{ ExtState::VLENB }>];
     // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
@@ -636,8 +639,8 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
             .get_unchecked_mut(..mask_bytes)
             .copy_from_slice(vreg.get(vs1).get_unchecked(..mask_bytes));
     }
-    let mut out_idx = 0u32;
-    for i in 0..vl {
+    let mut out_idx = 0;
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&vs1_buf, i) {
             continue;
         }

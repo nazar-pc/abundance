@@ -78,9 +78,9 @@ where
                 let vlenb = u64::from(ExtState::VLENB);
                 let evl = u64::from(nreg) * vlenb;
                 let vstart = ext_state.vstart();
-                if u64::from(vstart) < evl {
+                if u64::from(u16::from(vstart)) < evl {
                     let base = rs1_value.as_u64();
-                    let mut byte_off = u64::from(vstart);
+                    let mut byte_off = u64::from(u16::from(vstart));
                     while byte_off < evl {
                         let reg_off = byte_off / vlenb;
                         let in_reg = (byte_off % vlenb) as usize;
@@ -112,21 +112,20 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let evl_bytes = vl.div_ceil(u8::BITS);
+                let evl_bytes = vl.bytes();
                 let start_byte = ext_state.vstart();
-                if u32::from(start_byte) < evl_bytes {
+                if u16::from(start_byte) < evl_bytes {
                     let base = rs1_value.as_u64();
                     // SAFETY: `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLENB` because
                     // `vl <= VLMAX <= VLEN`, so the slice `start_byte..evl_bytes` is in bounds of
                     // the `VLENB`-byte source register
                     let src = unsafe {
-                        ext_state
-                            .read_vregs()
-                            .get(vs3)
-                            .get_unchecked(usize::from(u16::from(start_byte))..evl_bytes as usize)
+                        ext_state.read_vregs().get(vs3).get_unchecked(
+                            usize::from(u16::from(start_byte))..usize::from(evl_bytes),
+                        )
                     };
                     memory
-                        .write_slice(base + u64::from(start_byte), src)
+                        .write_slice(base + u64::from(u16::from(start_byte)), src)
                         .map_err(ExecutionError::MemoryAccess)?;
                 }
                 ext_state.reset_vstart();

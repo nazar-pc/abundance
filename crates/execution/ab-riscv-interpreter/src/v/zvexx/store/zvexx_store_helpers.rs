@@ -112,7 +112,7 @@ where
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -141,7 +141,7 @@ where
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
-                ext_state.set_vstart(Vstart::from(i as u16));
+                ext_state.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
@@ -189,7 +189,7 @@ where
     let elem_bytes = eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -208,7 +208,7 @@ where
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
-                ext_state.set_vstart(Vstart::from(i as u16));
+                ext_state.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }
@@ -262,7 +262,7 @@ where
     let data_elem_bytes = data_eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -287,7 +287,7 @@ where
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
                 cold_path();
-                ext_state.set_vstart(Vstart::from(i as u16));
+                ext_state.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::MemoryAccess(error));
             }
         }

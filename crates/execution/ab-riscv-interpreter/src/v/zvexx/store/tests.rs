@@ -14,7 +14,7 @@ use core::array;
 //   E8/Mf2 VLMAX=16, E16/Mf2 VLMAX=8
 
 fn setup(
-    vl: u32,
+    vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxStoreInstruction<Reg<u64>>> {
@@ -214,7 +214,7 @@ fn vsr_ignores_vtype_and_vl() {
     state.ext_state.init_vector_csrs();
     // Leave vtype as illegal (default)
     state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(0);
+    state.ext_state.set_vl(Vl::ZERO);
     let data = array::from_fn::<_, 16, _>(|i| i as u8 + 0xAA);
     set_vreg(&mut state, VReg::V0, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -362,7 +362,7 @@ fn vsr_nreg2_vstart_spans_register_boundary() {
 #[test]
 fn vsm_stores_ceil_vl_over_8_bytes() {
     // E8/M1: VLMAX=32. Set vl=9 -> ceil(9/8)=2 bytes written.
-    let mut state = setup(9, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(9).unwrap(), Vsew::E8, Vlmul::M1);
     // v1 mask register: byte0=0xFF, byte1=0x01
     let mask = [
         0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -390,7 +390,7 @@ fn vsm_stores_ceil_vl_over_8_bytes() {
 
 #[test]
 fn vsm_vl_zero_writes_nothing() {
-    let mut state = setup(0, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E8, Vlmul::M1);
     let mask = [0xFF; 16];
     set_vreg(&mut state, VReg::V0, &mask);
     // Write sentinel to memory so we can detect any write
@@ -413,7 +413,7 @@ fn vsm_vl_zero_writes_nothing() {
 
 #[test]
 fn vsm_vl_exactly_8_writes_one_byte() {
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     let mut mask = [0u8; 16];
     mask[0] = 0b1011_0101;
     set_vreg(&mut state, VReg::V3, &mask);
@@ -438,7 +438,7 @@ fn vsm_vl_exactly_8_writes_one_byte() {
 
 #[test]
 fn vsm_vector_not_allowed_returns_illegal_instruction() {
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -464,7 +464,7 @@ fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
     // write only the second byte of the mask register.
     // This test FAILS on the old buggy implementation (which did `vstart / 8`).
     // It PASSES after the fix (`start_byte = vstart` with no division).
-    let mut state = setup(16, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E8, Vlmul::M1);
 
     let mut mask = [0u8; 16];
     mask[0] = 0xAA; // byte 0 – should be skipped
@@ -502,7 +502,7 @@ fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
 #[test]
 fn vsm_vstart_past_evl_writes_nothing() {
     // vl=8 => EVL = 1 byte; vstart=8 => start_byte = 1, equals EVL => no-op
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V1, &[0xFF; 16]);
     state.memory.write::<u8>(TEST_BASE_ADDR, 0x77).unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -527,7 +527,7 @@ fn vsm_vstart_past_evl_writes_nothing() {
 #[test]
 fn vse_e8_m1_stores_all_elements() {
     // VLMAX=32, store all 32 elements
-    let mut state = setup(32, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
     let data = array::from_fn::<_, 32, _>(|i| i as u8 + 1);
     set_vreg(&mut state, VReg::V4, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -552,7 +552,7 @@ fn vse_e8_m1_stores_all_elements() {
 #[test]
 fn vse_e32_m1_stores_partial_vl() {
     // VLMAX=8, use vl=3
-    let mut state = setup(3, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E32, Vlmul::M1);
     // Pack three u32 values into v0: [1, 2, 3, 0]
     let mut vreg = [0u8; 16];
     vreg[0..4].copy_from_slice(&1u32.to_le_bytes());
@@ -591,7 +591,7 @@ fn vse_e32_m1_stores_partial_vl() {
 #[test]
 fn vse_e64_m1_stores_two_elements() {
     // E64/M1: VLMAX=4, vl=2
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     let mut vreg = [0u8; 16];
     vreg[0..8].copy_from_slice(&0x0102_0304_0506_0708_u64.to_le_bytes());
     vreg[8..16].copy_from_slice(&0xAABB_CCDD_EEFF_0011_u64.to_le_bytes());
@@ -623,7 +623,7 @@ fn vse_e64_m1_stores_two_elements() {
 #[test]
 fn vse_masked_skips_inactive_elements() {
     // E8/M1 VLMAX=32, vl=8, use first byte of v0 as mask
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     // mask: bits 0,2,4,6 set -> elements 0,2,4,6 active
     let mut mask = [0u8; 16];
     mask[0] = 0b0101_0101;
@@ -662,7 +662,7 @@ fn vse_masked_skips_inactive_elements() {
 
 #[test]
 fn vse_vstart_nonzero_skips_earlier_elements() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let mut vreg = [0u8; 16];
     for i in 0u32..4 {
         vreg[i as usize * 4..(i as usize + 1) * 4].copy_from_slice(&(i + 1).to_le_bytes());
@@ -706,7 +706,7 @@ fn vse_vstart_nonzero_skips_earlier_elements() {
 #[test]
 fn vse_masked_vs3_equals_v0_is_legal() {
     // Per RVV 1.0, vs3 is a source operand; source/v0 overlap is permitted for stores.
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     let mut mask_and_data = [0u8; 16];
     mask_and_data[0] = 0b1111_1111;
     set_vreg(&mut state, VReg::V0, &mask_and_data);
@@ -756,7 +756,7 @@ fn vse_vtype_illegal_returns_illegal_instruction() {
 
 #[test]
 fn vse_vector_not_allowed_returns_illegal_instruction() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -782,7 +782,7 @@ fn vse_vector_not_allowed_returns_illegal_instruction() {
 #[test]
 fn vsse_positive_stride_stores_with_gap() {
     // E32/M1 VLMAX=8, vl=3, stride=8 (two u32 gaps)
-    let mut state = setup(3, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E32, Vlmul::M1);
     let mut vreg = [0u8; 16];
     vreg[0..4].copy_from_slice(&10u32.to_le_bytes());
     vreg[4..8].copy_from_slice(&20u32.to_le_bytes());
@@ -819,7 +819,7 @@ fn vsse_positive_stride_stores_with_gap() {
 fn vsse_zero_stride_writes_same_address_repeatedly() {
     // With stride=0 every active element overwrites the same location.
     // Last active element wins.
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let data = array::from_fn::<_, 16, _>(|i| i as u8 + 1);
     set_vreg(&mut state, VReg::V1, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -845,7 +845,7 @@ fn vsse_zero_stride_writes_same_address_repeatedly() {
 fn vsse_negative_stride_stores_in_reverse() {
     // E32/M1, vl=3, stride=-4 (0xFFFF_FFFF_FFFF_FFFC as u64).
     // base points at the *last* slot; elements go backwards.
-    let mut state = setup(3, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E32, Vlmul::M1);
     let mut vreg = [0u8; 16];
     vreg[0..4].copy_from_slice(&1u32.to_le_bytes());
     vreg[4..8].copy_from_slice(&2u32.to_le_bytes());
@@ -879,7 +879,7 @@ fn vsse_negative_stride_stores_in_reverse() {
 #[test]
 fn vsse_masked_skips_inactive_elements() {
     // E64/M1 VLMAX=4, vl=2, stride=16; mask bit 0 set, bit 1 clear
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     let mut mask = [0u8; 16];
     mask[0] = 0b0000_0001;
     set_vreg(&mut state, VReg::V0, &mask);
@@ -924,7 +924,7 @@ fn vsse_masked_skips_inactive_elements() {
 fn vsuxei_e32_data_e32_index_stores_at_indexed_addresses() {
     // SEW=E32/M1: VLMAX=8, vl=3
     // index EEW=E32; EMUL_index = (32/32)*1 = 1 -> also M1
-    let mut state = setup(3, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E32, Vlmul::M1);
     // Data register v2: [100, 200, 300]
     let mut data_reg = [0u8; 16];
     data_reg[0..4].copy_from_slice(&100u32.to_le_bytes());
@@ -967,7 +967,7 @@ fn vsuxei_e32_data_e32_index_stores_at_indexed_addresses() {
 #[test]
 fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
     // SEW=E64/M1: VLMAX=4, vl=2; index EEW=E64 -> EMUL=1
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     let mut data_reg = [0u8; 16];
     data_reg[0..8].copy_from_slice(&0xDEAD_BEEF_DEAD_BEEF_u64.to_le_bytes());
     data_reg[8..16].copy_from_slice(&0xCAFE_BABE_CAFE_BABE_u64.to_le_bytes());
@@ -1006,7 +1006,7 @@ fn vsoxei_e64_data_e64_index_stores_at_indexed_addresses() {
 fn vsuxei_e8_index_scatter_e8_data() {
     // SEW=E8/M1: VLMAX=32, vl=4; index EEW=E8 -> EMUL=1
     // Scatter four bytes to arbitrary offsets
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let mut data_reg = [0u8; 16];
     data_reg[0] = 0xAA;
     data_reg[1] = 0xBB;
@@ -1044,7 +1044,7 @@ fn vsuxei_e8_index_scatter_e8_data() {
 #[test]
 fn vsuxei_masked_skips_inactive_elements() {
     // E32/M1, vl=4; mask has only bits 0 and 3 set
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let mut mask = [0u8; 16];
     mask[0] = 0b0000_1001;
     set_vreg(&mut state, VReg::V0, &mask);
@@ -1102,7 +1102,7 @@ fn vsuxei_masked_skips_inactive_elements() {
 #[test]
 fn vsuxei_misaligned_data_register_returns_illegal() {
     // M2 requires vs3 to be even; V3 is odd -> illegal
-    let mut state = setup(4, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     let idx_reg = [0u8; 16];
     set_vreg(&mut state, VReg::V4, &idx_reg);
@@ -1132,7 +1132,7 @@ fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
     // nf=2, SEW=E8/M1 VLMAX=32, vl=4
     // Field 0 in v2, field 1 in v3
     // Memory layout per element: [f0, f1], stride=nf*eew_bytes=2
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let f0 = array::from_fn::<_, 16, _>(|i| i as u8 + 1);
     let f1 = array::from_fn::<_, 16, _>(|i| i as u8 + 17);
     set_vreg(&mut state, VReg::V2, &f0);
@@ -1170,7 +1170,7 @@ fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
 fn vsseg_nf3_e32_m1_stores_three_fields_per_element() {
     // nf=3, SEW=E32/M1 VLMAX=8, vl=2
     // segment stride = 3 * 4 = 12 bytes per element
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     for (f, base_val) in [(VReg::V0, 1u32), (VReg::V1, 2u32), (VReg::V2, 3u32)] {
         let mut reg = [0u8; 16];
         reg[0..4].copy_from_slice(&base_val.to_le_bytes());
@@ -1204,7 +1204,7 @@ fn vsseg_nf3_e32_m1_stores_three_fields_per_element() {
 #[test]
 fn vsseg_register_group_out_of_bounds_returns_illegal() {
     // nf=4, M1: need registers [V30, V31, V32, V33] -> V32/V33 out of range
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -1227,7 +1227,7 @@ fn vsseg_register_group_out_of_bounds_returns_illegal() {
 #[test]
 fn vsseg_masked_vs3_equals_v0_is_legal() {
     // Per RVV 1.0, vs3 is a source register group; source/v0 overlap is permitted for stores.
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let mut mask_and_f0 = [0u8; 16];
     mask_and_f0[0] = 0b0000_1111;
     set_vreg(&mut state, VReg::V0, &mask_and_f0);
@@ -1269,7 +1269,7 @@ fn vsseg_masked_vs3_equals_v0_is_legal() {
 fn vssseg_nf2_e32_m1_stride_16_stores_correctly() {
     // nf=2, SEW=E32/M1, vl=2, stride=16
     // Element i at base + i*16; within element: [f0, f1] at +0, +4
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     let mut f0 = [0u8; 16];
     f0[0..4].copy_from_slice(&10u32.to_le_bytes());
     f0[4..8].copy_from_slice(&30u32.to_le_bytes());
@@ -1311,7 +1311,7 @@ fn vssseg_nf2_e32_m1_stride_16_stores_correctly() {
 fn vsuxseg_nf2_e32_index_e32_data_stores_segments_at_indexed_addresses() {
     // nf=2, SEW=E32/M1 VLMAX=8, vl=2; index EEW=E32
     // vs3=V2 (f0), vs3+1=V3 (f1); vs2=V6 (indices)
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     let mut f0 = [0u8; 16];
     f0[0..4].copy_from_slice(&100u32.to_le_bytes());
     f0[4..8].copy_from_slice(&200u32.to_le_bytes());
@@ -1351,7 +1351,7 @@ fn vsuxseg_nf2_e32_index_e32_data_stores_segments_at_indexed_addresses() {
 #[test]
 fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
     // nf=2, SEW=E64/M1 VLMAX=4, vl=2; index EEW=E64
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     let mut f0 = [0u8; 16];
     f0[0..8].copy_from_slice(&0xAAAA_AAAA_AAAA_AAAA_u64.to_le_bytes());
     f0[8..16].copy_from_slice(&0xBBBB_BBBB_BBBB_BBBB_u64.to_le_bytes());
@@ -1404,7 +1404,7 @@ fn vsoxseg_nf2_e64_index_e64_data_stores_in_element_order() {
 
 #[test]
 fn vse_resets_vstart_to_zero() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let vreg = [0u8; 16];
     set_vreg(&mut state, VReg::V4, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -1427,7 +1427,7 @@ fn vse_resets_vstart_to_zero() {
 
 #[test]
 fn vsse_resets_vstart_to_zero() {
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     let vreg = [0u8; 16];
     set_vreg(&mut state, VReg::V4, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -1451,7 +1451,7 @@ fn vsse_resets_vstart_to_zero() {
 
 #[test]
 fn vsm_resets_vstart_to_zero() {
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V1, &[0u8; 16]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.ext_state.set_vstart(Vstart::from(3));
@@ -1473,7 +1473,7 @@ fn vsm_resets_vstart_to_zero() {
 
 #[test]
 fn stores_never_mark_vs_dirty() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let vreg = [0u8; 16];
     set_vreg(&mut state, VReg::V4, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -1509,7 +1509,7 @@ fn stores_never_mark_vs_dirty() {
 
 #[test]
 fn vse_out_of_bounds_write_returns_memory_access_error() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let vreg = [0u8; 16];
     set_vreg(&mut state, VReg::V0, &vreg);
     // Write past the end of the 8192-byte TestMemory window
@@ -1531,7 +1531,7 @@ fn vse_out_of_bounds_write_returns_memory_access_error() {
 
 #[test]
 fn vsse_out_of_bounds_write_returns_memory_access_error() {
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     let vreg = [0u8; 16];
     set_vreg(&mut state, VReg::V0, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR + 8192 - 8);

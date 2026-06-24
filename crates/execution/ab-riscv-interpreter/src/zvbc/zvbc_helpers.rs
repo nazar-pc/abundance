@@ -72,7 +72,7 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -125,7 +125,7 @@ pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }

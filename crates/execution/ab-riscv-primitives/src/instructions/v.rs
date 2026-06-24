@@ -3,9 +3,10 @@
 pub mod zvexx;
 
 use crate::registers::general_purpose::{RegType, Register};
-use core::fmt;
 use core::hint::cold_path;
 use core::marker::ConstParamTy;
+use core::ops::RangeInclusive;
+use core::{cmp, fmt};
 
 /// Vector start element index
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
@@ -31,25 +32,120 @@ const impl From<Vstart> for u16 {
     }
 }
 
-// TODO: Remove this impl once `Vl` type exists that returns `vstart..vl` ranges
-const impl From<Vstart> for u32 {
-    #[inline(always)]
-    fn from(value: Vstart) -> Self {
-        u32::from(value.0)
+impl PartialEq<Vl> for Vstart {
+    fn eq(&self, other: &Vl) -> bool {
+        u32::from(self.0) == u32::from(*other)
     }
 }
 
-// TODO: Probably remove this too
-const impl From<Vstart> for u64 {
+impl PartialOrd<Vl> for Vstart {
     #[inline(always)]
-    fn from(value: Vstart) -> Self {
-        u64::from(value.0)
+    fn partial_cmp(&self, other: &Vl) -> Option<cmp::Ordering> {
+        Some(u32::from(self.0).cmp(&u32::from(*other)))
     }
 }
 
 impl Vstart {
     /// Zero vector start element index
     pub const ZERO: Self = Self(0);
+
+    /// Returns a range of vector offsets from `self` to `vl`.
+    ///
+    /// Note: the range might be empty if `vl` is zero.
+    #[inline(always)]
+    pub const fn range_to(self, vl: Vl) -> RangeInclusive<u16> {
+        let vl = u32::from(vl);
+        if vl == 0 {
+            // Empty range
+            #[expect(clippy::reversed_empty_ranges, reason = "Intentional empty range")]
+            {
+                1..=0
+            }
+        } else {
+            self.0..=(vl - 1) as u16
+        }
+    }
+}
+
+/// Vector length
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub struct Vl(u32);
+
+impl fmt::Display for Vl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+const impl From<u8> for Vl {
+    #[inline(always)]
+    fn from(value: u8) -> Self {
+        Self(u32::from(value))
+    }
+}
+
+const impl From<u16> for Vl {
+    #[inline(always)]
+    fn from(value: u16) -> Self {
+        Self(u32::from(value))
+    }
+}
+
+const impl From<Vl> for u32 {
+    #[inline(always)]
+    fn from(value: Vl) -> Self {
+        value.0
+    }
+}
+
+const impl From<Vl> for u64 {
+    #[inline(always)]
+    fn from(value: Vl) -> Self {
+        u64::from(value.0)
+    }
+}
+
+impl PartialEq<Vstart> for Vl {
+    fn eq(&self, other: &Vstart) -> bool {
+        self.0 == u32::from(u16::from(*other))
+    }
+}
+
+impl PartialOrd<Vstart> for Vl {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Vstart) -> Option<cmp::Ordering> {
+        Some(self.0.cmp(&u32::from(u16::from(*other))))
+    }
+}
+
+impl Vl {
+    /// Zero vector length
+    pub const ZERO: Self = Self(0);
+
+    /// Create a new vector length from a value.
+    ///
+    /// Returns `None` if the value is greater than the maximum vector length.
+    #[inline(always)]
+    pub const fn new(n: u32) -> Option<Self> {
+        if n > u32::from(Vlen::L65_536) {
+            None
+        } else {
+            Some(Self(n))
+        }
+    }
+
+    /// Create a new vector length from a value with saturation
+    #[inline(always)]
+    pub const fn new_saturating(n: u32) -> Self {
+        let n = u32::from(Vlen::L65_536).min(n);
+        Self(n)
+    }
+
+    /// Returns the vector length in bytes
+    #[inline(always)]
+    pub const fn bytes(self) -> u16 {
+        self.0.div_ceil(u8::BITS) as u16
+    }
 }
 
 /// Element length
@@ -147,7 +243,7 @@ impl Vlen {
 pub const SUPPORTED_ELEN_VLEN<const ELEN: Elen, const VLEN: Vlen>: usize = {
     assert!(
         u32::from(ELEN) <= u32::from(VLEN),
-        "ELEN must be smaller than VLEN"
+        "ELEN must be <= VLEN"
     );
     0
 };
@@ -237,11 +333,11 @@ impl Vlmul {
     /// Compute `VLMAX = LMUL * VLEN / SEW`.
     ///
     /// For fractional LMUL, this is `VLEN / (SEW * denominator)`.
-    /// Returns 0 when the result would be less than 1 (insufficient bits).
+    /// Returns `Vl::ZERO` when the result would be less than 1 (insufficient bits).
     #[inline(always)]
-    pub const fn vlmax<const VLEN: Vlen>(self, sew: Vsew) -> u32 {
+    pub const fn vlmax<const VLEN: Vlen>(self, sew: Vsew) -> Vl {
         let sew_bits = u32::from(sew.bits_width());
-        match self {
+        let vl = match self {
             Self::M1 => u32::from(VLEN) / sew_bits,
             Self::M2 => (u32::from(VLEN) * 2) / sew_bits,
             Self::M4 => (u32::from(VLEN) * 4) / sew_bits,
@@ -249,7 +345,9 @@ impl Vlmul {
             Self::Mf2 => u32::from(VLEN) / (sew_bits * 2),
             Self::Mf4 => u32::from(VLEN) / (sew_bits * 4),
             Self::Mf8 => u32::from(VLEN) / (sew_bits * 8),
-        }
+        };
+        // SAFETY: Can't exceed the maximum vector length for any `sew` value
+        unsafe { Vl::new(vl).unwrap_unchecked() }
     }
 
     /// Number of vector registers occupied by one register group at this `LMUL`.
@@ -679,7 +777,7 @@ where
             return None;
         }
 
-        if vlmul.vlmax::<VLEN>(vsew) == 0 {
+        if u32::from(vlmul.vlmax::<VLEN>(vsew)) == 0 {
             cold_path();
             return None;
         }

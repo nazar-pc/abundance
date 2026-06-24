@@ -94,13 +94,13 @@ where
     /// sophisticated implementations may return values in `[ceil(AVL/2), VLMAX]` for
     /// `AVL < 2*VLMAX`, but this simple strategy satisfies all three spec requirements.
     #[inline(always)]
-    fn compute_vl(&self, avl: u32, vlmax: u32) -> u32 {
+    fn compute_vl(&self, avl: Vl, vlmax: Vl) -> Vl {
         avl.min(vlmax)
     }
 
     /// Compute `VLMAX` for a given vtype
     #[inline(always)]
-    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> u32 {
+    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl {
         vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
     }
 }
@@ -128,7 +128,7 @@ where
     /// deterministic behavior.
     fn initialize_vector_state(&mut self) {
         self.set_vtype(None);
-        self.set_vl(0);
+        self.set_vl(Vl::ZERO);
         self.set_vstart(Vstart::ZERO);
         self.set_vxrm(Vxrm::default());
         self.set_vxsat(false);
@@ -212,23 +212,23 @@ where
             .expect("Implementation didn't initialize `vcsr` CSR");
     }
 
-    // TODO: Consider new type for `vl`. It is guaranteed to be `at most u16::MAX + 1`, so can be a
-    //  wrapper around `u16`, which will make things nicer in some places like when iterating over
-    //  `vstart..vl`
     /// Get the current vl
     #[inline(always)]
-    fn vl(&self) -> u32 {
-        self.read_csr(VectorCsr::Vl.to_csr_index())
+    fn vl(&self) -> Vl {
+        let vl = self
+            .read_csr(VectorCsr::Vl.to_csr_index())
             .unwrap_or_default()
-            .as_u64() as u32
+            .as_u64() as u32;
+        // Should always be `Some()`, but can't be guaranteed here
+        Vl::new(vl).unwrap_or_default()
     }
 
     /// Set vl.
     ///
     /// The implementation must update both its internal decoded cache and the raw CSR value (for
     /// reads via Zicsr, writes via Zicsr are not allowed).
-    fn set_vl(&mut self, vl: u32) {
-        self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(vl))
+    fn set_vl(&mut self, vl: Vl) {
+        self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(u32::from(vl)))
             .expect("Implementation didn't initialize `vl` CSR");
     }
 

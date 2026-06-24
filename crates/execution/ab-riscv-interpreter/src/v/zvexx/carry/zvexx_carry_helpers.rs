@@ -21,7 +21,7 @@ use core::fmt;
 #[inline(always)]
 pub(in super::super) unsafe fn carry_bit<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
-    i: u32,
+    i: u16,
 ) -> u64 {
     let v0 = vregs.get(VReg::V0);
     u64::from(mask_bit(v0, i))
@@ -55,7 +55,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomErr
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -114,7 +114,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -177,7 +177,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
     let vstart = ext_state.vstart();
     let mask = sew_mask(sew);
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -241,7 +241,7 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, Cus
     let vstart = ext_state.vstart();
     let mask = sew_mask(sew);
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`

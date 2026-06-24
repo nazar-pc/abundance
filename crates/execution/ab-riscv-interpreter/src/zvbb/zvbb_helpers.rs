@@ -36,7 +36,7 @@ pub unsafe fn execute_vbrev<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -85,7 +85,7 @@ pub unsafe fn execute_vclz<Reg, ExtState, CustomError>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let sew_bits = u32::from(sew.bits_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -130,7 +130,7 @@ pub unsafe fn execute_vctz<Reg, ExtState, CustomError>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let sew_bits = u32::from(sew.bits_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -173,7 +173,7 @@ pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -229,7 +229,7 @@ pub unsafe fn execute_vwsll<Reg, ExtState, CustomError>(
     // `double_sew_bits` is always a power of two (16, 32, or 64); `& (bits - 1)` is equivalent to
     // `% bits` and avoids a division
     let double_sew_bits = u64::from(double_sew.bits_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }

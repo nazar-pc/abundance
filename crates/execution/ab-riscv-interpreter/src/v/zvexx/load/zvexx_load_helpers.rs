@@ -13,9 +13,9 @@ use core::hint::cold_path;
 /// Bits are stored LSB-first within each byte: bit `i` is at byte `i / 8`, position `i % 8`.
 /// Returns `false` for any `i` outside the slice bounds.
 #[inline(always)]
-pub(crate) fn mask_bit(mask: &[u8], i: u32) -> bool {
-    mask.get((i / u8::BITS) as usize)
-        .is_some_and(|b| (b >> (i % u8::BITS)) & 1 != 0)
+pub(crate) fn mask_bit(mask: &[u8], i: u16) -> bool {
+    mask.get(usize::from(i / u8::BITS as u16))
+        .is_some_and(|b| (b >> (i % u8::BITS as u16)) & 1 != 0)
 }
 
 /// Copy the mask bytes needed to cover `vl` elements from `v0` into a stack buffer and return
@@ -36,14 +36,14 @@ pub(crate) fn mask_bit(mask: &[u8], i: u32) -> bool {
 pub(in super::super) unsafe fn snapshot_mask<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     vm: bool,
-    vl: u32,
+    vl: Vl,
 ) -> [u8; VLENB_USIZE::<VLENB>] {
     let mut buf = [0u8; _];
     if vm {
         // All-ones: every element active
         buf = [0xffu8; _];
     } else {
-        let mask_bytes = vl.div_ceil(u8::BITS) as usize;
+        let mask_bytes = usize::from(vl.bytes());
         // SAFETY: `mask_bytes <= VLENB` by the caller's precondition
         unsafe {
             buf.get_unchecked_mut(..mask_bytes)
@@ -196,14 +196,13 @@ where
 pub(in super::super) unsafe fn read_group_element<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    // TODO: `elem_i` here and in other places shouldn't be `u32`
-    elem_i: u32,
+    elem_i: u16,
     eew: Eew,
 ) -> [u8; const { usize::from(Eew::MAX_BYTES) }] {
     let elem_bytes = u32::from(eew.bytes_width());
     let elems_per_reg = VLENB / elem_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * elem_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * elem_bytes;
     // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
@@ -232,14 +231,14 @@ pub(in super::super) unsafe fn read_group_element<const VLENB: u32>(
 unsafe fn write_group_element<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     eew: Eew,
     buf: [u8; const { usize::from(Eew::MAX_BYTES) }],
 ) {
     let elem_bytes = u32::from(eew.bytes_width());
     let elems_per_reg = VLENB / elem_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * elem_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * elem_bytes;
     // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
     let reg = unsafe {
         vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
@@ -322,7 +321,7 @@ where
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -355,16 +354,16 @@ where
                 Err(mem_err) => {
                     cold_path();
                     if FAULT_ONLY_FIRST && i > 0 {
-                        ext_state.set_vl(i);
+                        ext_state.set_vl(Vl::from(i));
                         ext_state.mark_vs_dirty();
                         ext_state.reset_vstart();
                         return Ok(());
                     }
-                    if i > u32::from(vstart) {
+                    if i > u16::from(vstart) {
                         // Elements [vstart, i) were committed; VS is now dirty.
                         ext_state.mark_vs_dirty();
                         // vstart records the faulting element for restartability.
-                        ext_state.set_vstart(Vstart::from(i as u16));
+                        ext_state.set_vstart(Vstart::from(i));
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -447,7 +446,7 @@ where
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -460,9 +459,9 @@ where
                 Ok(data) => data,
                 Err(mem_err) => {
                     cold_path();
-                    if f > 0 || i > u32::from(vstart) {
+                    if f > 0 || i > u16::from(vstart) {
                         ext_state.mark_vs_dirty();
-                        ext_state.set_vstart(Vstart::from(i as u16));
+                        ext_state.set_vstart(Vstart::from(i));
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }
@@ -537,7 +536,7 @@ where
     // SAFETY: `vl <= VLMAX <= VLEN` (precondition), so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -561,9 +560,9 @@ where
                 Ok(data) => data,
                 Err(mem_err) => {
                     cold_path();
-                    if f > 0 || i > u32::from(vstart) {
+                    if f > 0 || i > u16::from(vstart) {
                         ext_state.mark_vs_dirty();
-                        ext_state.set_vstart(Vstart::from(i as u16));
+                        ext_state.set_vstart(Vstart::from(i));
                     }
                     return Err(ExecutionError::MemoryAccess(mem_err));
                 }

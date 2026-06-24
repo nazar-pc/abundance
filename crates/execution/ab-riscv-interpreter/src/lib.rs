@@ -68,6 +68,7 @@
     generic_const_args,
     generic_const_items,
     inherent_associated_types,
+    integer_widen_truncate,
     min_adt_const_params,
     min_generic_const_args,
     signed_bigint_helpers

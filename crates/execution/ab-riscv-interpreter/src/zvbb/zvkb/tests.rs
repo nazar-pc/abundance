@@ -12,7 +12,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
-fn setup(vl: u32, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZvkbInstruction<Reg<u64>>> {
+fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZvkbInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -103,7 +103,7 @@ fn set_mask_bit(
 
 #[test]
 fn vandn_vv_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     // Preload vd with a sentinel
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xBEEF);
@@ -140,7 +140,7 @@ fn vandn_vv_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vandn_vx_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xDEAD);
         write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFF00);
@@ -172,7 +172,7 @@ fn vandn_vx_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vbrev8_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
@@ -198,7 +198,7 @@ fn vbrev8_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vrev8_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..2 {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xCAFE_BABE);
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 0x0102_0304);
@@ -228,7 +228,7 @@ fn vrev8_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vrol_vv_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x55);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xA5);
@@ -256,7 +256,7 @@ fn vrol_vv_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vrol_vx_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x99);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x01);
@@ -283,7 +283,7 @@ fn vrol_vx_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vror_vv_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x77);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xB3);
@@ -311,7 +311,7 @@ fn vror_vv_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vror_vx_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x33);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x80);
@@ -339,7 +339,7 @@ fn vror_vx_masked_v0_zeroes_undisturbed() {
 // vror.vi with uimm < 32 (bit[25]=0): vm=false -> masked; v0=all-zeros -> undisturbed
 #[test]
 fn vror_vi_small_uimm_respects_masking() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x55);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x80);
@@ -368,7 +368,7 @@ fn vror_vi_small_uimm_respects_masking() {
 // Partial masking: alternating mask bits
 #[test]
 fn vandn_vv_partial_mask_alternating() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
@@ -401,7 +401,7 @@ fn vandn_vv_partial_mask_alternating() {
 
 #[test]
 fn vror_vv_partial_mask_alternating() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xCC);
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x80);
@@ -435,7 +435,7 @@ fn vror_vv_partial_mask_alternating() {
 // vm=true ignores v0 entirely
 #[test]
 fn vandn_vv_vm_true_ignores_v0() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..2 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x00);
@@ -467,7 +467,7 @@ fn vandn_vv_vm_true_ignores_v0() {
 #[test]
 fn vandn_vv_basic_e8() {
     // ~0xAB = 0x54; 0x54 & 0x3F = 0x14
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x3F);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 0xAB);
@@ -493,7 +493,7 @@ fn vandn_vv_basic_e8() {
 
 #[test]
 fn vandn_vv_all_ones_source_gives_zero() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x00);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0xFF);
@@ -516,7 +516,7 @@ fn vandn_vv_all_ones_source_gives_zero() {
 
 #[test]
 fn vandn_vv_all_zeros_source_gives_vs2() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xA5);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x5A);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0x00);
@@ -539,7 +539,7 @@ fn vandn_vv_all_zeros_source_gives_vs2() {
 
 #[test]
 fn vandn_vv_e32_masks_to_sew() {
-    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FFFF);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0x0000_0000);
     exec(
@@ -562,7 +562,7 @@ fn vandn_vv_e32_masks_to_sew() {
 #[test]
 fn vandn_vx_basic() {
     // vs2=0xF0, rs1=0x3C -> ~0x3C = 0xC3 (E8); 0xC3 & 0xF0 = 0xC0
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xF0);
     }
@@ -587,7 +587,7 @@ fn vandn_vx_basic() {
 
 #[test]
 fn vandn_vx_scalar_zero_gives_vs2() {
-    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xBEEF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E16, 0x1234);
     state.regs.write(Reg::A1, 0);
@@ -611,7 +611,7 @@ fn vandn_vx_scalar_zero_gives_vs2() {
 #[test]
 fn vbrev8_v_e8_reverses_all_bits() {
     // 0xB1 = 0b10110001 -> reversed = 0b10001101 = 0x8D
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xB1);
     }
@@ -636,7 +636,7 @@ fn vbrev8_v_e8_reverses_all_bits() {
 #[test]
 fn vbrev8_v_e16_reverses_bits_in_each_byte_independently() {
     // 0xABCD: byte 0 (low) = 0xCD -> 0xB3; byte 1 (high) = 0xAB -> 0xD5; result = 0xD5B3
-    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xABCD);
     exec(
         &mut state,
@@ -655,7 +655,7 @@ fn vbrev8_v_e16_reverses_bits_in_each_byte_independently() {
 #[test]
 fn vbrev8_v_e32_four_bytes_each_reversed() {
     // 0x01020304 -> 0x8040C020
-    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x0102_0304);
     exec(
         &mut state,
@@ -674,7 +674,7 @@ fn vbrev8_v_e32_four_bytes_each_reversed() {
 #[test]
 fn vbrev8_v_idempotent_applied_twice() {
     let original = 0xDEAD_BEEF_1234_5678;
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, original);
     exec(
         &mut state,
@@ -707,7 +707,7 @@ fn vbrev8_v_idempotent_applied_twice() {
 
 #[test]
 fn vrev8_v_e8_is_noop() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xAB);
     }
@@ -731,7 +731,7 @@ fn vrev8_v_e8_is_noop() {
 
 #[test]
 fn vrev8_v_e16_swaps_two_bytes() {
-    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xABCD);
     write_elem(&mut state, VReg::V2, 1, Vsew::E16, 0x0100);
     exec(
@@ -751,7 +751,7 @@ fn vrev8_v_e16_swaps_two_bytes() {
 
 #[test]
 fn vrev8_v_e64_reverses_eight_bytes() {
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x0102_0304_0506_0708);
     exec(
         &mut state,
@@ -773,7 +773,7 @@ fn vrev8_v_e64_reverses_eight_bytes() {
 #[test]
 fn vrev8_v_idempotent_applied_twice() {
     let original = 0xCAFE_BABE_DEAD_BEEF;
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, original);
     exec(
         &mut state,
@@ -807,7 +807,7 @@ fn vrev8_v_idempotent_applied_twice() {
 #[test]
 fn vrol_vv_e8_basic() {
     // rotate_left(0xB3, 3): hi = (0xB3 << 3) & 0xFF = 0x98; lo = 0xB3 >> 5 = 0x05; result = 0x9D
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xB3);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 3);
@@ -833,7 +833,7 @@ fn vrol_vv_e8_basic() {
 
 #[test]
 fn vrol_vv_shift_zero_is_identity() {
-    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xDEAD_BEEF);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0);
     exec(
@@ -853,7 +853,7 @@ fn vrol_vv_shift_zero_is_identity() {
 
 #[test]
 fn vrol_vv_shift_equals_sew_is_identity() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xA5);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 8);
     exec(
@@ -874,7 +874,7 @@ fn vrol_vv_shift_equals_sew_is_identity() {
 #[test]
 fn vrol_vv_e64_shift_1() {
     // rotate_left(0x8000000000000001, 1) = 0x0000000000000003
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x8000_0000_0000_0001);
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, 1);
     exec(
@@ -898,7 +898,7 @@ fn vrol_vv_e64_shift_1() {
 #[test]
 fn vrol_vx_basic() {
     // rotate_left(0x01, 4) at E8 = 0x10
-    let mut state = setup(3, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..3 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x01);
     }
@@ -926,7 +926,7 @@ fn vrol_vx_basic() {
 #[test]
 fn vror_vv_e8_basic() {
     // rotate_right(0xB3, 3): bottom 3 bits (011) go to top -> 0x76
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xB3);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 3);
@@ -952,7 +952,7 @@ fn vror_vv_e8_basic() {
 
 #[test]
 fn vror_vv_shift_zero_is_identity() {
-    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xDEAD_BEEF);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0);
     exec(
@@ -973,7 +973,7 @@ fn vror_vv_shift_zero_is_identity() {
 #[test]
 fn vror_vv_e64_shift_1() {
     // rotate_right(0x0000000000000003, 1) = 0x8000000000000001
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x0000_0000_0000_0003);
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, 1);
     exec(
@@ -998,7 +998,7 @@ fn vror_vv_e64_shift_1() {
 fn vrol_and_vror_are_inverses() {
     let original = 0xA5A5_A5A5;
     let shift = 11;
-    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, original);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, shift);
     exec(
@@ -1033,7 +1033,7 @@ fn vrol_and_vror_are_inverses() {
 #[test]
 fn vror_vx_basic() {
     // rotate_right(0x80, 7) at E8 = 0x01
-    let mut state = setup(3, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..3 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x80);
     }
@@ -1061,7 +1061,7 @@ fn vror_vx_basic() {
 #[test]
 fn vror_vi_uimm_0_is_identity() {
     // uimm=0 encodes bit[25]=0 -> vm=false (masked); set v0 all-active so elements are written
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..2 {
         set_mask_bit(&mut state, VReg::V0, i, true);
     }
@@ -1089,7 +1089,7 @@ fn vror_vi_uimm_0_is_identity() {
 fn vror_vi_uimm_4_e8() {
     // rotate_right(0xAB, 4): 0xAB >> 4 = 0x0A; (0xAB << 4) & 0xFF = 0xB0; result = 0xBA
     // uimm=4 -> vm=false (masked); set v0 all-active
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         set_mask_bit(&mut state, VReg::V0, i, true);
     }
@@ -1122,7 +1122,7 @@ fn vror_vi_e64_rotation_14() {
     // Verify by checking that rotate_left(result, 14) == input
     let input = 0xce30_1754_74ea_def7_u64;
     let expected = input.rotate_right(14);
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V16, 0, Vsew::E64, input);
     exec(
         &mut state,
@@ -1145,7 +1145,7 @@ fn vror_vi_uimm_31_at_e64() {
     // = rotate_left(0x8000000000000001, 33)
     let input = 0x8000_0000_0000_0001_u64;
     let expected = input.rotate_right(31);
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, input);
     exec(
         &mut state,
@@ -1165,7 +1165,7 @@ fn vror_vi_uimm_31_at_e64() {
 #[test]
 fn vror_vi_uimm_reduces_mod_sew() {
     // At E8, uimm=9 should give same result as uimm=1
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xF0);
     exec(
         &mut state,
@@ -1209,7 +1209,7 @@ fn vror_vv_all_sew_widths() {
         (Vsew::E32, 0x1234_5678, 16, 0x5678_1234),
         (Vsew::E64, 0x0102_0304_0506_0708, 8, 0x0801_0203_0405_0607),
     ] {
-        let mut state = setup(1, vsew, Vlmul::M1);
+        let mut state = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, input);
         write_elem(&mut state, VReg::V1, 0, vsew, shift);
         exec(
@@ -1236,7 +1236,7 @@ fn vror_vv_all_sew_widths() {
 
 #[test]
 fn error_vector_not_allowed() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -1257,7 +1257,7 @@ fn error_vill_vtype() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(0);
+    state.ext_state.set_vl(Vl::ZERO);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrorVv {
@@ -1274,7 +1274,7 @@ fn error_vill_vtype() {
 
 #[test]
 fn error_misaligned_vd_lmul_m2() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZvkbInstruction::VandnVv {
@@ -1291,7 +1291,7 @@ fn error_misaligned_vd_lmul_m2() {
 
 #[test]
 fn error_misaligned_vs2_lmul_m4() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M4);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M4);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrorVv {
@@ -1308,7 +1308,7 @@ fn error_misaligned_vs2_lmul_m4() {
 
 #[test]
 fn error_misaligned_vs1_lmul_m2() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrolVv {
@@ -1329,7 +1329,7 @@ fn error_misaligned_vs1_lmul_m2() {
 fn vror_vi_vstart_skips_earlier_elements() {
     // uimm=1 -> vm=false (masked); set v0 mask bits for all elements so active elements
     // (vstart..vl = 2..4) are written; elements 0,1 are skipped by vstart, not by masking
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         set_mask_bit(&mut state, VReg::V0, i, true);
     }
@@ -1363,7 +1363,7 @@ fn vror_vi_vstart_skips_earlier_elements() {
 
 #[test]
 fn vandn_vv_vl_zero_no_writes() {
-    let mut state = setup(0, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
@@ -1394,7 +1394,7 @@ fn vandn_vv_vl_zero_no_writes() {
 
 #[test]
 fn error_vandn_vv_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VandnVv {
@@ -1411,7 +1411,7 @@ fn error_vandn_vv_masked_dest_v0() {
 
 #[test]
 fn error_vandn_vx_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VandnVx {
@@ -1427,7 +1427,7 @@ fn error_vandn_vx_masked_dest_v0() {
 
 #[test]
 fn error_vbrev8_v_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::Vbrev8V {
@@ -1443,7 +1443,7 @@ fn error_vbrev8_v_masked_dest_v0() {
 
 #[test]
 fn error_vrev8_v_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::Vrev8V {
@@ -1459,7 +1459,7 @@ fn error_vrev8_v_masked_dest_v0() {
 
 #[test]
 fn error_vrol_vv_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrolVv {
@@ -1476,7 +1476,7 @@ fn error_vrol_vv_masked_dest_v0() {
 
 #[test]
 fn error_vrol_vx_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrolVx {
@@ -1492,7 +1492,7 @@ fn error_vrol_vx_masked_dest_v0() {
 
 #[test]
 fn error_vror_vv_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrorVv {
@@ -1509,7 +1509,7 @@ fn error_vror_vv_masked_dest_v0() {
 
 #[test]
 fn error_vror_vx_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrorVx {
@@ -1525,7 +1525,7 @@ fn error_vror_vx_masked_dest_v0() {
 
 #[test]
 fn error_vror_vi_masked_dest_v0() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvkbInstruction::VrorVi {

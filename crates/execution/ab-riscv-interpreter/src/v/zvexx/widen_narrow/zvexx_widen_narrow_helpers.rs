@@ -196,9 +196,9 @@ fn ranges_overlap(a_start: u8, a_len: u8, b_start: u8, b_len: u8) -> bool {
 
 /// Return whether mask bit `i` is set in the mask byte slice (LSB-first within each byte).
 #[inline(always)]
-fn mask_bit(mask: &[u8], i: u32) -> bool {
-    mask.get((i / u8::BITS) as usize)
-        .is_some_and(|b| (b >> (i % u8::BITS)) & 1 != 0)
+fn mask_bit(mask: &[u8], i: u16) -> bool {
+    mask.get(usize::from(i / u8::BITS as u16))
+        .is_some_and(|b| (b >> (i % u8::BITS as u16)) & 1 != 0)
 }
 
 /// Snapshot the mask register into a stack buffer.
@@ -211,13 +211,13 @@ fn mask_bit(mask: &[u8], i: u32) -> bool {
 unsafe fn snapshot_mask<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     vm: bool,
-    vl: u32,
+    vl: Vl,
 ) -> [u8; VLENB_USIZE::<VLENB>] {
     let mut buf = [0u8; _];
     if vm {
         buf = [0xffu8; _];
     } else {
-        let mask_bytes = vl.div_ceil(u8::BITS) as usize;
+        let mask_bytes = usize::from(vl.bytes());
         // SAFETY: `mask_bytes <= VLENB` by precondition
         unsafe {
             buf.get_unchecked_mut(..mask_bytes)
@@ -236,13 +236,13 @@ unsafe fn snapshot_mask<const VLENB: u32>(
 unsafe fn read_element_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
@@ -263,14 +263,14 @@ unsafe fn read_element_u64<const VLENB: u32>(
 unsafe fn write_element_u64<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     sew: Vsew,
     value: u64,
 ) {
     let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = unsafe {
@@ -384,7 +384,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -464,7 +464,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -542,7 +542,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -616,7 +616,7 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

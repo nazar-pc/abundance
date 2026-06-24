@@ -74,13 +74,13 @@ where
 pub(crate) unsafe fn read_element_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = vregs
         .get(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
@@ -102,14 +102,14 @@ pub(crate) unsafe fn read_element_u64<const VLENB: u32>(
 pub(crate) unsafe fn write_element_u64<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     sew: Vsew,
     value: u64,
 ) {
     let sew_bytes = u32::from(sew.bytes_width());
     let elems_per_reg = VLENB / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
     let buf = value.to_le_bytes();
     // SAFETY: `base_reg + reg_off < 32` by caller's precondition
     let reg = vregs
@@ -134,11 +134,11 @@ pub(crate) unsafe fn write_element_u64<const VLENB: u32>(
 pub(in super::super) unsafe fn write_mask_bit<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     vd: VReg,
-    elem_i: u32,
+    elem_i: u16,
     result: bool,
 ) {
-    let byte_idx = (elem_i / u8::BITS) as usize;
-    let bit_idx = elem_i % u8::BITS;
+    let byte_idx = usize::from(elem_i / u8::BITS as u16);
+    let bit_idx = elem_i % u8::BITS as u16;
     // SAFETY: `byte_idx < VLENB` by the caller's precondition
     let byte = unsafe { vregs.get_mut(vd).get_unchecked_mut(byte_idx) };
     if result {
@@ -190,7 +190,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -255,7 +255,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // When masked, inactive elements in the destination mask register are left undisturbed
         // (spec §12.8: "mask register results follow mask-undisturbed policy")
         if !mask_bit(&mask_buf, i) {

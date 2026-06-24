@@ -24,7 +24,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     vs2: VReg,
     vs1: VReg,
     vm: bool,
-    vl: u32,
+    vl: Vl,
     sew: Vsew,
     op: F,
 ) where
@@ -37,7 +37,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     // Spec §5.4: when vstart >= vl, no element of vd is updated. For reductions this means
     // vl == 0 (since caller has verified vstart == 0). In that case we must not write vd and
     // must not mark vs dirty.
-    if vl == 0 {
+    if vl == Vl::ZERO {
         cold_path();
         ext_state.reset_vstart();
         return;
@@ -47,7 +47,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut acc = init;
-    for i in 0..vl {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -86,7 +86,7 @@ pub unsafe fn execute_widening_reduce_op<
     vs2: VReg,
     vs1: VReg,
     vm: bool,
-    vl: u32,
+    vl: Vl,
     sew: Vsew,
     op: F,
 ) where
@@ -100,7 +100,7 @@ pub unsafe fn execute_widening_reduce_op<
         // SAFETY: caller verified `2*SEW <= ELEN`; E64 widening is unreachable here
         unsafe { core::hint::unreachable_unchecked() }
     };
-    if vl == 0 {
+    if vl == Vl::ZERO {
         cold_path();
         ext_state.reset_vstart();
         return;
@@ -110,7 +110,7 @@ pub unsafe fn execute_widening_reduce_op<
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut acc = init;
-    for i in 0..vl {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

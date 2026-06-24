@@ -107,7 +107,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = ext_state.vstart();
                 // Per spec §16.1: update only when vstart < vl.
-                if u32::from(vstart) < vl {
+                if vstart < vl {
                     let scalar = rs1_value.as_i64().cast_unsigned();
                     // SAFETY: element 0 always fits.
                     unsafe {

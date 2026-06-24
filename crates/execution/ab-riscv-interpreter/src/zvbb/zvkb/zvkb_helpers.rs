@@ -36,7 +36,7 @@ pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -92,7 +92,7 @@ pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let sew_bytes = u32::from(sew.bytes_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -140,7 +140,7 @@ pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let sew_bytes = u32::from(sew.bytes_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -187,7 +187,7 @@ pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
     let vstart = ext_state.vstart();
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -245,7 +245,7 @@ pub unsafe fn execute_vror<Reg, ExtState, CustomError>(
     let vstart = ext_state.vstart();
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }

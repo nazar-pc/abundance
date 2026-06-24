@@ -44,7 +44,7 @@ fn vsetvli_sets_vl_and_rd_from_avl() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vl(), 3);
+    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
     assert!(state.ext_state.vtype().is_some());
     let vtype = state.ext_state.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E32);
@@ -67,7 +67,7 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.ext_state.vl(), 8);
+    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn vsetvli_avl_zero_gives_vl_zero() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert!(state.ext_state.vtype().is_some());
 }
 
@@ -105,7 +105,7 @@ fn vsetvli_avl_equals_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 32);
-    assert_eq!(state.ext_state.vl(), 32);
+    assert_eq!(state.ext_state.vl(), Vl::new(32).unwrap());
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn vsetvli_rd_x0_discards_result() {
     // x0 always reads as 0
     assert_eq!(state.regs.read(Reg::Zero), 0);
     // vl still set correctly
-    assert_eq!(state.ext_state.vl(), 3);
+    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
 }
 
 // vsetvli SEW/LMUL combination tests
@@ -146,7 +146,7 @@ fn vsetvli_e8_m8_gives_max_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 256);
-    assert_eq!(state.ext_state.vl(), 256);
+    assert_eq!(state.ext_state.vl(), Vl::new(256).unwrap());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn vsetvli_e64_m1() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 1);
-    assert_eq!(state.ext_state.vl(), 1);
+    assert_eq!(state.ext_state.vl(), Vl::new(1).unwrap());
     let vtype = state.ext_state.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E64);
 }
@@ -186,7 +186,7 @@ fn vsetvli_e32_mf2() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), 4);
+    assert_eq!(state.ext_state.vl(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -205,7 +205,7 @@ fn vsetvli_e8_mf8() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 1);
-    assert_eq!(state.ext_state.vl(), 1);
+    assert_eq!(state.ext_state.vl(), Vl::new(1).unwrap());
 }
 
 // vsetvli with vta/vma flags
@@ -268,7 +268,7 @@ fn vsetvli_unsupported_sew_sets_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -288,7 +288,7 @@ fn vsetvli_reserved_vlmul_sets_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -308,7 +308,7 @@ fn vsetvli_vlmax_zero_sets_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -328,7 +328,7 @@ fn vsetvli_reserved_upper_bits_set_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
 }
 
 // vsetvli rs1=x0 special cases
@@ -348,7 +348,7 @@ fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.ext_state.vl(), 8);
+    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -366,7 +366,7 @@ fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 256);
-    assert_eq!(state.ext_state.vl(), 256);
+    assert_eq!(state.ext_state.vl(), Vl::new(256).unwrap());
 }
 
 #[test]
@@ -393,7 +393,7 @@ fn vsetvli_rs1_x0_rd_x0_keeps_vl_when_vlmax_unchanged() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_state.vl(), 3);
+    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
     let vtype = state.ext_state.vtype().unwrap();
     assert!(vtype.vta());
     assert!(vtype.vma());
@@ -425,7 +425,7 @@ fn vsetvli_rs1_x0_rd_x0_vill_when_vlmax_changes() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
 }
 
 // vsetivli tests
@@ -446,7 +446,7 @@ fn vsetivli_basic() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vl(), 3);
+    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
     assert!(state.ext_state.vtype().is_some());
 }
 
@@ -465,7 +465,7 @@ fn vsetivli_avl_zero() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert!(state.ext_state.vtype().is_some());
 }
 
@@ -485,7 +485,7 @@ fn vsetivli_max_immediate() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.ext_state.vl(), 8);
+    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -504,7 +504,7 @@ fn vsetivli_avl_within_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 20);
-    assert_eq!(state.ext_state.vl(), 20);
+    assert_eq!(state.ext_state.vl(), Vl::new(20).unwrap());
 }
 
 #[test]
@@ -523,7 +523,7 @@ fn vsetivli_unsupported_sets_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -566,7 +566,7 @@ fn vsetvl_basic() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vl(), 3);
+    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
     assert!(state.ext_state.vtype().is_some());
     let vtype = state.ext_state.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E32);
@@ -588,7 +588,7 @@ fn vsetvl_rs1_x0_rd_nonzero() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), 4);
+    assert_eq!(state.ext_state.vl(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -607,7 +607,7 @@ fn vsetvl_unsupported_raw_sets_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -627,7 +627,7 @@ fn vsetvl_high_bits_in_rs2_sets_vill() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
 }
 
 #[test]
@@ -651,7 +651,7 @@ fn vsetvl_context_restore_preserves_vtype() {
     assert_eq!(vtype.vlmul(), Vlmul::M4);
     assert!(vtype.vta());
     assert!(!vtype.vma());
-    assert_eq!(state.ext_state.vl(), 25);
+    assert_eq!(state.ext_state.vl(), Vl::new(25).unwrap());
 }
 
 // mark_vs_dirty tracking
@@ -1030,7 +1030,7 @@ fn sequential_vsetvli_overrides_previous() {
 
     // Second instruction should have taken effect
     // VLMAX = (256*2)/8 = 64, AVL = 10 -> vl = 10
-    assert_eq!(state.ext_state.vl(), 10);
+    assert_eq!(state.ext_state.vl(), Vl::new(10).unwrap());
     assert_eq!(state.regs.read(Reg::A2), 10);
     let vtype = state.ext_state.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E8);
@@ -1064,7 +1064,7 @@ fn vsetvli_after_vill_recovers() {
     execute(&mut state).unwrap();
 
     assert!(state.ext_state.vtype().is_some());
-    assert_eq!(state.ext_state.vl(), 2);
+    assert_eq!(state.ext_state.vl(), Vl::new(2).unwrap());
     assert_eq!(state.regs.read(Reg::A2), 2);
 }
 
@@ -1094,7 +1094,7 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
     execute(&mut state).unwrap();
 
     // vl should remain 5
-    assert_eq!(state.ext_state.vl(), 5);
+    assert_eq!(state.ext_state.vl(), Vl::new(5).unwrap());
     let vtype = state.ext_state.vtype().unwrap();
     assert!(vtype.vta());
     assert!(vtype.vma());
@@ -1118,7 +1118,7 @@ fn vsetvli_large_avl_in_register() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_state.vl(), 8);
+    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
     assert_eq!(state.regs.read(Reg::A0), 8);
 }
 
@@ -1137,52 +1137,73 @@ fn vsetvl_all_bits_set_in_rs2_sets_vill() {
 
     // All bits set means upper bits non-zero -> vill
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
 }
 
 // Vlmul::vlmax unit tests
 
 #[test]
 fn vlmul_vlmax_m1_e32_vlen128() {
-    assert_eq!(Vlmul::M1.vlmax::<{ Vlen::L128 }>(Vsew::E32), 4);
+    assert_eq!(
+        Vlmul::M1.vlmax::<{ Vlen::L128 }>(Vsew::E32),
+        Vl::new(4).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_m2_e32_vlen128() {
-    assert_eq!(Vlmul::M2.vlmax::<{ Vlen::L128 }>(Vsew::E32), 8);
+    assert_eq!(
+        Vlmul::M2.vlmax::<{ Vlen::L128 }>(Vsew::E32),
+        Vl::new(8).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_m4_e32_vlen128() {
-    assert_eq!(Vlmul::M4.vlmax::<{ Vlen::L128 }>(Vsew::E32), 16);
+    assert_eq!(
+        Vlmul::M4.vlmax::<{ Vlen::L128 }>(Vsew::E32),
+        Vl::new(16).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_m8_e8_vlen128() {
-    assert_eq!(Vlmul::M8.vlmax::<{ Vlen::L128 }>(Vsew::E8), 128);
+    assert_eq!(
+        Vlmul::M8.vlmax::<{ Vlen::L128 }>(Vsew::E8),
+        Vl::new(128).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_mf2_e32_vlen128() {
-    assert_eq!(Vlmul::Mf2.vlmax::<{ Vlen::L128 }>(Vsew::E32), 2);
+    assert_eq!(
+        Vlmul::Mf2.vlmax::<{ Vlen::L128 }>(Vsew::E32),
+        Vl::new(2).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_mf4_e16_vlen128() {
     // 128 / (16*4) = 2
-    assert_eq!(Vlmul::Mf4.vlmax::<{ Vlen::L128 }>(Vsew::E16), 2);
+    assert_eq!(
+        Vlmul::Mf4.vlmax::<{ Vlen::L128 }>(Vsew::E16),
+        Vl::new(2).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_mf8_e8_vlen128() {
     // 128 / (8*8) = 2
-    assert_eq!(Vlmul::Mf8.vlmax::<{ Vlen::L128 }>(Vsew::E8), 2);
+    assert_eq!(
+        Vlmul::Mf8.vlmax::<{ Vlen::L128 }>(Vsew::E8),
+        Vl::new(2).unwrap()
+    );
 }
 
 #[test]
 fn vlmul_vlmax_zero_when_too_small() {
     // e64 with mf8 on VLEN=128: 128/(64*8) = 0
-    assert_eq!(Vlmul::Mf8.vlmax::<{ Vlen::L128 }>(Vsew::E64), 0);
+    assert_eq!(Vlmul::Mf8.vlmax::<{ Vlen::L128 }>(Vsew::E64), Vl::ZERO);
 }
 
 // Vtype decode/encode round-trip tests
@@ -1320,7 +1341,7 @@ fn ext_initialize_vector_state() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
     // Dirty it up
-    state.ext_state.set_vl(42);
+    state.ext_state.set_vl(Vl::new(42).unwrap());
     VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, Vstart::from(7));
     VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.ext_state, Vxrm::Rne);
     VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.ext_state, true);
@@ -1329,7 +1350,7 @@ fn ext_initialize_vector_state() {
     state.ext_state.init_vector_csrs();
 
     assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), 0);
+    assert_eq!(state.ext_state.vl(), Vl::ZERO);
     assert_eq!(
         VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state),
         Vstart::ZERO

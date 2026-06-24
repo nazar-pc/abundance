@@ -389,13 +389,13 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 pub unsafe fn read_wide_element_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     sew: Vsew,
 ) -> u64 {
     let double_sew_bytes = u32::from(sew.bytes_width()) * 2;
     let elems_per_reg = VLENB / double_sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * double_sew_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * double_sew_bytes;
     // SAFETY: caller guarantees bounds
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
@@ -440,7 +440,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut any_sat = false;
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -507,7 +507,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

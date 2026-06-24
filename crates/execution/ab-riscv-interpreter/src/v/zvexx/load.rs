@@ -107,10 +107,10 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let byte_count = vl.div_ceil(u8::BITS);
+                let byte_count = vl.bytes();
                 if byte_count > 0 {
                     let base = rs1_value.as_u64();
-                    let bytes = memory.read_slice(base, byte_count)?;
+                    let bytes = memory.read_slice(base, u32::from(byte_count))?;
                     // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB`
                     // because `vl <= VLMAX <= VLEN`, so `..bytes.len()` is in bounds within the
                     // `VLENB`-byte destination register.

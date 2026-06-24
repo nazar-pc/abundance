@@ -12,7 +12,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 }
 
 fn setup(
-    vl: u32,
+    vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxCarryInstruction<Reg<u64>>> {
@@ -115,7 +115,7 @@ fn read_mask_bit(
 
 #[test]
 fn vadc_vvm_no_carry() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     // v0 = all zeros (no carry-in)
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 10);
@@ -142,7 +142,7 @@ fn vadc_vvm_no_carry() {
 #[test]
 fn vadc_vvm_with_carry_propagates() {
     // For each element: vs2=0xFF, vs1=0x00, carry-in=1 -> result=0x100 -> wraps to 0x00
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x00);
@@ -169,7 +169,7 @@ fn vadc_vvm_with_carry_propagates() {
 #[test]
 fn vadc_vvm_mixed_carry_bits() {
     // Alternating carry: elements 0,2 have carry=1; elements 1,3 have carry=0
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, 100);
         write_elem(&mut state, VReg::V1, i, Vsew::E16, 1);
@@ -198,7 +198,7 @@ fn vadc_vvm_mixed_carry_bits() {
 
 #[test]
 fn vadc_vxm_with_scalar_and_carry() {
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, u64::MAX);
     write_elem(&mut state, VReg::V2, 1, Vsew::E64, 5);
     state.regs.write(Reg::A0, 0u64);
@@ -222,7 +222,7 @@ fn vadc_vxm_with_scalar_and_carry() {
 
 #[test]
 fn vadc_vim_sign_extended_imm() {
-    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x0001);
     write_elem(&mut state, VReg::V2, 1, Vsew::E16, 0x0001);
     // imm = -1 (sign-extended): 0xFFFF + 0x0001 + carry
@@ -253,7 +253,7 @@ fn vmadc_vvm_carry_out_when_overflow() {
     // Element 1: 0x01 + 0x01 + carry=0 -> 0x02, carry-out=0
     // Element 2: 0xFE + 0x01 + carry=1 -> 0x100, carry-out=1
     // Element 3: 0x01 + 0x00 + carry=1 -> 0x02, carry-out=0
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x01);
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 0xFE);
@@ -288,7 +288,7 @@ fn vmadc_vvm_carry_out_when_overflow() {
 #[test]
 fn vmadc_vv_no_carry_in_overflow_check() {
     // Without carry-in: 0xFF + 0x01 = 0x100 -> carry-out=1
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x10);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0x01);
@@ -312,7 +312,7 @@ fn vmadc_vv_no_carry_in_overflow_check() {
 
 #[test]
 fn vmadc_vv_e64_carry_out() {
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, u64::MAX);
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, 1);
     exec(
@@ -331,7 +331,7 @@ fn vmadc_vv_e64_carry_out() {
 
 #[test]
 fn vmadc_vx_no_carry_scalar() {
-    let mut state = setup(3, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FFFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 0x7FFF_FFFF);
     write_elem(&mut state, VReg::V2, 2, Vsew::E32, 0);
@@ -353,7 +353,7 @@ fn vmadc_vx_no_carry_scalar() {
 
 #[test]
 fn vmadc_vi_no_carry_imm() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // imm=1: 0xFF+1=overflow, 0x00+1=no overflow
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x00);
@@ -376,7 +376,7 @@ fn vmadc_vi_no_carry_imm() {
 
 #[test]
 fn vsbc_vvm_no_borrow() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 100);
         write_elem(&mut state, VReg::V1, i, Vsew::E32, 10);
@@ -402,7 +402,7 @@ fn vsbc_vvm_no_borrow() {
 #[test]
 fn vsbc_vvm_with_borrow_propagates() {
     // vs2=0, vs1=0, borrow-in=1 -> 0 - 0 - 1 = -1 = 0xFFFFFFFF (E32)
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 10);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0);
@@ -426,7 +426,7 @@ fn vsbc_vvm_with_borrow_propagates() {
 
 #[test]
 fn vsbc_vxm_basic() {
-    let mut state = setup(3, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..3usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, 50);
     }
@@ -457,7 +457,7 @@ fn vmsbc_vvm_borrow_out() {
     // vs2=10, vs1=5, borrow-in=0 -> no underflow -> borrow-out=0
     // vs2=5, vs1=4, borrow-in=1 -> 5 - 4 - 1 = 0 -> no underflow -> borrow-out=0
     // vs2=5, vs1=5, borrow-in=1 -> 5 - 5 - 1 = -1 -> underflow -> borrow-out=1
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 5);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 10);
     write_elem(&mut state, VReg::V2, 2, Vsew::E32, 5);
@@ -492,7 +492,7 @@ fn vmsbc_vvm_borrow_out() {
 #[test]
 fn vmsbc_vv_no_borrow_in() {
     // No borrow-in: just check unsigned underflow
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // 3 - 5: underflow
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 3);
     // 5 - 3: no underflow
@@ -518,7 +518,7 @@ fn vmsbc_vv_no_borrow_in() {
 fn vmsbc_vxm_e64_exact_boundary() {
     // 0 - 1 - borrow_in=0: underflow, borrow-out=1
     // MAX - MAX - borrow_in=0: no underflow, borrow-out=0
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0);
     write_elem(&mut state, VReg::V2, 1, Vsew::E64, u64::MAX);
     state.regs.write(Reg::A0, u64::MAX);
@@ -542,7 +542,7 @@ fn vmsbc_vxm_e64_exact_boundary() {
 
 #[test]
 fn vmsbc_vx_no_borrow() {
-    let mut state = setup(3, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 10);
     write_elem(&mut state, VReg::V2, 2, Vsew::E32, 0xFFFF_FFFF);
@@ -569,7 +569,7 @@ fn vmsbc_vx_no_borrow() {
 
 #[test]
 fn error_vadc_vd_is_v0() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let result = exec(
         &mut state,
         ZveXxCarryInstruction::VadcVvm {
@@ -588,7 +588,7 @@ fn error_vadc_vd_is_v0() {
 
 #[test]
 fn error_vsbc_vd_is_v0() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let result = exec(
         &mut state,
         ZveXxCarryInstruction::VsbcVvm {
@@ -607,7 +607,7 @@ fn error_vsbc_vd_is_v0() {
 
 #[test]
 fn error_vector_not_allowed() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -630,7 +630,7 @@ fn error_vill_vtype() {
     let mut state = initialize_state([]);
     state.ext_state.init_vector_csrs();
     state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(0);
+    state.ext_state.set_vl(Vl::ZERO);
     let result = exec(
         &mut state,
         ZveXxCarryInstruction::VadcVvm {
@@ -649,7 +649,7 @@ fn error_vill_vtype() {
 
 #[test]
 fn error_vmadc_vd_overlaps_vs2_lmul_gt_1() {
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxCarryInstruction::VmadcVvm {
@@ -668,7 +668,7 @@ fn error_vmadc_vd_overlaps_vs2_lmul_gt_1() {
 
 #[test]
 fn error_vadc_vs2_misaligned_m2() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxCarryInstruction::VadcVvm {
@@ -689,7 +689,7 @@ fn error_vadc_vs2_misaligned_m2() {
 
 #[test]
 fn vadc_vstart_skips_elements() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 10);
         write_elem(&mut state, VReg::V1, i, Vsew::E32, 1);
@@ -718,7 +718,7 @@ fn vadc_vstart_skips_elements() {
 
 #[test]
 fn vadc_vl_zero_no_writes() {
-    let mut state = setup(0, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xBEEF);
     }
@@ -753,7 +753,7 @@ fn vadc_wraps_at_sew_boundary() {
         (Vsew::E32, 0xFFFF_FFFF),
         (Vsew::E64, u64::MAX),
     ] {
-        let mut state = setup(1, vsew, Vlmul::M1);
+        let mut state = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, max);
         write_elem(&mut state, VReg::V1, 0, vsew, 0);
         set_mask_bit(&mut state, VReg::V0, 0, true);
