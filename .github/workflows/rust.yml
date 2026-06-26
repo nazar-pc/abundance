@@ -40,9 +40,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ env.RUST_GPU_CACHE }}
-          key: &cache-key ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: &cache-key ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-${{ runner.arch }}-cargo-
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -65,22 +65,22 @@ jobs:
         include:
           - os: ubuntu-26.04
             type: together
-            target: "riscv64gc-unknown-linux-gnu"
+            target: riscv64gc-unknown-linux-gnu
           - os: ubuntu-26.04
             type: features
-            target: "riscv64gc-unknown-linux-gnu"
+            target: riscv64gc-unknown-linux-gnu
           - os: ubuntu-26.04
             type: individually
-            target: "riscv64gc-unknown-linux-gnu"
+            target: riscv64gc-unknown-linux-gnu
           - os: ubuntu-26.04
             type: together
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
           - os: ubuntu-26.04
             type: features
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
           - os: ubuntu-26.04
             type: individually
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -243,7 +243,7 @@ jobs:
           path: *cache-path
           key: *cache-key
         # Only save on `main` branch and only from one canonical matrix variant per OS
-        if: github.ref == 'refs/heads/main' && matrix.type == 'together'
+        if: github.ref == 'refs/heads/main' && matrix.type == 'together' && matrix.target == ''
 
   cargo-test:
     strategy:
@@ -279,17 +279,17 @@ jobs:
           - os: ubuntu-26.04
             miri: true
             type: features
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
           - os: ubuntu-26.04
             miri: true
             type: guest-feature
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
 
           # TODO: Tests will need custom allocator to work under this target
           # - os: ubuntu-26.04
           #   miri: true
           #   type: guest-feature
-          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json"
+          #   target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -591,7 +591,7 @@ jobs:
           - os: ubuntu-26.04
             miri: true
             type: together
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -621,15 +621,15 @@ jobs:
         include:
           - os: ubuntu-26.04
             type: default
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
           - os: ubuntu-26.04
             type: features
-            target: "riscv64a23-unknown-linux-gnu"
+            target: riscv64a23-unknown-linux-gnu
 
           # TODO: Tests will need custom allocator to work under this target
           # - os: ubuntu-26.04
           #   type: guest-feature
-          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json"
+          #   target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
