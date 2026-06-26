@@ -243,7 +243,7 @@ jobs:
           path: *cache-path
           key: *cache-key
         # Only save on `main` branch and only from one canonical matrix variant per OS
-        if: github.ref == 'refs/heads/main' && matrix.type == 'features'
+        if: github.ref == 'refs/heads/main' && matrix.type == 'together'
 
   cargo-test:
     strategy:
