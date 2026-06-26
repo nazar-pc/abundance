@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ArgumentKind","MetadataDecodingError","MetadataItem","MethodKind","MethodsContainerKind"],"struct":["ArgumentMetadataItem","ArgumentsMetadataDecoder","MetadataDecoder","MethodMetadataDecoder","MethodMetadataItem","MethodsMetadataDecoder"]};

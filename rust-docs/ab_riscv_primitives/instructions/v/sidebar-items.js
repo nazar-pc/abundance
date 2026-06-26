@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Eew","Vlmul","VsStatus","Vsew","VsewFactor","Vxrm"],"mod":["zvexx"],"struct":["Vtype"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DISK_PAGE_SIZE"],"struct":["AlignedPage","DirectIoFile"]};

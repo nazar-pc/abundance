@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["block_genesis"],"struct":["BlockGenesisArgs","InternalArgs"]};

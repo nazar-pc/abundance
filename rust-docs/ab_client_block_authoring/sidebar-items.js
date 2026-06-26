@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["beacon_chain","slot_worker"],"struct":["ClaimedSlot"],"trait":["BlockProducer"]};

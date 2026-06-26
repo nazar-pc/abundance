@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockOrigin","PersistBlockError","PersistSegmentHeadersError","PersistSuperSegmentHeadersError","ReadBlockError","ShardSegmentRootsError"],"struct":["BlockDetails","ContractSlotState","ShardSegmentRoot"],"trait":["BeaconChainInfo","BeaconChainInfoWrite","ChainInfo","ChainInfoWrite","ChainSyncStatus"],"type":["BlockMerkleMountainRange"]};

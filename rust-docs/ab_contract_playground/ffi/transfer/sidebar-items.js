@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["playground_transfer"],"struct":["InternalArgs","PlaygroundTransferArgs"]};

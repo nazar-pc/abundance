@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockVerificationError"],"mod":["beacon_chain"],"trait":["BlockVerification"]};
