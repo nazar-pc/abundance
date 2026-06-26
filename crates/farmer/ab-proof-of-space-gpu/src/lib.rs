@@ -6,7 +6,6 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 #![feature(generic_const_exprs, step_trait)]
 #![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
-#![cfg_attr(target_arch = "spirv", feature(uint_bit_width))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(all(test, not(target_arch = "spirv")), feature(maybe_uninit_fill))]
 
