@@ -294,7 +294,11 @@ pub fn all_cpu_cores() -> Vec<CpuCoreSet> {
 pub fn parse_cpu_cores_sets(
     s: &str,
 ) -> Result<Vec<CpuCoreSet>, Box<dyn std::error::Error + Send + Sync>> {
-    let cpu_info = CpuInfo::detect().ok().map(Arc::new);
+    let cpu_info = if cfg!(miri) {
+        None
+    } else {
+        CpuInfo::detect().ok().map(Arc::new)
+    };
 
     s.split(' ')
         .map(|s| {

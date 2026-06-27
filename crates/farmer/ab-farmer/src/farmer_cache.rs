@@ -5,7 +5,7 @@
 
 mod metrics;
 mod piece_cache_state;
-// TODO: Not supported under Miri: https://github.com/rust-lang/miri/issues/4464
+// TODO: Not supported under Miri: https://github.com/rust-lang/miri/issues/5137
 #[cfg(not(miri))]
 #[cfg(test)]
 mod tests;
