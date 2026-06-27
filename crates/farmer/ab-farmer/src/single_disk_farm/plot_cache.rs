@@ -1,6 +1,6 @@
 //! Plot cache for single disk farm
 
-// TODO: Not supported under Miri: https://github.com/rust-lang/miri/issues/4464
+// TODO: Not supported under Miri: https://github.com/rust-lang/miri/issues/5137
 #[cfg(not(miri))]
 #[cfg(test)]
 mod tests;
