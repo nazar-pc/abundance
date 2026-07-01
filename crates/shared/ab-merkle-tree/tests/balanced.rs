@@ -1,10 +1,8 @@
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(generic_const_exprs)]
+#![expect(incomplete_features, reason = "generic_const_*")]
+#![feature(generic_const_args, min_generic_const_args)]
 
 use ab_blake3::OUT_LEN;
-use ab_merkle_tree::balanced::{
-    BalancedMerkleTree, compute_root_only_large_stack_size, ensure_supported_n,
-};
+use ab_merkle_tree::balanced::{BalancedMerkleTree, PROOF_ELEMENTS};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use chacha20::ChaCha8Rng;
@@ -43,15 +41,8 @@ fn mt_balanced_64_leaves() {
     test_basic::<64, 64>();
 }
 
-fn test_basic<const N: usize, const N_U64: u64>()
-where
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-    [(); N.ilog2() as usize + 1]:,
-    [(); compute_root_only_large_stack_size(N)]:,
-    [(); N_U64.next_power_of_two().ilog2() as usize + 1]:,
-{
-    assert!(N as u64 == N_U64);
+fn test_basic<const N: usize, const N_U64: u64>() {
+    assert_eq!(N as u64, N_U64);
 
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
@@ -85,7 +76,7 @@ where
         hash
     };
     let random_proof = {
-        let mut proof = [[0u8; OUT_LEN]; N.ilog2() as usize];
+        let mut proof = [[0u8; OUT_LEN]; PROOF_ELEMENTS::<N>];
         for hash in &mut proof {
             rng.fill_bytes(hash);
         }
@@ -95,7 +86,18 @@ where
     // Ensure the number of proofs (declared and actual) is what it is expected to be
     assert_eq!(tree.all_proofs().len(), N);
     assert_eq!(tree.all_proofs().count(), N);
-    assert_eq!(tree.all_proofs().fold(0usize, |acc, _proof| { acc + 1 }), N);
+    // Above methods are overridden with more efficient implementation, below is an honest iteration
+    // over all elements
+    assert_eq!(
+        {
+            let mut count = 0usize;
+            for _proof in tree.all_proofs() {
+                count += 1;
+            }
+            count
+        },
+        N
+    );
 
     let mut mmr = MerkleMountainRange::<N_U64>::new();
     assert_eq!(
@@ -104,32 +106,33 @@ where
             .unwrap()
             .peaks()
     );
-    let proof_buffer = &mut [MaybeUninit::uninit(); _];
+    let proof_buffer_unbalanced = &mut [MaybeUninit::uninit(); _];
+    let proof_buffer_mmr = &mut [MaybeUninit::uninit(); _];
 
     for (leaf_index, (proof, leaf)) in tree.all_proofs().zip(leaves).enumerate() {
         assert!(
-            BalancedMerkleTree::verify(&root, &proof, leaf_index, leaf),
+            BalancedMerkleTree::<N>::verify(&root, &proof, leaf_index, leaf),
             "N {N} leaf_index {leaf_index}"
         );
         // Proof is empty for a single leaf and will never fail
         if N > 1 {
             assert!(
-                !BalancedMerkleTree::verify(&root, &random_proof, leaf_index, leaf),
+                !BalancedMerkleTree::<N>::verify(&root, &random_proof, leaf_index, leaf),
                 "N {N} leaf_index {leaf_index}"
             );
         }
         if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
             assert!(
-                !BalancedMerkleTree::verify(&root, &proof, bad_leaf_index, leaf),
+                !BalancedMerkleTree::<N>::verify(&root, &proof, bad_leaf_index, leaf),
                 "N {N} leaf_index {leaf_index}"
             );
         }
         assert!(
-            !BalancedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf),
+            !BalancedMerkleTree::<N>::verify(&root, &proof, leaf_index + 1, leaf),
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            !BalancedMerkleTree::verify(&root, &proof, leaf_index, random_hash),
+            !BalancedMerkleTree::<N>::verify(&root, &proof, leaf_index, random_hash),
             "N {N} leaf_index {leaf_index}"
         );
 
@@ -139,7 +142,7 @@ where
             UnbalancedMerkleTree::compute_root_and_proof_in::<N_U64, _, _>(
                 leaves.iter().copied(),
                 leaf_index,
-                proof_buffer,
+                proof_buffer_unbalanced,
             )
             .unwrap();
         assert_eq!(unbalanced_root, root, "N {N} leaf_index {leaf_index}");
@@ -194,7 +197,7 @@ where
 
         // Add leaves individually with proof generation
         let (expected_mmr_root, expected_mmr_proof) = mmr
-            .add_leaf_and_compute_proof_in(&leaf, proof_buffer)
+            .add_leaf_and_compute_proof_in(&leaf, proof_buffer_mmr)
             .unwrap();
         assert_eq!(
             mmr.peaks(),
@@ -224,7 +227,7 @@ where
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            MerkleMountainRange::verify(
+            MerkleMountainRange::<N_U64>::verify(
                 &expected_mmr_root,
                 expected_mmr_proof,
                 leaf_index as u64,
@@ -270,7 +273,7 @@ where
 
         // Add leaves in bulk without proof generation
         {
-            let mut mmr = MerkleMountainRange::new();
+            let mut mmr = MerkleMountainRange::<N_U64>::new();
             assert!(mmr.add_leaves(leaves.iter().copied().take(leaf_index + 1)));
             assert_eq!(
                 mmr.num_leaves(),
@@ -288,7 +291,7 @@ where
         {
             // Add all but last incrementally, then the last in bulk
             {
-                let mut mmr = MerkleMountainRange::new();
+                let mut mmr = MerkleMountainRange::<N_U64>::new();
                 for leaf in leaves.iter().take(leaf_index) {
                     assert!(mmr.add_leaf(leaf), "N {N} leaf_index {leaf_index}");
                 }
@@ -306,7 +309,7 @@ where
             }
             // Add one incrementally, then the rest in bulk
             {
-                let mut mmr = MerkleMountainRange::new();
+                let mut mmr = MerkleMountainRange::<N_U64>::new();
                 for leaf in leaves.iter().take(1) {
                     assert!(mmr.add_leaf(leaf), "N {N} leaf_index {leaf_index}");
                 }
@@ -325,13 +328,13 @@ where
         }
 
         assert!(
-            MerkleMountainRange::verify(&root, &proof, leaf_index as u64, leaf, N_U64),
+            MerkleMountainRange::<N_U64>::verify(&root, &proof, leaf_index as u64, leaf, N_U64),
             "N {N} leaf_index {leaf_index}"
         );
         // Proof is empty for a single leaf and will never fail
         if N > 1 {
             assert!(
-                !MerkleMountainRange::verify(
+                !MerkleMountainRange::<N_U64>::verify(
                     &root,
                     &random_proof,
                     leaf_index as u64,
@@ -343,7 +346,7 @@ where
         }
         if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
             assert!(
-                !MerkleMountainRange::verify(
+                !MerkleMountainRange::<N_U64>::verify(
                     &root,
                     &proof,
                     bad_leaf_index as u64,
@@ -354,7 +357,7 @@ where
             );
         }
         assert!(
-            !MerkleMountainRange::verify(
+            !MerkleMountainRange::<N_U64>::verify(
                 &root,
                 &proof,
                 leaf_index as u64 + 1,
@@ -364,7 +367,7 @@ where
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            !MerkleMountainRange::verify(
+            !MerkleMountainRange::<N_U64>::verify(
                 &root,
                 &proof,
                 leaf_index as u64,

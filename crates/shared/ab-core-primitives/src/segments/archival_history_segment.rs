@@ -36,7 +36,7 @@ impl ArchivedHistorySegment {
     pub const NUM_PIECES: usize = RecordedHistorySegment::NUM_PIECES;
     /// Size of archived history segment in bytes.
     ///
-    /// It includes erasure coded [`crate::pieces::InnerPiece`]s (both source and parity) that are
+    /// It includes erasure coded [`InnerPiece`]s (both source and parity) that are
     /// composed of [`crate::pieces::Record`]s together with corresponding roots and
     /// proofs.
     pub const SIZE: usize = Piece::SIZE * Self::NUM_PIECES;

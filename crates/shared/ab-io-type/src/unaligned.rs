@@ -21,7 +21,7 @@ pub struct Unaligned<Data>(Data)
 where
     Data: TrivialType;
 
-impl<Data> const From<Data> for Unaligned<Data>
+const impl<Data> From<Data> for Unaligned<Data>
 where
     Data: TrivialType,
 {
@@ -72,13 +72,19 @@ where
     }
 
     #[inline(always)]
-    fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+    fn encode_to<T>(&self, dest: &mut T)
+    where
+        T: Output + ?Sized,
+    {
         let inner = self.0;
         inner.encode_to(dest);
     }
 
     #[inline(always)]
-    fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+    fn using_encoded<R, F>(&self, f: F) -> R
+    where
+        F: FnOnce(&[u8]) -> R,
+    {
         let inner = self.0;
         inner.using_encoded(f)
     }

@@ -10,9 +10,6 @@ pub fn zip(src: u32) -> u32 {
             unsafe { core::arch::riscv32::zip(src) }
         }
         _ => {{
-            let lo = src & 0x0000_FFFF;
-            let hi = src >> 16u8;
-
             // Spread each 16-bit half into alternating bits.
             // Classic SWAR interleave for 16-bit -> 32-bit Morton.
             #[inline(always)]
@@ -22,6 +19,9 @@ pub fn zip(src: u32) -> u32 {
                 x = (x | (x << 2u8)) & 0x3333_3333;
                 (x | (x << 1u8)) & 0x5555_5555
             }
+
+            let lo = src & 0x0000_FFFF;
+            let hi = src >> 16u8;
 
             spread(lo) | (spread(hi) << 1u8)
         }}

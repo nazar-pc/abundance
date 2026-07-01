@@ -188,6 +188,8 @@ struct ExampleResponse {
     counter: u8,
 }
 
+// TODO: https://github.com/rust-lang/miri/issues/5138
+#[cfg(not(miri))]
 #[tokio::test]
 async fn test_async_handler_works_with_pending_internal_future() {
     let config_1 = Config {

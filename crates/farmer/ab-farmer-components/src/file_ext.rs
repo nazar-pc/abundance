@@ -205,7 +205,7 @@ impl FileExt for File {
                             buf = &mut buf[n..];
                             offset += n as u64;
                         }
-                        Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {
+                        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
                             // Try again
                         }
                         Err(e) => {
@@ -250,7 +250,7 @@ impl FileExt for File {
                             buf = &buf[n..];
                             offset += n as u64;
                         }
-                        Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {
+                        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
                             // Try again
                         }
                         Err(e) => {

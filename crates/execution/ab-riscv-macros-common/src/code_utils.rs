@@ -5,10 +5,14 @@ const FROM_TRAIT_CONST_1: &str = "const trait ";
 const TO_TRAIT_CONST_1: &str = "trait _const";
 const FROM_TRAIT_CONST_2: &str = "const unsafe trait ";
 const TO_TRAIT_CONST_2: &str = "unsafe trait _const";
-const FROM_IMPL_CONST_1: &str = "> const ";
-const TO_IMPL_CONST_1: &str = "> cnst::";
-const FROM_IMPL_CONST_2: &str = "> const  ";
-const TO_IMPL_CONST_2: &str = "> cnst ::";
+const FROM_IMPL_CONST_1: &str = "const impl";
+const TO_IMPL_CONST_1: &str = "#[cst]impl";
+const FROM_IMPL_CONST_2: &str = "const unsafe impl";
+const TO_IMPL_CONST_2: &str = "#[cst]unsafe impl";
+const FROM_IMPL_CONST_3: &str = "const  impl";
+const TO_IMPL_CONST_3: &str = "#[cst]\nimpl";
+const FROM_IMPL_CONST_4: &str = "const  unsafe impl";
+const TO_IMPL_CONST_4: &str = "#[cst]\nunsafe impl";
 const FROM_IMPL_CONST_REVERT_1: &str = "pub cnst::";
 const TO_IMPL_CONST_REVERT_1: &str = "pub const ";
 const FROM_IMPL_CONST_REVERT_2: &str = "pub cnst ::";
@@ -32,6 +36,8 @@ pub fn pre_process_rust_code(s: &mut str) {
     replace_inplace(s, FROM_TRAIT_CONST_2, TO_TRAIT_CONST_2);
     replace_inplace(s, FROM_IMPL_CONST_1, TO_IMPL_CONST_1);
     replace_inplace(s, FROM_IMPL_CONST_2, TO_IMPL_CONST_2);
+    replace_inplace(s, FROM_IMPL_CONST_3, TO_IMPL_CONST_3);
+    replace_inplace(s, FROM_IMPL_CONST_4, TO_IMPL_CONST_4);
     replace_inplace(s, FROM_IMPL_CONST_REVERT_1, TO_IMPL_CONST_REVERT_1);
     replace_inplace(s, FROM_IMPL_CONST_REVERT_2, TO_IMPL_CONST_REVERT_2);
     replace_inplace(s, FROM_IMPL_CONST_REVERT_3, TO_IMPL_CONST_REVERT_3);
@@ -47,6 +53,8 @@ pub fn post_process_rust_code(s: &mut str) {
     replace_inplace(s, TO_TRAIT_CONST_1, FROM_TRAIT_CONST_1);
     replace_inplace(s, TO_IMPL_CONST_1, FROM_IMPL_CONST_1);
     replace_inplace(s, TO_IMPL_CONST_2, FROM_IMPL_CONST_2);
+    replace_inplace(s, TO_IMPL_CONST_3, FROM_IMPL_CONST_3);
+    replace_inplace(s, TO_IMPL_CONST_4, FROM_IMPL_CONST_4);
     replace_inplace(s, TO_BRACKETS_CONST_1, FROM_BRACKETS_CONST_1);
     replace_inplace(s, TO_BRACKETS_CONST_2, FROM_BRACKETS_CONST_2);
 }

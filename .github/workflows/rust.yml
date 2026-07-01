@@ -15,10 +15,14 @@ env:
   # Not needed in CI, should make things a bit faster
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-  # Build smaller artifacts to avoid running out of space in CI and make it a bit faster
-  RUSTFLAGS: -C strip=symbols
+  # Build smaller artifacts to avoid running out of space in CI and make it a bit faster.
+  # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
+  #  needed for some crates due to `-Znext-solver=globally`
+  RUSTFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -C strip=symbols
   # Needed for things like file system access
-  MIRIFLAGS: -Zmiri-disable-isolation
+  # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
+  #  needed for some crates due to `-Znext-solver=globally`
+  MIRIFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -Zmiri-disable-isolation
   RUST_BACKTRACE: full
 
 jobs:
@@ -85,9 +89,11 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
+      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         cargo -Zgitoxide -Zgit clippy
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -111,8 +117,8 @@ jobs:
 
           - name: RISC-V support
             run: |
-              echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
-              echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+              echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
+              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
               # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
               echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
               echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
@@ -127,14 +133,14 @@ jobs:
           - name: Use Mold linker on Linux
             shell: bash
             run: |
-              echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
+              echo "RUSTFLAGS=${RUSTFLAGS} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
             if: runner.os == 'Linux' && matrix.target == ''
 
           # Use LLD linker for shorter build times
           - name: Use LLD linker on Windows
             shell: bash
             run: |
-              echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
+              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
             if: runner.os == 'Windows'
 
       - name: cargo clippy
@@ -150,7 +156,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --all-targets --package \"${crate}\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                echo "$command --all-targets --package \"${crate}\" -- -D warnings" >> "${{ runner.temp }}/queue"
               done
           # TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/621, builds SPIR-V codegen only once
           ${{ env.command }} --package ab-proof-of-space-gpu >/dev/null 2>&1
@@ -170,7 +176,7 @@ jobs:
               | tr -d '\r' \
               | while IFS= read -r crate; do
                   echo "Checking \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "${{ env.command }} --all-targets --package \"${crate}\" --features \"${crate}/${feature}\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                  echo "$command --all-targets --package \"${crate}\" --features \"${crate}/${feature}\" -- -D warnings" >> "${{ runner.temp }}/queue"
                 done
           done
 
@@ -180,7 +186,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --all-targets --package \"${crate}\" --features \"${crate}/guest\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\" -- -D warnings" >> "${{ runner.temp }}/queue"
               done
 
           printf '%s' "$metadata" \
@@ -191,14 +197,14 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --all-targets --package \"${crate}\" --features \"${crate}/guest\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\" -- -D warnings" >> "${{ runner.temp }}/queue"
               done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "${{ env.command }} --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings" >> "${{ runner.temp }}/queue"
+          echo "$command --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings" >> "${{ runner.temp }}/queue"
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "${{ env.command }} --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings" >> "${{ runner.temp }}/queue"
+          echo "$command --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings" >> "${{ runner.temp }}/queue"
         if: matrix.type == 'features'
 
       - parallel:
@@ -298,9 +304,11 @@ jobs:
     env:
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
+      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
 
     steps: &test-steps
       - name: Install cargo-nextest
@@ -506,15 +514,15 @@ jobs:
               | tr -d '\r' \
               | while IFS= read -r crate; do
                   echo "Testing \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "cargo -Zgitoxide -Zgit ${{ env.command }} --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
+                  echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
                 done
           done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "cargo -Zgitoxide -Zgit ${{ env.command }} --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
+          echo "cargo -Zgitoxide -Zgit $command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
 
           echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "cargo -Zgitoxide -Zgit ${{ env.command }} --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
+          echo "cargo -Zgitoxide -Zgit $command --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
         if: matrix.type == 'features'
 
       - name: cargo ${{ env.command }} (guest feature)
@@ -528,7 +536,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "cargo -Zgitoxide -Zgit ${{ env.command }} --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
 
           printf '%s' "$metadata" \
@@ -539,7 +547,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "cargo -Zgitoxide -Zgit ${{ env.command }} --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
@@ -596,9 +604,13 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
+      # NOTE: Running tests under Miri with nextest is SLOWER than without it:
+      #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
+      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
 
     steps: *test-steps
 
@@ -634,9 +646,11 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
+      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         cargo -Zgitoxide -Zgit build
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
 
     steps:
       - *rust-gpu-cache
@@ -647,7 +661,7 @@ jobs:
       - name: Set up RUSTFLAGS
         shell: bash
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=7000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=7000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
 
       - name: Ensure no panics in annotated code
         shell: bash
@@ -660,7 +674,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --release --all-targets --features no-panic --package \"${crate}\"" >> "${{ runner.temp }}/queue"
+                echo "$command --release --all-targets --features no-panic --package \"${crate}\"" >> "${{ runner.temp }}/queue"
               done
         if: matrix.type == 'default'
 
@@ -675,14 +689,14 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`alloc\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/alloc\"" >> "${{ runner.temp }}/queue"
+                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/alloc\"" >> "${{ runner.temp }}/queue"
               done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "${{ env.command }} --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
+          echo "$command --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "${{ env.command }} --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
+          echo "$command --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
         if: matrix.type == 'features'
 
       - name: Ensure no panics in annotated code (guest feature)
@@ -699,7 +713,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
 
           # Not all core contracts have both `no-panic` and `guest` features yet
@@ -712,7 +726,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "${{ env.command }} --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
@@ -789,7 +803,7 @@ jobs:
             | xargs -0 sha256sum \
             | sha256sum \
             | cut -d' ' -f1)
-          COMBINED=$(printf '%s\n%s\n' "${{ env.ACT4_REPO_REVISION }}" "${RES_HASH}" \
+          COMBINED=$(printf '%s\n%s\n' "${ACT4_REPO_REVISION}" "${RES_HASH}" \
             | sha256sum \
             | cut -d' ' -f1)
           echo "value=${COMBINED}" >> $GITHUB_OUTPUT
@@ -808,7 +822,7 @@ jobs:
 
       - name: Clone ACT4 repo
         run: |
-          git clone --depth 1 --revision=${{ env.ACT4_REPO_REVISION }} \
+          git clone --depth 1 --revision="${ACT4_REPO_REVISION}" \
             https://github.com/riscv/riscv-arch-test \
             riscv-arch-test
         if: steps.restore-cache.outputs.cache-hit != 'true'

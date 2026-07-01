@@ -23,7 +23,7 @@ const ZVE64X_ELEN: u32 = 64;
 /// VLEN in bits for the test vector register file
 const TEST_VLEN: u32 = 256;
 /// VLEN in bytes
-const TEST_VLENB: usize = (TEST_VLEN / u8::BITS) as usize;
+const TEST_VLENB: u32 = TEST_VLEN / u8::BITS;
 
 /// Simple test memory implementation
 pub(crate) struct TestMemory {
@@ -369,14 +369,12 @@ impl VectorRegistersBase for ExtState {
 impl VectorRegisters for ExtState
 where
     Self: Csrs<Reg<u64>>,
-    [(); Self::ELEN as usize]:,
-    [(); Self::VLEN as usize]:,
 {
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }> {
         &self.vector.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }> {
         &mut self.vector.vregs
     }
 
