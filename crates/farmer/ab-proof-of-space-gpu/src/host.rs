@@ -10,23 +10,12 @@ use crate::shader::find_proofs::ProofsHost;
 use crate::shader::types::{Metadata, Position, PositionR};
 use crate::shader::{compute_f1, find_proofs, select_shader_features_limits};
 use ab_chacha8::{ChaCha8Block, ChaCha8State, block_to_bytes};
-use ab_core_primitives::pieces::{PieceOffset, Record};
 use ab_core_primitives::pos::PosSeed;
-use ab_core_primitives::sectors::SectorId;
-use ab_erasure_coding::ErasureCoding;
-use ab_farmer_components::plotting::RecordsEncoder;
-use ab_farmer_components::sector::SectorContentsMap;
-use async_lock::Mutex as AsyncMutex;
 use futures::stream::FuturesOrdered;
 use futures::{StreamExt, TryStreamExt};
 use parking_lot::Mutex;
-use rayon::prelude::*;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 use rclite::Arc;
 use std::num::NonZeroU8;
-use std::simd::Simd;
-use std::sync::Arc as StdArc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, iter};
 use tracing::{debug, warn};
 use wgpu::{
@@ -39,10 +28,33 @@ use wgpu::{
     RequestDeviceError, ShaderModule, ShaderRuntimeChecks, ShaderStages,
 };
 
+#[cfg(feature = "record-encoding")]
+use ab_core_primitives::{
+    pieces::{PieceOffset, Record},
+    sectors::SectorId,
+};
+#[cfg(feature = "record-encoding")]
+use ab_erasure_coding::ErasureCoding;
+#[cfg(feature = "record-encoding")]
+use ab_farmer_components::{plotting::RecordsEncoder, sector::SectorContentsMap};
+#[cfg(feature = "record-encoding")]
+use async_lock::Mutex as AsyncMutex;
+#[cfg(feature = "record-encoding")]
+use rayon::{ThreadPool, ThreadPoolBuilder, prelude::*};
+#[cfg(feature = "record-encoding")]
+use std::{
+    simd::Simd,
+    sync::{
+        Arc as StdArc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+
 /// Proof creation error
 #[derive(Debug, thiserror::Error)]
 pub enum RecordEncodingError {
     /// Too many records
+    #[cfg(feature = "record-encoding")]
     #[error("Too many records: {0}")]
     TooManyRecords(usize),
     /// Proof creation failed previously and the device is now considered broken
@@ -254,6 +266,7 @@ impl Device {
             .collect()
     }
 
+    #[cfg(feature = "record-encoding")]
     pub fn instantiate(
         &self,
         erasure_coding: ErasureCoding,
@@ -269,6 +282,7 @@ impl Device {
     }
 }
 
+#[cfg(feature = "record-encoding")]
 pub struct GpuRecordsEncoder {
     id: u32,
     instances: Vec<Mutex<GpuRecordsEncoderInstance>>,
@@ -278,6 +292,7 @@ pub struct GpuRecordsEncoder {
     global_mutex: StdArc<AsyncMutex<()>>,
 }
 
+#[cfg(feature = "record-encoding")]
 impl fmt::Debug for GpuRecordsEncoder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("GpuRecordsEncoder")
@@ -291,6 +306,7 @@ impl fmt::Debug for GpuRecordsEncoder {
     }
 }
 
+#[cfg(feature = "record-encoding")]
 impl RecordsEncoder for GpuRecordsEncoder {
     // TODO: Run more than one encoding per device concurrently
     fn encode_records(
@@ -380,6 +396,7 @@ impl RecordsEncoder for GpuRecordsEncoder {
     }
 }
 
+#[cfg(feature = "record-encoding")]
 impl GpuRecordsEncoder {
     fn new(
         id: u32,

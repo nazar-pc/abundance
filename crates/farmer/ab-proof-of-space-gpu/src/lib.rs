@@ -5,7 +5,10 @@
 
 #![cfg_attr(target_arch = "spirv", no_std)]
 #![feature(generic_const_exprs, step_trait)]
-#![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
+#![cfg_attr(
+    all(not(target_arch = "spirv"), feature = "record-encoding"),
+    feature(iter_array_chunks, portable_simd)
+)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(all(test, not(target_arch = "spirv")), feature(maybe_uninit_fill))]
 
@@ -20,10 +23,10 @@ pub mod shader;
 pub use crate::shader::find_proofs::ProofsHost;
 #[cfg(not(target_arch = "spirv"))]
 use ab_core_primitives::pos::PosProof;
+#[cfg(all(not(target_arch = "spirv"), feature = "record-encoding"))]
+pub use host::GpuRecordsEncoder;
 #[cfg(not(target_arch = "spirv"))]
-pub use host::{
-    Device, GpuRecordsEncoder, GpuRecordsEncoderInstance, ProofsHostWrapper, RecordEncodingError,
-};
+pub use host::{Device, GpuRecordsEncoderInstance, ProofsHostWrapper, RecordEncodingError};
 #[cfg(not(target_arch = "spirv"))]
 pub use wgpu::{Backend, DeviceType};
 
