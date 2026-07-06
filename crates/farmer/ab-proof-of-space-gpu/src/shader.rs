@@ -8,6 +8,7 @@ pub mod find_matches_and_compute_fn;
 pub mod find_matches_in_buckets;
 pub mod find_proofs;
 mod polyfills;
+pub mod sbucket;
 #[cfg(not(target_arch = "spirv"))]
 mod shader_bytes;
 pub mod sort_buckets;

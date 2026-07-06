@@ -4,6 +4,8 @@
 use crate::PosProofs;
 #[cfg(feature = "alloc")]
 use crate::TableGenerator;
+#[cfg(feature = "alloc")]
+use crate::chiapos::IdentityMap;
 use crate::chiapos::Tables;
 #[cfg(feature = "alloc")]
 use crate::chiapos::TablesCache;
@@ -27,12 +29,13 @@ pub struct ChiaTableGenerator {
 #[cfg(feature = "alloc")]
 impl TableGenerator<ChiaTable> for ChiaTableGenerator {
     fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
-        Tables::<K>::create_proofs((*seed).into(), &self.tables_cache).into()
+        Tables::<K>::create_proofs::<IdentityMap>((*seed).into(), &self.tables_cache).into()
     }
 
     #[cfg(feature = "parallel")]
     fn create_proofs_parallel(&self, seed: &PosSeed) -> Box<PosProofs> {
-        Tables::<K>::create_proofs_parallel((*seed).into(), &self.tables_cache).into()
+        Tables::<K>::create_proofs_parallel::<IdentityMap>((*seed).into(), &self.tables_cache)
+            .into()
     }
 }
 

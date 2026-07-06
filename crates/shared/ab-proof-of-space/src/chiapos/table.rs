@@ -1467,7 +1467,7 @@ where
 {
     /// Proof targets from the last table into the previous table, one for each
     /// [`Record::NUM_S_BUCKETS`].
-    pub(super) fn create_proof_targets(
+    pub(super) fn create_proof_targets<M: super::SBucketMap>(
         parent_table: Table<K, 6>,
         cache: &TablesCache,
     ) -> (
@@ -1514,9 +1514,11 @@ where
                     const {
                         assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
                     }
-                    let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                    let s_bucket = M::map(s_bucket);
+                    if s_bucket >= Record::NUM_S_BUCKETS as u32 {
                         continue;
-                    };
+                    }
+                    let s_bucket = s_bucket as u16;
                     let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
                     if positions == &[Position::ZERO; 2] {
                         *positions = p;
@@ -1532,9 +1534,11 @@ where
                 const {
                     assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
                 }
-                let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                let s_bucket = M::map(s_bucket);
+                if s_bucket >= Record::NUM_S_BUCKETS as u32 {
                     continue;
-                };
+                }
+                let s_bucket = s_bucket as u16;
 
                 let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
                 if positions == &[Position::ZERO; 2] {
@@ -1552,7 +1556,7 @@ where
     /// better performance (though not efficiency of CPU and memory usage), if you create multiple
     /// tables in parallel, prefer this method for better overall performance.
     #[cfg(feature = "parallel")]
-    pub(super) fn create_proof_targets_parallel(
+    pub(super) fn create_proof_targets_parallel<M: super::SBucketMap>(
         parent_table: Table<K, 6>,
         cache: &TablesCache,
     ) -> (
@@ -1635,9 +1639,11 @@ where
                             const {
                                 assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
                             }
-                            let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                            let s_bucket = M::map(s_bucket);
+                            if s_bucket >= Record::NUM_S_BUCKETS as u32 {
                                 continue;
-                            };
+                            }
+                            let s_bucket = s_bucket as u16;
 
                             buckets_positions[reduced_count].write((s_bucket, p));
                             reduced_count += 1;
@@ -1653,9 +1659,11 @@ where
                         const {
                             assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
                         }
-                        let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                        let s_bucket = M::map(s_bucket);
+                        if s_bucket >= Record::NUM_S_BUCKETS as u32 {
                             continue;
-                        };
+                        }
+                        let s_bucket = s_bucket as u16;
 
                         buckets_positions[reduced_count].write((s_bucket, p));
                         reduced_count += 1;

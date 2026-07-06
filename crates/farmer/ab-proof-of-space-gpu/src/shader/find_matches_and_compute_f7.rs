@@ -11,6 +11,7 @@ use crate::shader::constants::{
 use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_buckets_impl};
 #[cfg(target_arch = "spirv")]
 use crate::shader::polyfills::ArrayIndexingPolyfill;
+use crate::shader::sbucket::{IdentityMap, SBucketMap};
 use crate::shader::types::{Match, Metadata, Position, PositionR, Y};
 use core::fmt;
 use core::mem::MaybeUninit;
@@ -117,7 +118,7 @@ impl fmt::Debug for FindMatchesAndComputeF7Shared {
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
 )]
-unsafe fn compute_f7_into_buckets_inner(
+unsafe fn compute_f7_into_buckets_inner<M: SBucketMap>(
     index: u32,
     left_bucket_base: u32,
     absolute_position_base: u32,
@@ -179,7 +180,8 @@ unsafe fn compute_f7_into_buckets_inner(
         right_metadata,
     );
 
-    let s_bucket = y.first_k_bits() as usize;
+    let first_k_bits = y.first_k_bits();
+    let s_bucket = M::map(first_k_bits) as usize;
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // let Some(bucket_count) = bucket_sizes.get_mut(s_bucket) else {
@@ -223,7 +225,7 @@ unsafe fn compute_f7_into_buckets_inner(
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
 )]
-unsafe fn compute_f7_into_buckets(
+unsafe fn compute_f7_into_buckets<M: SBucketMap>(
     local_invocation_id: u32,
     left_bucket_index: u32,
     left_bucket: &[PositionR; MAX_BUCKET_SIZE],
@@ -261,7 +263,7 @@ unsafe fn compute_f7_into_buckets(
     // SAFETY: Guaranteed by function contract
     unsafe {
         if (local_invocation_id as usize) < matches_count {
-            compute_f7_into_buckets_inner(
+            compute_f7_into_buckets_inner::<M>(
                 local_invocation_id,
                 left_bucket_base,
                 absolute_position_base,
@@ -274,7 +276,7 @@ unsafe fn compute_f7_into_buckets(
             );
         }
         if ((local_invocation_id + WORKGROUP_SIZE) as usize) < matches_count {
-            compute_f7_into_buckets_inner(
+            compute_f7_into_buckets_inner::<M>(
                 local_invocation_id + WORKGROUP_SIZE,
                 left_bucket_base,
                 absolute_position_base,
@@ -318,6 +320,39 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesAndComputeF7Shared,
 ) {
+    // SAFETY: Guaranteed by function contract
+    unsafe {
+        find_matches_and_compute_f7_impl::<IdentityMap>(
+            local_invocation_id,
+            workgroup_id,
+            parent_buckets,
+            parent_metadatas,
+            table_6_proof_targets_sizes,
+            table_6_proof_targets,
+            matches,
+            shared,
+        );
+    }
+}
+
+/// # Safety
+/// Must be called from [`WORKGROUP_SIZE`] threads. All buckets must contain valid positions.
+#[inline(always)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
+)]
+pub unsafe fn find_matches_and_compute_f7_impl<M: SBucketMap>(
+    local_invocation_id: UVec3,
+    workgroup_id: UVec3,
+    parent_buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
+    table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
+    table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
+             NUM_S_BUCKETS],
+    matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
+    shared: &mut FindMatchesAndComputeF7Shared,
+) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
 
@@ -342,7 +377,7 @@ pub unsafe fn find_matches_and_compute_f7(
 
     // SAFETY: Guaranteed by function contract and call to `find_matches_in_buckets_impl`
     unsafe {
-        compute_f7_into_buckets(
+        compute_f7_into_buckets::<M>(
             local_invocation_id,
             left_bucket_index,
             left_bucket,

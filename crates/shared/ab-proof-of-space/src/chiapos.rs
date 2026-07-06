@@ -39,6 +39,32 @@ mod private {
     pub trait Supported {}
 }
 
+// TODO: Duplicated verbatim in the GPU shader. Consolidate into one `ab-core-primitives`
+//  definition once that crate can be used from the SPIR-V shader; today it is gated there as
+//  `cfg(not(target_arch = "spirv"))`.
+/// Maps a table-7 entry's `first_k_bits` to its target s-bucket during proof generation.
+///
+/// A returned value `>= Record::NUM_S_BUCKETS` discards the entry (callers bound-check). Lets a
+/// consumer bin proofs under its own challenge convention; the engine ships only [`IdentityMap`].
+#[cfg(feature = "alloc")]
+pub trait SBucketMap {
+    /// Map `first_k_bits` to an s-bucket, or a value `>= Record::NUM_S_BUCKETS` to discard.
+    fn map(first_k_bits: u32) -> u32;
+}
+
+/// Native convention: the s-bucket is the raw `first_k_bits`.
+#[cfg(feature = "alloc")]
+#[derive(Debug)]
+pub struct IdentityMap;
+
+#[cfg(feature = "alloc")]
+impl SBucketMap for IdentityMap {
+    #[inline(always)]
+    fn map(first_k_bits: u32) -> u32 {
+        first_k_bits
+    }
+}
+
 /// Proof-of-space proofs
 #[derive(Debug)]
 #[cfg(feature = "alloc")]
@@ -192,7 +218,7 @@ where
     /// There is also `Self::create_proofs_parallel()` that can achieve higher performance and lower
     /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(feature = "alloc")]
-    pub fn create_proofs(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
+    pub fn create_proofs<M: SBucketMap>(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
     where
         [(); 2usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]:,
     {
@@ -202,7 +228,8 @@ where
         let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
         let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
         let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
-        let (table_6_proof_targets, table_6) = Table::<K, 7>::create_proof_targets(table_6, cache);
+        let (table_6_proof_targets, table_6) =
+            Table::<K, 7>::create_proof_targets::<M>(table_6, cache);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
@@ -289,7 +316,7 @@ where
     /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(feature = "parallel")]
-    pub fn create_proofs_parallel(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
+    pub fn create_proofs_parallel<M: SBucketMap>(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
     where
         [(); 2usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]:,
     {
@@ -300,7 +327,7 @@ where
         let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
         let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
         let (table_6_proof_targets, table_6) =
-            Table::<K, 7>::create_proof_targets_parallel(table_6, cache);
+            Table::<K, 7>::create_proof_targets_parallel::<M>(table_6, cache);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
