@@ -41,7 +41,7 @@ use wgpu::{
 
 /// Proof creation error
 #[derive(Debug, thiserror::Error)]
-enum RecordEncodingError {
+pub enum RecordEncodingError {
     /// Too many records
     #[error("Too many records: {0}")]
     TooManyRecords(usize),
@@ -56,9 +56,23 @@ enum RecordEncodingError {
     DevicePoll(#[from] PollError),
 }
 
-struct ProofsHostWrapper<'a> {
+/// Handle to GPU-produced proofs; keeps the underlying buffer mapped until dropped.
+pub struct ProofsHostWrapper<'a> {
     proofs: &'a ProofsHost,
     proofs_host: &'a Buffer,
+}
+
+impl ProofsHostWrapper<'_> {
+    /// Proofs produced for a single seed.
+    pub fn proofs(&self) -> &ProofsHost {
+        self.proofs
+    }
+}
+
+impl fmt::Debug for ProofsHostWrapper<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ProofsHostWrapper").finish_non_exhaustive()
+    }
 }
 
 impl Drop for ProofsHostWrapper<'_> {
@@ -217,6 +231,29 @@ impl Device {
         self.adapter_info.backend
     }
 
+    /// One proof-producing encoder instance per queue, for consumers that run their own record
+    /// encoding. `f7_override` replaces the native f7 binning with a given shader module and its
+    /// entry-point name (which must not collide with abundance's own).
+    pub fn create_proofs_encoder_instances(
+        &self,
+        f7_override: Option<(wgpu::ShaderModuleDescriptor<'static>, &'static str)>,
+    ) -> Vec<GpuRecordsEncoderInstance> {
+        self.devices
+            .clone()
+            .into_iter()
+            .map(|(device, queue, module)| {
+                let (f7_module, f7_entry_point) = match &f7_override {
+                    Some((descriptor, entry_point)) => (
+                        Some(device.create_shader_module(descriptor.clone())),
+                        *entry_point,
+                    ),
+                    None => (None, "find_matches_and_compute_f7"),
+                };
+                GpuRecordsEncoderInstance::new(device, queue, module, f7_module, f7_entry_point)
+            })
+            .collect()
+    }
+
     pub fn instantiate(
         &self,
         erasure_coding: ErasureCoding,
@@ -361,7 +398,13 @@ impl GpuRecordsEncoder {
             instances: devices
                 .into_iter()
                 .map(|(device, queue, module)| {
-                    Mutex::new(GpuRecordsEncoderInstance::new(device, queue, module))
+                    Mutex::new(GpuRecordsEncoderInstance::new(
+                        device,
+                        queue,
+                        module,
+                        None,
+                        "find_matches_and_compute_f7",
+                    ))
                 })
                 .collect(),
             thread_pool,
@@ -372,7 +415,7 @@ impl GpuRecordsEncoder {
     }
 }
 
-struct GpuRecordsEncoderInstance {
+pub struct GpuRecordsEncoderInstance {
     device: wgpu::Device,
     queue: Queue,
     mapping_error: Arc<Mutex<Option<BufferAsyncError>>>,
@@ -403,8 +446,21 @@ struct GpuRecordsEncoderInstance {
     compute_pipeline_find_proofs: ComputePipeline,
 }
 
+impl fmt::Debug for GpuRecordsEncoderInstance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GpuRecordsEncoderInstance")
+            .finish_non_exhaustive()
+    }
+}
+
 impl GpuRecordsEncoderInstance {
-    fn new(device: wgpu::Device, queue: Queue, module: ShaderModule) -> Self {
+    fn new(
+        device: wgpu::Device,
+        queue: Queue,
+        module: ShaderModule,
+        f7_module: Option<ShaderModule>,
+        f7_entry_point: &str,
+    ) -> Self {
         let initial_state_host = device.create_buffer(&BufferDescriptor {
             label: Some("initial_state_host"),
             size: size_of::<ChaCha8Block>() as BufferAddress,
@@ -605,11 +661,12 @@ impl GpuRecordsEncoderInstance {
         let (bind_group_find_matches_and_compute_f7, compute_pipeline_find_matches_and_compute_f7) =
             bind_group_and_pipeline_find_matches_and_compute_f7(
                 &device,
-                &module,
+                f7_module.as_ref().unwrap_or(&module),
                 &buckets_b_gpu,
                 &metadatas_b_gpu,
                 &table_6_proof_targets_sizes_gpu,
                 &table_6_proof_targets_gpu,
+                f7_entry_point,
             );
 
         let (bind_group_find_proofs, compute_pipeline_find_proofs) =
@@ -658,7 +715,7 @@ impl GpuRecordsEncoderInstance {
         }
     }
 
-    fn create_proofs(
+    pub fn create_proofs(
         &mut self,
         seed: &PosSeed,
     ) -> Result<ProofsHostWrapper<'_>, RecordEncodingError> {
@@ -1219,6 +1276,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
     parent_metadatas_gpu: &Buffer,
     table_6_proof_targets_sizes_gpu: &Buffer,
     table_6_proof_targets_gpu: &Buffer,
+    entry_point: &str,
 ) -> (BindGroup, ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: Some("find_matches_and_compute_f7"),
@@ -1281,7 +1339,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
         label: Some("find_matches_and_compute_f7"),
         layout: Some(&pipeline_layout),
         module,
-        entry_point: Some("find_matches_and_compute_f7"),
+        entry_point: Some(entry_point),
     });
 
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
