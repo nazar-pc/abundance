@@ -261,6 +261,7 @@ async fn compute_f1_adapter(
     let buckets = {
         let bucket_sizes_host_ptr = bucket_sizes_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[u32; NUM_BUCKETS]>();
         // SAFETY: The pointer is to correctly initialized and aligned memory
@@ -268,6 +269,7 @@ async fn compute_f1_adapter(
 
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
         // SAFETY: The pointer is to correctly initialized and aligned memory

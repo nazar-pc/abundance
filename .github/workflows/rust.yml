@@ -152,8 +152,6 @@ jobs:
                 echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
                 echo "${{ env.command }} --all-targets --package \"${crate}\" -- -D warnings" >> "${{ runner.temp }}/queue"
               done
-          # TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/621, builds SPIR-V codegen only once
-          ${{ env.command }} --package ab-proof-of-space-gpu >/dev/null 2>&1
         if: matrix.type == 'individually'
 
       - name: cargo clippy (various features)

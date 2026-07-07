@@ -384,6 +384,7 @@ async fn find_matches_and_compute_f7_adapter(
     let table_6_proof_targets_sizes = {
         let table_6_proof_targets_sizes_host_ptr = table_6_proof_targets_sizes_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[u32; NUM_S_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory
@@ -402,9 +403,9 @@ async fn find_matches_and_compute_f7_adapter(
     let table_6_proof_targets = {
         let buckets_host_ptr = table_6_proof_targets_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
-            .cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>(
-        );
+            .cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory
         let buckets_ref = unsafe { &*buckets_host_ptr };
 

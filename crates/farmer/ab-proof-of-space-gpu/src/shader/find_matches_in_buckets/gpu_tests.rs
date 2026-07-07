@@ -272,10 +272,12 @@ async fn find_matches_in_buckets_adapter(
     let matches = {
         let matches_host_ptr = matches_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[Match; MAX_BUCKET_SIZE]>();
         let matches_counts_host_ptr = matches_counts_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<u32>();
 

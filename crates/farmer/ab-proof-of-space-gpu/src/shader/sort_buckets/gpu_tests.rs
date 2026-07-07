@@ -238,6 +238,7 @@ async fn sort_buckets_adapter(
     let buckets = {
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory
