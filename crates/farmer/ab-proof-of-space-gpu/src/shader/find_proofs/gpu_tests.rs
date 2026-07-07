@@ -492,6 +492,7 @@ async fn find_proofs_adapter(
     let (found_proofs, proofs) = {
         let proofs_host_ptr = proofs_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<ProofsHost>();
         // SAFETY: The pointer points to correctly initialized and aligned memory

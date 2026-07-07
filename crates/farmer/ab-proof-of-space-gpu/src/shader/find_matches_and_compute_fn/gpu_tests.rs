@@ -489,6 +489,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     let bucket_sizes = {
         let bucket_sizes_host_ptr = bucket_sizes_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[u32; NUM_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory
@@ -507,6 +508,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     let buckets = {
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory
@@ -527,6 +529,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     let positions = {
         let positions_host_ptr = positions_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory
@@ -547,6 +550,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     let metadatas = {
         let metadatas_host_ptr = metadatas_host
             .get_mapped_range(..)
+            .unwrap()
             .as_ptr()
             .cast::<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>();
         // SAFETY: The pointer points to correctly initialized and aligned memory

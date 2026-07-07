@@ -4,6 +4,6 @@ min = "0.87.0"
 
 [[mounts]]
 # Exclude explicit HTML files
-excludeFiles = '**/*.html'
+files = '! **/*.html'
 source = 'content'
 target = 'content'
