@@ -30,11 +30,11 @@ jobs:
     steps:
       - &checkout-step
         name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # 7.0.0
 
       - &cache-restore-step
         name: Restore cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
         with:
           path: &cache-path |
             ~/.cargo/registry
@@ -120,7 +120,7 @@ jobs:
               sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
             if: contains(matrix.target, 'riscv64')
 
-          - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
+          - uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
             if: runner.os == 'Linux' && matrix.target == ''
 
           # Use Mold linker for shorter build times
@@ -236,7 +236,7 @@ jobs:
             if: matrix.type == 'individually' || matrix.type == 'features'
 
       - name: Save cache
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
         with:
           path: *cache-path
           key: *cache-key
@@ -302,7 +302,7 @@ jobs:
 
     steps: &test-steps
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@d858f8113943481093e02986a7586a4819a3bfd6 # 2.71.2
+        uses: taiki-e/install-action@50414676f9f5d50a65992c6dd2ed02641263226c # 2.82.10
         with:
           tool: cargo-nextest
 
@@ -319,15 +319,15 @@ jobs:
         run: |
           & {
             # See https://vulkan.lunarg.com/sdk/home for updates
-            $sdkVersion = "1.4.341.0"
+            $sdkVersion = "1.4.350.0"
             if ("${{ runner.arch }}" -eq "ARM64") {
               $arch = "ARM64"
               $urlPath = "warm"
-              $expectedHash = "4a350fbeec743683494f746e9cf7e2052494ca9ae618931afc2abb8985e072b0"
+              $expectedHash = "1845c336ca17180ca4e4f6f52542ff9998aa39a76bc6ed75961eef67aad1a811"
             } else {
               $arch = "X64"
               $urlPath = "windows"
-              $expectedHash = "20571dcc8292b80a47d68bbbfa4094d87044041f50f4e2e1f326a01e3732b226"
+              $expectedHash = "23ce69f32cef3e2799617e2b1776cd0c71030d23a91f8375821cc40d76b185b9"
             }
 
             $url = "https://sdk.lunarg.com/sdk/download/$sdkVersion/$urlPath/VulkanRT-$arch-$sdkVersion-Components.zip"
@@ -347,15 +347,15 @@ jobs:
 
           & {
             # See https://github.com/mmozeiko/build-mesa/releases for updates
-            $version = "26.0.5"
+            $version = "26.1.4"
             if ("${{ runner.arch }}" -eq "ARM64") {
               $arch = "arm64"
               $archJson = "aarch64"
-              $expectedHash = "6980c51ce19cff6318d001d05a5fbd9c53cff64d29ea04b5e0285a09b6fe7ae4"
+              $expectedHash = "b77f5ea72e442c5424b85eb55199bf9bf9404809e1d832ed88183b36cf3a440e"
             } else {
               $arch = "x64"
               $archJson = "x86_64"
-              $expectedHash = "289b283fd13a0029d0226d9695807e62343bb25da2499545bb5f973c97146262"
+              $expectedHash = "18f2c6a3eb2f36b669d68b7a888647aeaf0c007a61487f8cf606df4365126e85"
             }
 
             $url = "https://github.com/mmozeiko/build-mesa/releases/download/$version/mesa-lavapipe-$arch-$version.7z"
@@ -794,7 +794,7 @@ jobs:
 
       - name: Restore cache
         id: restore-cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
         with:
           path: &act4-work-cache-path |
             crates/execution/ab-riscv-act4-runner/work/*/elfs
@@ -812,13 +812,13 @@ jobs:
         if: steps.restore-cache.outputs.cache-hit != 'true'
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # 4.0.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # 4.2.0
         if: steps.restore-cache.outputs.cache-hit != 'true'
 
       # TODO: Use official image once it is available: https://github.com/riscv/riscv-arch-test/pull/1161
       - name: Build act4-build image
         id: build
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # 7.0.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # 7.3.0
         with:
           context: riscv-arch-test
           file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
@@ -867,7 +867,7 @@ jobs:
               RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run --release -- rv64 work/abundance-rv64i-max/elfs
 
       - name: Save cache
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # 5.0.4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
         with:
           path: *act4-work-cache-path
           key: *act4-work-cache-key
