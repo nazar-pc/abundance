@@ -3,9 +3,6 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
 
-const ELEN: Elen = Elen::L64;
-const VLEN: Vlen = Vlen::L1024;
-
 pub(crate) struct AbundanceRv32IMaxExtState {
     csrs: BTreeMap<u16, u32>,
     vregs: VectorRegisterFile<const { Self::VLEN }>,
@@ -87,8 +84,8 @@ impl Csrs<<AbundanceRv32IMaxInstruction as Instruction>::Reg> for AbundanceRv32I
 }
 
 impl VectorRegistersBase for AbundanceRv32IMaxExtState {
-    const ELEN: Elen = ELEN;
-    const VLEN: Vlen = VLEN;
+    const ELEN: Elen = Elen::L64;
+    const VLEN: Vlen = Vlen::L1024;
 }
 
 impl VectorRegisters for AbundanceRv32IMaxExtState
