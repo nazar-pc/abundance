@@ -188,7 +188,7 @@ struct ExampleResponse {
     counter: u8,
 }
 
-// TODO: https://github.com/rust-lang/miri/issues/5138
+// TODO: https://github.com/rust-lang/miri/pull/5031#pullrequestreview-4710753391
 #[cfg(not(miri))]
 #[tokio::test]
 async fn test_async_handler_works_with_pending_internal_future() {
