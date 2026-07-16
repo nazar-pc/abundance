@@ -1432,9 +1432,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
 ]
@@ -1468,7 +1468,7 @@ dependencies = [
 [[package]]
 name = "cargo-gpu-install"
 version = "0.10.0-alpha.1"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=7895fd1d58878c8ff80dc44751081807d0535962#7895fd1d58878c8ff80dc44751081807d0535962"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ad79728bf2961a257e1e1f76edaa1130ee8c0638#ad79728bf2961a257e1e1f76edaa1130ee8c0638"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.21.0",
@@ -1663,9 +1663,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.6.1"
+version = "4.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ddb117e43bbf7dacf0a4190fef4d345b9bad68dfc649cb349e7d17d28428e51"
+checksum = "dd059f9da4f5c36b3787f65d38ccaab1cc315f07b01f89abc8359ee6a8205011"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1673,9 +1673,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.6.0"
+version = "4.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "714a53001bf66416adb0e2ef5ac857140e7dc3a0c48fb28b2f10762fc4b5069f"
+checksum = "f09628afdcc538b57f3c6341e9c8e9970f18e4a481690a64974d7023bd33548b"
 dependencies = [
  "anstream",
  "anstyle",
@@ -5250,7 +5250,7 @@ checksum = "6b1e7f9a428571be2dc5bc0505c13fb6bf936822b894ec87abf8a08a4e51742d"
 [[package]]
 name = "rustc_codegen_spirv-types"
 version = "0.10.0-alpha.1"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=7895fd1d58878c8ff80dc44751081807d0535962#7895fd1d58878c8ff80dc44751081807d0535962"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ad79728bf2961a257e1e1f76edaa1130ee8c0638#ad79728bf2961a257e1e1f76edaa1130ee8c0638"
 dependencies = [
  "rspirv",
  "semver",
@@ -5737,7 +5737,7 @@ dependencies = [
 [[package]]
 name = "spirv-builder"
 version = "0.10.0-alpha.1"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=7895fd1d58878c8ff80dc44751081807d0535962#7895fd1d58878c8ff80dc44751081807d0535962"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ad79728bf2961a257e1e1f76edaa1130ee8c0638#ad79728bf2961a257e1e1f76edaa1130ee8c0638"
 dependencies = [
  "cargo_metadata 0.21.0",
  "log",
@@ -5753,7 +5753,7 @@ dependencies = [
 [[package]]
 name = "spirv-std"
 version = "0.10.0-alpha.1"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=7895fd1d58878c8ff80dc44751081807d0535962#7895fd1d58878c8ff80dc44751081807d0535962"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ad79728bf2961a257e1e1f76edaa1130ee8c0638#ad79728bf2961a257e1e1f76edaa1130ee8c0638"
 dependencies = [
  "bitflags 1.3.2",
  "glam",
@@ -5766,7 +5766,7 @@ dependencies = [
 [[package]]
 name = "spirv-std-macros"
 version = "0.10.0-alpha.1"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=7895fd1d58878c8ff80dc44751081807d0535962#7895fd1d58878c8ff80dc44751081807d0535962"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ad79728bf2961a257e1e1f76edaa1130ee8c0638#ad79728bf2961a257e1e1f76edaa1130ee8c0638"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5777,7 +5777,7 @@ dependencies = [
 [[package]]
 name = "spirv-std-types"
 version = "0.10.0-alpha.1"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=7895fd1d58878c8ff80dc44751081807d0535962#7895fd1d58878c8ff80dc44751081807d0535962"
+source = "git+https://github.com/Rust-GPU/rust-gpu?rev=ad79728bf2961a257e1e1f76edaa1130ee8c0638#ad79728bf2961a257e1e1f76edaa1130ee8c0638"
 
 [[package]]
 name = "spki"
@@ -5836,9 +5836,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.118"
+version = "2.0.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b9ae57f904213ebb649ce6895b8a66c66f0203b9319718f69a5612a065b1422"
+checksum = "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6306,11 +6306,11 @@ dependencies = [
 
 [[package]]
 name = "ulid"
-version = "1.2.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "470dbf6591da1b39d43c14523b2b469c86879a53e8b758c8e090a470fe7b1fbe"
+checksum = "947dde63b6d514cc5e044edad4e0ca7261afd1099d16c83d942cb2b2f348689c"
 dependencies = [
- "rand 0.9.4",
+ "rand 0.10.2",
  "serde",
  "web-time",
 ]
