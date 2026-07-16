@@ -1001,7 +1001,7 @@ fn vlenb_csr_returns_correct_value() {
         .ext_state
         .read_csr(VectorCsr::Vlenb.to_csr_index())
         .unwrap();
-    assert_eq!(raw, u64::from(ExtState::VLENB));
+    assert_eq!(raw, u64::from(ExtState::VLEN.bytes()));
 }
 
 // Sequential instruction tests

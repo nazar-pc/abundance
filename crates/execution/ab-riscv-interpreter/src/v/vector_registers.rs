@@ -4,33 +4,33 @@ use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
-pub(crate) const VLENB_USIZE<const VLENB: u32>: usize = VLENB as usize;
+pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
 
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases
 #[repr(align(128))]
-pub struct VectorRegisterFile<const VLENB: u32>([[u8; VLENB_USIZE::<VLENB>]; 32]);
+pub struct VectorRegisterFile<const VLEN: Vlen>([[u8; VLENB_USIZE::<VLEN>]; 32]);
 
-const impl<const VLENB: u32> Default for VectorRegisterFile<VLENB> {
+const impl<const VLEN: Vlen> Default for VectorRegisterFile<VLEN> {
     #[inline(always)]
     fn default() -> Self {
         Self([[0; _]; _])
     }
 }
 
-impl<const VLENB: u32> VectorRegisterFile<VLENB> {
+impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Get reference to a vector register
     #[inline(always)]
-    pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLENB>] {
+    pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
     }
 
     /// Get mutable reference to a vector register
     #[inline(always)]
-    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLENB>] {
+    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
     }
@@ -44,9 +44,6 @@ pub trait VectorRegistersBase {
     const ELEN: Elen;
     /// Vector register width `VLEN` in bits
     const VLEN: Vlen;
-    // TODO: Try removing this and only using `Vlen`
-    /// Vector register width in bytes
-    const VLENB: u32 = Self::VLEN.bytes();
 }
 
 // TODO: Figure out a way to make `VectorRegisters + VectorRegistersExt` trait bounds work without
@@ -71,10 +68,10 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
 {
     /// Read the vector register file
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }>;
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }>;
 
     /// Mutable access to the vector register file
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }>;
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }>;
 
     /// Check whether vector instructions are currently permitted.
     ///

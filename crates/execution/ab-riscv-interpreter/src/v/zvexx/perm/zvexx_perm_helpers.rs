@@ -77,17 +77,17 @@ where
 /// Read element 0 of register `base_reg` as `u64`, zero-extended.
 ///
 /// # Safety
-/// `sew.bytes() <= VLENB`
+/// `sew.bytes() <= VLEN.bytes()`
 #[inline(always)]
-pub unsafe fn read_element_0_u64<const VLENB: u32>(
-    vregs: &VectorRegisterFile<VLENB>,
+pub unsafe fn read_element_0_u64<const VLEN: Vlen>(
+    vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes_width());
     let reg = vregs.get(base_reg);
     let mut buf = [0u8; 8];
-    // SAFETY: `sew_bytes <= VLENB` for all legal vtype; `sew_bytes <= 8`
+    // SAFETY: `sew_bytes <= VLEN.bytes()` for all legal vtype; `sew_bytes <= 8`
     unsafe {
         buf.get_unchecked_mut(..sew_bytes)
             .copy_from_slice(reg.get_unchecked(..sew_bytes));
@@ -98,10 +98,10 @@ pub unsafe fn read_element_0_u64<const VLENB: u32>(
 /// Write element 0 of register `base_reg` from the low `sew_bytes` of `value`.
 ///
 /// # Safety
-/// `sew.bytes() <= VLENB`
+/// `sew.bytes() <= VLEN.bytes()`
 #[inline(always)]
-pub unsafe fn write_element_0_u64<const VLENB: u32>(
-    vregs: &mut VectorRegisterFile<VLENB>,
+pub unsafe fn write_element_0_u64<const VLEN: Vlen>(
+    vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
     sew: Vsew,
     value: u64,
@@ -109,7 +109,7 @@ pub unsafe fn write_element_0_u64<const VLENB: u32>(
     let sew_bytes = usize::from(sew.bytes_width());
     let buf = value.to_le_bytes();
     let reg = vregs.get_mut(base_reg);
-    // SAFETY: `sew_bytes <= VLENB`; `sew_bytes <= 8`
+    // SAFETY: `sew_bytes <= VLEN.bytes()`; `sew_bytes <= 8`
     unsafe {
         reg.get_unchecked_mut(..sew_bytes)
             .copy_from_slice(buf.get_unchecked(..sew_bytes));
@@ -159,7 +159,7 @@ where
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - `vl <= group_regs * VLENB / sew_bytes`.
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
@@ -178,7 +178,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     // The active range starts at max(vstart, offset).
@@ -227,7 +227,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -260,7 +260,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - `vl <= group_regs * VLENB / sew_bytes`.
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
@@ -279,7 +279,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -312,7 +312,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
-/// - `vl <= group_regs * VLENB / sew_bytes`.
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
@@ -331,7 +331,7 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let range = vstart.range_to(vl);
     for i in range.clone() {
@@ -377,7 +377,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -424,7 +424,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
@@ -449,12 +449,13 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 /// Execute vrgatherei16.vv: `vd[i] = (vs1_16[i] < vlmax) ? vs2[vs1_16[i]] : 0`.
 ///
 /// `vs1` always uses EEW=16 regardless of SEW. `vl` must not exceed the index register group
-/// capacity, i.e. `vl <= index_group_regs * VLENB / 2` (VLENB/2 = elems per register at EEW=16).
+/// capacity, i.e. `vl <= index_group_regs * VLEN.bytes() / 2` (VLEN.bytes() / 2 = elems per
+/// register at EEW=16).
 ///
 /// # Safety
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
-/// - `vl <= vlmax` (for the data register group) AND `vl <= index_group_regs * VLENB / 2` (for the
-///   index register group).
+/// - `vl <= vlmax` (for the data register group) AND `vl <= index_group_regs * VLEN.bytes() / 2`
+///   (for the index register group).
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -477,22 +478,22 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     // Maximum number of EEW=16 elements the index register group can hold.
-    // Each register holds VLENB / 2 elements at EEW=16.
-    let index_capacity = u32::from(index_group_regs) * (ExtState::VLENB / 2);
+    // Each register holds VLEN.bytes() / 2 elements at EEW=16.
+    let index_capacity = u32::from(index_group_regs) * (ExtState::VLEN.bytes() / 2);
     // `vl` must not exceed either the data VLMAX or the index register group capacity.
     // Both bounds are guaranteed by the caller; this debug assertion catches misuse early.
     debug_assert!(
         vl <= vlmax && u32::from(vl) <= index_capacity,
         "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
     );
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // Read 16-bit index from vs1; EEW=16 always.
-        // SAFETY: i < vl <= index_capacity = index_group_regs * (VLENB/2), so element i
+        // SAFETY: i < vl <= index_capacity = index_group_regs * (VLEN.bytes() / 2), so element i
         // fits within the index register group.
         let index = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
@@ -519,7 +520,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` and `vs1` are validly aligned (verified by caller).
 /// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
-/// - `vl <= group_regs * VLENB / sew_bytes`.
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
@@ -537,7 +538,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
+    // SAFETY: `vl <= VLEN`
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
@@ -568,7 +569,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vd` is validly aligned (verified by caller).
 /// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
-/// - `vl <= group_regs * VLENB / sew_bytes`.
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
@@ -586,7 +587,7 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
 
     for i in vstart.range_to(vl) {
@@ -632,8 +633,8 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
 {
     let mask_bytes = usize::from(vl.bytes());
     let vreg = ext_state.read_vregs();
-    let mut vs1_buf = [0u8; VLENB_USIZE::<{ ExtState::VLENB }>];
-    // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
+    let mut vs1_buf = [0u8; VLENB_USIZE::<{ ExtState::VLEN }>];
+    // SAFETY: mask_bytes <= VLEN.bytes() since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf
             .get_unchecked_mut(..mask_bytes)
@@ -668,8 +669,8 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
 /// - `dst_base % COUNT == 0` and `src_base % COUNT == 0` (verified by caller).
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLENB: u32>(
-    vregs: &mut VectorRegisterFile<VLENB>,
+pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
+    vregs: &mut VectorRegisterFile<VLEN>,
     dst_base: VReg,
     src_base: VReg,
 ) {

@@ -13,7 +13,7 @@ use core::hint::cold_path;
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `vstart == 0` (verified by caller; reductions with non-zero vstart are illegal)
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - `vl <= VLEN`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -44,7 +44,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     }
     // SAFETY: element 0 always fits within register vs1
     let init = unsafe { read_element_u64(ext_state.read_vregs(), vs1, 0, sew) };
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut acc = init;
     for i in Vstart::ZERO.range_to(vl) {
@@ -69,7 +69,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `sew.double_width().is_some()` (verified by caller)
 /// - `vstart == 0` (verified by caller)
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - `vl <= VLEN`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]

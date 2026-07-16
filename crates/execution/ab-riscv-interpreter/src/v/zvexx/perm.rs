@@ -76,7 +76,7 @@ where
                 };
                 let sew = vtype.vsew();
                 // SAFETY: element 0 is always within register vs2, byte offset 0;
-                // VLENB >= sew.bytes() for all legal vtype configurations.
+                // VLEN.bytes() >= sew.bytes() for all legal vtype configurations.
                 let raw = unsafe {
                     zvexx_perm_helpers::read_element_0_u64(ext_state.read_vregs(), vs2, sew)
                 };

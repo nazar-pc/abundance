@@ -19,7 +19,7 @@ use core::fmt;
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vbrev<Reg, ExtState, CustomError>(
@@ -207,7 +207,7 @@ pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
 ///   0` and `vd.to_bits() + dest_group_regs <= 32`
 /// - `vs2` register group satisfies alignment for LMUL
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - `vl <= dest_group_regs * VLENB / double_sew_bytes`
+/// - `vl <= dest_group_regs * VLEN.bytes() / double_sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vwsll<Reg, ExtState, CustomError>(

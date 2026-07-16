@@ -78,13 +78,15 @@ where
                     });
                 }
                 let base = rs1_value.as_u64();
-                let vlenb = u64::from(ExtState::VLENB);
                 for reg_off in 0..nreg {
                     // SAFETY: the decoder guarantees nreg in {1,2,4,8} and vd is nreg-aligned
                     // (checked above), so vd.to_bits() + nreg - 1 <= 31.
                     let reg = unsafe { VReg::from_bits(vd.to_bits() + reg_off).unwrap_unchecked() };
                     let bytes = memory
-                        .read_slice(base + u64::from(reg_off) * vlenb, ExtState::VLENB)
+                        .read_slice(
+                            base + u64::from(reg_off) * u64::from(ExtState::VLEN.bytes()),
+                            ExtState::VLEN.bytes(),
+                        )
                         .inspect_err(|_error| {
                             if reg_off > 0 {
                                 ext_state.mark_vs_dirty();
@@ -111,9 +113,10 @@ where
                 if byte_count > 0 {
                     let base = rs1_value.as_u64();
                     let bytes = memory.read_slice(base, u32::from(byte_count))?;
-                    // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 = VLENB`
-                    // because `vl <= VLMAX <= VLEN`, so `..bytes.len()` is in bounds within the
-                    // `VLENB`-byte destination register.
+                    // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 =
+                    // VLEN.bytes()` because `vl <= VLMAX <= VLEN`, so
+                    // `..bytes.len()` is in bounds within the
+                    // `VLEN.bytes()`-byte destination register.
                     unsafe {
                         ext_state
                             .write_vregs()
@@ -129,8 +132,8 @@ where
             // Unit-stride load.
             //
             // Destination EMUL = EEW/SEW * LMUL, computed via `index_register_count`. This
-            // gives `group_regs` such that `VLMAX = group_regs * VLENB / eew.bytes()` matches
-            // the architectural `vl`.
+            // gives `group_regs` such that `VLMAX = group_regs * VLEN.bytes() / eew.bytes()`
+            // matches the architectural `vl`.
             Self::Vle {
                 vd,
                 rs1: _,
@@ -170,9 +173,9 @@ where
                 // - alignment: `check_register_group_alignment` verified `vd % group_regs == 0` and
                 //   `vd + group_regs <= 32`, satisfying both the alignment and nf=1 bounds
                 //   preconditions
-                // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL computed for
-                //   this `eew` and `vtype`, so this VLMAX equals the architectural VLMAX that
-                //   bounds `vl`
+                // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is the EMUL
+                //   computed for this `eew` and `vtype`, so this VLMAX equals the architectural
+                //   VLMAX that bounds `vl`
                 // - mask overlap: checked above via `groups_overlap`
                 unsafe {
                     zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _, _>(
@@ -281,8 +284,9 @@ where
                 // SAFETY:
                 // - alignment and nf=1 bounds: `check_register_group_alignment` verified `vd %
                 //   group_regs == 0` and `vd + group_regs <= 32`
-                // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL for this
-                //   `eew` and `vtype`, so this VLMAX equals the architectural VLMAX bounding `vl`
+                // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is the EMUL for
+                //   this `eew` and `vtype`, so this VLMAX equals the architectural VLMAX bounding
+                //   `vl`
                 // - mask overlap: checked above via `groups_overlap`
                 unsafe {
                     zvexx_load_helpers::execute_strided_load(
@@ -363,10 +367,10 @@ where
                 // SAFETY:
                 // - data alignment/nf=1 bounds: `check_register_group_alignment` on `vd`
                 // - index alignment/bounds: `check_register_group_alignment` on `vs2`
-                // - `vl <= data_group_regs * VLENB / data_eew.bytes()`: data EEW = SEW and
+                // - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()`: data EEW = SEW and
                 //   `data_group_regs = LMUL`, so VLMAX = LMUL * VLEN / SEW, which bounds `vl`
-                // - `vl <= index_group_regs * VLENB / index_eew.bytes()`: `index_group_regs` is
-                //   EMUL_index defined so this VLMAX_index equals the architectural VLMAX
+                // - `vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()`: `index_group_regs`
+                //   is EMUL_index defined so this VLMAX_index equals the architectural VLMAX
                 // - `vd`/`vs2` overlap (if any) satisfies the general EEW overlap rule, checked
                 //   above; the in-order element loop reads index element `i` before writing data
                 //   element `i`, and that rule guarantees a data write never clobbers an index
@@ -503,8 +507,9 @@ where
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
-                // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL for this
-                //   `eew` and `vtype`, so this VLMAX equals the architectural VLMAX bounding `vl`
+                // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is the EMUL for
+                //   this `eew` and `vtype`, so this VLMAX equals the architectural VLMAX bounding
+                //   `vl`
                 // - mask overlap with v0: `validate_segment_registers` checked `vd.to_bits() != 0`
                 //   when `vm=false`, ensuring no field group contains v0
                 unsafe {
@@ -609,8 +614,8 @@ where
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
-                // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is EMUL for this `eew`
-                //   and `vtype`
+                // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is EMUL for this
+                //   `eew` and `vtype`
                 // - mask overlap: `validate_segment_registers` checked `vd.to_bits() != 0` when
                 //   `vm=false`
                 unsafe {
@@ -698,10 +703,10 @@ where
                 // - index alignment/bounds: `check_register_group_alignment` verified `vs2 %
                 //   EMUL_index == 0` and `vs2 + EMUL_index <= 32`
                 // - no field/index group overlap: verified by the loop above
-                // - `vl <= data_group_regs * VLENB / data_eew.bytes()`: data EEW = SEW and
+                // - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()`: data EEW = SEW and
                 //   `data_group_regs = LMUL`, so VLMAX = LMUL * VLEN / SEW bounds `vl`
-                // - `vl <= EMUL_index * VLENB / index_eew.bytes()`: `index_group_regs` (EMUL_index)
-                //   is defined so this VLMAX_index equals the architectural VLMAX
+                // - `vl <= EMUL_index * VLEN.bytes() / index_eew.bytes()`: `index_group_regs`
+                //   (EMUL_index) is defined so this VLMAX_index equals the architectural VLMAX
                 // - mask overlap: `validate_segment_registers` checked `vd.to_bits() != 0` when
                 //   `vm=false`, and no field group starts at 0 since groups are contiguous from
                 //   `vd` which is nonzero

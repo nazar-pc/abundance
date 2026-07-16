@@ -54,7 +54,7 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(

@@ -103,17 +103,17 @@ where
 /// `elem_i`.
 ///
 /// # Safety
-/// `base_reg + elem_i / (VLENB / (2*sew_bytes)) < 32` must hold.
+/// `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32` must hold.
 #[inline(always)]
-unsafe fn write_wide_element_u64<const VLENB: u32>(
-    vregs: &mut VectorRegisterFile<VLENB>,
+unsafe fn write_wide_element_u64<const VLEN: Vlen>(
+    vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
     elem_i: u16,
     sew: Vsew,
     value: u64,
 ) {
     let wide_bytes = u32::from(sew.bytes_width()) * 2;
-    let elems_per_reg = VLENB / wide_bytes;
+    let elems_per_reg = VLEN.bytes() / wide_bytes;
     let reg_off = u32::from(elem_i) / elems_per_reg;
     let byte_off = (u32::from(elem_i) % elems_per_reg) * wide_bytes;
     let buf = value.to_le_bytes();
@@ -121,7 +121,7 @@ unsafe fn write_wide_element_u64<const VLENB: u32>(
     let reg = unsafe {
         vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
-    // SAFETY: `byte_off + wide_bytes <= VLENB`; `wide_bytes <= 8` for SEW < 64
+    // SAFETY: `byte_off + wide_bytes <= VLEN.bytes()`; `wide_bytes <= 8` for SEW < 64
     let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + wide_bytes) as usize) };
     // SAFETY: `wide_bytes <= 8` because SEW < 64 is enforced before widening ops are called
     dst.copy_from_slice(unsafe { buf.get_unchecked(..wide_bytes as usize) });
@@ -134,7 +134,7 @@ unsafe fn write_wide_element_u64<const VLENB: u32>(
 ///
 /// # Safety
 /// - `vd` and source register alignment verified by caller
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -155,7 +155,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -188,7 +188,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
-/// - `vl <= src_group_regs * VLENB / sew_bytes`
+/// - `vl <= src_group_regs * VLEN.bytes() / sew_bytes`
 /// - SEW < 64 verified by caller (so 2*SEW <= 64 and fits in u64)
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
@@ -210,7 +210,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -227,8 +227,8 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
         };
         let result = op(a, b, sew);
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them because
-        // `vl <= src_group_regs * VLENB / sew_bytes` and dest stores at 2*SEW width so
-        // `i < dest_group_regs * VLENB / (2*sew_bytes)`
+        // `vl <= src_group_regs * VLEN.bytes() / sew_bytes` and dest stores at 2*SEW width so
+        // `i < dest_group_regs * VLEN.bytes() / (2*sew_bytes)`
         unsafe {
             write_wide_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
@@ -244,7 +244,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 ///
 /// # Safety
 /// - `vd`, `a_reg`, and `src` register alignment verified by caller
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -265,7 +265,7 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -317,7 +317,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -373,7 +373,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -427,7 +427,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {

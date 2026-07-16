@@ -239,8 +239,7 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`; `vstart <= vl`
-                // by spec invariant.
+                // SAFETY: `vl <= VLMAX <= VLEN`; `vstart <= vl` by spec invariant.
                 let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(ext_state, vs2, vm) };
 
                 return Ok(ControlFlow::Continue((rd, rd_value)));
@@ -302,7 +301,7 @@ where
                 }
                 let vl = ext_state.vl();
                 // SAFETY: `vd != vs2` checked above; `vd != v0` when masked checked above;
-                // `vstart == 0` checked above; `vl <= VLEN` so `vl.div_ceil(8) <= VLENB`.
+                // `vstart == 0` checked above; `vl <= VLEN`.
                 unsafe {
                     zvexx_mask_helpers::execute_vmsbf(ext_state, vd, vs2, vm, vl);
                 }
@@ -442,7 +441,7 @@ where
                 let vl = ext_state.vl();
                 // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
                 // `vm=false` implies `vd != v0` checked above; vstart == 0 checked above;
-                // `vl <= VLMAX = group_regs * VLENB / sew_bytes`, all element indices valid.
+                // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
                 unsafe {
                     zvexx_mask_helpers::execute_viota(ext_state, vd, vs2, vm, vl, sew);
                 }
@@ -478,7 +477,7 @@ where
                 }
                 let sew = vtype.vsew();
                 // SAFETY: vd alignment checked above; `vm=false` implies `vd != v0` checked above;
-                // `vl <= VLMAX = group_regs * VLENB / sew_bytes`, all element indices valid.
+                // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
                 unsafe {
                     zvexx_mask_helpers::execute_vid(ext_state, vd, vm, sew);
                 }

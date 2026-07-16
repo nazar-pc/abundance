@@ -8,7 +8,7 @@ const VLEN: Vlen = Vlen::L1024;
 
 pub(crate) struct AbundanceRv64IMaxExtState {
     csrs: BTreeMap<u16, u64>,
-    vregs: VectorRegisterFile<const { Self::VLENB }>,
+    vregs: VectorRegisterFile<const { Self::VLEN }>,
 }
 
 impl AbundanceRv64IMaxExtState {
@@ -98,11 +98,11 @@ impl VectorRegisters for AbundanceRv64IMaxExtState
 where
     Self: Csrs<<AbundanceRv64IMaxInstruction as Instruction>::Reg>,
 {
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
         &self.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
         &mut self.vregs
     }
 

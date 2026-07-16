@@ -93,8 +93,8 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                // SAFETY: alignment checked above; `vl <= VLMAX = group_regs * VLENB / sew_bytes`;
-                // masked vd != v0 checked above.
+                // SAFETY: alignment checked above; `vl <= VLMAX = group_regs * VLEN.bytes() /
+                // sew_bytes`; masked vd != v0 checked above.
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         ext_state,

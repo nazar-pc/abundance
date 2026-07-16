@@ -82,9 +82,9 @@ where
 /// # Safety
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
-/// - `vl <= group_regs * VLENB / eew.bytes()` (all `vl` elements fit within the source register
-///   group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL register
-///   count for the given `eew` and `vtype`)
+/// - `vl <= group_regs * VLEN.bytes() / eew.bytes()` (all `vl` elements fit within the source
+///   register group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL
+///   register count for the given `eew` and `vtype`)
 /// - When `vm=false`: `vs3` does not overlap `v0` (i.e. `vs3.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -110,7 +110,7 @@ where
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN / 8 = VLENB`.
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -122,9 +122,9 @@ where
             // SAFETY: Guaranteed by function contract
             let field_base_reg =
                 unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
-            // SAFETY: need `field_base_reg + i / (VLENB / elem_bytes) < 32`.
+            // SAFETY: need `field_base_reg + i / (VLEN.bytes() / elem_bytes) < 32`.
             //
-            // Let `elems_per_reg = VLENB / elem_bytes`.
+            // Let `elems_per_reg = VLEN.bytes() / elem_bytes`.
             // `i < vl <= group_regs * elems_per_reg` (precondition), so
             // `i / elems_per_reg < group_regs`.
             //
@@ -161,7 +161,7 @@ where
 /// # Safety
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
-/// - `vl <= group_regs * VLENB / eew.bytes()`
+/// - `vl <= group_regs * VLEN.bytes() / eew.bytes()`
 /// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -187,7 +187,7 @@ where
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -232,8 +232,8 @@ where
 /// - `vs3.to_bits() + nf * data_group_regs <= 32`
 /// - `vs2` register group is aligned and fits within `[0, 32)` (caller must verify via
 ///   `check_register_group_alignment` before calling)
-/// - `vl <= data_group_regs * VLENB / data_eew.bytes()`
-/// - `vl <= index_group_regs * VLENB / index_eew.bytes()` (caller must verify)
+/// - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()`
+/// - `vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()` (caller must verify)
 /// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -260,14 +260,14 @@ where
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let data_elem_bytes = data_eew.bytes_width();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLENB`.
+    // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `i < vl <= index_group_regs * VLENB / index_eew.bytes()` (precondition), so
-        // `vs2.to_bits() + i / (VLENB / index_eew.bytes()) <
+        // SAFETY: `i < vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()` (precondition),
+        // so `vs2.to_bits() + i / (VLEN.bytes() / index_eew.bytes()) <
         //     vs2.to_bits() + index_group_regs <= 32`
         let index_buf = unsafe { read_group_element(ext_state.read_vregs(), vs2, i, index_eew) };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
@@ -278,8 +278,8 @@ where
             // SAFETY: Guaranteed by function contract
             let field_base_reg =
                 unsafe { VReg::from_bits(vs3.to_bits() + f * data_group_regs).unwrap_unchecked() };
-            // SAFETY: `i < vl <= data_group_regs * VLENB / data_eew.bytes()` (precondition), so
-            // `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
+            // SAFETY: `i < vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()` (precondition),
+            // so `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
             //                                    <= vs3.to_bits() + nf * data_group_regs <= 32`.
             let data =
                 unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, data_eew) };

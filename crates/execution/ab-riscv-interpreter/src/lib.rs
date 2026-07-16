@@ -60,6 +60,7 @@
 
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
+    adt_const_params,
     const_cmp,
     const_convert,
     const_default,
@@ -69,7 +70,6 @@
     generic_const_items,
     inherent_associated_types,
     integer_widen_truncate,
-    min_adt_const_params,
     min_generic_const_args,
     signed_bigint_helpers
 )]
