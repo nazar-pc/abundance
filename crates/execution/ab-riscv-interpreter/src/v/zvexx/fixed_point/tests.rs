@@ -13,7 +13,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 }
 
 fn setup(
-    vl: u32,
+    vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>> {
@@ -22,12 +22,12 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
 fn setup_with_vxrm(
-    vl: u32,
+    vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
     vxrm: Vxrm,
@@ -141,7 +141,7 @@ fn vxsat(state: &TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>) -> 
 
 #[test]
 fn vsaddu_vv_e8_no_overflow() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 10);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 20);
@@ -162,13 +162,13 @@ fn vsaddu_vv_e8_no_overflow() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 30, "elem {i}");
     }
     assert!(!vxsat(&state), "vxsat must not be set on no-overflow");
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
 }
 
 #[test]
 fn vsaddu_vv_e8_saturates_at_max() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 200);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 100);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0);
@@ -196,7 +196,7 @@ fn vsaddu_vv_e8_saturates_at_max() {
 
 #[test]
 fn vsaddu_vv_e32_saturates() {
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FFFE);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 3);
     exec(
@@ -217,7 +217,7 @@ fn vsaddu_vv_e32_saturates() {
 
 #[test]
 fn vsaddu_vv_e64_saturates() {
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, u64::MAX);
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, 1);
     exec(
@@ -238,7 +238,7 @@ fn vsaddu_vv_e64_saturates() {
 
 #[test]
 fn vsaddu_vx_e16() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFFF0);
     }
@@ -263,7 +263,7 @@ fn vsaddu_vx_e16() {
 #[test]
 fn vsaddu_vi_e8() {
     // Immediate is zero-extended for vsaddu
-    let mut state = setup(3, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E8, Vlmul::M1);
     // 250 + 5 = 255 exactly - no overflow, vxsat must NOT be set
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 250);
     // 251 + 5 = 256 - saturates to 255
@@ -298,7 +298,7 @@ fn vsaddu_vi_e8_high_bit_immediate_sign_extends() {
     // which as an unsigned operand is 255. Then:
     //   elem0: 10 + 255 = 265 -> saturates to 255
     //   elem1: 0  + 255 = 255 -> exact max, no saturation
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 10);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0);
     exec(
@@ -329,7 +329,7 @@ fn vsaddu_vi_e8_high_bit_immediate_sign_extends() {
 #[test]
 fn vsaddu_vi_e16_sign_extends_to_sew() {
     // imm=-1 sign-extends to 0xFFFF at SEW=16 (= 65535 unsigned).
-    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 1);
     exec(
         &mut state,
@@ -351,7 +351,7 @@ fn vsaddu_vi_e16_sign_extends_to_sew() {
 #[test]
 fn vsaddu_vxsat_is_sticky() {
     // First instruction saturates, second does not; vxsat should remain set
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 200);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 100);
     exec(
@@ -389,7 +389,7 @@ fn vsaddu_vxsat_is_sticky() {
 
 #[test]
 fn vsadd_vv_e8_positive_overflow() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     // i8::MAX + 1 overflows
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 127);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
@@ -415,7 +415,7 @@ fn vsadd_vv_e8_positive_overflow() {
 
 #[test]
 fn vsadd_vv_e8_negative_overflow() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     // i8::MIN + (-1) underflows
     // -128
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80u64);
@@ -443,7 +443,7 @@ fn vsadd_vv_e8_negative_overflow() {
 
 #[test]
 fn vsadd_vv_e8_no_overflow() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 50);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 50);
     // -16
@@ -468,7 +468,7 @@ fn vsadd_vv_e8_no_overflow() {
 
 #[test]
 fn vsadd_vv_e32_max_plus_one() {
-    let mut state = setup(1, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x7FFF_FFFFu64);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 1);
     exec(
@@ -490,7 +490,7 @@ fn vsadd_vv_e32_max_plus_one() {
 #[test]
 fn vsadd_vi_sign_extends_immediate() {
     // imm = -1 (0x1F as 5-bit signed) should sign-extend to -1 in i64
-    let mut state = setup(1, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
     // 0 + (-1) = -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0);
     exec(
@@ -514,7 +514,7 @@ fn vsadd_vi_sign_extends_immediate() {
 
 #[test]
 fn vssubu_vv_e8_no_underflow() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 50);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 30);
@@ -539,7 +539,7 @@ fn vssubu_vv_e8_no_underflow() {
 
 #[test]
 fn vssubu_vv_e8_clamps_at_zero() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 10);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 20);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0);
@@ -563,7 +563,7 @@ fn vssubu_vv_e8_clamps_at_zero() {
 
 #[test]
 fn vssubu_vx_e64_clamps() {
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 5);
     state.regs.write(Reg::A0, 10u64);
     exec(
@@ -586,7 +586,7 @@ fn vssubu_vx_e64_clamps() {
 #[test]
 fn vssub_vv_e8_positive_underflow() {
     // i8::MIN - 1 underflows
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     // -128
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80u64);
     // 1
@@ -614,7 +614,7 @@ fn vssub_vv_e8_positive_underflow() {
 #[test]
 fn vssub_vv_e8_positive_overflow() {
     // i8::MAX - (-1) overflows
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 127);
     // -1
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0xFFu64);
@@ -640,7 +640,7 @@ fn vssub_vv_e8_positive_overflow() {
 
 #[test]
 fn vssub_vx_e32_no_overflow() {
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 100);
     // -256
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 0xFFFF_FF00u64);
@@ -670,7 +670,7 @@ fn vssub_vx_e32_no_overflow() {
 fn vaaddu_vv_e8_rnu_basic() {
     // (3 + 4) >> 1 = 3 with rnu (round-up): (7 >> 1) + round = 3 + 1 = 4? No:
     // rnu: increment = bit[0] of sum before shift = 7 & 1 = 1, so result = 3 + 1 = 4
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 3);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 4);
     exec(
@@ -692,7 +692,7 @@ fn vaaddu_vv_e8_rnu_basic() {
 
 #[test]
 fn vaaddu_vv_e8_rdn_truncates() {
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 3);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 4);
     exec(
@@ -715,7 +715,7 @@ fn vaaddu_vv_e8_rdn_truncates() {
 fn vaaddu_vv_e8_even_sum_all_modes_same() {
     // sum = 6 (even): all rounding modes give 3
     for mode in [Vxrm::Rnu, Vxrm::Rne, Vxrm::Rdn, Vxrm::Rod] {
-        let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, mode);
+        let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, mode);
         write_elem(&mut state, VReg::V2, 0, Vsew::E8, 2);
         write_elem(&mut state, VReg::V1, 0, Vsew::E8, 4);
         exec(
@@ -737,7 +737,7 @@ fn vaaddu_vv_e8_even_sum_all_modes_same() {
 #[test]
 fn vaaddu_vv_e8_overflow_wraps_correctly() {
     // 255 + 255 = 510; (510) >> 1 = 255 - no overflow because we use the extra bit
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 255);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 255);
     exec(
@@ -757,7 +757,7 @@ fn vaaddu_vv_e8_overflow_wraps_correctly() {
 
 #[test]
 fn vaaddu_vx_e32() {
-    let mut state = setup_with_vxrm(2, Vsew::E32, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 5);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 6);
     state.regs.write(Reg::A0, 5u64);
@@ -783,7 +783,7 @@ fn vaaddu_vx_e32() {
 fn vaadd_vv_e8_rnu_signed() {
     // -3 + -4 = -7. Truncated arithmetic >>1 = -4 (floor toward -inf).
     // Round bit = bit[0] of the i128 sum (-7) = 1. Rnu increments by 1: -4 + 1 = -3.
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     // -3
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFDu64);
     // -4
@@ -806,7 +806,7 @@ fn vaadd_vv_e8_rnu_signed() {
 
 #[test]
 fn vaadd_vv_e8_rdn_signed() {
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     // -3
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFDu64);
     // -4
@@ -831,7 +831,7 @@ fn vaadd_vv_e8_rdn_signed() {
 #[test]
 fn vaadd_vv_e8_no_overflow() {
     // 127 + (-1) = 126, /2 = 63
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 127);
     // -1
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0xFFu64);
@@ -859,7 +859,7 @@ fn vaadd_vv_e8_no_overflow() {
 fn vaadd_vx_e64_rne() {
     // Test rne: (3 + 4) = 7, truncated = 3, round bit = 1, sticky = 0, result_lsb = 1
     // Rne: increment = round_bit & (sticky | result_lsb) = 1 & 1 = 1 -> 4
-    let mut state = setup_with_vxrm(1, Vsew::E64, Vlmul::M1, Vxrm::Rne);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1, Vxrm::Rne);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 3);
     state.regs.write(Reg::A0, 4u64);
     exec(
@@ -881,7 +881,7 @@ fn vaadd_vx_e64_rne() {
 #[test]
 fn vasubu_vv_e8_rdn() {
     // (5 - 2) = 3 >> 1 = 1 with rdn
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 2);
     exec(
@@ -903,7 +903,7 @@ fn vasubu_vv_e8_rdn() {
 #[test]
 fn vasubu_vv_e8_rnu_odd_diff() {
     // (5 - 2) = 3, rnu: round bit = 1 -> 1+1 = 2
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 2);
     exec(
@@ -929,7 +929,7 @@ fn vasubu_vx_e8_underflow_wraps_to_large() {
     // it).
     // Equivalently: borrow=1 fills the sign bit, diff byte wraps to 0xFD=253.
     // Arithmetic >>1: 0x80 | (0xFD >> 1) = 0x80 | 0x7E = 0xFE = 254.
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 2);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 5);
     exec(
@@ -953,7 +953,7 @@ fn vasubu_vx_e8_underflow_wraps_to_large() {
 #[test]
 fn vasub_vv_e8_rnu() {
     // (-3 - 2) = -5, >> 1 with rnu: -5 has LSB=1, rnu increments -> -2
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     // -3
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFDu64);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 2);
@@ -979,7 +979,7 @@ fn vasub_vv_e8_rnu() {
 
 #[test]
 fn vasub_vx_e16_rdn() {
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rdn);
     // i16::MIN
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0x8000);
     // -32767
@@ -1011,7 +1011,7 @@ fn vsmul_vv_e8_basic() {
     // vsmul: (a * b * 2 + round) >> SEW
     // 2 * 3 = 6, *2 = 12, >> 8 = 0 with any rounding (12 < 128)
     // But for small values the result is always 0: (2*3*2)>>8 = 12>>8 = 0
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 2);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 3);
     exec(
@@ -1033,7 +1033,7 @@ fn vsmul_vv_e8_basic() {
 #[test]
 fn vsmul_vv_e8_larger_values() {
     // 64 * 64 = 4096, *2 = 8192, >> 8 = 32 (no rounding needed)
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 64);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 64);
     exec(
@@ -1058,7 +1058,7 @@ fn vsmul_vv_e8_larger_values() {
 #[test]
 fn vsmul_vv_e8_int_min_saturates() {
     // i8::MIN * i8::MIN: -128 * -128 = 16384, *2 overflows i16; result saturates at i8::MAX = 127
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     // -128
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x80u64);
     // -128
@@ -1086,7 +1086,7 @@ fn vsmul_vv_e8_int_min_saturates() {
 fn vsmul_vv_e64_int_min_saturates() {
     // i64::MIN * i64::MIN: product = 2^126, *2 = 2^127 which overflows i128.
     // The implementation must detect this before multiplying and return i64::MAX with vxsat set.
-    let mut state = setup_with_vxrm(1, Vsew::E64, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, i64::MIN.cast_unsigned());
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, i64::MIN.cast_unsigned());
     exec(
@@ -1115,7 +1115,7 @@ fn vsmul_vv_e16_rnu_rounding() {
     // a=b=181: a*b=32761, *2=65522. 65522>>16=0, round bit = (65522>>15)&1 = (65522/32768)&1.
     // 65522 = 0xFFB2; bit 15 = 1 -> rnu increments: 0+1 = 1.
     // Verify: 181*181=32761, *2=65522=0xFFB2, >>16=0, bit[15]=1 -> result=1
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 181);
     write_elem(&mut state, VReg::V1, 0, Vsew::E16, 181);
     exec(
@@ -1136,7 +1136,7 @@ fn vsmul_vv_e16_rnu_rounding() {
     );
     assert!(!vxsat(&state));
     // Contrast with rdn: same inputs -> 0 (round bit discarded)
-    let mut state2 = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rdn);
+    let mut state2 = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state2, VReg::V2, 0, Vsew::E16, 181);
     write_elem(&mut state2, VReg::V1, 0, Vsew::E16, 181);
     exec(
@@ -1161,7 +1161,7 @@ fn vsmul_vv_e16_rnu_rounding() {
 fn vsmul_vx_e16_negative() {
     // -100 * 200 = -20000, *2 = -40000, >> 16 = -1 (arithmetic, since -40000 / 65536 = -0.6... ->
     // -1) -40000 = 0xFFFF_6300; bit[15] = 0 -> rdn gives -1
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rdn);
     // -100 as u16
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xFF9Cu64);
     state.regs.write(Reg::A0, 200u64);
@@ -1188,7 +1188,7 @@ fn vsmul_vx_e16_negative() {
 #[test]
 fn vssrl_vv_e8_rdn_basic() {
     // 0b1010_1010 >> 2 = 0b0010_1010 = 42 with rdn (truncate)
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0b1010_1010);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 2);
     exec(
@@ -1210,7 +1210,7 @@ fn vssrl_vv_e8_rdn_basic() {
 #[test]
 fn vssrl_vv_e8_rnu_rounds_up() {
     // 0b0000_0011 >> 1 = 1, round bit = 1 -> 2
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 3);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
     exec(
@@ -1231,7 +1231,7 @@ fn vssrl_vv_e8_rnu_rounds_up() {
 #[test]
 fn vssrl_vv_e8_shift_zero() {
     // Shift by 0: no shift, no rounding
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xAB);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0);
     exec(
@@ -1252,7 +1252,7 @@ fn vssrl_vv_e8_shift_zero() {
 #[test]
 fn vssrl_vv_e8_shift_masked_to_log2_sew() {
     // Shift amount is masked to log2(8) = 3 bits; shift of 11 = 0b1011 masked to 3 -> 3
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     // vs1 = 11 = 0b1011; masked to low 3 bits = 0b011 = 3
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 11);
@@ -1277,7 +1277,7 @@ fn vssrl_vx_e32_rne() {
     // 7 = 0b111, shift by 1: truncated = 3 (odd), round bit = bit[0] of 7 = 1, sticky = 0
     // (no bits below position 0 exist).
     // Rne: increment = round_bit & (sticky | result_lsb) = 1 & (0 | 1) = 1 -> 3 + 1 = 4.
-    let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rne);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rne);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 7);
     state.regs.write(Reg::A0, 1u64);
     exec(
@@ -1299,7 +1299,7 @@ fn vssrl_vi_e16_rod() {
     // 0b0110 >> 2 = 1, round bit = bit[1] of 6 = 1, sticky = bit[0] of 6 = 0
     // rod: if result_lsb == 0 && (round_bit || sticky): set result to 1 | 1 = 1; but result already
     // odd? 6 >> 2 = 1 (odd), rod: result_lsb = 1, so no increment -> 1
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rod);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rod);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 6);
     exec(
         &mut state,
@@ -1323,7 +1323,7 @@ fn vssrl_vi_e16_rod_sets_lsb() {
     // Try 0b1100 = 12 >> 2 = 3 (odd), no change needed.
     // Try 0b1010 = 10 >> 2 = 2 (even), round bit = bit[1] of 10 = 1, sticky = 0
     // rod: result_lsb = 0 and discarded != 0 -> set lsb: 2 | 1 = 3
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rod);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rod);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 10);
     exec(
         &mut state,
@@ -1345,7 +1345,7 @@ fn vssrl_vi_e16_rod_sets_lsb() {
 #[test]
 fn vssra_vv_e8_rdn_negative() {
     // -8 >> 2 = -2 with rdn (arithmetic, truncate toward -inf)
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     // -8
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xF8u64);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 2);
@@ -1371,7 +1371,7 @@ fn vssra_vv_e8_rdn_negative() {
 #[test]
 fn vssra_vv_e8_rnu_negative() {
     // -7 >> 1: arithmetic = -4, round bit = 1 (bit[0] of -7 = 1) -> -4 + 1 = -3
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     // -7
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xF9u64);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
@@ -1396,7 +1396,7 @@ fn vssra_vv_e8_rnu_negative() {
 #[test]
 fn vssra_vv_e8_positive_rnu() {
     // 7 >> 1 = 3, round bit = 1 -> 4
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rnu);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 7);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
     exec(
@@ -1419,7 +1419,7 @@ fn vssra_vv_e8_positive_rnu() {
 
 #[test]
 fn vssra_vx_e32() {
-    let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rdn);
     // -256
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FF00u64);
     state.regs.write(Reg::A0, 4u64);
@@ -1450,7 +1450,7 @@ fn vssra_vi_e64_rne_tie_to_even() {
     // 6 >> 1 = 3, round bit = 0 -> 3
     // Try 0b110 (6) shifted by 2: truncated = 1, round_bit = 1, sticky = 1
     // rne: increment = 1 & (sticky | result_lsb) = 1 & (1 | 1) = 1 -> 2
-    let mut state = setup_with_vxrm(1, Vsew::E64, Vlmul::M1, Vxrm::Rne);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1, Vxrm::Rne);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 6);
     exec(
         &mut state,
@@ -1475,7 +1475,7 @@ fn vssra_vi_e64_rne_tie_to_even() {
 #[test]
 fn vnclipu_wv_e8_no_clip() {
     // dest SEW=8, source SEW=16; shift right by 4 with rdn; result fits in u8
-    let mut state = setup_with_vxrm(2, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     // Write 16-bit wide source values
     // >> 4 = 15
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0x00F0);
@@ -1504,7 +1504,7 @@ fn vnclipu_wv_e8_no_clip() {
 #[test]
 fn vnclipu_wv_e8_saturates() {
     // 0x0200 >> 1 = 0x100 = 256, saturates to 255
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0x0200);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 1);
     exec(
@@ -1527,7 +1527,7 @@ fn vnclipu_wv_e8_saturates() {
 fn vnclipu_wx_e16_rnu() {
     // 0x0001_FFFF >> 16 = 1, round bit = bit[15] of 0x0001_FFFF = 1 -> saturates? No: 1+1=2 ≤
     // 0xFFFF
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rnu);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E16, 0x0001_FFFF);
     state.regs.write(Reg::A0, 16u64);
     exec(
@@ -1548,7 +1548,7 @@ fn vnclipu_wx_e16_rnu() {
 #[test]
 fn vnclipu_wi_e8_shift_zero() {
     // shift=0: result = value itself; if > 255, saturate
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     // 511 > 255
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0x01FF);
     exec(
@@ -1570,7 +1570,7 @@ fn vnclipu_wi_e8_shift_zero() {
 #[test]
 fn vnclipu_e64_illegal() {
     // Narrowing with dest SEW=64 requires source SEW=128 which exceeds ELEN=64; must fault
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipuWi {
@@ -1592,7 +1592,7 @@ fn vnclipu_e64_illegal() {
 fn vnclipu_shamt_masked_to_log2_2sew() {
     // For SEW=8, shamt masked to log2(16)=4 bits. shamt=0x1F masked = 0x0F=15
     // 0xFFFF >> 15 = 1 with rdn; 0xFFFF >> 15 = 1 remainder 0x7FFF, rdn gives 1
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFFFF);
     exec(
         &mut state,
@@ -1613,7 +1613,7 @@ fn vnclipu_shamt_masked_to_log2_2sew() {
 #[test]
 fn vnclipu_lmul8_illegal() {
     // Per v-spec §5.2: narrowing requires 2*LMUL <= 8, so LMUL=8 is reserved.
-    let mut state = setup(1, Vsew::E8, Vlmul::M8);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M8);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipuWi {
@@ -1633,7 +1633,7 @@ fn vnclipu_lmul8_illegal() {
 
 #[test]
 fn vnclip_lmul8_illegal() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M8);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M8);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipWi {
@@ -1656,7 +1656,7 @@ fn vnclip_lmul8_illegal() {
 #[test]
 fn vnclip_wv_e8_no_clip() {
     // -10 (as i16 = 0xFFF6) >> 2 = -3 (arithmetic with rdn), fits in i8
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     // -10 as i16
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0xFFF6u64);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 2);
@@ -1683,7 +1683,7 @@ fn vnclip_wv_e8_no_clip() {
 #[test]
 fn vnclip_wv_e8_positive_saturates_at_max() {
     // 0x7FFF >> 7 = 0xFF > 127; saturates to 127
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0x7FFF);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 7);
     exec(
@@ -1709,7 +1709,7 @@ fn vnclip_wv_e8_positive_saturates_at_max() {
 #[test]
 fn vnclip_wv_e8_negative_saturates_at_min() {
     // 0x8000 = -32768 (i16) >> 7 = -256; saturates to -128
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0x8000);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 7);
     exec(
@@ -1734,7 +1734,7 @@ fn vnclip_wv_e8_negative_saturates_at_min() {
 #[test]
 fn vnclip_wx_e16_rnu() {
     // -1 (0xFFFF_FFFF as i32) >> 1 with rnu: -1>>1 = -1 (arithmetic), round bit = 1 -> 0
-    let mut state = setup_with_vxrm(1, Vsew::E16, Vlmul::M1, Vxrm::Rnu);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1, Vxrm::Rnu);
     // -1 as i32
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E16, 0xFFFF_FFFFu64);
     state.regs.write(Reg::A0, 1u64);
@@ -1760,7 +1760,7 @@ fn vnclip_wx_e16_rnu() {
 #[test]
 fn vnclip_wi_e8() {
     // 0x007F >> 0 = 127; fits exactly in i8
-    let mut state = setup_with_vxrm(1, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 127);
     exec(
         &mut state,
@@ -1783,7 +1783,7 @@ fn vnclip_wi_e8() {
 
 #[test]
 fn vnclip_e64_illegal() {
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipWi {
@@ -1805,7 +1805,7 @@ fn vnclip_e64_illegal() {
 
 #[test]
 fn vsaddu_masked_skips_inactive_elements() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 100);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 200);
@@ -1839,7 +1839,7 @@ fn vsaddu_masked_skips_inactive_elements() {
 
 #[test]
 fn vsaddu_masked_vd_overlap_v0_illegal() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     // vd = v0 with vm=false is illegal
     let result = exec(
         &mut state,
@@ -1860,7 +1860,7 @@ fn vsaddu_masked_vd_overlap_v0_illegal() {
 
 #[test]
 fn vssrl_masked_only_active_written() {
-    let mut state = setup_with_vxrm(4, Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
@@ -1891,14 +1891,14 @@ fn vssrl_masked_only_active_written() {
 
 #[test]
 fn vsaddu_vstart_skips_early_elements() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 200);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 100);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x55);
     }
     // Set vstart = 2: skip elements 0 and 1
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -1918,14 +1918,14 @@ fn vsaddu_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 255);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 255);
     // vstart is reset to 0 after execution
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vector not allowed
 
 #[test]
 fn vsaddu_vector_not_allowed_faults() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -1946,7 +1946,7 @@ fn vsaddu_vector_not_allowed_faults() {
 
 #[test]
 fn vsmul_vector_not_allowed_faults() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -1967,7 +1967,7 @@ fn vsmul_vector_not_allowed_faults() {
 
 #[test]
 fn vnclip_vector_not_allowed_faults() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -1990,7 +1990,7 @@ fn vnclip_vector_not_allowed_faults() {
 
 #[test]
 fn vsaddu_vtype_none_faults() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vtype(None);
     let result = exec(
         &mut state,
@@ -2011,7 +2011,7 @@ fn vsaddu_vtype_none_faults() {
 
 #[test]
 fn vssrl_vtype_none_faults() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vtype(None);
     let result = exec(
         &mut state,
@@ -2035,7 +2035,7 @@ fn vssrl_vtype_none_faults() {
 #[test]
 fn vsaddu_vd_misaligned_m2_faults() {
     // With M2, group_regs=2; vd must be even
-    let mut state = setup(2, Vsew::E8, Vlmul::M2);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M2);
     // V3 is odd -> misaligned for M2
     let result = exec(
         &mut state,
@@ -2056,7 +2056,7 @@ fn vsaddu_vd_misaligned_m2_faults() {
 
 #[test]
 fn vsaddu_vs2_misaligned_m2_faults() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M2);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -2077,7 +2077,7 @@ fn vsaddu_vs2_misaligned_m2_faults() {
 #[test]
 fn vnclipu_vs2_misaligned_m1_faults() {
     // Narrowing: vs2 must be aligned to 2*group_regs = 2; V3 is not divisible by 2
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipuWi {
@@ -2101,7 +2101,7 @@ fn vnclip_wi_mf2_odd_vs2_ok() {
     // With fractional LMUL the source EMUL = 2*LMUL <= 1, so vs2 occupies a single register with no
     // alignment constraint; an odd-numbered vs2 (V13) must be accepted. The previous check used
     // 2*register_count() = 2 and wrongly rejected it.
-    let mut state = setup(1, Vsew::E8, Vlmul::Mf2);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::Mf2);
     // 256 (as i16) >> 4 = 16, fits in i8, no rounding/saturation
     write_wide_elem(&mut state, VReg::V13, 0, Vsew::E8, 0x0100);
     exec(
@@ -2127,7 +2127,7 @@ fn vnclip_wi_mf2_odd_vs2_ok() {
 fn vnclipu_wi_mf4_odd_vs2_ok() {
     // Same fractional-LMUL alignment relaxation for the unsigned variant: Mf4 -> source EMUL = 1/2,
     // so a single, arbitrarily-aligned source register is legal.
-    let mut state = setup(1, Vsew::E8, Vlmul::Mf4);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::Mf4);
     write_wide_elem(&mut state, VReg::V7, 0, Vsew::E8, 0x00F0);
     exec(
         &mut state,
@@ -2149,7 +2149,7 @@ fn vnclipu_wi_mf4_odd_vs2_ok() {
 #[test]
 fn vnclip_vs2_misaligned_m2_faults() {
     // M2: source EMUL = 4, so vs2 must be aligned to 4; V2 is not.
-    let mut state = setup(1, Vsew::E8, Vlmul::M2);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipWi {
@@ -2170,7 +2170,7 @@ fn vnclip_vs2_misaligned_m2_faults() {
 #[test]
 fn vsaddu_aligned_m4_ok() {
     // M4: group_regs=4; vd=V4 (divisible by 4), vs2=V8, vs1=V12 -> all valid
-    let mut state = setup(1, Vsew::E8, Vlmul::M4);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M4);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V8, i, Vsew::E8, 1);
         write_elem(&mut state, VReg::V12, i, Vsew::E8, 2);
@@ -2193,7 +2193,7 @@ fn vsaddu_aligned_m4_ok() {
 
 #[test]
 fn vs_dirty_increments_per_instruction() {
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 1);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
     exec(
@@ -2226,8 +2226,8 @@ fn vs_dirty_increments_per_instruction() {
 
 #[test]
 fn vstart_resets_to_zero_after_execution() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    state.ext_state.set_vstart(Vstart::from(2));
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 1);
     write_elem(&mut state, VReg::V1, 2, Vsew::E8, 1);
     exec(
@@ -2242,14 +2242,18 @@ fn vstart_resets_to_zero_after_execution() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.vstart(), 0, "vstart must be reset to 0");
+    assert_eq!(
+        state.ext_state.vstart(),
+        Vstart::ZERO,
+        "vstart must be reset to 0"
+    );
 }
 
 // vl=0 does nothing
 
 #[test]
 fn vsaddu_vl_zero_no_writes() {
-    let mut state = setup(0, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAB);
     }
@@ -2273,7 +2277,7 @@ fn vsaddu_vl_zero_no_writes() {
         );
     }
     // mark_vs_dirty is still called; vstart still reset
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // multiple SEW sizes for saturation arithmetic
@@ -2290,7 +2294,7 @@ fn vsadd_all_sew_sizes_max_overflow() {
             i64::MIN.cast_unsigned(),
         ),
     ] {
-        let mut state = setup(1, vsew, Vlmul::M1);
+        let mut state = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, max_val);
         write_elem(&mut state, VReg::V1, 0, vsew, 1);
         exec(
@@ -2309,7 +2313,7 @@ fn vsadd_all_sew_sizes_max_overflow() {
         assert!(vxsat(&state), "SEW={vsew}");
 
         // Reset vxsat by reinitializing
-        let mut state2 = setup(1, vsew, Vlmul::M1);
+        let mut state2 = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state2, VReg::V2, 0, vsew, min_val);
         // -1 for any SEW
         write_elem(&mut state2, VReg::V1, 0, vsew, 0xFFFF_FFFF_FFFF_FFFFu64);
@@ -2337,7 +2341,7 @@ fn vsadd_all_sew_sizes_max_overflow() {
 #[test]
 fn vssubu_all_sew_sizes_clamps_zero() {
     for vsew in [Vsew::E8, Vsew::E16, Vsew::E32, Vsew::E64] {
-        let mut state = setup(1, vsew, Vlmul::M1);
+        let mut state = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, 5);
         write_elem(&mut state, VReg::V1, 0, vsew, 10);
         exec(
@@ -2362,7 +2366,7 @@ fn vssubu_all_sew_sizes_clamps_zero() {
 #[test]
 fn vnclipu_e32_no_clip() {
     // dest SEW=32, source SEW=64; value 0x0000_0001_0000_0000 >> 32 = 1
-    let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E32, 0x0000_0001_0000_0000u64);
     state.regs.write(Reg::A0, 32u64);
     exec(
@@ -2383,7 +2387,7 @@ fn vnclipu_e32_no_clip() {
 #[test]
 fn vnclipu_e32_saturates() {
     // 0xFFFF_FFFF_FFFF_FFFFu64 >> 0 = 0xFFFF_FFFF_FFFF_FFFF > u32::MAX -> saturate
-    let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E32, u64::MAX);
     exec(
         &mut state,
@@ -2409,7 +2413,7 @@ fn vnclipu_e32_saturates() {
 #[test]
 fn vnclip_e32_no_clip() {
     // -1 (as i64) >> 32 = -1, fits in i32
-    let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rdn);
     // -1 as i64
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E32, u64::MAX);
     state.regs.write(Reg::A0, 32u64);
@@ -2436,7 +2440,7 @@ fn vnclip_e32_no_clip() {
 fn vnclip_e32_saturates_positive() {
     // i64::MAX >> 31 = 1 (>i32::MAX = 0x7FFF_FFFF), saturates
     // Actually i64::MAX >> 31 = 0xFFFF_FFFF which is > i32::MAX
-    let mut state = setup_with_vxrm(1, Vsew::E32, Vlmul::M1, Vxrm::Rdn);
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1, Vxrm::Rdn);
     write_wide_elem(&mut state, VReg::V4, 0, Vsew::E32, i64::MAX as u64);
     exec(
         &mut state,
@@ -2461,7 +2465,7 @@ fn vssrl_rod_result_even_sets_lsb() {
     // 0b1100 = 12 >> 2 = 3 (odd), no change: rod doesn't set when already odd
     // 0b1000 = 8 >> 2 = 2 (even), round_bit=0, sticky=0 -> no increment; result = 2
     // 0b1010 = 10 >> 2 = 2 (even), round_bit=1, sticky=0 -> rod sets lsb: 3
-    let mut state = setup_with_vxrm(2, Vsew::E8, Vlmul::M1, Vxrm::Rod);
+    let mut state = setup_with_vxrm(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rod);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 8);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 10);
     exec(
@@ -2489,7 +2493,7 @@ fn vssra_rod_result_even_sets_lsb() {
     // -8 (0xF8) >> 2 = -2 (even), round_bit=0, sticky=0 -> no increment: -2
     // -6 (0xFA) >> 2 = -2 (even), round_bit=1, sticky=0 -> rod sets lsb: -2 | 1? No:
     // rod adds 1 when result is even and any discarded bit is set: -2 + 1 = -1
-    let mut state = setup_with_vxrm(2, Vsew::E8, Vlmul::M1, Vxrm::Rod);
+    let mut state = setup_with_vxrm(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rod);
     // -8
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xF8u64);
     // -6
@@ -2522,7 +2526,7 @@ fn vssra_rod_result_even_sets_lsb() {
 
 #[test]
 fn vsaddu_mixed_sat_e16_m1() {
-    let mut state = setup(8, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E16, Vlmul::M1);
     let inputs: [(u64, u64); 8] = [
         (0, 0),
         (0xFFFF, 1),      // saturates

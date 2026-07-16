@@ -15,7 +15,7 @@ use core::fmt;
 ///
 /// # Safety
 /// `vd`, `vs2`, and `vs1` are valid register indices (guaranteed by `VReg`).
-/// `vl <= VLEN`, so `(vl - 1) / 8 < VLENB`; `vstart <= vl` by the architectural invariant.
+/// `vl <= VLEN`, so `(vl - 1) / 8 < VLEN.bytes()`; `vstart <= vl` by the architectural invariant.
 /// The operation snapshots both sources before writing, so `vd` may safely overlap either source.
 #[inline(always)]
 #[doc(hidden)]
@@ -28,6 +28,7 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
     F: Fn(bool, bool) -> bool,
 {
@@ -38,10 +39,10 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     let vs1_snap = *ext_state.read_vregs().get(vs1);
     // Body elements [vstart, vl): compute the logical operation bit-by-bit. Prestart bits
     // [0, vstart) and tail bits [vl, VLEN) are left undisturbed.
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         let a = mask_bit(&vs2_snap, i);
         let b = mask_bit(&vs1_snap, i);
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`
         unsafe {
             write_mask_bit(ext_state.write_vregs(), vd, i, op(a, b));
         }
@@ -50,13 +51,14 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     ext_state.reset_vstart();
 }
 
-/// Execute `vcpop.m`: count set bits in vs2 for active elements `0..vl`, write result to `rd`.
+/// Execute `vcpop.m`: count set bits in vs2 for active elements `Vstart::ZERO.range_to(vl)`, write
+/// result to `rd`.
 ///
 /// Per spec §16.2: `rd` receives the number of mask bits set in `vs2`, considering only elements
 /// `vstart..vl` that are active under the mask. For elements `< vstart`, they are not counted.
 ///
 /// # Safety
-/// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+/// - `vl <= VLEN`
 /// - `vstart <= vl`
 ///
 /// Returns `rd_value`.
@@ -70,15 +72,16 @@ pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let vs2_reg = *ext_state.read_vregs().get(vs2);
     let mut count = 0u32;
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -93,14 +96,14 @@ where
     Reg::Type::from(count)
 }
 
-/// Execute `vfirst.m`: find the index of the first set bit in vs2 for active elements `0..vl`,
-/// write result (or -1 if none) to `rd`.
+/// Execute `vfirst.m`: find the index of the first set bit in vs2 for active elements
+/// `Vstart::ZERO.range_to(vl)`, write result (or -1 if none) to `rd`.
 ///
 /// Per spec §16.3: `rd` receives the element index of the lowest-numbered active set bit, or
 /// `-1` (all-ones) if no active element of vs2 is set.
 ///
 /// # Safety
-/// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+/// - `vl <= VLEN`
 /// - `vstart <= vl`
 ///
 /// Returns `rd_value`.
@@ -114,17 +117,18 @@ pub unsafe fn execute_vfirst<Reg, ExtState, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let vs2_reg = *ext_state.read_vregs().get(vs2);
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
     let not_found = u64::MAX;
     let mut result = not_found;
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -160,7 +164,7 @@ where
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
 /// - `vm=false` implies `vd != v0` (checked by caller)
-/// - `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+/// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
@@ -168,17 +172,18 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
+    vl: Vl,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let vs2_snap = *ext_state.read_vregs().get(vs2);
     let mut found_first = false;
-    for i in 0..vl {
+    for i in Vstart::ZERO.range_to(vl) {
         // Inactive elements: undisturbed
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -189,7 +194,7 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
         if vs2_bit {
             found_first = true;
         }
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`
         unsafe {
             write_mask_bit(ext_state.write_vregs(), vd, i, result);
         }
@@ -212,17 +217,18 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
+    vl: Vl,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let vs2_snap = *ext_state.read_vregs().get(vs2);
     let mut found_first = false;
-    for i in 0..vl {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -232,7 +238,7 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
         if vs2_bit && !found_first {
             found_first = true;
         }
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`
         unsafe {
             write_mask_bit(ext_state.write_vregs(), vd, i, result);
         }
@@ -256,17 +262,18 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
+    vl: Vl,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let vs2_snap = *ext_state.read_vregs().get(vs2);
     let mut found_first = false;
-    for i in 0..vl {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -276,7 +283,7 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
         if vs2_bit {
             found_first = true;
         }
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`
         unsafe {
             write_mask_bit(ext_state.write_vregs(), vd, i, result);
         }
@@ -309,21 +316,22 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: u32,
+    vl: Vl,
     sew: Vsew,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let vs2_snap = *ext_state.read_vregs().get(vs2);
     // Per spec §16.8: inactive vs2 elements are treated as zero for the prefix sum.
     // The prefix count advances only when the execution mask is active AND the
     // corresponding vs2 bit is set.
     let mut prefix_count = 0u64;
-    for i in 0..vl {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -347,7 +355,7 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
@@ -359,13 +367,14 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

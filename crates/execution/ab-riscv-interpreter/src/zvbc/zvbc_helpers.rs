@@ -54,7 +54,7 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
@@ -67,11 +67,12 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -119,11 +120,12 @@ pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }

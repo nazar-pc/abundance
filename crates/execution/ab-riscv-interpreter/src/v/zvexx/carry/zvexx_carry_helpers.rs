@@ -17,11 +17,11 @@ use core::fmt;
 /// Used to retrieve the per-element carry-in or borrow-in for vadc/vsbc.
 ///
 /// # Safety
-/// `i / 8 < VLENB` must hold, guaranteed when `i < vl <= VLEN`.
+/// `i / 8 < VLEN.bytes()` must hold, guaranteed when `i < vl <= VLEN`.
 #[inline(always)]
-pub(in super::super) unsafe fn carry_bit<const VLENB: u32>(
-    vregs: &VectorRegisterFile<VLENB>,
-    i: u32,
+pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
+    vregs: &VectorRegisterFile<VLEN>,
+    i: u16,
 ) -> u64 {
     let v0 = vregs.get(VReg::V0);
     u64::from(mask_bit(v0, i))
@@ -38,7 +38,7 @@ pub(in super::super) unsafe fn carry_bit<const VLENB: u32>(
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment (verified by caller)
 /// - `vd.to_bits() != 0` (vd must not overlap v0, which holds the carry-in)
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomError>(
@@ -50,11 +50,12 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomErr
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -69,7 +70,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomErr
             OpSrc::Scalar(val) => val,
         };
         let c = if WITH_CARRY {
-            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
             unsafe { carry_bit(ext_state.read_vregs(), i) }
         } else {
             0
@@ -108,11 +109,12 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -126,7 +128,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
             }
             OpSrc::Scalar(val) => val,
         };
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
         let borrow = unsafe { carry_bit(ext_state.read_vregs(), i) };
 
         let result = a.wrapping_sub(b).wrapping_sub(borrow);
@@ -155,7 +157,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment
-/// - `vl <= group_regs * VLENB / sew_bytes` and `vl <= VLEN`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes` and `vl <= VLEN`
 /// - vd overlap constraints checked by caller
 #[inline(always)]
 #[doc(hidden)]
@@ -168,13 +170,14 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let mask = sew_mask(sew);
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -189,7 +192,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
             OpSrc::Scalar(val) => val,
         };
         let c = if WITH_CARRY {
-            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
             unsafe { carry_bit(ext_state.read_vregs(), i) }
         } else {
             0
@@ -199,7 +202,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
         let sum = u128::from(a & mask) + u128::from(b & mask) + u128::from(c);
         let carry_out = (sum >> sew.bits_width()) & 1 != 0;
 
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
         unsafe {
             write_mask_bit(ext_state.write_vregs(), vd, i, carry_out);
         }
@@ -231,13 +234,14 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, Cus
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let mask = sew_mask(sew);
 
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -252,7 +256,7 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, Cus
             OpSrc::Scalar(val) => val,
         };
         let borrow_in = if WITH_BORROW {
-            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
             unsafe { carry_bit(ext_state.read_vregs(), i) }
         } else {
             0
@@ -262,7 +266,7 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, Cus
         let rhs = u128::from(b & mask) + u128::from(borrow_in);
         let borrow_out = a_m < rhs;
 
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLENB`
+        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
         unsafe {
             write_mask_bit(ext_state.write_vregs(), vd, i, borrow_out);
         }

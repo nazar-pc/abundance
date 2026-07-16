@@ -61,6 +61,7 @@
 //! ACTs yet.
 
 #![no_std]
+#![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
     const_cmp,
     const_convert,
@@ -72,6 +73,10 @@
     const_try,
     const_try_residual,
     exact_div,
+    generic_const_args,
+    generic_const_items,
+    min_adt_const_params,
+    min_generic_const_args,
     never_type,
     stmt_expr_attributes,
     try_blocks

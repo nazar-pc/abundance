@@ -34,6 +34,7 @@ where
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
@@ -75,7 +76,7 @@ where
                 };
                 let sew = vtype.vsew();
                 // SAFETY: element 0 is always within register vs2, byte offset 0;
-                // VLENB >= sew.bytes() for all legal vtype configurations.
+                // VLEN.bytes() >= sew.bytes() for all legal vtype configurations.
                 let raw = unsafe {
                     zvexx_perm_helpers::read_element_0_u64(ext_state.read_vregs(), vs2, sew)
                 };
@@ -106,7 +107,7 @@ where
                 let vl = ext_state.vl();
                 let vstart = ext_state.vstart();
                 // Per spec §16.1: update only when vstart < vl.
-                if u32::from(vstart) < vl {
+                if vstart < vl {
                     let scalar = rs1_value.as_i64().cast_unsigned();
                     // SAFETY: element 0 always fits.
                     unsafe {
@@ -806,7 +807,7 @@ where
                     });
                 };
                 // Spec §16.5: vstart must be zero.
-                if ext_state.vstart() != 0 {
+                if ext_state.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),

@@ -26,6 +26,7 @@ pub fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
@@ -40,7 +41,7 @@ where
     let Some(new_vtype) = Vtype::from_raw::<Reg>(vtype_raw) else {
         cold_path();
         ext_state.set_vtype(None);
-        ext_state.set_vl(0);
+        ext_state.set_vl(Vl::ZERO);
         ext_state.mark_vs_dirty();
         ext_state.reset_vstart();
 
@@ -55,7 +56,7 @@ where
     let new_vl = if !rs1_is_zero {
         // Truncate to `u32`: `VLMAX` fits in `u32` (max 65536)
         let avl = rs1_value.as_u64() as u32;
-        ext_state.compute_vl(avl, vlmax)
+        ext_state.compute_vl(Vl::new_saturating(avl), vlmax)
     } else if !rd_is_zero {
         //` rs1=x0, rd!=x0`: `AVL = max`, `result` is `VLMAX`
         vlmax
@@ -70,7 +71,7 @@ where
         if vlmax != old_vlmax {
             cold_path();
             ext_state.set_vtype(None);
-            ext_state.set_vl(0);
+            ext_state.set_vl(Vl::ZERO);
             ext_state.mark_vs_dirty();
             ext_state.reset_vstart();
 
@@ -85,7 +86,7 @@ where
     ext_state.mark_vs_dirty();
     ext_state.reset_vstart();
 
-    Ok(Reg::Type::from(new_vl))
+    Ok(Reg::Type::from(u32::from(new_vl)))
 }
 
 /// Apply `vsetivli` logic.
@@ -105,6 +106,7 @@ pub fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
 where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
 {
@@ -120,16 +122,16 @@ where
 
     let rd_value = if let Some(new_vtype) = Vtype::from_raw::<Reg>(vtype_raw) {
         let vlmax = ext_state.vlmax_for_vtype(new_vtype);
-        let avl = u32::from(uimm);
+        let avl = Vl::from(uimm);
         let new_vl = ext_state.compute_vl(avl, vlmax);
 
         ext_state.set_vtype(Some(new_vtype));
         ext_state.set_vl(new_vl);
-        Reg::Type::from(new_vl)
+        Reg::Type::from(u32::from(new_vl))
     } else {
         cold_path();
         ext_state.set_vtype(None);
-        ext_state.set_vl(0);
+        ext_state.set_vl(Vl::ZERO);
         Reg::Type::from(0u8)
     };
     ext_state.mark_vs_dirty();

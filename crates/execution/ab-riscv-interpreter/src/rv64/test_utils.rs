@@ -18,12 +18,6 @@ use core::ops::ControlFlow;
 
 pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
-/// Zve64x element width
-const ZVE64X_ELEN: u32 = 64;
-/// VLEN in bits for the test vector register file
-const TEST_VLEN: u32 = 256;
-/// VLEN in bytes
-const TEST_VLENB: u32 = TEST_VLEN / u8::BITS;
 
 /// Simple test memory implementation
 pub(crate) struct TestMemory {
@@ -293,7 +287,7 @@ impl Default for CsrExtState {
 }
 
 struct VectorExtState {
-    vregs: VectorRegisterFile<TEST_VLENB>,
+    vregs: VectorRegisterFile<const { ExtState::VLEN }>,
     vs_dirty_count: u32,
     vector_allowed: bool,
 }
@@ -362,19 +356,19 @@ impl Csrs<Reg<u64>> for ExtState {
 }
 
 impl VectorRegistersBase for ExtState {
-    const ELEN: u32 = ZVE64X_ELEN;
-    const VLEN: u32 = TEST_VLEN;
+    const ELEN: Elen = Elen::L64;
+    const VLEN: Vlen = Vlen::L256;
 }
 
 impl VectorRegisters for ExtState
 where
     Self: Csrs<Reg<u64>>,
 {
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
         &self.vector.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
         &mut self.vector.vregs
     }
 
@@ -417,7 +411,10 @@ impl ExtState {
         self.init_csr(VectorCsr::Vcsr.to_csr_index(), 0);
         self.init_csr(VectorCsr::Vl.to_csr_index(), 0);
         self.init_csr(VectorCsr::Vtype.to_csr_index(), 1u64 << (u64::BITS - 1));
-        self.init_csr(VectorCsr::Vlenb.to_csr_index(), u64::from(Self::VLENB));
+        self.init_csr(
+            VectorCsr::Vlenb.to_csr_index(),
+            u64::from(Self::VLEN.bytes()),
+        );
         // Fill them with default values
         self.initialize_vector_state();
     }

@@ -1,38 +1,36 @@
 //! Vector registers
 
-use crate::v::private::SupportedElenVlen;
 use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
-const VLENB<const VLEN: u32>: u32 = VLEN / u8::BITS;
-pub(crate) const VLENB_USIZE<const VLENB: u32>: usize = VLENB as usize;
+pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
 
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases
 #[repr(align(128))]
-pub struct VectorRegisterFile<const VLENB: u32>([[u8; VLENB_USIZE::<VLENB>]; 32]);
+pub struct VectorRegisterFile<const VLEN: Vlen>([[u8; VLENB_USIZE::<VLEN>]; 32]);
 
-const impl<const VLENB: u32> Default for VectorRegisterFile<VLENB> {
+const impl<const VLEN: Vlen> Default for VectorRegisterFile<VLEN> {
     #[inline(always)]
     fn default() -> Self {
         Self([[0; _]; _])
     }
 }
 
-impl<const VLENB: u32> VectorRegisterFile<VLENB> {
+impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Get reference to a vector register
     #[inline(always)]
-    pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLENB>] {
+    pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
     }
 
     /// Get mutable reference to a vector register
     #[inline(always)]
-    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLENB>] {
+    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
     }
@@ -43,15 +41,9 @@ impl<const VLENB: u32> VectorRegisterFile<VLENB> {
 /// This is primarily a workaround for type system cycles.
 pub trait VectorRegistersBase {
     /// Maximum vector element width `ELEN` in bits
-    const ELEN: u32;
+    const ELEN: Elen;
     /// Vector register width `VLEN` in bits
-    const VLEN: u32;
-    /// Vector register width in bytes (`vlenb = VLEN / 8`)
-    const VLENB: u32 = VLENB::<{ Self::VLEN }>;
-    /// Vector register width in bytes (`vlenb = VLEN / 8`).
-    ///
-    /// The same as `Self::VLENB`, but `usize`.
-    const VLENB_USIZE: usize = VLENB_USIZE::<{ Self::VLENB }>;
+    const VLEN: Vlen;
 }
 
 // TODO: Figure out a way to make `VectorRegisters + VectorRegistersExt` trait bounds work without
@@ -72,13 +64,14 @@ pub trait VectorRegistersBase {
 /// `ELEN` is the maximum element width in bits.
 pub trait VectorRegisters<CustomError = CustomErrorPlaceholder>
 where
-    Self: VectorRegistersBase + SupportedElenVlen<{ Self::ELEN }, { Self::VLEN }>,
+    Self: VectorRegistersBase,
+    [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
 {
     /// Read the vector register file
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }>;
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }>;
 
     /// Mutable access to the vector register file
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }>;
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }>;
 
     /// Check whether vector instructions are currently permitted.
     ///
@@ -98,13 +91,13 @@ where
     /// sophisticated implementations may return values in `[ceil(AVL/2), VLMAX]` for
     /// `AVL < 2*VLMAX`, but this simple strategy satisfies all three spec requirements.
     #[inline(always)]
-    fn compute_vl(&self, avl: u32, vlmax: u32) -> u32 {
+    fn compute_vl(&self, avl: Vl, vlmax: Vl) -> Vl {
         avl.min(vlmax)
     }
 
     /// Compute `VLMAX` for a given vtype
     #[inline(always)]
-    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> u32 {
+    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl {
         vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
     }
 }
@@ -121,6 +114,7 @@ where
 pub trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
 where
     Self: Csrs<Reg, CustomError> + VectorRegisters<CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
     Reg: Register,
     CustomError: fmt::Debug,
 {
@@ -131,27 +125,30 @@ where
     /// deterministic behavior.
     fn initialize_vector_state(&mut self) {
         self.set_vtype(None);
-        self.set_vl(0);
-        self.set_vstart(0);
+        self.set_vl(Vl::ZERO);
+        self.set_vstart(Vstart::ZERO);
         self.set_vxrm(Vxrm::default());
         self.set_vxsat(false);
     }
 
     /// Get current `vstart`
     #[inline(always)]
-    fn vstart(&self) -> u16 {
+    fn vstart(&self) -> Vstart {
         let raw = self
             .read_csr(VectorCsr::Vstart.to_csr_index())
             .unwrap_or_default()
             .as_u64();
-        raw as u16
+        Vstart::from(raw as u16)
     }
 
     /// Set `vstart`
     #[inline(always)]
-    fn set_vstart(&mut self, vstart: u16) {
-        self.write_csr(VectorCsr::Vstart.to_csr_index(), Reg::Type::from(vstart))
-            .expect("Implementation didn't initialize `vstart` CSR");
+    fn set_vstart(&mut self, vstart: Vstart) {
+        self.write_csr(
+            VectorCsr::Vstart.to_csr_index(),
+            Reg::Type::from(u16::from(vstart)),
+        )
+        .expect("Implementation didn't initialize `vstart` CSR");
     }
 
     /// Reset `vstart` to zero.
@@ -159,7 +156,7 @@ where
     /// Per spec, all vector instructions reset `vstart` to zero at the end of execution.
     #[inline(always)]
     fn reset_vstart(&mut self) {
-        self.set_vstart(0);
+        self.set_vstart(Vstart::ZERO);
     }
 
     /// Get `vxsat` (single bit)
@@ -212,23 +209,23 @@ where
             .expect("Implementation didn't initialize `vcsr` CSR");
     }
 
-    // TODO: Consider new type for `vl`. It is guaranteed to be `at most u16::MAX + 1`, so can be a
-    //  wrapper around `u16`, which will make things nicer in some places like when iterating over
-    //  `vstart..vl`
     /// Get the current vl
     #[inline(always)]
-    fn vl(&self) -> u32 {
-        self.read_csr(VectorCsr::Vl.to_csr_index())
+    fn vl(&self) -> Vl {
+        let vl = self
+            .read_csr(VectorCsr::Vl.to_csr_index())
             .unwrap_or_default()
-            .as_u64() as u32
+            .as_u64() as u32;
+        // Should always be `Some()`, but can't be guaranteed here
+        Vl::new(vl).unwrap_or_default()
     }
 
     /// Set vl.
     ///
     /// The implementation must update both its internal decoded cache and the raw CSR value (for
     /// reads via Zicsr, writes via Zicsr are not allowed).
-    fn set_vl(&mut self, vl: u32) {
-        self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(vl))
+    fn set_vl(&mut self, vl: Vl) {
+        self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(u32::from(vl)))
             .expect("Implementation didn't initialize `vl` CSR");
     }
 

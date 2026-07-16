@@ -19,7 +19,7 @@ use core::fmt;
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vbrev<Reg, ExtState, CustomError>(
@@ -31,11 +31,12 @@ pub unsafe fn execute_vbrev<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -78,12 +79,13 @@ pub unsafe fn execute_vclz<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let sew_bits = u32::from(sew.bits_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -122,12 +124,13 @@ pub unsafe fn execute_vctz<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let sew_bits = u32::from(sew.bits_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -165,11 +168,12 @@ pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -203,7 +207,7 @@ pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
 ///   0` and `vd.to_bits() + dest_group_regs <= 32`
 /// - `vs2` register group satisfies alignment for LMUL
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - `vl <= dest_group_regs * VLENB / double_sew_bytes`
+/// - `vl <= dest_group_regs * VLEN.bytes() / double_sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
 pub unsafe fn execute_vwsll<Reg, ExtState, CustomError>(
@@ -217,6 +221,7 @@ pub unsafe fn execute_vwsll<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -224,7 +229,7 @@ pub unsafe fn execute_vwsll<Reg, ExtState, CustomError>(
     // `double_sew_bits` is always a power of two (16, 32, or 64); `& (bits - 1)` is equivalent to
     // `% bits` and avoids a division
     let double_sew_bits = u64::from(double_sew.bits_width());
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
             continue;
         }

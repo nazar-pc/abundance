@@ -14,7 +14,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 
 /// Build a fresh state with vector CSRs initialized and vtype/vl configured
 fn setup(
-    vl: u32,
+    vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxArithInstruction<Reg<u64>>> {
@@ -23,7 +23,7 @@ fn setup(
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
     state.ext_state.set_vtype(Some(vtype));
     state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(0);
+    state.ext_state.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -131,7 +131,7 @@ fn mask_bit(
 
 #[test]
 fn vadd_vv_e8_m1_basic() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     // vs2 = [1, 2, 3, 4, ...], vs1 = [10, 20, 30, 40, ...]
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 1) as u64);
@@ -157,12 +157,12 @@ fn vadd_vv_e8_m1_basic() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn vadd_vv_e64_m1_wraps() {
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, u64::MAX);
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, 1);
     exec(
@@ -182,7 +182,7 @@ fn vadd_vv_e64_m1_wraps() {
 
 #[test]
 fn vadd_vx_e32_m1() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, i as u64);
     }
@@ -209,7 +209,7 @@ fn vadd_vx_e32_m1() {
 
 #[test]
 fn vadd_vi_e16_m1_negative_imm() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, 10);
     }
@@ -234,7 +234,7 @@ fn vadd_vi_e16_m1_negative_imm() {
 #[test]
 fn vadd_vv_e8_m2_spans_two_regs() {
     // VLMAX=64: elements 0..31 in v2, 32..63 in v3 (32 E8 elems per VLENB=32 register)
-    let mut state = setup(64, Vsew::E8, Vlmul::M2);
+    let mut state = setup(Vl::new(64).unwrap(), Vsew::E8, Vlmul::M2);
     for i in 0..64usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 1);
@@ -264,7 +264,7 @@ fn vadd_vv_e8_m2_spans_two_regs() {
 
 #[test]
 fn vsub_vv_e8_m1() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 10) as u64);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, i as u64);
@@ -288,7 +288,7 @@ fn vsub_vv_e8_m1() {
 
 #[test]
 fn vsub_vx_e32_wraps() {
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0);
     state.regs.write(Reg::A0, 1);
     exec(
@@ -309,7 +309,7 @@ fn vsub_vx_e32_wraps() {
 #[test]
 fn vrsub_vx_e8_m1() {
     // vrsub: vd[i] = rs1 - vs2[i]
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
     }
@@ -336,7 +336,7 @@ fn vrsub_vx_e8_m1() {
 
 #[test]
 fn vrsub_vi_e16_m1() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, i as u64);
     }
@@ -367,7 +367,7 @@ fn vrsub_vi_e16_m1() {
 
 #[test]
 fn vand_vv_e32_m1() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 0xFF00_FF00);
         write_elem(&mut state, VReg::V1, i, Vsew::E32, 0xF0F0_F0F0);
@@ -396,7 +396,7 @@ fn vand_vv_e32_m1() {
 #[test]
 fn vand_vi_sign_extends_imm() {
     // imm = -1 (0b11111 sign-extended) should AND as all-ones within SEW
-    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xABCD);
     write_elem(&mut state, VReg::V2, 1, Vsew::E16, 0x1234);
     exec(
@@ -418,7 +418,7 @@ fn vand_vi_sign_extends_imm() {
 
 #[test]
 fn vor_vx_e64_m1() {
-    let mut state = setup(2, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x0F0F_0F0F_0F0F_0F0F);
     write_elem(&mut state, VReg::V2, 1, Vsew::E64, 0);
     state.regs.write(Reg::A0, 0xF0F0_F0F0_F0F0_F0F0_u64);
@@ -442,7 +442,7 @@ fn vor_vx_e64_m1() {
 
 #[test]
 fn vxor_vi_e8_m1() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xAA);
     }
@@ -469,7 +469,7 @@ fn vxor_vi_e8_m1() {
 #[test]
 fn vsll_vv_e8_masks_shamt_to_3_bits() {
     // SEW=8: shift amount is masked to 3 bits (log2(8)=3), so shamt 9 = shamt 1
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0x01);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0xFF);
     // vs1[0] = 9 -> effective shamt = 9 & 7 = 1
@@ -496,7 +496,7 @@ fn vsll_vv_e8_masks_shamt_to_3_bits() {
 
 #[test]
 fn vsll_vi_e16_m1() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E16, 1);
     }
@@ -524,7 +524,7 @@ fn vsll_vi_e16_m1() {
 #[test]
 fn vsrl_vv_e32_logical_shift() {
     // vsrl is logical: high bit should not be sign-extended
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x8000_0000);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 1);
     exec(
@@ -545,7 +545,7 @@ fn vsrl_vv_e32_logical_shift() {
 #[test]
 fn vsrl_vx_e8_does_not_bleed_upper_bits() {
     // Register holds 0xAB in the e8 slot; upper bits of u64 representation must not affect result
-    let mut state = setup(1, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     // Manually place 0xAB in the byte slot for element 0
     state.ext_state.write_vregs().get_mut(VReg::V2)[0] = 0xAB;
     state.regs.write(Reg::A0, 1);
@@ -567,7 +567,7 @@ fn vsrl_vx_e8_does_not_bleed_upper_bits() {
 #[test]
 fn vsra_vv_e8_arithmetic_shift() {
     // 0x80 as signed i8 = -128; >> 1 = -64 = 0xC0 (arithmetic)
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.write_vregs().get_mut(VReg::V2)[0] = 0x80;
     state.ext_state.write_vregs().get_mut(VReg::V2)[1] = 0x40;
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
@@ -592,7 +592,7 @@ fn vsra_vv_e8_arithmetic_shift() {
 
 #[test]
 fn vsra_vi_e32_m1() {
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     // -2147483648 as i32
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x8000_0000);
     // 16
@@ -616,7 +616,7 @@ fn vsra_vi_e32_m1() {
 
 #[test]
 fn vsra_vx_e64_m1() {
-    let mut state = setup(1, Vsew::E64, Vlmul::M1);
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     write_elem(
         &mut state,
         VReg::V2,
@@ -643,7 +643,7 @@ fn vsra_vx_e64_m1() {
 
 #[test]
 fn vminu_vv_e8_unsigned() {
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // 0xFF as unsigned is 255; should beat 1
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x01);
@@ -668,7 +668,7 @@ fn vminu_vv_e8_unsigned() {
 #[test]
 fn vmin_vv_e8_signed() {
     // 0xFF = -1 as i8, should be less than 1
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     // 1
@@ -697,7 +697,7 @@ fn vmin_vv_e8_signed() {
 
 #[test]
 fn vmaxu_vx_e32() {
-    let mut state = setup(2, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     // max unsigned
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FFFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 5);
@@ -720,7 +720,7 @@ fn vmaxu_vx_e32() {
 #[test]
 fn vmax_vx_e16_signed() {
     // 0xFFFF = -1 as i16; max(-1, 0) = 0
-    let mut state = setup(2, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
     // -1 signed
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 0xFFFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E16, 5);
@@ -747,7 +747,7 @@ fn vmax_vx_e16_signed() {
 
 #[test]
 fn vmseq_vv_e8_m1_writes_mask_bits() {
-    let mut state = setup(8, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     // vs2[i] == vs1[i] for even i
     for i in 0..8usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
@@ -793,12 +793,12 @@ fn vmseq_vv_e8_m1_writes_mask_bits() {
         );
     }
     assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn vmseq_vx_e32_m1() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(
             &mut state,
@@ -827,7 +827,7 @@ fn vmseq_vx_e32_m1() {
 
 #[test]
 fn vmseq_vi_e16() {
-    let mut state = setup(4, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
         write_elem(
             &mut state,
@@ -855,7 +855,7 @@ fn vmseq_vi_e16() {
 
 #[test]
 fn vmsne_vv_e8() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
         write_elem(
@@ -886,7 +886,7 @@ fn vmsne_vv_e8() {
 #[test]
 fn vmsltu_vv_e8_unsigned() {
     // 0xFF (255u) is NOT < 0x01; 0x01 IS < 0xFF
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x01);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 0x01);
@@ -911,7 +911,7 @@ fn vmsltu_vv_e8_unsigned() {
 #[test]
 fn vmslt_vv_e8_signed() {
     // 0xFF (-1) IS signed < 0x01 (1); 0x01 is NOT < 0xFF (-1)
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     // 1
@@ -939,7 +939,7 @@ fn vmslt_vv_e8_signed() {
 
 #[test]
 fn vmsleu_vv_e16() {
-    let mut state = setup(3, Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E16, Vlmul::M1);
     // vs2[0]=5 <= vs1[0]=5 (equal), vs2[1]=6 <= vs1[1]=10, vs2[2]=0xFFFF <= vs1[2]=0 (false
     // unsigned)
     write_elem(&mut state, VReg::V2, 0, Vsew::E16, 5);
@@ -972,7 +972,7 @@ fn vmsleu_vi_negative_imm_always_true() {
     // so the effective immediate is (0xFFFF...FF & 0xFF) = 0xFF. Every E8 element value
     // is in [0, 255] and 255 <= 255 is the worst case, which is still true. Therefore
     // vs2[i] <= imm is always true for all elements regardless of their value.
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
     }
@@ -1001,7 +1001,7 @@ fn vmsle_vi_e8_signed() {
     // 0x00 =  0 as i8:  0 <= -1 = false (bit 1)
     // 0x01 =  1 as i8:  1 <= -1 = false (bit 2)
     // 0xFE = -2 as i8: -2 <= -1 = true  (bit 3)
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 0x00);
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 0x01);
@@ -1025,7 +1025,7 @@ fn vmsle_vi_e8_signed() {
 #[test]
 fn vmsgtu_vi_e8_unsigned() {
     // vmsgtu.vi imm=5: vs2[i] > 5 (unsigned)
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 4);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 5);
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 6);
@@ -1051,7 +1051,7 @@ fn vmsgtu_vi_e8_unsigned() {
 #[test]
 fn vmsgt_vx_e32_signed() {
     // vmsgt.vx: vs2[i] > rs1 (signed)
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     // -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FFFF);
     write_elem(&mut state, VReg::V2, 1, Vsew::E32, 0);
@@ -1077,7 +1077,7 @@ fn vmsgt_vx_e32_signed() {
 #[test]
 fn vmsgt_vi_e8_signed() {
     // vmsgt.vi imm=-1 (i.e. vs2[i] > -1 signed, so vs2[i] >= 0)
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     // -1: NOT > -1
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 0xFF);
     // 0: > -1
@@ -1107,7 +1107,7 @@ fn vmsgt_vi_e8_signed() {
 #[test]
 fn masked_arith_leaves_inactive_elements_undisturbed() {
     // vm=false: only active (mask bit set) elements are written; others unchanged
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     // Mask: bits 0 and 2 active, bits 1 and 3 inactive
     state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0b0101;
     for i in 0..4usize {
@@ -1142,7 +1142,7 @@ fn masked_arith_leaves_inactive_elements_undisturbed() {
 
 #[test]
 fn masked_compare_leaves_inactive_mask_bits_undisturbed() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     // Mask: only bits 0 and 2 active
     state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0b0101;
     for i in 0..4usize {
@@ -1172,7 +1172,7 @@ fn masked_compare_leaves_inactive_mask_bits_undisturbed() {
 #[test]
 fn compare_can_write_to_v0_when_masked() {
     // Per spec, compare destination may be v0 even with masking (vm=false)
-    let mut state = setup(2, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // Mask v0 all active
     state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0xFF;
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
@@ -1202,7 +1202,7 @@ fn compare_can_write_to_v0_when_masked() {
 
 #[test]
 fn vstart_skips_elements_before_vstart() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 1);
         write_elem(&mut state, VReg::V1, i, Vsew::E32, 1);
@@ -1210,7 +1210,7 @@ fn vstart_skips_elements_before_vstart() {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
     // Start at element 2: elements 0,1 should remain as sentinel
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1232,19 +1232,19 @@ fn vstart_skips_elements_before_vstart() {
     // executed
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 2);
     // vstart must be reset to 0
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn vstart_skips_elements_before_vstart_compare() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, i as u64);
     }
     // Pre-fill vd bits with 0
     state.ext_state.write_vregs().get_mut(VReg::V4)[0] = 0x00;
-    state.ext_state.set_vstart(2);
+    state.ext_state.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1260,14 +1260,14 @@ fn vstart_skips_elements_before_vstart_compare() {
     // Bits 0,1 undisturbed (0); bits 2,3 written (eq = 1)
     let vd = state.ext_state.read_vregs().get(VReg::V4)[0];
     assert_eq!(vd & 0x0F, 0b1100);
-    assert_eq!(state.ext_state.vstart(), 0);
+    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
 }
 
 // vl=0: no writes, dirty still incremented
 
 #[test]
 fn vl_zero_no_elements_written() {
-    let mut state = setup(0, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD_BEEF);
     }
@@ -1297,7 +1297,7 @@ fn vl_zero_no_elements_written() {
 
 #[test]
 fn error_vector_instructions_not_allowed() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -1322,7 +1322,7 @@ fn error_vill_set_vtype() {
     state.ext_state.init_vector_csrs();
     // vtype = None (vill set)
     state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(0);
+    state.ext_state.set_vl(Vl::ZERO);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1343,7 +1343,7 @@ fn error_vill_set_vtype() {
 #[test]
 fn error_vd_misaligned_for_m2() {
     // M2: group_regs=2; vd must be even. V3 (odd) is illegal.
-    let mut state = setup(4, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1363,7 +1363,7 @@ fn error_vd_misaligned_for_m2() {
 
 #[test]
 fn error_vs2_misaligned_for_m2() {
-    let mut state = setup(4, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1384,7 +1384,7 @@ fn error_vs2_misaligned_for_m2() {
 #[test]
 fn error_masked_arith_vd_is_v0() {
     // vm=false with vd=v0 is illegal for arithmetic (not compare)
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1404,7 +1404,7 @@ fn error_masked_arith_vd_is_v0() {
 
 #[test]
 fn error_vector_not_allowed_compare() {
-    let mut state = setup(4, Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     state.ext_state.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -1434,7 +1434,7 @@ fn vadd_wraps_at_sew_boundary() {
         (Vsew::E32, 0xFFFF_FFFF),
         (Vsew::E64, 0xFFFF_FFFF_FFFF_FFFF_u64),
     ] {
-        let mut state = setup(1, vsew, Vlmul::M1);
+        let mut state = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, sew_max);
         write_elem(&mut state, VReg::V1, 0, vsew, 1);
         exec(
@@ -1466,7 +1466,7 @@ fn vsra_all_sew_widths_sign_extends_correctly() {
         (Vsew::E32, 0x8000_0000),
         (Vsew::E64, 0x8000_0000_0000_0000_u64),
     ] {
-        let mut state = setup(1, vsew, Vlmul::M1);
+        let mut state = setup(Vl::new(1).unwrap(), vsew, Vlmul::M1);
         write_elem(&mut state, VReg::V2, 0, vsew, msb_val);
         let shamt = vsew.bits_width() - 1;
         state.regs.write(Reg::A0, u64::from(shamt));
@@ -1550,7 +1550,7 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
         },
     ];
     for (n, instr) in instrs.iter().enumerate() {
-        let mut state = setup(4, Vsew::E32, Vlmul::M1);
+        let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
         exec(&mut state, *instr).unwrap();
         assert_eq!(
             state.ext_state.vs_dirty_count(),
@@ -1559,7 +1559,7 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
         );
         assert_eq!(
             state.ext_state.vstart(),
-            0,
+            Vstart::ZERO,
             "instr #{n} didn't reset vstart"
         );
     }
@@ -1568,7 +1568,7 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
 #[test]
 fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1() {
     // vmseq.vv with LMUL=2 and vd inside the vs2 group [v2, v3] is reserved
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1588,7 +1588,7 @@ fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1() {
 
 #[test]
 fn error_compare_mask_dest_overlaps_vs1_lmul_gt_1() {
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1608,7 +1608,7 @@ fn error_compare_mask_dest_overlaps_vs1_lmul_gt_1() {
 
 #[test]
 fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1_vx() {
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
     state.regs.write(Reg::A0, 0);
     let result = exec(
         &mut state,
@@ -1629,7 +1629,7 @@ fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1_vx() {
 #[test]
 fn compare_mask_dest_may_overlap_source_at_lmul_1() {
     // With LMUL=1 the group is a single register, so vd == vs2 is explicitly allowed
-    let mut state = setup(4, Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 42);
     }
@@ -1652,7 +1652,7 @@ fn compare_mask_dest_may_overlap_source_at_lmul_1() {
 #[test]
 fn compare_mask_dest_outside_source_group_lmul_gt_1_ok() {
     // vd=v8, group vs2=[v2,v3], vs1=[v6,v7]: no overlap, should succeed
-    let mut state = setup(8, Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
     for i in 0..8usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, i as u64);
         write_elem(&mut state, VReg::V6, i, Vsew::E32, i as u64);

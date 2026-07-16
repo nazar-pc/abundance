@@ -3,12 +3,9 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
 
-const ELEN: u32 = u64::BITS;
-const VLEN: u32 = 1024;
-
 pub(crate) struct AbundanceRv64IMaxExtState {
     csrs: BTreeMap<u16, u64>,
-    vregs: VectorRegisterFile<const { Self::VLENB }>,
+    vregs: VectorRegisterFile<const { Self::VLEN }>,
 }
 
 impl AbundanceRv64IMaxExtState {
@@ -26,7 +23,7 @@ impl AbundanceRv64IMaxExtState {
         s.init_csr(VectorCsr::Vtype.to_csr_index(), 1u64 << (u64::BITS - 1));
         s.init_csr(
             VectorCsr::Vlenb.to_csr_index(),
-            u64::from(Self::VLEN / u8::BITS),
+            u64::from(Self::VLEN.bytes()),
         );
         // Machine trap CSRs - zero-initialized, mtvec must be written by test
         // boot code before any trap can be taken.
@@ -90,19 +87,19 @@ impl Csrs<<AbundanceRv64IMaxInstruction as Instruction>::Reg> for AbundanceRv64I
 }
 
 impl VectorRegistersBase for AbundanceRv64IMaxExtState {
-    const ELEN: u32 = ELEN;
-    const VLEN: u32 = VLEN;
+    const ELEN: Elen = Elen::L64;
+    const VLEN: Vlen = Vlen::L1024;
 }
 
 impl VectorRegisters for AbundanceRv64IMaxExtState
 where
     Self: Csrs<<AbundanceRv64IMaxInstruction as Instruction>::Reg>,
 {
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
         &self.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
         &mut self.vregs
     }
 

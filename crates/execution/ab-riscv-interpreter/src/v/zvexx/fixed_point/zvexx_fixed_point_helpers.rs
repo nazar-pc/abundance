@@ -384,23 +384,23 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 ///
 /// # Safety
 /// - `2*SEW <= 64` (Zve64x constraint: only valid for SEW <= 32; caller must verify)
-/// - `base_reg + elem_i / (VLENB / (2*sew_bytes)) < 32`
+/// - `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32`
 #[inline(always)]
-pub unsafe fn read_wide_element_u64<const VLENB: u32>(
-    vregs: &VectorRegisterFile<VLENB>,
+pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
+    vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
-    elem_i: u32,
+    elem_i: u16,
     sew: Vsew,
 ) -> u64 {
     let double_sew_bytes = u32::from(sew.bytes_width()) * 2;
-    let elems_per_reg = VLENB / double_sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * double_sew_bytes;
+    let elems_per_reg = VLEN.bytes() / double_sew_bytes;
+    let reg_off = u32::from(elem_i) / elems_per_reg;
+    let byte_off = (u32::from(elem_i) % elems_per_reg) * double_sew_bytes;
     // SAFETY: caller guarantees bounds
     let reg = unsafe {
         vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
-    // SAFETY: `byte_off + double_sew_bytes <= VLENB`
+    // SAFETY: `byte_off + double_sew_bytes <= VLEN.bytes()`
     let src =
         unsafe { reg.get_unchecked(byte_off as usize..(byte_off + double_sew_bytes) as usize) };
     let mut buf = [0u8; 8];
@@ -429,6 +429,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
@@ -436,10 +437,10 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let vxrm = ext_state.vxrm();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLENB`
+    // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
     let mut any_sat = false;
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -478,7 +479,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 /// - `sew.bits_width() <= 32` (Zve64x ELEN = 64 constraint for narrowing)
 /// - `vs2.to_bits() % (2 * group_regs) == 0` and `vs2.to_bits() + 2 * group_regs <= 32`
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
-/// - `vl <= group_regs * VLENB / sew_bytes`
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -493,6 +494,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
@@ -505,7 +507,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
-    for i in u32::from(vstart)..vl {
+    for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }

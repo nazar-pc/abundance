@@ -35,6 +35,7 @@ where
     Reg: Register,
     Regs: RegisterFile<Reg>,
     ExtState: VectorRegistersExt<Reg, CustomError>,
+    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Debug,
@@ -57,9 +58,10 @@ where
     > {
         match self {
             // Whole-register store: stores `nreg` consecutive registers starting at `vs3` directly
-            // to memory as a flat byte array of `EVL = nreg * VLENB` bytes. `vs3` must be aligned
-            // to `nreg`. Ignores vtype, vl, masking. Honors `vstart` in byte units: the first
-            // `vstart` bytes are skipped. If `vstart >= EVL`, the instruction is a no-op.
+            // to memory as a flat byte array of `EVL = nreg * VLEN.bytes()` bytes. `vs3` must be
+            // aligned to `nreg`. Ignores vtype, vl, masking. Honors `vstart` in byte
+            // units: the first `vstart` bytes are skipped. If `vstart >= EVL`, the
+            // instruction is a no-op.
             Self::Vsr { vs3, rs1: _, nreg } => {
                 let nreg = nreg.num_registers();
                 if !ext_state.vector_instructions_allowed() {
@@ -74,12 +76,12 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let vlenb = u64::from(ExtState::VLENB);
+                let vlenb = u64::from(ExtState::VLEN.bytes());
                 let evl = u64::from(nreg) * vlenb;
                 let vstart = ext_state.vstart();
-                if u64::from(vstart) < evl {
+                if u64::from(u16::from(vstart)) < evl {
                     let base = rs1_value.as_u64();
-                    let mut byte_off = u64::from(vstart);
+                    let mut byte_off = u64::from(u16::from(vstart));
                     while byte_off < evl {
                         let reg_off = byte_off / vlenb;
                         let in_reg = (byte_off % vlenb) as usize;
@@ -88,11 +90,11 @@ where
                         let reg = unsafe {
                             VReg::from_bits(vs3.to_bits() + reg_off as u8).unwrap_unchecked()
                         };
-                        // SAFETY: `in_reg < VLENB` by construction
+                        // SAFETY: `in_reg < VLEN.bytes()` by construction
                         let src =
                             unsafe { ext_state.read_vregs().get(reg).get_unchecked(in_reg..) };
                         if let Err(error) = memory.write_slice(base + byte_off, src) {
-                            ext_state.set_vstart(byte_off as u16);
+                            ext_state.set_vstart(Vstart::from(byte_off as u16));
                             return Err(ExecutionError::MemoryAccess(error));
                         }
                         byte_off += src.len() as u64;
@@ -111,21 +113,20 @@ where
                     });
                 }
                 let vl = ext_state.vl();
-                let evl_bytes = vl.div_ceil(u8::BITS);
+                let evl_bytes = vl.bytes();
                 let start_byte = ext_state.vstart();
-                if u32::from(start_byte) < evl_bytes {
+                if u16::from(start_byte) < evl_bytes {
                     let base = rs1_value.as_u64();
-                    // SAFETY: `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLENB` because
+                    // SAFETY: `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLEN.bytes()` because
                     // `vl <= VLMAX <= VLEN`, so the slice `start_byte..evl_bytes` is in bounds of
-                    // the `VLENB`-byte source register
+                    // the `VLEN.bytes()`-byte source register
                     let src = unsafe {
-                        ext_state
-                            .read_vregs()
-                            .get(vs3)
-                            .get_unchecked(usize::from(start_byte)..evl_bytes as usize)
+                        ext_state.read_vregs().get(vs3).get_unchecked(
+                            usize::from(u16::from(start_byte))..usize::from(evl_bytes),
+                        )
                     };
                     memory
-                        .write_slice(base + u64::from(start_byte), src)
+                        .write_slice(base + u64::from(u16::from(start_byte)), src)
                         .map_err(ExecutionError::MemoryAccess)?;
                 }
                 ext_state.reset_vstart();
@@ -133,7 +134,7 @@ where
             // Unit-stride store.
             //
             // Source EMUL = EEW/SEW * LMUL, computed via `data_register_count`. This gives
-            // `group_regs` such that `VLMAX = group_regs * VLENB / eew.bytes()` matches the
+            // `group_regs` such that `VLMAX = group_regs * VLEN.bytes() / eew.bytes()` matches the
             // architectural `vl`.
             Self::Vse {
                 vs3,
@@ -166,9 +167,9 @@ where
                 // SAFETY:
                 // - alignment: `check_register_group_alignment` verified `vs3 % group_regs == 0`
                 //   and `vs3 + group_regs <= 32`
-                // - `vl <= group_regs * VLENB / eew.bytes()`: `group_regs` is the EMUL computed for
-                //   this `eew` and `vtype`, so this VLMAX equals the architectural VLMAX that
-                //   bounds `vl`
+                // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is the EMUL
+                //   computed for this `eew` and `vtype`, so this VLMAX equals the architectural
+                //   VLMAX that bounds `vl`
                 // - vs3/v0 overlap: stores read vs3 as a source; the spec does not restrict
                 //   source/v0 overlap
                 unsafe {
@@ -271,10 +272,11 @@ where
                 // SAFETY:
                 // - `vs3` alignment/bounds: `check_register_group_alignment` verified both
                 // - `vs2` alignment/bounds: `check_register_group_alignment` verified both
-                // - `vl <= data_group_regs * VLENB / data_eew.bytes()`: `data_group_regs` is the
-                //   EMUL that bounds `vl`
-                // - `vl <= index_group_regs * VLENB / index_eew.bytes()`: `index_register_count`
-                //   returns the EMUL for the index group, which by the same argument bounds `vl`
+                // - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()`: `data_group_regs` is
+                //   the EMUL that bounds `vl`
+                // - `vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()`:
+                //   `index_register_count` returns the EMUL for the index group, which by the same
+                //   argument bounds `vl`
                 // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
@@ -382,7 +384,7 @@ where
                 // SAFETY:
                 // - `validate_segment_store_registers` guarantees `vs3 % group_regs == 0` and `vs3
                 //   + nf * group_regs <= 32`
-                // - `vl <= group_regs * VLENB / eew.bytes()`: same EMUL argument as `Vse`
+                // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: same EMUL argument as `Vse`
                 // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_unit_stride_store(
