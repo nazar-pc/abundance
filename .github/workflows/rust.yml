@@ -15,6 +15,7 @@ env:
   # Not needed in CI, should make things a bit faster
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
+  CARGO_BUILD_WARNINGS: deny
   # Build smaller artifacts to avoid running out of space in CI and make it a bit faster.
   # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
   #  needed for some crates due to `-Znext-solver=globally`
@@ -145,7 +146,7 @@ jobs:
 
       - name: cargo clippy
         run: |
-          ${{ env.command }} --locked --all-targets -- -D warnings
+          ${{ env.command }} --locked --all-targets
         if: matrix.type == 'together'
 
       - name: cargo clippy (each crate individually)
@@ -156,7 +157,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                echo "$command --all-targets --package \"${crate}\"" >> "${{ runner.temp }}/queue"
               done
         if: matrix.type == 'individually'
 
@@ -174,7 +175,7 @@ jobs:
               | tr -d '\r' \
               | while IFS= read -r crate; do
                   echo "Checking \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "$command --all-targets --package \"${crate}\" --features \"${crate}/${feature}\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                  echo "$command --all-targets --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
                 done
           done
 
@@ -184,7 +185,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
 
           printf '%s' "$metadata" \
@@ -195,14 +196,14 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\" -- -D warnings" >> "${{ runner.temp }}/queue"
+                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "$command --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings" >> "${{ runner.temp }}/queue"
+          echo "$command --all-targets --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "$command --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings" >> "${{ runner.temp }}/queue"
+          echo "$command --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
         if: matrix.type == 'features'
 
       - parallel:
