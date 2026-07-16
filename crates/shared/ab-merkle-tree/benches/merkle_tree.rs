@@ -1,13 +1,13 @@
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(generic_const_exprs)]
+#![expect(incomplete_features, reason = "generic_const_*")]
+#![feature(generic_const_args, generic_const_items, min_generic_const_args)]
 
-use ab_merkle_tree::balanced::{
-    BalancedMerkleTree, compute_root_only_large_stack_size, ensure_supported_n,
-};
+use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::mem::MaybeUninit;
+
+const U64_TO_USIZE<const N: u64>: usize = N as usize;
 
 fn criterion_benchmark(c: &mut Criterion) {
     // Intentional inlining prevention doesn't allow the compiler to prove lack of panics
@@ -21,24 +21,18 @@ fn criterion_benchmark(c: &mut Criterion) {
     balanced::<32768>(c);
     balanced::<65536>(c);
 
-    unbalanced::<1, 1>(c);
-    unbalanced::<2, 2>(c);
-    unbalanced::<4, 4>(c);
-    unbalanced::<256, 256>(c);
-    unbalanced::<32768, 32768>(c);
-    unbalanced::<65536, 65536>(c);
+    unbalanced::<1>(c);
+    unbalanced::<2>(c);
+    unbalanced::<4>(c);
+    unbalanced::<256>(c);
+    unbalanced::<32768>(c);
+    unbalanced::<65536>(c);
 
     // TODO: MMR benches
     // TODO: Spase Merkle Tree benches
 }
 
-fn balanced<const N: usize>(c: &mut Criterion)
-where
-    [(); N - 1]:,
-    [(); ensure_supported_n(N)]:,
-    [(); N.ilog2() as usize + 1]:,
-    [(); compute_root_only_large_stack_size(N)]:,
-{
+fn balanced<const N: usize>(c: &mut Criterion) {
     // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut input = unsafe { Box::<[[u8; 32]; N]>::new_zeroed().assume_init() };
     for (index, input) in input.iter_mut().enumerate() {
@@ -58,7 +52,7 @@ where
         });
     });
 
-    let tree = &*BalancedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
+    let tree = &*BalancedMerkleTree::<N>::new_in(black_box(&mut instance), black_box(&input));
 
     c.bench_function(&format!("{N}/balanced/all-proofs"), |b| {
         b.iter(|| {
@@ -83,21 +77,18 @@ where
     });
 }
 
-fn unbalanced<const MAX_N: usize, const MAX_N_U64: u64>(c: &mut Criterion)
-where
-    [(); MAX_N_U64.next_power_of_two().ilog2() as usize + 1]:,
-{
+fn unbalanced<const MAX_N: u64>(c: &mut Criterion) {
     // SAFETY: Data structure filled with zeroes is a valid invariant
-    let mut input = unsafe { Box::<[[u8; 32]; MAX_N]>::new_zeroed().assume_init() };
+    let mut input = unsafe { Box::<[[u8; 32]; U64_TO_USIZE::<MAX_N>]>::new_zeroed().assume_init() };
     for (index, input) in input.iter_mut().enumerate() {
         *input = [(index % u8::MAX as usize + 1) as u8; 32];
     }
 
     c.bench_function(&format!("{MAX_N}/unbalanced/compute-root-only"), |b| {
         b.iter(|| {
-            black_box(UnbalancedMerkleTree::compute_root_only(black_box(
-                input.iter().copied(),
-            )));
+            black_box(UnbalancedMerkleTree::compute_root_only::<MAX_N, _, _>(
+                black_box(input.iter().copied()),
+            ));
         });
     });
 
@@ -109,22 +100,25 @@ where
                 let mut proof = [MaybeUninit::uninit(); _];
 
                 for &i in &indices {
-                    black_box(UnbalancedMerkleTree::compute_root_and_proof_in(
-                        black_box(input.iter().copied()),
-                        black_box(i),
-                        black_box(&mut proof),
-                    ));
+                    black_box(
+                        UnbalancedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
+                            black_box(input.iter().copied()),
+                            black_box(i),
+                            black_box(&mut proof),
+                        ),
+                    );
                 }
             });
         });
 
-        let root = UnbalancedMerkleTree::compute_root_only(input.iter().copied()).unwrap();
+        let root =
+            UnbalancedMerkleTree::compute_root_only::<MAX_N, _, _>(input.iter().copied()).unwrap();
         let mut proofs = Vec::new();
 
         for &i in &indices {
             let mut proof = Box::new([MaybeUninit::uninit(); _]);
 
-            let proof = UnbalancedMerkleTree::compute_root_and_proof_in(
+            let proof = UnbalancedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
                 input.iter().copied(),
                 i,
                 &mut proof,
@@ -144,7 +138,7 @@ where
                         black_box(proof),
                         black_box(index as u64),
                         black_box(input[index]),
-                        black_box(MAX_N_U64),
+                        black_box(MAX_N),
                     ));
                 }
             });
@@ -152,14 +146,14 @@ where
     }
 
     if MAX_N > 1 {
-        let reduced_n = (MAX_N * 2 / 3).max(1);
+        let reduced_n = (MAX_N * 2 / 3).max(1) as usize;
         let input = &input[..reduced_n];
 
         c.bench_function(
             &format!("{reduced_n}({MAX_N})/unbalanced/compute-root-only"),
             |b| {
                 b.iter(|| {
-                    black_box(UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(
+                    black_box(UnbalancedMerkleTree::compute_root_only::<MAX_N, _, _>(
                         black_box(input.iter().copied()),
                     ));
                 });
@@ -173,11 +167,13 @@ where
                     let mut proof = [MaybeUninit::uninit(); _];
 
                     for i in (0..input.len()).step_by(100) {
-                        black_box(UnbalancedMerkleTree::compute_root_and_proof_in(
-                            black_box(input.iter().copied()),
-                            black_box(i),
-                            black_box(&mut proof),
-                        ));
+                        black_box(
+                            UnbalancedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
+                                black_box(input.iter().copied()),
+                                black_box(i),
+                                black_box(&mut proof),
+                            ),
+                        );
                     }
                 });
             },

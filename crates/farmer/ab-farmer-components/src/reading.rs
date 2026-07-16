@@ -88,11 +88,6 @@ impl ReadingError {
     }
 }
 
-// TODO: Workaround for https://github.com/rust-lang/rust/issues/144690 that gets triggered on
-//  `s_bucket_offsets` argument below
-const {
-    assert!(65536 == Record::NUM_S_BUCKETS);
-}
 /// Read sector record chunks, only plotted s-buckets are returned (in decoded form).
 ///
 /// NOTE: This is an async function, but it also does CPU-intensive operation internally, while it
@@ -100,9 +95,7 @@ const {
 pub async fn read_sector_record_chunks<S, A>(
     piece_offset: PieceOffset,
     pieces_in_sector: u16,
-    // TODO: Workaround for https://github.com/rust-lang/rust/issues/144690
-    // s_bucket_offsets: &[u32; Record::NUM_S_BUCKETS],
-    s_bucket_offsets: &[u32; 65536],
+    s_bucket_offsets: &[u32; Record::NUM_S_BUCKETS],
     sector_contents_map: &SectorContentsMap,
     pos_proofs: &PosProofs,
     sector: &ReadAt<S, A>,

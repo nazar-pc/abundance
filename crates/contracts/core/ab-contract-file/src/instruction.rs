@@ -10,7 +10,7 @@ pub struct ContractRegisters {
     regs: [u64; 32],
 }
 
-impl const RegisterFile<ContractRegister> for ContractRegisters {
+const impl RegisterFile<ContractRegister> for ContractRegisters {
     #[inline(always)]
     fn read(&self, reg: ContractRegister) -> u64 {
         if reg == ContractRegister::Zero {
@@ -101,7 +101,7 @@ pub enum ContractRegister {
     T6 = 31,
 }
 
-impl const Default for ContractRegister {
+const impl Default for ContractRegister {
     #[inline(always)]
     fn default() -> Self {
         Self::Zero
@@ -151,7 +151,7 @@ impl fmt::Debug for ContractRegister {
     }
 }
 
-impl const PartialEq for ContractRegister {
+const impl PartialEq for ContractRegister {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         // This is quite ugly, but the default `derive` isn't `const` there doesn't seem to be a
@@ -192,9 +192,9 @@ impl const PartialEq for ContractRegister {
     }
 }
 
-impl const Eq for ContractRegister {}
+const impl Eq for ContractRegister {}
 
-impl const Register for ContractRegister {
+const impl Register for ContractRegister {
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -241,7 +241,7 @@ impl const Register for ContractRegister {
 }
 
 /// SAFETY: `Self::from_bits()` returns `Some()` for `1`, `8`, `9` and `18..=27`
-unsafe impl const ZcmpRegister for ContractRegister {
+const unsafe impl ZcmpRegister for ContractRegister {
     const RVE: bool = false;
 }
 
@@ -264,7 +264,7 @@ unsafe impl const ZcmpRegister for ContractRegister {
 pub enum ContractInstruction<Reg = ContractRegister> {}
 
 #[instruction]
-impl<Reg> const Instruction for ContractInstruction<Reg>
+const impl<Reg> Instruction for ContractInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {

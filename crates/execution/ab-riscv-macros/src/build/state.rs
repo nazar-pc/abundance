@@ -139,15 +139,19 @@ impl State {
             dependencies_for_enablement,
             source,
         };
-        if let Err(OccupiedError { entry, value }) = self
+        if let Err(OccupiedError {
+            entry,
+            key: enum_name,
+            value,
+            ..
+        }) = self
             .known_enum_definitions
-            .try_insert(original_item_enum.ident.clone(), known_enum_definition)
+            .try_insert(original_item_enum.ident, known_enum_definition)
             && entry.get().own_instructions != value.own_instructions
         {
             return Err(anyhow::anyhow!(
-                "Instruction enum `{}` is already defined in `{}`, a different duplicate found in \
-                `{}`",
-                original_item_enum.ident,
+                "Instruction enum `{enum_name}` is already defined in `{}`, a different duplicate \
+                found in `{}`",
                 entry.get().source.display(),
                 value.source.display(),
             ));
@@ -163,20 +167,22 @@ impl State {
     ) -> anyhow::Result<()> {
         let enum_name = enum_name_from_impl(&item_impl);
 
-        if let Err(OccupiedError { entry, value }) =
-            self.known_original_enum_decoding_impls.try_insert(
-                enum_name.clone(),
-                KnownOriginalEnumDecodingImpl {
-                    item_impl: item_impl.clone(),
-                    source: Rc::clone(&source),
-                },
-            )
-            && entry.get().item_impl != value.item_impl
+        if let Err(OccupiedError {
+            entry,
+            key: enum_name,
+            value,
+            ..
+        }) = self.known_original_enum_decoding_impls.try_insert(
+            enum_name,
+            KnownOriginalEnumDecodingImpl {
+                item_impl: item_impl.clone(),
+                source: Rc::clone(&source),
+            },
+        ) && entry.get().item_impl != value.item_impl
         {
             return Err(anyhow::anyhow!(
-                "Implementation for enum `{}` is already defined in `{}`, a different duplicate \
-                found in `{}`\n{:?}\n{:?}",
-                enum_name,
+                "Implementation for enum `{enum_name}` is already defined in `{}`, a different \
+                duplicate found in `{}`\n{:?}\n{:?}",
                 entry.get().source.display(),
                 source.display(),
                 entry.get().item_impl,
@@ -194,8 +200,13 @@ impl State {
     ) -> anyhow::Result<()> {
         let enum_name = enum_name_from_impl(&item_impl);
 
-        if let Err(OccupiedError { entry, value }) = self.known_enum_csr_impls.try_insert(
-            enum_name.clone(),
+        if let Err(OccupiedError {
+            entry,
+            key: enum_name,
+            value,
+            ..
+        }) = self.known_enum_csr_impls.try_insert(
+            enum_name,
             KnownEnumCsrImpl {
                 item_impl,
                 source: Rc::clone(&source),
@@ -203,9 +214,8 @@ impl State {
         ) && entry.get().item_impl != value.item_impl
         {
             return Err(anyhow::anyhow!(
-                "Execution CSR implementation for enum `{}` is already defined in `{}`, a \
+                "Execution CSR implementation for enum `{enum_name}` is already defined in `{}`, a \
                 different duplicate found in `{}`",
-                enum_name,
                 entry.get().source.display(),
                 source.display(),
             ));
@@ -221,8 +231,13 @@ impl State {
     ) -> anyhow::Result<()> {
         let enum_name = enum_name_from_impl(&item_impl);
 
-        if let Err(OccupiedError { entry, value }) = self.known_enum_execution_impls.try_insert(
-            enum_name.clone(),
+        if let Err(OccupiedError {
+            entry,
+            key: enum_name,
+            value,
+            ..
+        }) = self.known_enum_execution_impls.try_insert(
+            enum_name,
             KnownEnumExecutionImpl {
                 item_impl,
                 source: Rc::clone(&source),
@@ -230,9 +245,8 @@ impl State {
         ) && entry.get().item_impl != value.item_impl
         {
             return Err(anyhow::anyhow!(
-                "Execution implementation for enum `{}` is already defined in `{}`, a different \
-                duplicate found in `{}`",
-                enum_name,
+                "Execution implementation for enum `{enum_name}` is already defined in `{}`, a \
+                different duplicate found in `{}`",
                 entry.get().source.display(),
                 source.display(),
             ));

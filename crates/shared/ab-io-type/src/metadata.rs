@@ -394,7 +394,7 @@ pub enum IoTypeMetadataKind {
     Unaligned,
 }
 
-impl const TryFrom<u8> for IoTypeMetadataKind {
+const impl TryFrom<u8> for IoTypeMetadataKind {
     type Error = ();
 
     #[inline]

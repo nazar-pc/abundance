@@ -28,7 +28,7 @@ pub enum Rv64ZbkbInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv64ZbkbInstruction<Reg>
+const impl<Reg> Instruction for Rv64ZbkbInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {

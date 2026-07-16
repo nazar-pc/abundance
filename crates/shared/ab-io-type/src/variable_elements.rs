@@ -63,8 +63,7 @@ where
             .0
     };
 
-    // TODO: Use `[Element; RECOMMENDED_ALLOCATION as usize]` once stabilized `generic_const_exprs`
-    //  allows us to do so
+    // TODO: Use `[Element; U32_TO_USIZE::<RECOMMENDED_ALLOCATION>]` with `generic_const_args`
     type PointerType = Element;
 
     #[inline(always)]

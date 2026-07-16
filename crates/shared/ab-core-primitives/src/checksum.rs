@@ -128,7 +128,10 @@ where
     T: Decode,
 {
     #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+    fn decode<I>(input: &mut I) -> Result<Self, Error>
+    where
+        I: Input,
+    {
         let mut input = Blake3ChecksumInput::new(input);
         let data = T::decode(&mut input)?;
         let (actual_hash, input) = input.finish();

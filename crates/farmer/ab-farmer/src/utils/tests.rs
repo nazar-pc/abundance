@@ -1,4 +1,3 @@
-#[cfg(not(miri))]
 use crate::utils::parse_cpu_cores_sets;
 // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
 #[cfg(not(all(miri, target_os = "macos")))]
@@ -76,7 +75,6 @@ fn run_future_in_dedicated_thread_tokio_on_drop() {
     });
 }
 
-#[cfg(not(miri))]
 #[test]
 fn test_parse_cpu_cores_sets() {
     {

@@ -26,7 +26,10 @@ impl PartialEq for CowBytes {
 impl Eq for CowBytes {}
 
 impl Hash for CowBytes {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.as_ref().hash(state);
     }
 }

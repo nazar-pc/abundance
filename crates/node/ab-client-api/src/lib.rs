@@ -1,10 +1,6 @@
 //! Client API
 
-#![feature(const_block_items)]
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-// TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/141492
-#![feature(generic_const_exprs)]
+#![feature(const_convert, const_trait_impl)]
 
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::address::Address;
@@ -20,21 +16,12 @@ use rclite::Arc;
 use std::io;
 use std::sync::Arc as StdArc;
 
-// TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows the
-//  code to compile. Constant 4_294_967_295 is hardcoded here and below for compilation to succeed.
-#[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
-#[expect(clippy::eq_op, reason = "Intentional documentation")]
-const {
-    assert!(u32::MAX == 4_294_967_295);
-}
-
-// TODO: Make this a `#[transparent]` struct to improve usability (avoiding the need for
-//  `generic_const_exprs` feature in downstream crates)?
+const MAX_U32_AS_U64: u64 = u64::from(u32::MAX);
 /// Type alias for Merkle Mountain Range with block roots.
 ///
 /// NOTE: `u32` is smaller than `BlockNumber`'s internal `u64` but will be sufficient for a long
-/// time and substantially decrease the size of the data structure.
-pub type BlockMerkleMountainRange = MerkleMountainRange<4_294_967_295>;
+/// time and substantially decrease the size of the in-memory data structure.
+pub type BlockMerkleMountainRange = MerkleMountainRange<MAX_U32_AS_U64>;
 
 /// State of a contract slot
 #[derive(Debug, Clone)]

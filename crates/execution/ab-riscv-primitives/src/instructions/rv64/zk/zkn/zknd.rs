@@ -25,14 +25,14 @@ pub enum Rv64ZkndKsRnum {
     Final = 0xA,
 }
 
-impl const From<Rv64ZkndKsRnum> for u8 {
+const impl From<Rv64ZkndKsRnum> for u8 {
     #[inline(always)]
     fn from(rnum: Rv64ZkndKsRnum) -> Self {
         rnum as u8
     }
 }
 
-impl const From<Rv64ZkndKsRnum> for usize {
+const impl From<Rv64ZkndKsRnum> for usize {
     #[inline(always)]
     fn from(rnum: Rv64ZkndKsRnum) -> Self {
         usize::from(rnum as u8)
@@ -94,7 +94,7 @@ pub enum Rv64ZkndInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> const Instruction for Rv64ZkndInstruction<Reg>
+const impl<Reg> Instruction for Rv64ZkndInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {

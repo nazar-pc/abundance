@@ -92,9 +92,12 @@ pub fn derive_shard_commitments_root(
 
     // NOTE: Using unbalanced implementation since balanced implementation requires allocation of
     // leaves
-    const NUM_LEAVES_U64: u64 = SolutionShardCommitment::NUM_LEAVES as u64;
-    let root = UnbalancedMerkleTree::compute_root_only::<NUM_LEAVES_U64, _, _>(leaves)
-        .expect("List of leaves is not empty; qed");
+    let root = UnbalancedMerkleTree::compute_root_only::<
+        { SolutionShardCommitment::NUM_LEAVES as u64 },
+        _,
+        _,
+    >(leaves)
+    .expect("List of leaves is not empty; qed");
 
     ShardCommitmentHash::new(root)
 }
@@ -140,15 +143,15 @@ pub fn derive_solution_shard_commitment(
         }
     });
 
-    const NUM_LEAVES_U64: u64 = SolutionShardCommitment::NUM_LEAVES as u64;
     let mut proof = [MaybeUninit::uninit(); _];
     // NOTE: Using unbalanced implementation since balanced implementation requires an allocation
     // and uses a lot more RAM
-    let (_root, computed_proof) =
-        UnbalancedMerkleTree::compute_root_and_proof_in::<NUM_LEAVES_U64, _, _>(
-            leaves, leaf_index, &mut proof,
-        )
-        .expect("Index is always within the list of leaves; qed");
+    let (_root, computed_proof) = UnbalancedMerkleTree::compute_root_and_proof_in::<
+        { SolutionShardCommitment::NUM_LEAVES as u64 },
+        _,
+        _,
+    >(leaves, leaf_index, &mut proof)
+    .expect("Index is always within the list of leaves; qed");
     debug_assert_eq!(computed_proof.len(), proof.len());
 
     // SAFETY: Checked above that it is fully initialized

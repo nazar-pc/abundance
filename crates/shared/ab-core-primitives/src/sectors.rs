@@ -60,40 +60,52 @@ impl Step for SectorIndex {
     }
 
     #[inline(always)]
+    fn forward_overflowing(start: Self, count: usize) -> (Self, bool) {
+        let (n, overflowing) = u16::forward_overflowing(start.0, count);
+        (Self(n), overflowing)
+    }
+
+    #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u16::backward_checked(start.0, count).map(Self)
     }
+
+    #[inline(always)]
+    fn backward_overflowing(start: Self, count: usize) -> (Self, bool) {
+        let (n, overflowing) = u16::backward_overflowing(start.0, count);
+        (Self(n), overflowing)
+    }
 }
 
-impl const From<u16> for SectorIndex {
+const impl From<u16> for SectorIndex {
     #[inline(always)]
     fn from(value: u16) -> Self {
         Self(value)
     }
 }
 
-impl const From<SectorIndex> for u16 {
+const impl From<SectorIndex> for u16 {
     #[inline(always)]
     fn from(value: SectorIndex) -> Self {
         value.0
     }
 }
 
-impl const From<SectorIndex> for u32 {
+const impl From<SectorIndex> for u32 {
     #[inline(always)]
     fn from(original: SectorIndex) -> Self {
         u32::from(original.0)
     }
 }
 
-impl const From<SectorIndex> for u64 {
+const impl From<SectorIndex> for u64 {
     #[inline(always)]
     fn from(original: SectorIndex) -> Self {
         u64::from(original.0)
     }
 }
 
-impl const From<SectorIndex> for usize {
+const impl From<SectorIndex> for usize {
     #[inline(always)]
     fn from(original: SectorIndex) -> Self {
         usize::from(original.0)
@@ -110,13 +122,13 @@ impl SectorIndex {
 
     /// Create sector index from bytes.
     #[inline(always)]
-    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
+    pub const fn from_bytes(bytes: [u8; const { Self::SIZE }]) -> Self {
         Self(u16::from_le_bytes(bytes))
     }
 
     /// Convert sector index to bytes.
     #[inline(always)]
-    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
+    pub const fn to_bytes(self) -> [u8; const { Self::SIZE }] {
         self.0.to_le_bytes()
     }
 }
@@ -163,8 +175,9 @@ impl SectorId {
         sector_index: SectorIndex,
         history_size: HistorySize,
     ) -> Self {
-        let mut bytes_to_hash =
-            [0; SectorIndex::SIZE + HistorySize::SIZE as usize + ShardCommitmentHash::SIZE];
+        let mut bytes_to_hash = [0; const {
+            SectorIndex::SIZE + HistorySize::SIZE as usize + ShardCommitmentHash::SIZE
+        }];
         bytes_to_hash[..SectorIndex::SIZE].copy_from_slice(&sector_index.to_bytes());
         bytes_to_hash[SectorIndex::SIZE..][..HistorySize::SIZE as usize]
             .copy_from_slice(&history_size.as_non_zero_u64().get().to_le_bytes());
@@ -236,7 +249,7 @@ impl SectorId {
 
     /// Derive evaluation seed
     pub fn derive_evaluation_seed(&self, piece_offset: PieceOffset) -> PosSeed {
-        let mut bytes_to_hash = [0; Self::SIZE + PieceOffset::SIZE];
+        let mut bytes_to_hash = [0; const { Self::SIZE + PieceOffset::SIZE }];
         bytes_to_hash[..Self::SIZE].copy_from_slice(self.as_ref());
         bytes_to_hash[Self::SIZE..].copy_from_slice(&piece_offset.to_bytes());
         let evaluation_seed = single_block_hash(&bytes_to_hash)
@@ -318,20 +331,32 @@ impl Step for SBucket {
         u16::forward_checked(start.0, count).map(Self)
     }
 
+    #[inline(always)]
+    fn forward_overflowing(start: Self, count: usize) -> (Self, bool) {
+        let (n, overflowing) = u16::forward_overflowing(start.0, count);
+        (Self(n), overflowing)
+    }
+
     #[inline]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u16::backward_checked(start.0, count).map(Self)
     }
+
+    #[inline(always)]
+    fn backward_overflowing(start: Self, count: usize) -> (Self, bool) {
+        let (n, overflowing) = u16::backward_overflowing(start.0, count);
+        (Self(n), overflowing)
+    }
 }
 
-impl const From<u16> for SBucket {
+const impl From<u16> for SBucket {
     #[inline(always)]
     fn from(value: u16) -> Self {
         Self(value)
     }
 }
 
-impl const From<SBucket> for u16 {
+const impl From<SBucket> for u16 {
     #[inline(always)]
     fn from(value: SBucket) -> Self {
         value.0

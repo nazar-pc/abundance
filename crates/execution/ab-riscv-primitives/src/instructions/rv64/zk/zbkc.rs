@@ -16,7 +16,7 @@ use core::fmt;
 pub enum Rv64ZbkcInstruction<Reg> {}
 
 #[instruction]
-impl<Reg> const Instruction for Rv64ZbkcInstruction<Reg>
+const impl<Reg> Instruction for Rv64ZbkcInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {

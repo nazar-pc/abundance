@@ -72,11 +72,10 @@
     const_try,
     const_try_residual,
     exact_div,
-    generic_const_exprs,
+    never_type,
     stmt_expr_attributes,
     try_blocks
 )]
-#![expect(incomplete_features, reason = "generic_const_exprs")]
 
 pub mod instructions;
 pub mod prelude;

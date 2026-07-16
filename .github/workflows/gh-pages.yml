@@ -38,7 +38,9 @@ jobs:
           cargo -Zgitoxide -Zgit doc --locked --all --no-deps --lib --all-features
           cp -r target/doc gh-pages/rust-docs
         env:
-          RUSTDOCFLAGS: "-D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page"
+          # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in
+          #  turn needed for some crates due to `-Znext-solver=globally`
+          RUSTDOCFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page
 
       - name: Install Hugo
         uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 #v3.2.1

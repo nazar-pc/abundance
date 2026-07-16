@@ -5,31 +5,34 @@ use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
+const VLENB<const VLEN: u32>: u32 = VLEN / u8::BITS;
+pub(crate) const VLENB_USIZE<const VLENB: u32>: usize = VLENB as usize;
+
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases
 #[repr(align(128))]
-pub struct VectorRegisterFile<const VLENB: usize>([[u8; VLENB]; 32]);
+pub struct VectorRegisterFile<const VLENB: u32>([[u8; VLENB_USIZE::<VLENB>]; 32]);
 
-impl<const VLENB: usize> const Default for VectorRegisterFile<VLENB> {
+const impl<const VLENB: u32> Default for VectorRegisterFile<VLENB> {
     #[inline(always)]
     fn default() -> Self {
-        Self([[0; VLENB]; 32])
+        Self([[0; _]; _])
     }
 }
 
-impl<const VLENB: usize> VectorRegisterFile<VLENB> {
+impl<const VLENB: u32> VectorRegisterFile<VLENB> {
     /// Get reference to a vector register
     #[inline(always)]
-    pub fn get(&self, index: VReg) -> &[u8; VLENB] {
+    pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLENB>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
     }
 
     /// Get mutable reference to a vector register
     #[inline(always)]
-    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB] {
+    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLENB>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
     }
@@ -44,7 +47,11 @@ pub trait VectorRegistersBase {
     /// Vector register width `VLEN` in bits
     const VLEN: u32;
     /// Vector register width in bytes (`vlenb = VLEN / 8`)
-    const VLENB: u32 = Self::VLEN / u8::BITS;
+    const VLENB: u32 = VLENB::<{ Self::VLEN }>;
+    /// Vector register width in bytes (`vlenb = VLEN / 8`).
+    ///
+    /// The same as `Self::VLENB`, but `usize`.
+    const VLENB_USIZE: usize = VLENB_USIZE::<{ Self::VLENB }>;
 }
 
 // TODO: Figure out a way to make `VectorRegisters + VectorRegistersExt` trait bounds work without
@@ -68,10 +75,10 @@ where
     Self: VectorRegistersBase + SupportedElenVlen<{ Self::ELEN }, { Self::VLEN }>,
 {
     /// Read the vector register file
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB as usize }>;
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLENB }>;
 
     /// Mutable access to the vector register file
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB as usize }>;
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLENB }>;
 
     /// Check whether vector instructions are currently permitted.
     ///
@@ -114,8 +121,6 @@ where
 pub trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
 where
     Self: Csrs<Reg, CustomError> + VectorRegisters<CustomError>,
-    [(); Self::ELEN as usize]:,
-    [(); Self::VLEN as usize]:,
     Reg: Register,
     CustomError: fmt::Debug,
 {

@@ -81,8 +81,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
             .0
     };
 
-    // TODO: Use `[u8; RECOMMENDED_ALLOCATION as usize]` once stabilized `generic_const_exprs`
-    //  allows us to do so
+    // TODO: Use `[u8; U32_TO_USIZE::<RECOMMENDED_ALLOCATION>]` with `generic_const_args`
     type PointerType = u8;
 
     #[inline(always)]

@@ -79,7 +79,7 @@ where
 /// # Safety
 /// `sew.bytes() <= VLENB`
 #[inline(always)]
-pub unsafe fn read_element_0_u64<const VLENB: usize>(
+pub unsafe fn read_element_0_u64<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     base_reg: VReg,
     sew: Vsew,
@@ -100,7 +100,7 @@ pub unsafe fn read_element_0_u64<const VLENB: usize>(
 /// # Safety
 /// `sew.bytes() <= VLENB`
 #[inline(always)]
-pub unsafe fn write_element_0_u64<const VLENB: usize>(
+pub unsafe fn write_element_0_u64<const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     base_reg: VReg,
     sew: Vsew,
@@ -173,9 +173,6 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -222,9 +219,6 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -276,9 +270,6 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -330,9 +321,6 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -377,9 +365,6 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -426,9 +411,6 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -480,9 +462,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -543,9 +522,6 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -594,9 +570,6 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -642,14 +615,11 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let mask_bytes = vl.div_ceil(u8::BITS) as usize;
     let vreg = ext_state.read_vregs();
-    let mut vs1_buf = [0u8; { ExtState::VLENB as usize }];
+    let mut vs1_buf = [0u8; ExtState::VLENB_USIZE];
     // SAFETY: mask_bytes <= VLENB since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf
@@ -685,14 +655,14 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
 /// - `dst_base % COUNT == 0` and `src_base % COUNT == 0` (verified by caller).
 #[inline(always)]
 #[doc(hidden)]
-pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLENB: usize>(
+pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLENB: u32>(
     vregs: &mut VectorRegisterFile<VLENB>,
     dst_base: VReg,
     src_base: VReg,
 ) {
     // Snapshot all source registers before writing any destination registers.
     // This is correct for all overlap patterns without direction-dependent logic.
-    let mut tmp = [[0u8; VLENB]; COUNT];
+    let mut tmp = [[0u8; _]; COUNT];
     for (k, item) in tmp.iter_mut().enumerate() {
         // SAFETY: Guaranteed by function contract
         let src = unsafe { VReg::from_bits(src_base.to_bits() + k as u8).unwrap_unchecked() };

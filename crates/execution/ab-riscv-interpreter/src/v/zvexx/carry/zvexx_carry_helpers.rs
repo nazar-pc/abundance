@@ -19,7 +19,7 @@ use core::fmt;
 /// # Safety
 /// `i / 8 < VLENB` must hold, guaranteed when `i < vl <= VLEN`.
 #[inline(always)]
-pub(in super::super) unsafe fn carry_bit<const VLENB: usize>(
+pub(in super::super) unsafe fn carry_bit<const VLENB: u32>(
     vregs: &VectorRegisterFile<VLENB>,
     i: u32,
 ) -> u64 {
@@ -50,9 +50,6 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomErr
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -111,9 +108,6 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -174,9 +168,6 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
@@ -240,9 +231,6 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, Cus
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
-    [(); ExtState::ELEN as usize]:,
-    [(); ExtState::VLEN as usize]:,
-    [(); ExtState::VLENB as usize]:,
     CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();

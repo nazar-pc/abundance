@@ -1,6 +1,9 @@
 //! Shim proof of space implementation that works much faster than Chia and can be used for testing
 //! purposes to reduce memory and CPU usage
 
+#[cfg(all(feature = "alloc", test, not(miri)))]
+mod tests;
+
 #[cfg(feature = "alloc")]
 use crate::PosProofs;
 #[cfg(feature = "alloc")]
@@ -93,33 +96,5 @@ fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
             });
 
         Some(proof)
-    }
-}
-
-#[cfg(all(feature = "alloc", test, not(miri)))]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic() {
-        let seed = PosSeed::from([
-            35, 2, 52, 4, 51, 55, 23, 84, 91, 10, 111, 12, 13, 222, 151, 16, 228, 211, 254, 45, 92,
-            198, 204, 10, 9, 10, 11, 129, 139, 171, 15, 23,
-        ]);
-
-        let proofs = ShimTable::generator().create_proofs(&seed);
-
-        let s_bucket_without_proof = SBucket::from(1);
-        assert!(proofs.for_s_bucket(s_bucket_without_proof).is_none());
-
-        {
-            let s_bucket_with_proof = SBucket::from(0);
-            let proof = proofs.for_s_bucket(s_bucket_with_proof).unwrap();
-            assert!(ShimTable::is_proof_valid(
-                &seed,
-                s_bucket_with_proof,
-                &proof
-            ));
-        }
     }
 }

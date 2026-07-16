@@ -6,6 +6,8 @@ use core::ops::{Deref, DerefMut};
 use core::ptr;
 use core::ptr::NonNull;
 
+const SIZE_OF<T>: usize = size_of::<T>();
+
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
 ///
@@ -111,7 +113,7 @@ where
 
     /// Access the underlying byte representation of a data structure
     #[inline(always)]
-    fn as_bytes(&self) -> &[u8; size_of::<Self>()] {
+    fn as_bytes(&self) -> &[u8; SIZE_OF::<Self>] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
         unsafe { ptr::from_ref(self).cast::<[u8; _]>().as_ref_unchecked() }
     }
@@ -122,7 +124,7 @@ where
     /// While calling this function is technically safe, modifying returned memory buffer may result
     /// in broken invariants of underlying data structure and should be done with extra care.
     #[inline(always)]
-    unsafe fn as_bytes_mut(&mut self) -> &mut [u8; size_of::<Self>()] {
+    unsafe fn as_bytes_mut(&mut self) -> &mut [u8; SIZE_OF::<Self>] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
         unsafe { ptr::from_mut(self).cast::<[u8; _]>().as_mut_unchecked() }
     }
@@ -213,8 +215,8 @@ const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; MAX_METADATA_
     ])
 }
 
-// TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
-//  `SIZE as usize`
+// TODO: Change `usize` to `u32` once it is possible:
+//  https://github.com/rust-lang/rust/issues/156745
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl<const SIZE: usize, T> TrivialType for [T; SIZE]
 where

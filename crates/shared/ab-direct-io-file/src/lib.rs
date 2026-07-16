@@ -399,7 +399,7 @@ impl DirectIoFile {
                             buf = &mut buf[n..];
                             offset += n as u64;
                         }
-                        Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {
+                        Err(e) if e.kind() == io::ErrorKind::Interrupted => {
                             // Try again
                         }
                         Err(e) => {
@@ -454,7 +454,7 @@ impl DirectIoFile {
                             buf = &buf[n..];
                             offset += n as u64;
                         }
-                        Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {
+                        Err(e) if e.kind() == io::ErrorKind::Interrupted => {
                             // Try again
                         }
                         Err(e) => {
