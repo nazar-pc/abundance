@@ -335,6 +335,7 @@ impl Vlmul {
     /// For fractional LMUL, this is `VLEN / (SEW * denominator)`.
     /// Returns `Vl::ZERO` when the result would be less than 1 (insufficient bits).
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn vlmax<const VLEN: Vlen>(self, sew: Vsew) -> Vl {
         let sew_bits = u32::from(sew.bits_width());
         let vl = match self {
@@ -386,6 +387,7 @@ impl Vlmul {
     /// Returns the register count for the index register group, or `None` when `EMUL` falls
     /// outside the legal range `[1/8, 8]`.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<u8> {
         let (lmul_num, lmul_den) = self.as_fraction();
         let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num);
@@ -416,6 +418,7 @@ impl Vlmul {
     ///
     /// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<u8> {
         self.index_register_count(eew, sew)
     }
@@ -514,6 +517,7 @@ impl Vsew {
 
     /// Divide Vsew width by a given factor
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn divide_by_factor(self, factor: VsewFactor) -> Option<Self> {
         let Some(divide_by_factor) = self.bits_width().div_exact(factor.factor()) else {
             cold_path();
@@ -745,6 +749,7 @@ where
     /// All bits in `[Reg::XLEN-1:8]` must be zero; non-zero bits indicate an unrecognized
     /// encoding and cause `None` to be returned (this includes `vill`).
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_raw<Reg>(raw: Reg::Type) -> Option<Self>
     where
         Reg: [const] Register,
@@ -796,6 +801,7 @@ where
     /// `vill = 0`. To construct a raw value with `vill = 1` (illegal configuration), use
     /// [`Self::illegal_raw`].
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_raw<Reg>(self) -> Reg::Type
     where
         Reg: [const] Register,
@@ -821,6 +827,7 @@ where
     /// subsequent vector instruction that depends on `vtype` will raise an illegal-instruction
     /// exception.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn illegal_raw<Reg>() -> Reg::Type
     where
         Reg: [const] Register,

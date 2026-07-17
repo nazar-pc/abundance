@@ -18,13 +18,18 @@ include = [
 links = "ab-riscv-primitives"
 
 [package.metadata.docs.rs]
-all-features = true
+all-features = false
 
 [dependencies]
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
+no-panic-const = { workspace = true, optional = true }
 
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }
+
+[features]
+# Check that code can't panic under any conditions
+no-panic = ["dep:no-panic-const"]
 
 [lints]
 workspace = true

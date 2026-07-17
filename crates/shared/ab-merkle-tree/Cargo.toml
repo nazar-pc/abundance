@@ -37,6 +37,7 @@ criterion = { workspace = true }
 
 [features]
 alloc = []
+# Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic",
     # Helps with testing on CPUs without AVX512 support

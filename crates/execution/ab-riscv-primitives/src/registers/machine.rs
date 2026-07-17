@@ -120,6 +120,7 @@ impl MCauseException {
 
     /// Convert this exception to its full raw `mcause` CSR value
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_raw<Reg>(self) -> Reg::Type
     where
         Reg: [const] Register,
@@ -173,6 +174,7 @@ impl MCauseInterrupt {
 
     /// Convert this interrupt to its full raw `mcause` CSR value
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_raw<Reg>(self) -> Reg::Type
     where
         Reg: [const] Register,
@@ -205,6 +207,7 @@ impl From<MCauseInterrupt> for MCause {
 impl MCause {
     /// Try to create `MCause` from a raw `mcause` CSR value
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_raw<Reg>(raw: Reg::Type) -> Option<Self>
     where
         Reg: [const] Register,
@@ -222,6 +225,7 @@ impl MCause {
 
     /// Convert this `MCause` back to the full raw `mcause` CSR value
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_raw<Reg>(self) -> Reg::Type
     where
         Reg: [const] Register,

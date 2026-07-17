@@ -812,6 +812,7 @@ name = "ab-riscv-primitives"
 version = "0.0.4"
 dependencies = [
  "ab-riscv-macros",
+ "no-panic-const",
 ]
 
 [[package]]
@@ -4227,6 +4228,17 @@ name = "no-panic"
 version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f967505aabc8af5752d098c34146544a43684817cdba8f9725b292530cabbf53"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "no-panic-const"
+version = "0.1.36-const-0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aedffaa9a3c8e9097071d9f7229370c36796b9b4c030fa2442abc727e924f94c"
 dependencies = [
  "proc-macro2",
  "quote",
