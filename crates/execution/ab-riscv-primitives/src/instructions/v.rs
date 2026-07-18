@@ -373,8 +373,8 @@ impl Vlmul {
     /// Both values are powers of two with exactly one equal to `1`. Useful for computing
     /// `EMUL = (EEW / SEW) * LMUL` without floating-point arithmetic.
     #[inline(always)]
-    pub const fn as_fraction(self) -> (u8, u8) {
-        match self {
+    pub const fn as_fraction(self) -> (NonZeroU8, NonZeroU8) {
+        let (numerator, denominator) = match self {
             Self::Mf8 => (1, 8),
             Self::Mf4 => (1, 4),
             Self::Mf2 => (1, 2),
@@ -382,7 +382,12 @@ impl Vlmul {
             Self::M2 => (2, 1),
             Self::M4 => (4, 1),
             Self::M8 => (8, 1),
-        }
+        };
+
+        (
+            NonZeroU8::new(numerator).expect("Not zero; qed"),
+            NonZeroU8::new(denominator).expect("Not zero; qed"),
+        )
     }
 
     /// Compute `EMUL` for an indexed load: `EMUL = (index_eew / sew) * LMUL`.
@@ -393,8 +398,8 @@ impl Vlmul {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
         let (lmul_num, lmul_den) = self.as_fraction();
-        let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num);
-        let den = u16::from(sew.bits_width()) * u16::from(lmul_den);
+        let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num.get());
+        let den = u16::from(sew.bits_width()) * u16::from(lmul_den.get());
         // Both are products of powers of two; GCD equals the smaller value.
         let g = if num < den { num } else { den };
         let (n, d) = (num / g, den / g);

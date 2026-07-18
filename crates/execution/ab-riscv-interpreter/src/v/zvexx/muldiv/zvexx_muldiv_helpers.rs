@@ -28,11 +28,11 @@ use core::num::NonZeroU8;
 pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<NonZeroU8> {
     let (lmul_num, lmul_den) = vlmul.as_fraction();
     // EMUL = 2 × LMUL = (2 * lmul_num) / lmul_den
-    let Some(emul_num) = 2u8.checked_mul(lmul_num) else {
+    let Some(emul_num) = 2u8.checked_mul(lmul_num.get()) else {
         cold_path();
         return None;
     };
-    let emul_den = lmul_den;
+    let emul_den = lmul_den.get();
     // Reduce the fraction by GCD (both are powers of two so min works as GCD)
     let g = emul_num.min(emul_den);
     let (n, d) = (emul_num / g, emul_den / g);

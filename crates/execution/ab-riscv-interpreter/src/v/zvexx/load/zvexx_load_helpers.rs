@@ -114,8 +114,9 @@ pub fn indexed_load_overlap_allowed(
         // recomputed here as `(index_eew / sew) * LMUL >= 1`.
         Ordering::Greater => {
             let (lmul_num, lmul_den) = vlmul.as_fraction();
-            let index_emul_at_least_one = u16::from(index_eew.bits_width()) * u16::from(lmul_num)
-                >= u16::from(sew.bits_width()) * u16::from(lmul_den);
+            let index_emul_at_least_one = u16::from(index_eew.bits_width())
+                * u16::from(lmul_num.get())
+                >= u16::from(sew.bits_width()) * u16::from(lmul_den.get());
             let (vd, vs2) = (vd.to_bits(), vs2.to_bits());
             index_emul_at_least_one && vd + data_regs.get() == vs2 + index_regs.get()
         }
