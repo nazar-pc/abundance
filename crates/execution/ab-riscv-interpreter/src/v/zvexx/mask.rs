@@ -414,7 +414,7 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let group_regs = vtype.vlmul().register_count();
+                let group_regs = vtype.vlmul().register_count().get();
                 let vd_idx = vd.to_bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
                     ::core::hint::cold_path();
@@ -461,7 +461,7 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
+                let group_regs = vtype.vlmul().register_count().get();
                 let vd_idx = vd.to_bits();
                 if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
                     ::core::hint::cold_path();

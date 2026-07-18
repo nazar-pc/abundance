@@ -832,7 +832,12 @@ where
                     group_regs,
                 )?;
                 // vs1 is a mask register; check it doesn't overlap vd
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(program_counter, vd, vs1, 1)?;
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                    program_counter,
+                    vd,
+                    vs1,
+                    ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                )?;
                 let sew = vtype.vsew();
                 let vl = ext_state.vl();
                 unsafe {

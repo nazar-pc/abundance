@@ -2,6 +2,7 @@
 
 #[inline]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn xperm4(rs1: u32, rs2: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -31,6 +32,7 @@ pub fn xperm4(rs1: u32, rs2: u32) -> u32 {
 
 #[inline]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn xperm8(rs1: u32, rs2: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {

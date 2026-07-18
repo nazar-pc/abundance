@@ -7,19 +7,22 @@ use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vreg_group_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vreg: VReg,
-    group_regs: u8,
+    group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let group_regs = group_regs.get();
     let vreg_idx = vreg.to_bits();
     if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
         cold_path();
@@ -37,16 +40,18 @@ where
 /// the encoding is reserved and raises an illegal instruction.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_mask_dest_no_overlap<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
     src_base: VReg,
-    group_regs: u8,
+    group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let group_regs = group_regs.get();
     if group_regs > 1 {
         let vd_idx = vd.to_bits();
         let src = src_base.to_bits();
@@ -71,6 +76,7 @@ where
 /// # Safety
 /// `base_reg + elem_i / (VLEN.bytes() / sew_bytes) < 32` must hold.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(crate) unsafe fn read_element_u64<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -99,6 +105,7 @@ pub(crate) unsafe fn read_element_u64<const VLEN: Vlen>(
 /// # Safety
 /// `base_reg + elem_i / (VLEN.bytes() / sew_bytes) < 32` must hold.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(crate) unsafe fn write_element_u64<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -131,6 +138,7 @@ pub(crate) unsafe fn write_element_u64<const VLEN: Vlen>(
 /// `elem_i / 8 < VLEN.bytes()` must hold, i.e. `elem_i < VLEN`. This is guaranteed when
 /// `elem_i < vl <= VLMAX <= VLEN`.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(in super::super) unsafe fn write_mask_bit<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     vd: VReg,
@@ -171,6 +179,7 @@ pub enum OpSrc {
 /// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -236,6 +245,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= VLEN` (so every element index fits within the mask register)
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -289,6 +299,7 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
 /// Sign-extend the low `sew.bits_width()` of `val` to a full `i64`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
     let shift = u64::BITS - u32::from(sew.bits_width());
     (val.cast_signed() << shift) >> shift
@@ -300,6 +311,7 @@ pub fn sign_extend(val: u64, sew: Vsew) -> i64 {
 /// SEW = 64 this is a no-op (all bits are significant).
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sew_mask(sew: Vsew) -> u64 {
     if u32::from(sew.bits_width()) == u64::BITS {
         u64::MAX

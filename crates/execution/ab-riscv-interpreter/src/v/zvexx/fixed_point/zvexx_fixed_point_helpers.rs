@@ -19,6 +19,7 @@ use core::hint::cold_path;
 /// When `shift == 0` there are no fractional bits so the increment is always zero.
 /// `current_result_lsb` is the LSB of the truncated result, required for `Rne` and `Rod`.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn round_increment(val: u64, shift: u32, mode: Vxrm, current_result_lsb: u64) -> u64 {
     if shift == 0 {
         return 0;
@@ -49,6 +50,7 @@ fn round_increment(val: u64, shift: u32, mode: Vxrm, current_result_lsb: u64) ->
 /// Returns `(val >> shift) + round_increment`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn rounded_srl(val: u64, shift: u32, mode: Vxrm) -> u64 {
     let truncated = val >> shift;
     let r = round_increment(val, shift, mode, truncated & 1);
@@ -60,6 +62,7 @@ pub fn rounded_srl(val: u64, shift: u32, mode: Vxrm) -> u64 {
 /// Returns the SEW-wide signed result as `u64` (sign bits above SEW are meaningful).
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn rounded_sra(val: u64, shift: u32, mode: Vxrm, sew: Vsew) -> u64 {
     let signed = sign_extend(val, sew);
     // Treat the raw bits for rounding purposes: rounding uses the unsigned representation of the
@@ -75,6 +78,7 @@ pub fn rounded_sra(val: u64, shift: u32, mode: Vxrm, sew: Vsew) -> u64 {
 /// Sets `vxsat` to `true` on overflow.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sat_addu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -94,6 +98,7 @@ pub fn sat_addu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 /// Sets `vxsat` to `true` on overflow.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
@@ -116,6 +121,7 @@ pub fn sat_add(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 /// Sets `vxsat` to `true` on overflow (underflow to negative).
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sat_subu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -133,6 +139,7 @@ pub fn sat_subu(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 /// Sets `vxsat` to `true` on overflow.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
@@ -155,6 +162,7 @@ pub fn sat_sub(a: u64, b: u64, sew: Vsew, vxsat: &mut bool) -> u64 {
 /// Uses a 1-bit wider intermediate to avoid overflow; no saturation, no `vxsat`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -179,6 +187,7 @@ pub fn avg_addu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 /// No saturation, no `vxsat`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn avg_add(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -209,6 +218,7 @@ pub fn avg_add(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 /// No saturation, no `vxsat`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let mask = sew_mask(sew);
     let a_w = a & mask;
@@ -236,6 +246,7 @@ pub fn avg_subu(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 /// No saturation, no `vxsat`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -265,6 +276,7 @@ pub fn avg_sub(a: u64, b: u64, sew: Vsew, mode: Vxrm) -> u64 {
 /// Sets `vxsat` on overflow.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // SEW-wide signed min and max in i64 (valid for all SEW <= 64)
     let min_sew = i64::MIN >> (i64::BITS - u32::from(sew.bits_width()));
@@ -323,6 +335,7 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
 /// `vs2_elem` is passed as `u64`; for SEW = 32 it holds a 64-bit (2*SEW) value.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Shift right with rounding
     let shifted = rounded_srl(vs2_elem, shamt, mode);
@@ -342,6 +355,7 @@ pub fn nclipu(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool
 /// Same SEW constraint as [`nclipu`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
     // Sign-extend vs2_elem to full i64 treating it as a 2*SEW-bit signed value.
     // For SEW=8 the source is 16-bit, for SEW=16 it is 32-bit, for SEW=32 it is 64-bit.
@@ -386,6 +400,7 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 /// - `2*SEW <= 64` (Zve64x constraint: only valid for SEW <= 32; caller must verify)
 /// - `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32`
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -418,6 +433,7 @@ pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
 /// Same preconditions as `execute_arith_op` in the arithmetic helpers.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -483,6 +499,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -540,6 +557,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
 /// Returns `Err(IllegalInstruction)` when `sew.bits_width() > 32`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_narrowing_sew<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     sew: Vsew,
@@ -568,6 +586,7 @@ where
 /// `sew` is the destination (narrow) SEW; it must be at most 32 (see [`check_narrowing_sew()`]).
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vs2_narrowing_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vs2: VReg,
@@ -598,6 +617,7 @@ where
             address: program_counter.old_pc(INSTRUCTION_SIZE),
         });
     };
+    let wide_group = wide_group.get();
     let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(wide_group) || vs2_idx + wide_group > 32 {
         cold_path();

@@ -5,6 +5,7 @@ pub mod zvexx;
 use crate::registers::general_purpose::{RegType, Register};
 use core::hint::cold_path;
 use core::marker::ConstParamTy;
+use core::num::NonZeroU8;
 use core::ops::RangeInclusive;
 use core::{cmp, fmt};
 
@@ -356,13 +357,15 @@ impl Vlmul {
     /// Fractional `LMUL` values (`Mf2`, `Mf4`, `Mf8`) each occupy exactly 1 register.
     /// Integer `LMUL` values occupy 1, 2, 4, or 8 registers respectively.
     #[inline(always)]
-    pub const fn register_count(self) -> u8 {
-        match self {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn register_count(self) -> NonZeroU8 {
+        let register_count = match self {
             Self::Mf8 | Self::Mf4 | Self::Mf2 | Self::M1 => 1,
             Self::M2 => 2,
             Self::M4 => 4,
             Self::M8 => 8,
-        }
+        };
+        NonZeroU8::new(register_count).expect("Not zero; qed")
     }
 
     /// LMUL as a `(numerator, denominator)` fraction where `LMUL = num / den`.
@@ -388,7 +391,7 @@ impl Vlmul {
     /// outside the legal range `[1/8, 8]`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<u8> {
+    pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
         let (lmul_num, lmul_den) = self.as_fraction();
         let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num);
         let den = u16::from(sew.bits_width()) * u16::from(lmul_den);
@@ -405,7 +408,7 @@ impl Vlmul {
             return None;
         }
         // Register count is max(1, n/d) = n when d==1, else 1
-        Some(if d > 1 { 1 } else { n as u8 })
+        Some(NonZeroU8::new(if d > 1 { 1 } else { n as u8 }).expect("Not zero; qed"))
     }
 
     /// Compute EMUL for a data operand of a memory instruction with a given effective element
@@ -419,7 +422,7 @@ impl Vlmul {
     /// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<u8> {
+    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
         self.index_register_count(eew, sew)
     }
 }

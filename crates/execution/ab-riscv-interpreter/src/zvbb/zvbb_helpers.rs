@@ -22,6 +22,7 @@ use core::fmt;
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vbrev<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -70,6 +71,7 @@ pub unsafe fn execute_vbrev<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vbrev`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vclz<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -115,6 +117,7 @@ pub unsafe fn execute_vclz<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vbrev`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vctz<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -159,6 +162,7 @@ pub unsafe fn execute_vctz<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vbrev`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -210,6 +214,7 @@ pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
 /// - `vl <= dest_group_regs * VLEN.bytes() / double_sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vwsll<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,

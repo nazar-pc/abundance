@@ -2,6 +2,7 @@
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn orc_b(src: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {

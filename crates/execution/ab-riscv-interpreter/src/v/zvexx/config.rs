@@ -29,12 +29,15 @@ where
     /// All vector CSRs are accessible from unprivileged code (U-mode).
     /// Reads are pass-through: the raw value stored in the CSR is the output value.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn prepare_csr_read(
-        _ext_state: &ExtState,
+        ext_state: &ExtState,
         csr_index: u16,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
+        // TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
+        let _: &ExtState = ext_state;
         if VectorCsr::from_csr_index(csr_index).is_some() {
             *output_value = raw_value;
             Ok(true)
@@ -53,6 +56,7 @@ where
     /// - `vcsr`: only bits `[2:0]` are writable; mirrors into `vxsat` and `vxrm`
     /// - `vstart`: full XLEN write allowed (WARL, implementation may restrict range)
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn prepare_csr_write(
         ext_state: &mut ExtState,
         csr_index: u16,

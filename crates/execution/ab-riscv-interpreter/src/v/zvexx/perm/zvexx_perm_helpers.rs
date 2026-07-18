@@ -9,6 +9,7 @@ use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
 ///
@@ -16,11 +17,12 @@ use core::hint::cold_path;
 /// [`check_no_overlap_asymmetric`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_no_overlap<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     a: VReg,
     b: VReg,
-    count: u8,
+    count: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -28,7 +30,7 @@ where
 {
     let a_start = u16::from(a.to_bits());
     let b_start = u16::from(b.to_bits());
-    let count = u16::from(count);
+    let count = u16::from(count.get());
     // Intervals [a_start, a_start+count) and [b_start, b_start+count) overlap iff
     // each starts before the other ends. Arithmetic is widened to u16 to avoid u8 overflow
     // (e.g., b_start=30 + count=8 = 38, which overflows u8).
@@ -48,12 +50,13 @@ where
 /// uses EEW=16-derived `index_group_regs`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_no_overlap_asymmetric<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     a: VReg,
-    a_count: u8,
+    a_count: NonZeroU8,
     b: VReg,
-    b_count: u8,
+    b_count: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
@@ -61,8 +64,8 @@ where
 {
     let a_start = u16::from(a.to_bits());
     let b_start = u16::from(b.to_bits());
-    let a_count = u16::from(a_count);
-    let b_count = u16::from(b_count);
+    let a_count = u16::from(a_count.get());
+    let b_count = u16::from(b_count.get());
     // Intervals [a_start, a_start+a_count) and [b_start, b_start+b_count) overlap iff
     // each starts before the other ends.
     if a_start < b_start + b_count && b_start < a_start + a_count {
@@ -79,6 +82,7 @@ where
 /// # Safety
 /// `sew.bytes() <= VLEN.bytes()`
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn read_element_0_u64<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -100,6 +104,7 @@ pub unsafe fn read_element_0_u64<const VLEN: Vlen>(
 /// # Safety
 /// `sew.bytes() <= VLEN.bytes()`
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn write_element_0_u64<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -131,6 +136,7 @@ pub unsafe fn write_element_0_u64<const VLEN: Vlen>(
 /// `Reg::Type: Shl<u8>`, we reconstruct the 64-bit value by OR-ing two 32-bit halves shifted
 /// into position.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sign_extend_to_reg<Reg>(val: u64, sew: Vsew) -> Reg::Type
 where
     Reg: Register,
@@ -163,6 +169,7 @@ where
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -211,6 +218,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -264,6 +272,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -316,6 +325,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -361,6 +371,7 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -408,6 +419,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -460,6 +472,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -468,13 +481,14 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     vm: bool,
     sew: Vsew,
     vlmax: Vl,
-    index_group_regs: u8,
+    index_group_regs: NonZeroU8,
 ) where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     CustomError: fmt::Debug,
 {
+    let index_group_regs = index_group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     // Maximum number of EEW=16 elements the index register group can hold.
@@ -523,6 +537,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -572,6 +587,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -618,6 +634,7 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 /// - `vl <= VLMAX`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -669,6 +686,7 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
 /// - `dst_base % COUNT == 0` and `src_base % COUNT == 0` (verified by caller).
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     dst_base: VReg,

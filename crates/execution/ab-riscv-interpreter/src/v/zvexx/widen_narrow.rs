@@ -1594,7 +1594,8 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 // EMUL for source = LMUL / 2; src_group = max(1, group_regs / 2)
-                let src_group = group_regs.max(2) / 2;
+                let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(2) / 2)
+                    .expect("Not zero; qed");
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
@@ -1648,7 +1649,8 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.max(4) / 4;
+                let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(4) / 4)
+                    .expect("Not zero; qed");
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
@@ -1702,7 +1704,8 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.max(8) / 8;
+                let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(8) / 8)
+                    .expect("Not zero; qed");
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
@@ -1755,7 +1758,8 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.max(2) / 2;
+                let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(2) / 2)
+                    .expect("Not zero; qed");
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
@@ -1808,7 +1812,8 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.max(4) / 4;
+                let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(4) / 4)
+                    .expect("Not zero; qed");
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,
@@ -1861,7 +1866,8 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.max(8) / 8;
+                let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(8) / 8)
+                    .expect("Not zero; qed");
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
                     program_counter,
                     vs2,

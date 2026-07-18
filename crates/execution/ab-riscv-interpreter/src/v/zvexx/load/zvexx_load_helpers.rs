@@ -7,12 +7,14 @@ use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::fmt;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Return whether mask bit `i` is set in the mask byte slice.
 ///
 /// Bits are stored LSB-first within each byte: bit `i` is at byte `i / 8`, position `i % 8`.
 /// Returns `false` for any `i` outside the slice bounds.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(crate) fn mask_bit(mask: &[u8], i: u16) -> bool {
     mask.get(usize::from(i / u8::BITS as u16))
         .is_some_and(|b| (b >> (i % u8::BITS as u16)) & 1 != 0)
@@ -33,6 +35,7 @@ pub(crate) fn mask_bit(mask: &[u8], i: u16) -> bool {
 /// `vl` must be `<= VLEN`, which is always true when `vl` is the current architectural `vl`
 /// (bounded by `VLMAX <= VLEN`).
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(in super::super) unsafe fn snapshot_mask<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     vm: bool,
@@ -56,9 +59,10 @@ pub(in super::super) unsafe fn snapshot_mask<const VLEN: Vlen>(
 /// Return whether register groups `[a, a+a_regs)` and `[b, b+b_regs)` overlap.
 #[inline(always)]
 #[doc(hidden)]
-pub fn groups_overlap(a: VReg, a_regs: u8, b: VReg, b_regs: u8) -> bool {
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn groups_overlap(a: VReg, a_regs: NonZeroU8, b: VReg, b_regs: NonZeroU8) -> bool {
     let (a, b) = (a.to_bits(), b.to_bits());
-    a < b + b_regs && b < a + a_regs
+    a < b + b_regs.get() && b < a + a_regs.get()
 }
 
 /// Return whether a *non-segment* indexed load's data destination group
@@ -84,11 +88,12 @@ pub fn groups_overlap(a: VReg, a_regs: u8, b: VReg, b_regs: u8) -> bool {
 /// and index EEW match.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn indexed_load_overlap_allowed(
     vd: VReg,
-    data_regs: u8,
+    data_regs: NonZeroU8,
     vs2: VReg,
-    index_regs: u8,
+    index_regs: NonZeroU8,
     index_eew: Eew,
     sew: Vsew,
     vlmul: Vlmul,
@@ -112,7 +117,7 @@ pub fn indexed_load_overlap_allowed(
             let index_emul_at_least_one = u16::from(index_eew.bits_width()) * u16::from(lmul_num)
                 >= u16::from(sew.bits_width()) * u16::from(lmul_den);
             let (vd, vs2) = (vd.to_bits(), vs2.to_bits());
-            index_emul_at_least_one && vd + data_regs == vs2 + index_regs
+            index_emul_at_least_one && vd + data_regs.get() == vs2 + index_regs.get()
         }
     }
 }
@@ -122,15 +127,17 @@ pub fn indexed_load_overlap_allowed(
 /// Per spec, the base register of every register group must be a multiple of the group size.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_register_group_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
-    group_regs: u8,
+    group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let group_regs = group_regs.get();
     let vd = vd.to_bits();
     if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
         cold_path();
@@ -148,18 +155,19 @@ where
 /// On `Ok`, `vd.to_bits() + nf * group_regs <= 32` is guaranteed.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn validate_segment_registers<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
     vm: bool,
-    group_regs: u8,
+    group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    let group_regs = u32::from(group_regs);
+    let group_regs = u32::from(group_regs.get());
     let nf = u32::from(nf.fields_per_segment());
     let vd_idx = u32::from(vd.to_bits());
     if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
@@ -193,6 +201,7 @@ where
 /// `base_reg + elem_i / (VLEN.bytes() / eew.bytes())` must be less than 32, i.e. `elem_i` must be
 /// a valid element index within the register group.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(in super::super) unsafe fn read_group_element<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -228,6 +237,7 @@ pub(in super::super) unsafe fn read_group_element<const VLEN: Vlen>(
 /// `base_reg + elem_i / (VLEN.bytes() / eew.bytes())` must be less than 32, i.e. `elem_i` must be
 /// a valid element index within the register group.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn write_group_element<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -254,6 +264,7 @@ unsafe fn write_group_element<const VLEN: Vlen>(
 /// Read `eew`-sized data from memory at `addr` into a `[u8; Eew::MAX_BYTES]` buffer
 /// (little-endian)
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn read_mem_element(
     memory: &impl VirtualMemory,
     addr: u64,
@@ -290,6 +301,7 @@ fn read_mem_element(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_unit_stride_load<
     const FAULT_ONLY_FIRST: bool,
     Reg,
@@ -303,7 +315,7 @@ pub unsafe fn execute_unit_stride_load<
     vm: bool,
     base: u64,
     eew: Eew,
-    group_regs: u8,
+    group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -313,6 +325,7 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let group_regs = group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
@@ -421,6 +434,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &Memory,
@@ -429,7 +443,7 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     base: u64,
     stride: i64,
     eew: Eew,
-    group_regs: u8,
+    group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -439,6 +453,7 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let group_regs = group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
@@ -511,6 +526,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &Memory,
@@ -520,7 +536,7 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
-    data_group_regs: u8,
+    data_group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -530,6 +546,7 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let data_group_regs = data_group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let index_base_reg = vs2;

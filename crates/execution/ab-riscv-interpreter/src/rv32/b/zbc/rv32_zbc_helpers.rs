@@ -2,6 +2,7 @@
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn clmul(a: u32, b: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -18,6 +19,7 @@ pub fn clmul(a: u32, b: u32) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn clmulh(a: u32, b: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -34,6 +36,7 @@ pub fn clmulh(a: u32, b: u32) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn clmulr(a: u32, b: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -52,6 +55,7 @@ pub fn clmulr(a: u32, b: u32) -> u32 {
 #[cfg(any(miri, not(all(target_arch = "riscv32", target_feature = "zbc"))))]
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn clmul_internal(a: u32, b: u32) -> u64 {
     let a = u64::from(a);
     let b = u64::from(b);

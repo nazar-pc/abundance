@@ -12,6 +12,7 @@ use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Compute the destination register count for a widening operation (`EMUL = 2 × LMUL`).
 ///
@@ -23,7 +24,8 @@ use core::hint::cold_path;
 /// exactly one physical register.
 #[inline(always)]
 #[doc(hidden)]
-pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<NonZeroU8> {
     let (lmul_num, lmul_den) = vlmul.as_fraction();
     // EMUL = 2 × LMUL = (2 * lmul_num) / lmul_den
     let Some(emul_num) = 2u8.checked_mul(lmul_num) else {
@@ -44,7 +46,7 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
         return None;
     }
     // Register count: max(1, n/d) = n when d==1, else 1
-    Some(if d > 1 { 1 } else { n })
+    Some(NonZeroU8::new(if d > 1 { 1 } else { n }).expect("Not zero; qed"))
 }
 
 /// Check that a narrower source register group does not *illegally* overlap the wider destination
@@ -67,17 +69,20 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<u8> {
 /// rejected as an illegal instruction.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_no_widening_overlap<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
     vs: VReg,
-    dest_group_regs: u8,
-    src_group_regs: u8,
+    dest_group_regs: NonZeroU8,
+    src_group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let dest_group_regs = dest_group_regs.get();
+    let src_group_regs = src_group_regs.get();
     let vd_start = vd.to_bits();
     let vd_end = vd_start + dest_group_regs;
     let vs_start = vs.to_bits();
@@ -105,6 +110,7 @@ where
 /// # Safety
 /// `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32` must hold.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn write_wide_element_u64<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -138,6 +144,7 @@ unsafe fn write_wide_element_u64<const VLEN: Vlen>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -193,6 +200,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -248,6 +256,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -300,6 +309,7 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 /// Same as [`execute_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -356,6 +366,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -410,6 +421,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 /// Same as [`execute_widening_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -459,6 +471,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// 2*SEW product are returned (zero-extended to u64 for writeback into a SEW-wide element slot).
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let sb = i128::from(sign_extend(b, sew));
@@ -471,6 +484,7 @@ pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
 /// Unsigned × unsigned high half
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
     let ua = u128::from(a & sew_mask(sew));
     let ub = u128::from(b & sew_mask(sew));
@@ -484,6 +498,7 @@ pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
 /// `a` (vs2) is the signed operand; `b` (vs1/rs1) is the unsigned operand.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
     let ub = u128::from(b & sew_mask(sew));
@@ -499,6 +514,7 @@ pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - Signed overflow (MIN / −1): result = MIN (i.e., `1 << (SEW-1)`)
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -525,6 +541,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
     clippy::modulo_arithmetic,
     reason = "This is what the code is supposed to do"
 )]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);

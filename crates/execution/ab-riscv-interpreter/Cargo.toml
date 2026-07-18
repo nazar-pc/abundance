@@ -18,16 +18,28 @@ include = [
 links = "ab-riscv-interpreter"
 
 [package.metadata.docs.rs]
-all-features = true
+all-features = false
 
 [dependencies]
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
+no-panic-const = { workspace = true, optional = true }
 replace_with = { workspace = true }
 thiserror = { workspace = true }
 
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }
+
+[features]
+# TODO: no-panic coverage is incomplete with the following missing:
+#  * `// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]` comments in vector code
+#  * All `fn execute` methods
+#  * `BasicInterpreterState::execute` method
+# Check that code can't panic under any conditions
+no-panic = [
+    "dep:no-panic-const",
+    "ab-riscv-primitives/no-panic",
+]
 
 [lints]
 workspace = true

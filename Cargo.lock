@@ -777,6 +777,7 @@ version = "0.0.4"
 dependencies = [
  "ab-riscv-macros",
  "ab-riscv-primitives",
+ "no-panic-const",
  "replace_with",
  "thiserror 2.0.18",
 ]

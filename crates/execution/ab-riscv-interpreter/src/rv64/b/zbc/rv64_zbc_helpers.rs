@@ -2,6 +2,7 @@
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn clmul(a: u64, b: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -18,6 +19,7 @@ pub fn clmul(a: u64, b: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn clmulh(a: u64, b: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -34,6 +36,7 @@ pub fn clmulh(a: u64, b: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn clmulr(a: u64, b: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -51,6 +54,7 @@ pub fn clmulr(a: u64, b: u64) -> u64 {
 /// Carryless multiplication helper
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn clmul_internal(a: u64, b: u64) -> u128 {
     cfg_select! {
         // TODO: `llvm.aarch64.neon.pmull64` is not supported in Miri yet:

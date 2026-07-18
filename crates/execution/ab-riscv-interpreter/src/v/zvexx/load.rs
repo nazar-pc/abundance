@@ -163,7 +163,14 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && zvexx_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
+                if !vm
+                    && zvexx_load_helpers::groups_overlap(
+                        vd,
+                        group_regs,
+                        VReg::V0,
+                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    )
+                {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -221,7 +228,14 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && zvexx_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
+                if !vm
+                    && zvexx_load_helpers::groups_overlap(
+                        vd,
+                        group_regs,
+                        VReg::V0,
+                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    )
+                {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -273,7 +287,14 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm && zvexx_load_helpers::groups_overlap(vd, group_regs, VReg::V0, 1) {
+                if !vm
+                    && zvexx_load_helpers::groups_overlap(
+                        vd,
+                        group_regs,
+                        VReg::V0,
+                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    )
+                {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -358,7 +379,14 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vm && zvexx_load_helpers::groups_overlap(vd, data_group_regs, VReg::V0, 1) {
+                if !vm
+                    && zvexx_load_helpers::groups_overlap(
+                        vd,
+                        data_group_regs,
+                        VReg::V0,
+                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    )
+                {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -446,7 +474,14 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                if !vm && zvexx_load_helpers::groups_overlap(vd, data_group_regs, VReg::V0, 1) {
+                if !vm
+                    && zvexx_load_helpers::groups_overlap(
+                        vd,
+                        data_group_regs,
+                        VReg::V0,
+                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    )
+                {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -683,7 +718,7 @@ where
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
                     // encoding.
                     let field_vd = unsafe {
-                        VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked()
+                        VReg::from_bits(vd.to_bits() + f * data_group_regs.get()).unwrap_unchecked()
                     };
                     if zvexx_load_helpers::groups_overlap(
                         field_vd,
@@ -774,7 +809,7 @@ where
                     // <= 32` and `f < nf`. The value is in [0, 31], so it is a valid `VReg`
                     // encoding.
                     let field_vd = unsafe {
-                        VReg::from_bits(vd.to_bits() + f * data_group_regs).unwrap_unchecked()
+                        VReg::from_bits(vd.to_bits() + f * data_group_regs.get()).unwrap_unchecked()
                     };
                     if zvexx_load_helpers::groups_overlap(
                         field_vd,

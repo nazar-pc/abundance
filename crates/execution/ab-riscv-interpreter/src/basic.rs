@@ -88,6 +88,7 @@ where
     Reg: [const] BasicRegister,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read(&self, reg: Reg) -> Reg::Type {
         if reg == Reg::ZERO {
             // Always zero
@@ -99,6 +100,7 @@ where
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn write(&mut self, reg: Reg, value: Reg::Type) {
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
@@ -135,6 +137,8 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
     /// The implementation is designed to be efficient with little left to optimize further. Though
     /// it is still possible to improve performance by applying additional constraints on the
     /// program.
+    // TODO: It might be impractical to support `no-panic` here directly in a general case, but it
+    //  should be possible to do so for small extensions to verify the workflow
     pub fn execute<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
     where
         Regs: RegisterFile<<I as Instruction>::Reg>,
@@ -218,6 +222,7 @@ pub struct BasicMemory<const BASE_ADDR: u64, const SIZE: usize> {
 
 impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE_ADDR, SIZE> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
     where
         T: BasicInt,
@@ -244,6 +249,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     unsafe fn read_unchecked<T>(&self, address: u64) -> T
     where
         T: BasicInt,
@@ -259,6 +265,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
         }
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
         let Some(offset) = address.checked_sub(BASE_ADDR) else {
             cold_path();
@@ -276,6 +283,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
             .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
         let Some(offset) = address.checked_sub(BASE_ADDR) else {
             cold_path();
@@ -292,6 +300,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt,
@@ -318,6 +327,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
         Ok(())
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
         let Some(offset) = address.checked_sub(BASE_ADDR) else {
             cold_path();
@@ -356,6 +366,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
     /// Get a mutable slice of memory.
     ///
     /// This is primarily useful for setting up the program and should not be used beyond that.
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn get_mut_bytes(
         &mut self,
         address: u64,
@@ -410,11 +421,14 @@ where
     }
 
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_pc(
         &mut self,
-        _memory: &Memory,
+        memory: &Memory,
         pc: Address<I>,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
+        // TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
+        let _: &Memory = memory;
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -438,6 +452,7 @@ where
     Memory: VirtualMemory,
 {
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn fetch_instruction(
         &mut self,
         memory: &Memory,
@@ -500,12 +515,16 @@ where
     Regs: RegisterFile<Reg>,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Regs,
-        _memory: &mut Memory,
+        regs: &mut Regs,
+        memory: &mut Memory,
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        // TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
+        let _: &Regs = regs;
+        let _: &Memory = memory;
         Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(size_of::<u32>() as u8),
         })
