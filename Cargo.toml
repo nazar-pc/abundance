@@ -102,6 +102,7 @@ mimalloc = "0.1.52"
 multihash = "0.19.5"
 nohash-hasher = "0.2.0"
 no-panic = "0.1.36"
+no-panic-const = "0.1.36-const-0"
 num_cpus = "1.17.0"
 object = { version = "0.39.1", default-features = false }
 once_cell = { version = "1.21.4", default-features = false }

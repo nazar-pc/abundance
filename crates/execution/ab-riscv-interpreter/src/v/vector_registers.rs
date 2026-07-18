@@ -23,6 +23,7 @@ const impl<const VLEN: Vlen> Default for VectorRegisterFile<VLEN> {
 impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Get reference to a vector register
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
@@ -30,6 +31,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
 
     /// Get mutable reference to a vector register
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
@@ -91,12 +93,14 @@ where
     /// sophisticated implementations may return values in `[ceil(AVL/2), VLMAX]` for
     /// `AVL < 2*VLMAX`, but this simple strategy satisfies all three spec requirements.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn compute_vl(&self, avl: Vl, vlmax: Vl) -> Vl {
         avl.min(vlmax)
     }
 
     /// Compute `VLMAX` for a given vtype
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl {
         vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
     }
@@ -123,6 +127,7 @@ where
     /// Per spec: `vtype.vill` = 1, remaining `vtype` bits = `0`, `vl` = 0.
     /// `vstart`, `vxrm`, `vxsat` may have arbitrary values at reset but are zeroed here for
     /// deterministic behavior.
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn initialize_vector_state(&mut self) {
         self.set_vtype(None);
         self.set_vl(Vl::ZERO);
@@ -133,6 +138,7 @@ where
 
     /// Get current `vstart`
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn vstart(&self) -> Vstart {
         let raw = self
             .read_csr(VectorCsr::Vstart.to_csr_index())
@@ -141,26 +147,35 @@ where
         Vstart::from(raw as u16)
     }
 
-    /// Set `vstart`
+    /// Set `vstart`.
+    ///
+    /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
+    /// debug.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_vstart(&mut self, vstart: Vstart) {
-        self.write_csr(
+        let result = self.write_csr(
             VectorCsr::Vstart.to_csr_index(),
             Reg::Type::from(u16::from(vstart)),
-        )
-        .expect("Implementation didn't initialize `vstart` CSR");
+        );
+        debug_assert!(
+            result.is_ok(),
+            "Implementation must initialize `vstart` CSR"
+        );
     }
 
     /// Reset `vstart` to zero.
     ///
     /// Per spec, all vector instructions reset `vstart` to zero at the end of execution.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn reset_vstart(&mut self) {
         self.set_vstart(Vstart::ZERO);
     }
 
     /// Get `vxsat` (single bit)
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn vxsat(&self) -> bool {
         let raw = self
             .read_csr(VectorCsr::Vxsat.to_csr_index())
@@ -169,23 +184,28 @@ where
         (raw & 1) == 1
     }
 
-    /// Set `vxsat`
+    /// Set `vxsat`.
+    ///
+    /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
+    /// debug.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_vxsat(&mut self, vxsat: bool) {
         let masked = Reg::Type::from(u8::from(vxsat));
-        self.write_csr(VectorCsr::Vxsat.to_csr_index(), masked)
-            .expect("Implementation didn't initialize `vxsat` CSR");
+        let result = self.write_csr(VectorCsr::Vxsat.to_csr_index(), masked);
+        debug_assert!(result.is_ok(), "Implementation must initialize `vxsat` CSR");
         // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
         let old_vcsr = self
             .read_csr(VectorCsr::Vcsr.to_csr_index())
             .unwrap_or_default();
         let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-        self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)
-            .expect("Implementation didn't initialize `vcsr` CSR");
+        let result = self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr);
+        debug_assert!(result.is_ok(), "Implementation must initialize `vcsr` CSR");
     }
 
     /// Get `vxrm`
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn vxrm(&self) -> Vxrm {
         let raw = self
             .read_csr(VectorCsr::Vxrm.to_csr_index())
@@ -194,23 +214,28 @@ where
         Vxrm::from_bits(raw as u8)
     }
 
-    /// Set `vxrm`
+    /// Set `vxrm`.
+    ///
+    /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
+    /// debug.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_vxrm(&mut self, vxrm: Vxrm) {
         let masked = Reg::Type::from(vxrm.to_bits());
-        self.write_csr(VectorCsr::Vxrm.to_csr_index(), masked)
-            .expect("Implementation didn't initialize `vxrm` CSR");
+        let result = self.write_csr(VectorCsr::Vxrm.to_csr_index(), masked);
+        debug_assert!(result.is_ok(), "Implementation must initialize `vxrm` CSR");
         // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
         let old_vcsr = self
             .read_csr(VectorCsr::Vcsr.to_csr_index())
             .unwrap_or_default();
         let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
-        self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)
-            .expect("Implementation didn't initialize `vcsr` CSR");
+        let result = self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr);
+        debug_assert!(result.is_ok(), "Implementation must initialize `vcsr` CSR");
     }
 
     /// Get the current vl
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn vl(&self) -> Vl {
         let vl = self
             .read_csr(VectorCsr::Vl.to_csr_index())
@@ -224,13 +249,19 @@ where
     ///
     /// The implementation must update both its internal decoded cache and the raw CSR value (for
     /// reads via Zicsr, writes via Zicsr are not allowed).
+    ///
+    /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
+    /// debug.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_vl(&mut self, vl: Vl) {
-        self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(u32::from(vl)))
-            .expect("Implementation didn't initialize `vl` CSR");
+        let result = self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(u32::from(vl)));
+        debug_assert!(result.is_ok(), "Implementation must initialize `vl` CSR");
     }
 
     /// Get the current decoded vtype
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
         self.read_csr(VectorCsr::Vtype.to_csr_index())
             .ok()
@@ -241,7 +272,11 @@ where
     ///
     /// The implementation must update both its internal decoded cache and the raw CSR value (for
     /// reads via Zicsr, writes via Zicsr are not allowed).
+    ///
+    /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
+    /// debug.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
         let vtype_raw = if let Some(vt) = vtype {
             vt.to_raw::<Reg>()
@@ -249,7 +284,7 @@ where
             Vtype::<{ Self::ELEN }, { Self::VLEN }>::illegal_raw::<Reg>()
         };
 
-        self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw)
-            .expect("Implementation didn't initialize `vtype` CSR");
+        let result = self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw);
+        debug_assert!(result.is_ok(), "Implementation must initialize `vtype` CSR");
     }
 }

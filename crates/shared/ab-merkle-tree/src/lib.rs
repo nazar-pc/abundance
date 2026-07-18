@@ -26,7 +26,8 @@
 //! [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
 //! [`SparseMerkleTree`]: sparse::SparseMerkleTree
 //!
-//! Does not require a standard library (`no_std`), most APIs are usable without an allocator.
+//! Does not require a standard library (`no_std`), most APIs are usable without an allocator, never
+//! panics.
 
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
@@ -95,7 +96,7 @@ pub fn hash_pair_block(pair: &[u8; BLOCK_LEN]) -> [u8; OUT_LEN] {
     all(feature = "no-panic", not(target_arch = "riscv64")),
     no_panic::no_panic
 )]
-pub fn hash_pairs<const NUM_BLOCKS: usize, const NUM_LEAVES: usize>(
+fn hash_pairs<const NUM_BLOCKS: usize, const NUM_LEAVES: usize>(
     pairs: &[[u8; OUT_LEN]; NUM_LEAVES],
 ) -> [[u8; OUT_LEN]; NUM_BLOCKS] {
     // This protects the invariant of the function

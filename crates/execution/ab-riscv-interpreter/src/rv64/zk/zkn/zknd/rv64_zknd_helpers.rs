@@ -25,6 +25,7 @@ mod ks {
     ///   rd = temp | (temp << 32)
     /// ```
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(super) fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
         let w = (rs1 >> 32u8) as u32;
 
@@ -58,6 +59,7 @@ mod ks {
     ///   rd = w0 | (w1 << 32)
     /// ```
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(super) fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
         let w0 = (rs1 >> 32u8) as u32 ^ rs2 as u32;
         let w1 = w0 ^ (rs2 >> 32u8) as u32;
@@ -89,6 +91,7 @@ cfg_select! {
             /// with the round key. Zero key -> no-op XOR, matching `aes64ds`.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64ds(rs1: u64, rs2: u64) -> u64 {
                 let state = _mm_set_epi64x(rs2.cast_signed(), rs1.cast_signed());
                 let zero = _mm_setzero_si128();
@@ -100,6 +103,7 @@ cfg_select! {
             /// then XORs with the round key. Zero key -> no-op XOR.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
                 let state = _mm_set_epi64x(rs2.cast_signed(), rs1.cast_signed());
                 let zero = _mm_setzero_si128();
@@ -111,6 +115,7 @@ cfg_select! {
             /// `rs1` is replicated into both halves; we extract the low 64 bits.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64im(rs1: u64) -> u64 {
                 let state = _mm_set_epi64x(rs1.cast_signed(), rs1.cast_signed());
                 let result = _mm_aesimc_si128(state);
@@ -135,6 +140,7 @@ cfg_select! {
             /// `(rs1, rs2)` is loaded little-endian; no swap needed.
             #[inline]
             #[target_feature(enable = "aes")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64ds(rs1: u64, rs2: u64) -> u64 {
                 let state = vreinterpretq_u8_u64(vcombine_u64(vcreate_u64(rs1), vcreate_u64(rs2)));
                 let zero = vdupq_n_u8(0);
@@ -145,6 +151,7 @@ cfg_select! {
             /// `vaesimcq_u8(vaesdq_u8(state, zero))` maps exactly to `aes64dsm`
             #[inline]
             #[target_feature(enable = "aes")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
                 let state = vreinterpretq_u8_u64(vcombine_u64(vcreate_u64(rs1), vcreate_u64(rs2)));
                 let zero = vdupq_n_u8(0);
@@ -155,6 +162,7 @@ cfg_select! {
 
             #[inline]
             #[target_feature(enable = "aes")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64im(rs1: u64) -> u64 {
                 let state = vreinterpretq_u8_u64(vcombine_u64(vcreate_u64(rs1), vcreate_u64(rs1)));
                 let result = vaesimcq_u8(state);
@@ -172,6 +180,7 @@ cfg_select! {
             use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{INV_SBOX, gmul};
 
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             fn inv_mix_col(col: u32) -> u32 {
                 let s0 = col as u8;
                 let s1 = (col >> 8u8) as u8;
@@ -194,6 +203,7 @@ cfg_select! {
             /// InvShiftRows shifts row `r` right by `r` columns (cyclically over 4).
             /// Output low half contains post-transform columns 0 and 1.
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64ds(rs1: u64, rs2: u64) -> u64 {
                 let state_byte = |col: usize, row: usize| -> u8 {
                     let word = if col < 2 { rs1 } else { rs2 };
@@ -212,6 +222,7 @@ cfg_select! {
             }
 
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
                 let lo = aes64ds(rs1, rs2);
                 let col0 = inv_mix_col(lo as u32);
@@ -220,6 +231,7 @@ cfg_select! {
             }
 
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64im(rs1: u64) -> u64 {
                 let col0 = inv_mix_col(rs1 as u32);
                 let col1 = inv_mix_col((rs1 >> 32u8) as u32);
@@ -231,6 +243,7 @@ cfg_select! {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64ds(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -262,6 +275,7 @@ pub fn aes64ds(rs1: u64, rs2: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -293,6 +307,7 @@ pub fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64im(rs1: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -324,6 +339,7 @@ pub fn aes64im(rs1: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -343,6 +359,7 @@ pub fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {

@@ -9,6 +9,7 @@ use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Interpret `buf[..index_eew.bytes()]` as a little-endian unsigned integer and return it as
 /// `u64`. Used to convert a packed index element into a byte offset.
@@ -16,6 +17,7 @@ use core::hint::cold_path;
 /// # Safety
 /// `index_eew.bytes() <= Eew::MAX_BYTES`, which is always true by construction.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn index_buf_to_u64(
     buf: [u8; const { usize::from(Eew::MAX_BYTES) }],
     index_eew: Eew,
@@ -30,6 +32,7 @@ unsafe fn index_buf_to_u64(
 
 /// Write `eew`-sized data from `buf[..eew.bytes()]` to memory at `addr` (little-endian)
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn write_mem_element(
     memory: &mut impl VirtualMemory,
     addr: u64,
@@ -46,10 +49,11 @@ fn write_mem_element(
 /// applies only to load destinations.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn validate_segment_store_registers<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vs3: VReg,
-    group_regs: u8,
+    group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -63,7 +67,7 @@ where
         return Err(error);
     }
     let total =
-        u32::from(vs3.to_bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs);
+        u32::from(vs3.to_bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs.get());
     if total > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
@@ -89,6 +93,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &mut Memory,
@@ -96,7 +101,7 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
     vm: bool,
     base: u64,
     eew: Eew,
-    group_regs: u8,
+    group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -106,6 +111,7 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let group_regs = group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
@@ -166,6 +172,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &mut Memory,
@@ -174,7 +181,7 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
     base: u64,
     stride: i64,
     eew: Eew,
-    group_regs: u8,
+    group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -184,6 +191,7 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let group_regs = group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let elem_bytes = eew.bytes_width();
@@ -238,6 +246,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &mut Memory,
@@ -247,7 +256,7 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
-    data_group_regs: u8,
+    data_group_regs: NonZeroU8,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
@@ -257,6 +266,7 @@ where
     Memory: VirtualMemory,
     CustomError: fmt::Debug,
 {
+    let data_group_regs = data_group_regs.get();
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
     let data_elem_bytes = data_eew.bytes_width();

@@ -80,6 +80,7 @@ pub struct SegVmNf(u8);
 impl SegVmNf {
     /// Create a new instance
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new(vm: bool, nf: Nf) -> Self {
         Self((nf.fields_per_segment() << 1) | u8::from(vm))
     }
@@ -92,6 +93,7 @@ impl SegVmNf {
 
     /// Extracts the `nf` field from the `SegVmNf` representation
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn nf(&self) -> Nf {
         // SAFETY: Protected internal invariant
         unsafe { Nf::new(self.0 >> 1).unwrap_unchecked() }
@@ -206,6 +208,7 @@ where
     type Reg = Reg;
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
         let opcode = (instruction & 0b111_1111) as u8;
 

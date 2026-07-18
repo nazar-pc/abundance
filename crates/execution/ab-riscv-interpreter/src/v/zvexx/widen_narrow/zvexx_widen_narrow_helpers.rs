@@ -8,20 +8,23 @@ use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Check that a widening destination `vd` is aligned to `wide_group_regs` and fits within
 /// `[0,32)`, without any source overlap check
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vd_widen_no_src_check<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
-    wide_group_regs: u8,
+    wide_group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let wide_group_regs = wide_group_regs.get();
     let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         cold_path();
@@ -42,17 +45,20 @@ where
 /// the wide `{v0..v7}` destination). Any other overlap is illegal.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vs_ext_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vs2: VReg,
-    src_group_regs: u8,
+    src_group_regs: NonZeroU8,
     vd: VReg,
-    group_regs: u8,
+    group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let src_group_regs = src_group_regs.get();
+    let group_regs = group_regs.get();
     let vs2_idx = vs2.to_bits();
     if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
         cold_path();
@@ -85,18 +91,21 @@ where
 /// Any other overlap is illegal.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vd_widen_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
     vs_a: VReg,
     vs_b_opt: Option<VReg>,
-    group_regs: u8,
-    wide_group_regs: u8,
+    group_regs: NonZeroU8,
+    wide_group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let wide_group_regs = wide_group_regs.get();
+    let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         cold_path();
@@ -130,6 +139,7 @@ where
 /// both counts collapse to 1) - and the source occupies the highest-numbered registers of the
 /// destination group.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_regs: u8) -> bool {
     if !ranges_overlap(vd_idx, wide_group_regs, vs_idx, group_regs) {
         return false;
@@ -143,15 +153,17 @@ fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_
 /// and fits within `[0, 32)`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vs_wide_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vs: VReg,
-    wide_group_regs: u8,
+    wide_group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let wide_group_regs = wide_group_regs.get();
     let vs_idx = vs.to_bits();
     if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
         cold_path();
@@ -169,15 +181,17 @@ where
 /// permit `vd` to alias the low half of the wide `vs2` register group per spec §11.7.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vd_narrow_alignment<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
-    group_regs: u8,
+    group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type, CustomError>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
+    let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
     if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
         cold_path();
@@ -190,12 +204,14 @@ where
 
 /// Returns `true` when `[a_start, a_start+a_len)` overlaps `[b_start, b_start+b_len)`.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn ranges_overlap(a_start: u8, a_len: u8, b_start: u8, b_len: u8) -> bool {
     a_start < b_start + b_len && b_start < a_start + a_len
 }
 
 /// Return whether mask bit `i` is set in the mask byte slice (LSB-first within each byte).
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn mask_bit(mask: &[u8], i: u16) -> bool {
     mask.get(usize::from(i / u8::BITS as u16))
         .is_some_and(|b| (b >> (i % u8::BITS as u16)) & 1 != 0)
@@ -208,6 +224,7 @@ fn mask_bit(mask: &[u8], i: u16) -> bool {
 /// # Safety
 /// `vl <= VLEN` must hold
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn snapshot_mask<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     vm: bool,
@@ -233,6 +250,7 @@ unsafe fn snapshot_mask<const VLEN: Vlen>(
 /// # Safety
 /// `base_reg + elem_i / (VLEN.bytes() / sew.bytes_width()) < 32`
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn read_element_u64<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -260,6 +278,7 @@ unsafe fn read_element_u64<const VLEN: Vlen>(
 /// # Safety
 /// `base_reg + elem_i / (VLEN.bytes() / sew.bytes_width()) < 32`
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn write_element_u64<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     base_reg: VReg,
@@ -285,6 +304,7 @@ unsafe fn write_element_u64<const VLEN: Vlen>(
 /// Sign-extend the low `bits` of `val` to `i64`.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sign_extend_bits(val: u64, bits: u8) -> i64 {
     let shift = u64::BITS - u32::from(bits);
     (val.cast_signed() << shift) >> shift
@@ -311,6 +331,7 @@ pub fn sign_extend_bits(val: u64, bits: u8) -> i64 {
 ///
 /// This helper performs that SEW-width truncation without sign extension.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn scalar_unsigned_for_sew(val: u64, sew_bits: u8) -> u64 {
     val & (u64::MAX >> (u64::BITS - u32::from(sew_bits)))
 }
@@ -337,6 +358,7 @@ fn scalar_unsigned_for_sew(val: u64, sew_bits: u8) -> u64 {
 /// This matches the signed widening behavior required by instructions such
 /// as vwadd.vx and vwsub.vx.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn scalar_signed_for_sew(val: u64, sew_bits: u8) -> u64 {
     sign_extend_bits(val, sew_bits).cast_unsigned()
 }
@@ -360,6 +382,7 @@ fn scalar_signed_for_sew(val: u64, sew_bits: u8) -> u64 {
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -441,6 +464,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -519,6 +543,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -595,6 +620,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,

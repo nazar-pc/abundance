@@ -5,6 +5,7 @@ pub mod zvexx;
 use crate::registers::general_purpose::{RegType, Register};
 use core::hint::cold_path;
 use core::marker::ConstParamTy;
+use core::num::NonZeroU8;
 use core::ops::RangeInclusive;
 use core::{cmp, fmt};
 
@@ -335,6 +336,7 @@ impl Vlmul {
     /// For fractional LMUL, this is `VLEN / (SEW * denominator)`.
     /// Returns `Vl::ZERO` when the result would be less than 1 (insufficient bits).
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn vlmax<const VLEN: Vlen>(self, sew: Vsew) -> Vl {
         let sew_bits = u32::from(sew.bits_width());
         let vl = match self {
@@ -355,13 +357,15 @@ impl Vlmul {
     /// Fractional `LMUL` values (`Mf2`, `Mf4`, `Mf8`) each occupy exactly 1 register.
     /// Integer `LMUL` values occupy 1, 2, 4, or 8 registers respectively.
     #[inline(always)]
-    pub const fn register_count(self) -> u8 {
-        match self {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn register_count(self) -> NonZeroU8 {
+        let register_count = match self {
             Self::Mf8 | Self::Mf4 | Self::Mf2 | Self::M1 => 1,
             Self::M2 => 2,
             Self::M4 => 4,
             Self::M8 => 8,
-        }
+        };
+        NonZeroU8::new(register_count).expect("Not zero; qed")
     }
 
     /// LMUL as a `(numerator, denominator)` fraction where `LMUL = num / den`.
@@ -369,8 +373,8 @@ impl Vlmul {
     /// Both values are powers of two with exactly one equal to `1`. Useful for computing
     /// `EMUL = (EEW / SEW) * LMUL` without floating-point arithmetic.
     #[inline(always)]
-    pub const fn as_fraction(self) -> (u8, u8) {
-        match self {
+    pub const fn as_fraction(self) -> (NonZeroU8, NonZeroU8) {
+        let (numerator, denominator) = match self {
             Self::Mf8 => (1, 8),
             Self::Mf4 => (1, 4),
             Self::Mf2 => (1, 2),
@@ -378,7 +382,12 @@ impl Vlmul {
             Self::M2 => (2, 1),
             Self::M4 => (4, 1),
             Self::M8 => (8, 1),
-        }
+        };
+
+        (
+            NonZeroU8::new(numerator).expect("Not zero; qed"),
+            NonZeroU8::new(denominator).expect("Not zero; qed"),
+        )
     }
 
     /// Compute `EMUL` for an indexed load: `EMUL = (index_eew / sew) * LMUL`.
@@ -386,10 +395,11 @@ impl Vlmul {
     /// Returns the register count for the index register group, or `None` when `EMUL` falls
     /// outside the legal range `[1/8, 8]`.
     #[inline(always)]
-    pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<u8> {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
         let (lmul_num, lmul_den) = self.as_fraction();
-        let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num);
-        let den = u16::from(sew.bits_width()) * u16::from(lmul_den);
+        let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num.get());
+        let den = u16::from(sew.bits_width()) * u16::from(lmul_den.get());
         // Both are products of powers of two; GCD equals the smaller value.
         let g = if num < den { num } else { den };
         let (n, d) = (num / g, den / g);
@@ -403,7 +413,7 @@ impl Vlmul {
             return None;
         }
         // Register count is max(1, n/d) = n when d==1, else 1
-        Some(if d > 1 { 1 } else { n as u8 })
+        Some(NonZeroU8::new(if d > 1 { 1 } else { n as u8 }).expect("Not zero; qed"))
     }
 
     /// Compute EMUL for a data operand of a memory instruction with a given effective element
@@ -416,7 +426,8 @@ impl Vlmul {
     ///
     /// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`.
     #[inline(always)]
-    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<u8> {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
         self.index_register_count(eew, sew)
     }
 }
@@ -514,6 +525,7 @@ impl Vsew {
 
     /// Divide Vsew width by a given factor
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn divide_by_factor(self, factor: VsewFactor) -> Option<Self> {
         let Some(divide_by_factor) = self.bits_width().div_exact(factor.factor()) else {
             cold_path();
@@ -745,6 +757,7 @@ where
     /// All bits in `[Reg::XLEN-1:8]` must be zero; non-zero bits indicate an unrecognized
     /// encoding and cause `None` to be returned (this includes `vill`).
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_raw<Reg>(raw: Reg::Type) -> Option<Self>
     where
         Reg: [const] Register,
@@ -796,6 +809,7 @@ where
     /// `vill = 0`. To construct a raw value with `vill = 1` (illegal configuration), use
     /// [`Self::illegal_raw`].
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_raw<Reg>(self) -> Reg::Type
     where
         Reg: [const] Register,
@@ -821,6 +835,7 @@ where
     /// subsequent vector instruction that depends on `vtype` will raise an illegal-instruction
     /// exception.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn illegal_raw<Reg>() -> Reg::Type
     where
         Reg: [const] Register,

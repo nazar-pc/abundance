@@ -93,6 +93,7 @@ impl U24 {
     ///
     /// The input value is truncated to 24 bits, providing larger value panics in a debug build.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_u32(v: u32) -> Self {
         let b = v.to_le_bytes();
         debug_assert!(
@@ -104,6 +105,7 @@ impl U24 {
 
     /// Convert to an unsigned 32-bit integer
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_u32(self) -> u32 {
         let [a, b, c] = self.0;
         u32::from_le_bytes([a, b, c, 0])
@@ -197,6 +199,7 @@ impl I24 {
     ///
     /// The input value is truncated to 24 bits, providing larger value panics in a debug build.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_i32(v: i32) -> Self {
         let b = v.to_le_bytes();
         debug_assert!(
@@ -208,6 +211,7 @@ impl I24 {
 
     /// Convert to a signed 32-bit integer
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_i32(self) -> i32 {
         let [a, b, c] = self.0;
         // Sign-extend
@@ -269,6 +273,7 @@ impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS> {
     /// When converted back with [`Self::to_i32`], the value is shifted back with low bits being
     /// zero.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_i32(v_original: i32) -> Self {
         let v = v_original >> LOW_ZEROED_BITS;
         let b = v.to_le_bytes();
@@ -284,6 +289,7 @@ impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS> {
 
     /// Convert to a signed 32-bit integer
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn to_i32(self) -> i32 {
         let [a, b, c] = self.0;
         // Sign-extend and shift back

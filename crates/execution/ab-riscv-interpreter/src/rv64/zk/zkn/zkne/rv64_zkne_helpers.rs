@@ -24,6 +24,7 @@ cfg_select! {
             /// the round key. Zero key -> no-op XOR, matching `aes64es`.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64es(rs1: u64, rs2: u64) -> u64 {
                 let state = _mm_set_epi64x(rs2.cast_signed(), rs1.cast_signed());
                 let zero = _mm_setzero_si128();
@@ -35,6 +36,7 @@ cfg_select! {
             /// XORs with the round key. Zero key -> no-op XOR, matching `aes64esm`.
             #[inline]
             #[target_feature(enable = "aes,sse4.1")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64esm(rs1: u64, rs2: u64) -> u64 {
                 let state = _mm_set_epi64x(rs2.cast_signed(), rs1.cast_signed());
                 let zero = _mm_setzero_si128();
@@ -61,6 +63,7 @@ cfg_select! {
 
             #[inline]
             #[target_feature(enable = "aes")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64es(rs1: u64, rs2: u64) -> u64 {
                 let state = vreinterpretq_u8_u64(vcombine_u64(vcreate_u64(rs1), vcreate_u64(rs2)));
                 let zero = vdupq_n_u8(0);
@@ -71,6 +74,7 @@ cfg_select! {
             /// `vaesmcq_u8(vaeseq_u8(state, zero))` maps exactly to `aes64esm`
             #[inline]
             #[target_feature(enable = "aes")]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64esm(rs1: u64, rs2: u64) -> u64 {
                 let state = vreinterpretq_u8_u64(vcombine_u64(vcreate_u64(rs1), vcreate_u64(rs2)));
                 let zero = vdupq_n_u8(0);
@@ -90,6 +94,7 @@ cfg_select! {
             use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{SBOX, gmul};
 
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             fn mix_col(col: u32) -> u32 {
                 let s0 = col as u8;
                 let s1 = (col >> 8) as u8;
@@ -109,6 +114,7 @@ cfg_select! {
             /// ShiftRows shifts row `r` left by `r` columns (cyclically over 4).
             /// Output low half contains post-transform columns 0 and 1.
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64es(rs1: u64, rs2: u64) -> u64 {
                 let state_byte = |col: usize, row: usize| -> u8 {
                     let word = if col < 2 { rs1 } else { rs2 };
@@ -127,6 +133,7 @@ cfg_select! {
             }
 
             #[inline(always)]
+            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
             pub(super) fn aes64esm(rs1: u64, rs2: u64) -> u64 {
                 let lo = aes64es(rs1, rs2);
                 let col0 = mix_col(lo as u32);
@@ -139,6 +146,7 @@ cfg_select! {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64es(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -170,6 +178,7 @@ pub fn aes64es(rs1: u64, rs2: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes64esm(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {

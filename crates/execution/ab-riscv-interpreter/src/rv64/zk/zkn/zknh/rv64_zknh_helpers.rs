@@ -2,6 +2,7 @@
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha256sig0(x: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -17,6 +18,7 @@ pub fn sha256sig0(x: u32) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha256sig1(x: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -32,6 +34,7 @@ pub fn sha256sig1(x: u32) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha256sum0(x: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -47,6 +50,7 @@ pub fn sha256sum0(x: u32) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha256sum1(x: u32) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -62,6 +66,7 @@ pub fn sha256sum1(x: u32) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha512sig0(x: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -77,6 +82,7 @@ pub fn sha512sig0(x: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha512sig1(x: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -92,6 +98,7 @@ pub fn sha512sig1(x: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha512sum0(x: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -107,6 +114,7 @@ pub fn sha512sum0(x: u64) -> u64 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sha512sum1(x: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {

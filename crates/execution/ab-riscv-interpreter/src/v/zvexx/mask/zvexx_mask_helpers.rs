@@ -19,6 +19,7 @@ use core::fmt;
 /// The operation snapshots both sources before writing, so `vd` may safely overlap either source.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -64,6 +65,7 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vcpop<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vs2: VReg,
@@ -109,6 +111,7 @@ where
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vfirst<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vs2: VReg,
@@ -167,6 +170,7 @@ where
 /// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -212,6 +216,7 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
 /// Same as [`execute_vmsbf`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -257,6 +262,7 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
 /// Same as [`execute_vmsbf`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -311,6 +317,7 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
 /// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -359,6 +366,7 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
 /// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,

@@ -15,6 +15,7 @@ use core::hint::cold_path;
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
     ext_state: &mut ExtState,
     program_counter: &PC,
@@ -97,6 +98,7 @@ where
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
+// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
     ext_state: &mut ExtState,
     program_counter: &PC,

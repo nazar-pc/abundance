@@ -14,6 +14,7 @@ use core::fmt;
 /// the scalar register may carry bits above the SEW boundary) behaves identically to the VV
 /// form (where `read_element_u64` already zero-extends elements to exactly SEW bits).
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn vclmul_element(a: u64, b: u64, sew: Vsew) -> u64 {
     let mask = sew_mask(sew);
     let a = a & mask;
@@ -30,6 +31,7 @@ fn vclmul_element(a: u64, b: u64, sew: Vsew) -> u64 {
 /// since the product never reaches bit 64.
 /// For SEW = 64, `clmulh` directly returns the upper half of the 128-bit product.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
     let mask = sew_mask(sew);
     let a = a & mask;
@@ -57,6 +59,7 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -110,6 +113,7 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vclmul`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,

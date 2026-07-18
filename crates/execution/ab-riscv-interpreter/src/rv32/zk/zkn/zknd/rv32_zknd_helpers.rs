@@ -79,6 +79,7 @@ pub(crate) const INV_SBOX: [u8; 256] = [
     ))
 ))]
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(crate) fn gmul(mut a: u8, mut b: u8) -> u8 {
     let mut p = 0u8;
     for _ in 0..8u8 {
@@ -121,6 +122,7 @@ pub(in super::super) mod soft {
     /// r3 = 0x0b*b
     /// ```
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(super) fn inv_mix_col_byte(b: u8) -> u32 {
         let r0 = u32::from(gmul(b, 0x0e));
         let r1 = u32::from(gmul(b, 0x09));
@@ -139,6 +141,7 @@ pub(in super::super) mod soft {
     /// rd    = rs1 ^ rol32(so, shamt)
     /// ```
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(super) fn aes32dsi(rs1: u32, rs2: u32, bs: u8) -> u32 {
         let shamt = u32::from(bs) * 8;
         let si = ((rs2 >> shamt) & 0xff) as u8;
@@ -157,6 +160,7 @@ pub(in super::super) mod soft {
     /// rd    = rs1 ^ rol32(mixed, shamt)
     /// ```
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(super) fn aes32dsmi(rs1: u32, rs2: u32, bs: u8) -> u32 {
         let shamt = u32::from(bs) * 8;
         let si = ((rs2 >> shamt) & 0xff) as u8;
@@ -168,6 +172,7 @@ pub(in super::super) mod soft {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes32dsi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
@@ -187,6 +192,7 @@ pub fn aes32dsi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
 
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn aes32dsmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {

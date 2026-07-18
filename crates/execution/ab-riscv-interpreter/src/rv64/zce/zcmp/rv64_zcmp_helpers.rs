@@ -8,6 +8,7 @@ use core::ops::ControlFlow;
 #[inline]
 #[doc(hidden)]
 #[expect(clippy::type_complexity, reason = "Internal helper")]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn do_push<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
@@ -36,6 +37,7 @@ where
 /// Returns the value of ra (x1) for use with popret/popretz.
 #[inline]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn do_pop<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,

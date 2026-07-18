@@ -11,6 +11,7 @@ use core::hint::cold_path;
 /// extensions anyway.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_csr_privilege_level<Reg, C, CustomError>(
     csrs: &C,
     csr_index: u16,

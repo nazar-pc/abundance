@@ -6,6 +6,7 @@ use crate::{
     Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::num::NonZeroU8;
 use core::ops::ControlFlow;
 
 // With TEST_VLEN=256, VLENB=32:
@@ -2110,11 +2111,29 @@ fn widening_dest_register_count_values() {
     // M2 (2)    -> 4/1 = 4   -> 4 regs
     // M4 (4)    -> 8/1 = 8   -> 8 regs
     // M8 (8)    -> 16/1 = 16 -> None (illegal)
-    assert_eq!(widening_dest_register_count(Vlmul::Mf8), Some(1));
-    assert_eq!(widening_dest_register_count(Vlmul::Mf4), Some(1));
-    assert_eq!(widening_dest_register_count(Vlmul::Mf2), Some(1));
-    assert_eq!(widening_dest_register_count(Vlmul::M1), Some(2));
-    assert_eq!(widening_dest_register_count(Vlmul::M2), Some(4));
-    assert_eq!(widening_dest_register_count(Vlmul::M4), Some(8));
+    assert_eq!(
+        widening_dest_register_count(Vlmul::Mf8),
+        Some(NonZeroU8::new(1).unwrap())
+    );
+    assert_eq!(
+        widening_dest_register_count(Vlmul::Mf4),
+        Some(NonZeroU8::new(1).unwrap())
+    );
+    assert_eq!(
+        widening_dest_register_count(Vlmul::Mf2),
+        Some(NonZeroU8::new(1).unwrap())
+    );
+    assert_eq!(
+        widening_dest_register_count(Vlmul::M1),
+        Some(NonZeroU8::new(2).unwrap())
+    );
+    assert_eq!(
+        widening_dest_register_count(Vlmul::M2),
+        Some(NonZeroU8::new(4).unwrap())
+    );
+    assert_eq!(
+        widening_dest_register_count(Vlmul::M4),
+        Some(NonZeroU8::new(8).unwrap())
+    );
     assert_eq!(widening_dest_register_count(Vlmul::M8), None);
 }

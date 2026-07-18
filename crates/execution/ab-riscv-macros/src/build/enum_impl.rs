@@ -389,6 +389,10 @@ pub(super) fn process_enum_decoding_impl(
             redundant code like `Some(None?)`"
         )]
         #[allow(
+            clippy::needless_match,
+            reason = "When `no-panic` macro is applied on expanded code, this lint gets triggered"
+        )]
+        #[allow(
             clippy::same_functions_in_if_condition,
             reason = "In presence of ignored instructions, simple replacement sometimes results in \
             redundant code like `Some(None?)`"

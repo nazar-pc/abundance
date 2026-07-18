@@ -73,6 +73,7 @@
     min_generic_const_args,
     signed_bigint_helpers
 )]
+#![cfg_attr(feature = "no-panic", feature(const_closures))]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),
@@ -252,6 +253,7 @@ pub trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> 
     /// advanced during instruction fetching. As such, `pc - instruction_size` is expected to never
     /// underflow.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn old_pc(&self, instruction_size: u8) -> Address
     where
         Address: From<u8> + Sub<Output = Address>,
@@ -399,6 +401,7 @@ where
     /// fine most of the time but can be overridden in special cases or for testing purposes.
     #[doc(hidden)]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn process_csr_read<I>(
         &self,
         csr_index: u16,
@@ -430,6 +433,7 @@ where
     /// purposes.
     #[doc(hidden)]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn process_csr_write<I>(
         &mut self,
         csr_index: u16,

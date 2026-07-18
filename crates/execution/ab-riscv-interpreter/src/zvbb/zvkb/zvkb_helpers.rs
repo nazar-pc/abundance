@@ -21,6 +21,7 @@ use core::fmt;
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -77,6 +78,7 @@ pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vandn`], minus the `src` constraint.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -125,6 +127,7 @@ pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vandn`], minus the `src` constraint.
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -170,6 +173,7 @@ pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vandn`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -228,6 +232,7 @@ pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
 /// Same register-group constraints as [`execute_vandn`].
 #[inline(always)]
 #[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vror<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,

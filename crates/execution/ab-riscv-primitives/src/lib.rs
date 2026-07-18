@@ -15,7 +15,7 @@
 //! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> that ensures
 //! correct implementation.
 //!
-//! Does not require a standard library (`no_std`) or an allocator.
+//! Does not require a standard library (`no_std`) or an allocator, never panics.
 //!
 //! ## Supported ISA variants and extensions
 //!
@@ -81,6 +81,7 @@
     stmt_expr_attributes,
     try_blocks
 )]
+#![cfg_attr(feature = "no-panic", feature(const_closures))]
 
 pub mod instructions;
 pub mod prelude;

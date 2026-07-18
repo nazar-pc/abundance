@@ -160,6 +160,7 @@ where
     /// Note: urlist=15 is {ra, s0-s11} (13 registers, including s10);
     /// {ra, s0-s10} has no encoding.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn reg_list(self) -> impl Iterator<Item = Reg> {
         let regs: &[u8] = match self.inner {
             ZcmpUrlistInner::Ra => &[1],
@@ -258,6 +259,7 @@ where
     type Reg = Reg;
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
         None
     }
@@ -330,6 +332,7 @@ where
     type Reg = Reg;
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
         /// Map the Zcmp 3-bit "s-register" field to an absolute register number.
         /// 000->x8(s0), 001->x9(s1), 010->x18(s2)..111->x23(s7)
