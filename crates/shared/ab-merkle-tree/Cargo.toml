@@ -9,6 +9,7 @@ version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
+    "/benches",
     "/src",
     "/tests",
     "/Cargo.toml",
@@ -22,7 +23,11 @@ all-features = true
 bench = false
 
 [[bench]]
-name = "merkle_tree"
+name = "balanced"
+harness = false
+
+[[bench]]
+name = "unbalanced"
 harness = false
 
 [[bench]]
