@@ -14,7 +14,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         return;
     }
 
-    mmr::<1>(c);
     mmr::<2>(c);
     mmr::<4>(c);
     mmr::<256>(c);

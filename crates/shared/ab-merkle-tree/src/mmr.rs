@@ -13,7 +13,16 @@ use core::ops::{Deref, DerefMut};
 pub const NUM_PEAKS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
 /// Max number of elements in a proof for MMR with `MAX_N` leaves
 pub const MAX_PROOF_ELEMENTS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
-const STACK_SIZE<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize + 1;
+const STACK_SIZE<const MAX_N: u64>: usize = {
+    // This constraint is actually needed to prevent issues related to MMR peaks, but making it
+    // unrepresentable is better
+    assert!(
+        MAX_N > 1,
+        "This Merkle Mountain Range must have MAX_N > 1 leaves"
+    );
+
+    MAX_N.next_power_of_two().ilog2() as usize + 1
+};
 
 /// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
 const MERKLE_MOUNTAIN_RANGE_BYTES_SIZE<const MAX_N: u64>: usize =
