@@ -239,7 +239,7 @@ pub(super) fn process_enum_impl(
         .find_map(|(index, attr)| attr.meta.path().is_ident("instruction").then_some(index))?;
     item_impl.attrs.remove(attribute_index);
 
-    let Some((_, trait_path, _)) = &item_impl.trait_ else {
+    let Some((trait_path, _)) = &item_impl.trait_ else {
         return Some(Err(anyhow::anyhow!(
             "Expected `#[instruction] impl Instruction for {0}` or \
             `#[instruction] impl Display for {0}`, but no trait was found",

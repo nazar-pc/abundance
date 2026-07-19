@@ -6,8 +6,8 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Paren;
 use syn::{
-    Attribute, Error, GenericArgument, Meta, Pat, PatType, PathArguments, ReturnType, Signature,
-    Token, Type, TypeTuple,
+    Attribute, Error, GenericArgument, Meta, Pat, PatType, PathArguments, Receiver, ReceiverKind,
+    ReturnType, Signature, Token, Type, TypeTuple,
 };
 
 #[derive(Copy, Clone)]
@@ -75,6 +75,7 @@ enum MethodReturnType {
 impl MethodReturnType {
     fn unit_type() -> Type {
         Type::Tuple(TypeTuple {
+            attrs: Vec::new(),
             paren_token: Paren::default(),
             elems: Punctuated::default(),
         })
@@ -230,45 +231,41 @@ impl MethodDetails {
     pub(super) fn process_state_arg_ro(
         &mut self,
         input_span: Span,
-        ty: &Type,
+        receiver: &Receiver,
     ) -> Result<(), Error> {
-        self.process_state_arg(input_span, ty, false)
+        self.process_state_arg(input_span, receiver, false)
     }
 
     pub(super) fn process_state_arg_rw(
         &mut self,
         input_span: Span,
-        ty: &Type,
+        receiver: &Receiver,
     ) -> Result<(), Error> {
-        self.process_state_arg(input_span, ty, true)
+        self.process_state_arg(input_span, receiver, true)
     }
 
     fn process_state_arg(
         &mut self,
         input_span: Span,
-        ty: &Type,
+        receiver: &Receiver,
         allow_mut: bool,
     ) -> Result<(), Error> {
         // Only accept `&self` or `&mut self`
-        if let Type::Reference(type_reference) = ty
-            && let Type::Path(type_path) = &*type_reference.elem
-            && type_path.path.is_ident("Self")
-        {
-            if type_reference.mutability.is_some() && !allow_mut {
-                return Err(Error::new(
-                    input_span,
-                    "`#[arg]` is not allowed to mutate data here",
-                ));
-            }
-
-            self.state.replace(type_reference.mutability);
-            Ok(())
-        } else {
-            Err(Error::new(
-                ty.span(),
+        let ReceiverKind::Reference(_, _, mutability) = receiver.kind else {
+            return Err(Error::new(
+                input_span,
                 "Can't consume `Self`, use `&self` or `&mut self` instead",
-            ))
+            ));
+        };
+        if mutability.is_some() && !allow_mut {
+            return Err(Error::new(
+                input_span,
+                "`#[arg]` is not allowed to mutate data here",
+            ));
         }
+
+        self.state.replace(mutability);
+        Ok(())
     }
 
     pub(super) fn process_tmp_arg(

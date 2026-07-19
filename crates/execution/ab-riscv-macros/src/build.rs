@@ -142,7 +142,7 @@ fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow
                 })?;
             }
             Item::Impl(item_impl) => {
-                let trait_name = item_impl.trait_.as_ref().map(|(_, path, _)| {
+                let trait_name = item_impl.trait_.as_ref().map(|(path, _)| {
                     path.segments
                         .last()
                         .expect("Path is never empty; qed")

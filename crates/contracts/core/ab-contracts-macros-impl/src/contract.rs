@@ -49,7 +49,7 @@ pub(super) fn contract(item: TokenStream) -> Result<TokenStream, Error> {
     let item_impl =
         parse2::<ItemImpl>(item).map_err(|error| Error::new(error.span(), error_message))?;
 
-    if let Some((_not, path, _for)) = &item_impl.trait_ {
+    if let Some((path, _for)) = &item_impl.trait_ {
         let trait_name = path
             .get_ident()
             .ok_or_else(|| Error::new(path.span(), error_message))?
