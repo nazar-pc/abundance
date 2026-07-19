@@ -13,16 +13,39 @@ use core::ops::{Deref, DerefMut};
 pub const NUM_PEAKS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
 /// Max number of elements in a proof for MMR with `MAX_N` leaves
 pub const MAX_PROOF_ELEMENTS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
-const STACK_SIZE<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize + 1;
+const STACK_SIZE<const MAX_N: u64>: usize = {
+    // This constraint is actually needed to prevent issues related to MMR peaks, but making it
+    // unrepresentable is better
+    assert!(
+        MAX_N > 1,
+        "This Merkle Mountain Range must have MAX_N > 1 leaves"
+    );
+
+    MAX_N.next_power_of_two().ilog2() as usize + 1
+};
 
 /// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
 const MERKLE_MOUNTAIN_RANGE_BYTES_SIZE<const MAX_N: u64>: usize =
-    size_of::<u64>() + OUT_LEN * (MAX_N.ilog2() as usize + 1);
+    size_of::<u64>() + OUT_LEN * (MAX_N.next_power_of_two().ilog2() as usize + 1);
 
 const {
     assert!(size_of::<MerkleMountainRangeBytes<2>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2>);
     assert!(size_of::<MerkleMountainRange<2>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2>);
     assert!(align_of::<MerkleMountainRangeBytes<2>>() == align_of::<MerkleMountainRange<2>>());
+
+    // `MAX_N` doesn't have to be a power of two, verify the layout formula for a few more shapes,
+    // including a large one, to guard against regressions in `MERKLE_MOUNTAIN_RANGE_BYTES_SIZE`
+    assert!(size_of::<MerkleMountainRangeBytes<100>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<100>);
+    assert!(size_of::<MerkleMountainRange<100>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<100>);
+    assert!(align_of::<MerkleMountainRangeBytes<100>>() == align_of::<MerkleMountainRange<100>>());
+
+    assert!(
+        size_of::<MerkleMountainRangeBytes<65536>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<65536>
+    );
+    assert!(size_of::<MerkleMountainRange<65536>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<65536>);
+    assert!(
+        align_of::<MerkleMountainRangeBytes<65536>>() == align_of::<MerkleMountainRange<65536>>()
+    );
 }
 
 /// MMR peaks for [`MerkleMountainRange`].

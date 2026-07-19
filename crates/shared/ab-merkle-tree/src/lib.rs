@@ -17,7 +17,7 @@
 //! turn an optimized version of [`MerkleMountainRange`], and all 3 will return the same results for
 //! identical inputs.
 //!
-//! [`SparseMerkleTree`] is a special kind of Merkle Tree, usually of untractable size, where most
+//! [`SparseMerkleTree`] is a special kind of Merkle Tree, usually of intractable size, where most
 //! of the leaves are empty (missing). It will also produce the same root as other trees in case the
 //! tree doesn't have any empty leaves, though it is unlikely to happen in practice.
 //!
