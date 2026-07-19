@@ -97,6 +97,47 @@ fn smt_32_full() {
 }
 
 #[test]
+fn smt_occupied_owned() {
+    const N: usize = 32;
+    const BITS: u8 = N.ilog2() as u8;
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let leaves = {
+        let mut leaves = [[0u8; OUT_LEN]; N];
+        for hash in &mut leaves {
+            rng.fill_bytes(hash);
+        }
+        leaves
+    };
+
+    let root_borrowed =
+        SparseMerkleTree::<BITS>::compute_root_only(leaves.iter().map(Leaf::from)).unwrap();
+    // `Leaf::OccupiedOwned` must produce an identical root to `Leaf::Occupied` for the same values
+    let root_owned = SparseMerkleTree::<BITS>::compute_root_only(
+        leaves
+            .iter()
+            .map(|leaf| Leaf::OccupiedOwned { leaf: *leaf }),
+    )
+    .unwrap();
+    assert_eq!(root_borrowed, root_owned);
+
+    // Mixing borrowed and owned occupied leaves together must still produce the same root as an
+    // all-borrowed sequence of the same values
+    let mixed_root = SparseMerkleTree::<BITS>::compute_root_only(leaves.iter().enumerate().map(
+        |(index, leaf)| {
+            if index.is_multiple_of(2) {
+                Leaf::OccupiedOwned { leaf: *leaf }
+            } else {
+                Leaf::Occupied { leaf }
+            }
+        },
+    ))
+    .unwrap();
+    assert_eq!(mixed_root, root_borrowed);
+}
+
+#[test]
 fn smt_32_1_missing() {
     test_32(1);
 }

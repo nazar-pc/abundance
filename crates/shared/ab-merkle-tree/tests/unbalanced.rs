@@ -3,6 +3,7 @@
 
 use ab_blake3::OUT_LEN;
 use ab_merkle_tree::hash_pair;
+use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
@@ -246,7 +247,6 @@ fn mt_unbalanced_large_range() {
     }
 }
 
-// TODO: Add MMR tests here
 fn test_basic(number_of_leaves: u64) {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
@@ -278,6 +278,18 @@ fn test_basic(number_of_leaves: u64) {
     };
 
     let proof_buffer = &mut [MaybeUninit::uninit(); _];
+
+    // Merkle Mountain Range aggregates leaves incrementally, so after adding `leaf_index + 1`
+    // leaves it represents a tree of that many leaves, whose root and proofs must match those
+    // produced by the other implementations for the same prefix of leaves.
+    let mut mmr = MerkleMountainRange::<MAX_N>::new();
+    assert_eq!(
+        mmr.peaks(),
+        MerkleMountainRange::from_peaks(&mmr.peaks())
+            .unwrap()
+            .peaks()
+    );
+    let proof_buffer_mmr = &mut [MaybeUninit::uninit(); _];
 
     for (leaf_index, leaf) in leaves.iter().copied().enumerate() {
         let (computed_root, proof) =
@@ -439,6 +451,186 @@ fn test_basic(number_of_leaves: u64) {
             ),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
+
+        // Ensure MMR implementation produces the same root and proofs as the other implementations
+        // and can verify them successfully
+        let mmr_before = mmr;
+        let num_leaves = leaf_index as u64 + 1;
+        let partial_root =
+            SimpleUnbalancedMerkleTree::compute_root_only(leaves[..=leaf_index].iter()).unwrap();
+
+        // Add leaf individually with proof generation
+        let (mmr_root, mmr_proof) = mmr
+            .add_leaf_and_compute_proof_in(&leaf, proof_buffer_mmr)
+            .unwrap();
+        assert_eq!(
+            mmr.peaks(),
+            MerkleMountainRange::from_peaks(&mmr.peaks())
+                .unwrap()
+                .peaks(),
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+        assert_eq!(
+            mmr.num_leaves(),
+            num_leaves,
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+        assert_eq!(
+            mmr_root, partial_root,
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+        assert_eq!(
+            mmr.root().unwrap(),
+            mmr_root,
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+        assert!(
+            UnbalancedMerkleTree::verify(&mmr_root, mmr_proof, leaf_index as u64, leaf, num_leaves),
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+        assert!(
+            MerkleMountainRange::<MAX_N>::verify(
+                &mmr_root,
+                mmr_proof,
+                leaf_index as u64,
+                leaf,
+                num_leaves
+            ),
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+
+        // Add leaf individually without proof generation
+        {
+            let mut mmr = mmr_before;
+            assert!(
+                mmr.add_leaf(&leaf),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.num_leaves(),
+                num_leaves,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.root().unwrap(),
+                mmr_root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
+
+        // Add leaf individually with proof generation and `alloc`
+        #[cfg(feature = "alloc")]
+        {
+            let mut mmr = mmr_before;
+            let (alloc_root, alloc_proof) = mmr.add_leaf_and_compute_proof(&leaf).unwrap();
+            assert_eq!(
+                mmr.num_leaves(),
+                num_leaves,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                alloc_root, mmr_root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                alloc_proof.as_slice(),
+                mmr_proof,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
+
+        // Add leaves in bulk from scratch
+        {
+            let mut mmr = MerkleMountainRange::<MAX_N>::new();
+            assert!(
+                mmr.add_leaves(leaves.iter().copied().take(leaf_index + 1)),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.num_leaves(),
+                num_leaves,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.root().unwrap(),
+                mmr_root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
+
+        // Add leaves incrementally, then the rest in bulk
+        {
+            let mut mmr = MerkleMountainRange::<MAX_N>::new();
+            for leaf in leaves.iter().take(leaf_index) {
+                assert!(
+                    mmr.add_leaf(leaf),
+                    "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+                );
+            }
+            assert!(
+                mmr.add_leaves(leaves.iter().copied().skip(leaf_index).take(1)),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.num_leaves(),
+                num_leaves,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.root().unwrap(),
+                mmr_root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
+
+        // MMR proof must not verify with a tampered leaf, index or proof
+        assert!(
+            !MerkleMountainRange::<MAX_N>::verify(
+                &mmr_root,
+                mmr_proof,
+                leaf_index as u64,
+                random_hash,
+                num_leaves
+            ),
+            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+        );
+        if num_leaves > 1 {
+            assert!(
+                !MerkleMountainRange::<MAX_N>::verify(
+                    &mmr_root,
+                    &random_proof,
+                    leaf_index as u64,
+                    leaf,
+                    num_leaves
+                ),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
+        if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
+            assert!(
+                !MerkleMountainRange::<MAX_N>::verify(
+                    &mmr_root,
+                    mmr_proof,
+                    bad_leaf_index as u64,
+                    leaf,
+                    num_leaves
+                ),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
+
+        // The final MMR state covers all leaves, so its root and the proof for the last leaf must
+        // match the full tree computed by the unbalanced implementation
+        if leaf_index == leaves.len() - 1 {
+            assert_eq!(
+                mmr_root, root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr_proof, computed_proof,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
     }
 
     assert!(

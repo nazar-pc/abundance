@@ -25,6 +25,14 @@ bench = false
 name = "merkle_tree"
 harness = false
 
+[[bench]]
+name = "mmr"
+harness = false
+
+[[bench]]
+name = "sparse"
+harness = false
+
 [dependencies]
 ab-blake3 = { workspace = true }
 # NOTE: `blake3` is here only for `no-panic` feature

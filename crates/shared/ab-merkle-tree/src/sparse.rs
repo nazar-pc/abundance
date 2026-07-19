@@ -63,7 +63,7 @@ impl<'a> From<&'a [u8; OUT_LEN]> for Leaf<'a> {
 /// (have value `[0u8; 32]`).
 ///
 /// In contrast to a proper Balanced Merkle Tree, constant `BITS` here specifies the max number of
-/// leaves hypothetically possible in a tree (2^BITS, often untractable), rather than the number of
+/// leaves hypothetically possible in a tree (2^BITS, often intractable), rather than the number of
 /// non-empty leaves actually present.
 #[derive(Debug)]
 pub struct SparseMerkleTree<const BITS: u8>;
