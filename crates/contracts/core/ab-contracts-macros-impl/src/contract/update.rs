@@ -4,7 +4,7 @@ use proc_macro2::Ident;
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, Meta, Signature, Type, parse_quote};
+use syn::{Attribute, Error, FnArg, Meta, ReceiverKind, Signature, Type, parse_quote};
 
 pub(super) fn process_update_fn(
     self_type: Type,
@@ -38,14 +38,14 @@ pub(super) fn process_update_fn(
 
         match input {
             FnArg::Receiver(receiver) => {
-                if receiver.reference.is_none() {
+                if !matches!(receiver.kind, ReceiverKind::Reference(..)) {
                     return Err(Error::new(
                         fn_sig.span(),
                         "`#[update]` can't consume `Self`, use `&self` or `&mut self` instead",
                     ));
                 }
 
-                methods_details.process_state_arg_rw(input_span, &receiver.ty)?;
+                methods_details.process_state_arg_rw(input_span, receiver)?;
             }
             FnArg::Typed(pat_type) => {
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {

@@ -39,7 +39,7 @@ pub(super) fn instruction_execution(
         .ident
         .clone();
 
-    let Some((_, trait_path, _)) = &item_impl.trait_ else {
+    let Some((trait_path, _)) = &item_impl.trait_ else {
         return Err(Error::new(
             item_impl.span(),
             format!(

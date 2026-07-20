@@ -134,6 +134,7 @@ fn mmr_bytes_round_trip() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn mmr_bytes_round_trip_large() {
     const MAX_N: u64 = 65536;
 
@@ -166,6 +167,7 @@ fn mmr_bytes_round_trip_large() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn mmr_peak_merging_boundaries() {
     const MAX_N: u64 = 128;
     // Counts landing exactly on power-of-two boundaries (where a single insertion merges the

@@ -260,7 +260,7 @@ pub(super) fn process_execution_impl(
         })?;
     item_impl.attrs.remove(attribute_index);
 
-    let Some((_, trait_path, _)) = &item_impl.trait_ else {
+    let Some((trait_path, _)) = &item_impl.trait_ else {
         return Some(Err(anyhow::anyhow!(
             "Expected  `#[instruction_execution] impl ExecutableInstructionOperands for {0}` or \
             `#[instruction_execution] impl ExecutableInstructionCsr for {0}` or \

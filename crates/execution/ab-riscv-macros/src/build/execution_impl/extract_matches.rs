@@ -23,7 +23,7 @@ fn validate_match_on_self(expr_match: &ExprMatch) -> anyhow::Result<()> {
 }
 
 fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident, Arm)> {
-    if let Some(guard) = &arm.guard {
+    if let Pat::Guard(guard) = &arm.pat {
         return Err(anyhow::anyhow!(
             "`match` arms must not have guards: {guard:?}"
         ));

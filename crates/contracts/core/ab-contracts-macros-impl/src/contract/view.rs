@@ -4,7 +4,7 @@ use proc_macro2::Ident;
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, Meta, Signature, Type, parse_quote};
+use syn::{Attribute, Error, FnArg, Meta, ReceiverKind, Signature, Type, parse_quote};
 
 pub(super) fn process_view_fn(
     self_type: Type,
@@ -37,14 +37,14 @@ pub(super) fn process_view_fn(
 
         match input {
             FnArg::Receiver(receiver) => {
-                if receiver.reference.is_none() {
+                if !matches!(receiver.kind, ReceiverKind::Reference(_, _, None)) {
                     return Err(Error::new(
                         fn_sig.span(),
                         "`#[view]` can't consume `Self` or `&mut self`, use `&self` instead",
                     ));
                 }
 
-                methods_details.process_state_arg_ro(input_span, &receiver.ty)?;
+                methods_details.process_state_arg_ro(input_span, receiver)?;
             }
             FnArg::Typed(pat_type) => {
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {

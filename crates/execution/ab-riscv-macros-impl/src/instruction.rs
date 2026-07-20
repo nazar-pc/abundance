@@ -55,7 +55,7 @@ fn process_enum_impl(item_impl: ItemImpl) -> Result<TokenStream, Error> {
         .ident
         .clone();
 
-    let Some((_, trait_path, _)) = &item_impl.trait_ else {
+    let Some((trait_path, _)) = &item_impl.trait_ else {
         return Err(Error::new(
             item_impl.span(),
             format!(
