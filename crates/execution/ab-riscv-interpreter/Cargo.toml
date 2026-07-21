@@ -32,7 +32,6 @@ ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [features]
 # TODO: no-panic coverage is incomplete with the following missing:
-#  * `// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]` comments in vector code
 #  * All `fn execute` methods
 #  * `BasicInterpreterState::execute` method
 # Check that code can't panic under any conditions

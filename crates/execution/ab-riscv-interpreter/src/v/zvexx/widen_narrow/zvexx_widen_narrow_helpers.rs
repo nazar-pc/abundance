@@ -382,7 +382,7 @@ fn scalar_signed_for_sew(val: u64, sew: Vsew) -> u64 {
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -400,9 +400,8 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let wide_sew = sew
-        .double_width()
-        .expect("SEW < 64 is enforced by caller, hence this is always valid; qed");
+    // SAFETY: Caller guarantees SEW < 64, hence this is always valid
+    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
 
     // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
@@ -464,7 +463,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -482,9 +481,8 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let wide_sew = sew
-        .double_width()
-        .expect("SEW < 64 is enforced by caller, hence this is always valid; qed");
+    // SAFETY: Caller guarantees SEW < 64, hence this is always valid
+    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
 
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
@@ -543,7 +541,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -559,9 +557,8 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let wide_sew = sew
-        .double_width()
-        .expect("SEW < 64 is enforced by caller, hence this is always valid; qed");
+    // SAFETY: Caller guarantees SEW < 64, hence this is always valid
+    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
     // Shift amount mask: log2(2*SEW) bits = log2(SEW) + 1 bits
     let shamt_mask = u64::from(wide_sew.bits_width() - 1);
 
@@ -620,7 +617,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -636,9 +633,8 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
-    let src_sew = sew
-        .divide_by_factor(factor)
-        .expect("SEW >= factor*8 and valid according to function contract; qed");
+    // SAFETY: Caller guarantees SEW >= factor*8 and valid according to function contract
+    let src_sew = unsafe { sew.divide_by_factor(factor).unwrap_unchecked() };
 
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
