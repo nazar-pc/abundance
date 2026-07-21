@@ -433,7 +433,7 @@ pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
 /// Same preconditions as `execute_arith_op` in the arithmetic helpers.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -499,7 +499,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,

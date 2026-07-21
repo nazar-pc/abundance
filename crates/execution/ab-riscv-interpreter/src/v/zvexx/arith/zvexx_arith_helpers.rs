@@ -179,7 +179,7 @@ pub enum OpSrc {
 /// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -245,7 +245,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - `vl <= VLEN` (so every element index fits within the mask register)
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,

@@ -144,7 +144,7 @@ unsafe fn write_wide_element_u64<const VLEN: Vlen>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -200,7 +200,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -256,7 +256,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -309,7 +309,7 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 /// Same as [`execute_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -366,7 +366,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -421,7 +421,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 /// Same as [`execute_widening_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
