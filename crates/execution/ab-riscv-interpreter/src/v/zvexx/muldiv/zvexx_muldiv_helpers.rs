@@ -473,11 +473,11 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
-    let sa = i128::from(sign_extend(a, sew));
-    let sb = i128::from(sign_extend(b, sew));
-    let product = sa.wrapping_mul(sb);
+    let sa = sign_extend(a, sew);
+    let sb = sign_extend(b, sew);
+    let product = sa.widening_mul(sb);
     // Extract bits [2*SEW-1 : SEW] of the product
-    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
+    let high = (product >> sew.bits_width()).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -486,10 +486,10 @@ pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
-    let ua = u128::from(a & sew_mask(sew));
-    let ub = u128::from(b & sew_mask(sew));
-    let product = ua.wrapping_mul(ub);
-    let high = (product >> u32::from(sew.bits_width())) as u64;
+    let ua = a & sew_mask(sew);
+    let ub = b & sew_mask(sew);
+    let product = ua.widening_mul(ub);
+    let high = (product >> sew.bits_width()) as u64;
     high & sew_mask(sew)
 }
 
@@ -501,10 +501,9 @@ pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
-    let ub = u128::from(b & sew_mask(sew));
-    // Compute signed × unsigned as i128 to preserve sign
-    let product = sa.wrapping_mul(ub.cast_signed());
-    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
+    let ub = i128::from(b & sew_mask(sew));
+    let product = sa.wrapping_mul(ub);
+    let high = (product >> sew.bits_width()).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
