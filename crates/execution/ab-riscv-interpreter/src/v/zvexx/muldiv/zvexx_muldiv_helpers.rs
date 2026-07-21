@@ -514,7 +514,7 @@ pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - Signed overflow (MIN / −1): result = MIN (i.e., `1 << (SEW-1)`)
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -522,12 +522,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
     if sb == 0 {
         return sew_mask(sew);
     }
-    // Signed overflow: MIN / -1 returns MIN
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
-    if sa == sew_min && sb == -1 {
-        return sew_min.cast_unsigned() & sew_mask(sew);
-    }
-    (sa / sb).cast_unsigned() & sew_mask(sew)
+    sa.wrapping_div(sb).cast_unsigned() & sew_mask(sew)
 }
 
 /// Signed remainder with division-by-zero and signed-overflow semantics from the RISC-V V spec
@@ -537,11 +532,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - Signed overflow (MIN % −1): remainder = 0
 #[inline(always)]
 #[doc(hidden)]
-#[expect(
-    clippy::modulo_arithmetic,
-    reason = "This is what the code is supposed to do"
-)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -549,10 +540,5 @@ pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
     if sb == 0 {
         return a & sew_mask(sew);
     }
-    // Signed overflow: MIN % -1 = 0
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
-    if sa == sew_min && sb == -1 {
-        return 0;
-    }
-    (sa % sb).cast_unsigned() & sew_mask(sew)
+    sa.wrapping_rem(sb).cast_unsigned() & sew_mask(sew)
 }
