@@ -144,7 +144,7 @@ unsafe fn write_wide_element_u64<const VLEN: Vlen>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -200,7 +200,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -256,7 +256,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -309,7 +309,7 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 /// Same as [`execute_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -366,7 +366,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -421,7 +421,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 /// Same as [`execute_widening_muladd_op`], minus constraints on `a_reg`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -473,11 +473,11 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
-    let sa = i128::from(sign_extend(a, sew));
-    let sb = i128::from(sign_extend(b, sew));
-    let product = sa.wrapping_mul(sb);
+    let sa = sign_extend(a, sew);
+    let sb = sign_extend(b, sew);
+    let product = sa.widening_mul(sb);
     // Extract bits [2*SEW-1 : SEW] of the product
-    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
+    let high = (product >> sew.bits_width()).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -486,10 +486,10 @@ pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
-    let ua = u128::from(a & sew_mask(sew));
-    let ub = u128::from(b & sew_mask(sew));
-    let product = ua.wrapping_mul(ub);
-    let high = (product >> u32::from(sew.bits_width())) as u64;
+    let ua = a & sew_mask(sew);
+    let ub = b & sew_mask(sew);
+    let product = ua.widening_mul(ub);
+    let high = (product >> sew.bits_width()) as u64;
     high & sew_mask(sew)
 }
 
@@ -501,10 +501,9 @@ pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = i128::from(sign_extend(a, sew));
-    let ub = u128::from(b & sew_mask(sew));
-    // Compute signed × unsigned as i128 to preserve sign
-    let product = sa.wrapping_mul(ub.cast_signed());
-    let high = (product >> u32::from(sew.bits_width())).cast_unsigned() as u64;
+    let ub = i128::from(b & sew_mask(sew));
+    let product = sa.wrapping_mul(ub);
+    let high = (product >> sew.bits_width()).cast_unsigned() as u64;
     high & sew_mask(sew)
 }
 
@@ -514,7 +513,7 @@ pub fn mulhsu_su(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - Signed overflow (MIN / −1): result = MIN (i.e., `1 << (SEW-1)`)
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -522,12 +521,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
     if sb == 0 {
         return sew_mask(sew);
     }
-    // Signed overflow: MIN / -1 returns MIN
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
-    if sa == sew_min && sb == -1 {
-        return sew_min.cast_unsigned() & sew_mask(sew);
-    }
-    (sa / sb).cast_unsigned() & sew_mask(sew)
+    sa.wrapping_div(sb).cast_unsigned() & sew_mask(sew)
 }
 
 /// Signed remainder with division-by-zero and signed-overflow semantics from the RISC-V V spec
@@ -537,11 +531,7 @@ pub fn sdiv(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - Signed overflow (MIN % −1): remainder = 0
 #[inline(always)]
 #[doc(hidden)]
-#[expect(
-    clippy::modulo_arithmetic,
-    reason = "This is what the code is supposed to do"
-)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
     let sa = sign_extend(a, sew);
     let sb = sign_extend(b, sew);
@@ -549,10 +539,5 @@ pub fn srem(a: u64, b: u64, sew: Vsew) -> u64 {
     if sb == 0 {
         return a & sew_mask(sew);
     }
-    // Signed overflow: MIN % -1 = 0
-    let sew_min = i64::MIN >> (u64::BITS - u32::from(sew.bits_width()));
-    if sa == sew_min && sb == -1 {
-        return 0;
-    }
-    (sa % sb).cast_unsigned() & sew_mask(sew)
+    sa.wrapping_rem(sb).cast_unsigned() & sew_mask(sew)
 }

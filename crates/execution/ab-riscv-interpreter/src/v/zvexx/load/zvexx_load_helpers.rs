@@ -302,7 +302,7 @@ fn read_mem_element(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_unit_stride_load<
     const FAULT_ONLY_FIRST: bool,
     Reg,
@@ -435,7 +435,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &Memory,
@@ -527,7 +527,7 @@ where
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     ext_state: &mut ExtState,
     memory: &Memory,

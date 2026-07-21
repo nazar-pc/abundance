@@ -169,7 +169,7 @@ where
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -218,7 +218,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -272,7 +272,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -325,7 +325,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -371,7 +371,7 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -419,7 +419,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -472,7 +472,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -537,7 +537,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -587,7 +587,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -634,7 +634,7 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 /// - `vl <= VLMAX`.
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,

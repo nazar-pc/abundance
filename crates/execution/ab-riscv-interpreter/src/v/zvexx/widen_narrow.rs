@@ -327,9 +327,11 @@ where
                     });
                 }
                 // Scalar is sign-extended from XLEN to 64 bits
-                let scalar =
-                    zvexx_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
-                        .cast_unsigned();
+                let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
+                    rs1_value.as_u64(),
+                    Vsew::from_xlen::<Reg>(),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _, _>(
@@ -611,9 +613,11 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let scalar =
-                    zvexx_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
-                        .cast_unsigned();
+                let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
+                    rs1_value.as_u64(),
+                    Vsew::from_xlen::<Reg>(),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _, _>(
@@ -889,9 +893,11 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let scalar =
-                    zvexx_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
-                        .cast_unsigned();
+                let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
+                    rs1_value.as_u64(),
+                    Vsew::from_xlen::<Reg>(),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _, _>(
@@ -1165,9 +1171,11 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let scalar =
-                    zvexx_widen_narrow_helpers::sign_extend_bits(rs1_value.as_u64(), Reg::XLEN)
-                        .cast_unsigned();
+                let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
+                    rs1_value.as_u64(),
+                    Vsew::from_xlen::<Reg>(),
+                )
+                .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _, _>(

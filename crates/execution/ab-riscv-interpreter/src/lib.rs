@@ -71,7 +71,8 @@
     inherent_associated_types,
     integer_widen_truncate,
     min_generic_const_args,
-    signed_bigint_helpers
+    signed_bigint_helpers,
+    widening_mul
 )]
 #![cfg_attr(feature = "no-panic", feature(const_closures))]
 #![cfg_attr(

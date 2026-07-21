@@ -498,6 +498,26 @@ impl Vsew {
         }
     }
 
+    /// Create a selected element width that matches the register width
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn from_xlen<Reg>() -> Self
+    where
+        Reg: [const] Register,
+    {
+        const {
+            match Reg::XLEN {
+                32 => Self::E32,
+                64 => Self::E64,
+                _ => {
+                    // TODO: Should have been `unreachable!()`:
+                    //  https://github.com/rust-lang/rust/issues/159645
+                    panic!("Invalid register width")
+                }
+            }
+        }
+    }
+
     /// Encode to the 3-bit vsew field
     #[inline(always)]
     pub const fn to_bits(self) -> u8 {

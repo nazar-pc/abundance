@@ -42,7 +42,7 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -102,7 +102,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomErr
 /// Same as [`execute_carry_add()`].
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -164,7 +164,7 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
 /// - vd overlap constraints checked by caller
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
@@ -229,7 +229,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
 /// Same as [`execute_carry_add_mask()`].
 #[inline(always)]
 #[doc(hidden)]
-// TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, CustomError>(
     ext_state: &mut ExtState,
     vd: VReg,
