@@ -65,6 +65,7 @@
     const_try,
     generic_const_args,
     generic_const_items,
+    macroless_generic_const_args,
     min_generic_const_args,
     ptr_as_uninit
 )]

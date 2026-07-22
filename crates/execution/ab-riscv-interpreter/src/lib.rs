@@ -70,6 +70,7 @@
     generic_const_items,
     inherent_associated_types,
     integer_widen_truncate,
+    macroless_generic_const_args,
     min_generic_const_args,
     signed_bigint_helpers,
     widening_mul

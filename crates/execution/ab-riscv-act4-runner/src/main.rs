@@ -8,6 +8,7 @@
     generic_const_items,
     inherent_associated_types,
     iter_array_chunks,
+    macroless_generic_const_args,
     min_generic_const_args,
     signed_bigint_helpers,
     try_blocks
