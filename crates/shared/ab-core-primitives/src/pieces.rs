@@ -121,13 +121,13 @@ impl PieceIndex {
 
     /// Create a piece index from bytes.
     #[inline]
-    pub const fn from_bytes(bytes: [u8; const { Self::SIZE }]) -> Self {
+    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
         Self(u64::from_le_bytes(bytes))
     }
 
     /// Convert a piece index to bytes.
     #[inline]
-    pub const fn to_bytes(self) -> [u8; const { Self::SIZE }] {
+    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
         self.0.to_le_bytes()
     }
 
@@ -316,7 +316,7 @@ impl PieceOffset {
 
     /// Convert piece offset to bytes
     #[inline]
-    pub const fn to_bytes(self) -> [u8; const { Self::SIZE }] {
+    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
         self.0.to_le_bytes()
     }
 }
@@ -343,7 +343,7 @@ impl PieceOffset {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(C)]
-pub struct RecordChunk([u8; const { RecordChunk::SIZE }]);
+pub struct RecordChunk([u8; RecordChunk::SIZE]);
 
 impl fmt::Debug for RecordChunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -360,14 +360,14 @@ impl RecordChunk {
 
     /// Convenient conversion from slice to underlying representation for efficiency purposes
     #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
+    pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline]
-    pub fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
+    pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -375,7 +375,7 @@ impl RecordChunk {
     /// Convenient conversion from mutable slice to underlying representation for efficiency
     /// purposes
     #[inline]
-    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; const { Self::SIZE }]] {
+    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
         // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -383,7 +383,7 @@ impl RecordChunk {
     /// Convenient conversion from mutable slice of underlying representation for efficiency
     /// purposes
     #[inline]
-    pub fn slice_mut_from_repr(value: &mut [[u8; const { Self::SIZE }]]) -> &mut [Self] {
+    pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
         // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -394,7 +394,7 @@ impl RecordChunk {
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, TrivialType)]
 #[repr(C)]
-pub struct Record([[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]);
+pub struct Record([[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]);
 
 impl fmt::Debug for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -419,7 +419,7 @@ impl AsMut<[u8]> for Record {
     }
 }
 
-impl From<&Record> for &[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }] {
+impl From<&Record> for &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
     fn from(value: &Record) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
@@ -427,15 +427,15 @@ impl From<&Record> for &[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_
     }
 }
 
-impl From<&[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]> for &Record {
+impl From<&[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &Record {
     #[inline]
-    fn from(value: &[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]) -> Self {
+    fn from(value: &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut Record> for &mut [[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }] {
+impl From<&mut Record> for &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
     fn from(value: &mut Record) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
@@ -443,9 +443,9 @@ impl From<&mut Record> for &mut [[u8; const { RecordChunk::SIZE }]; const { Reco
     }
 }
 
-impl From<&mut [[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]> for &mut Record {
+impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
     #[inline]
-    fn from(value: &mut [[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]) -> Self {
+    fn from(value: &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -488,8 +488,7 @@ impl Record {
                 slice::from_raw_parts_mut(
                     slice
                         .as_mut_ptr()
-                        .cast::<[[MaybeUninit<u8>; const { RecordChunk::SIZE }];
-                            const { Record::NUM_CHUNKS }]>(),
+                        .cast::<[[MaybeUninit<u8>; RecordChunk::SIZE]; Record::NUM_CHUNKS]>(),
                     length,
                 )
             };
@@ -508,9 +507,7 @@ impl Record {
     /// Convenient conversion from slice of record to underlying representation for efficiency
     /// purposes.
     #[inline(always)]
-    pub fn slice_to_repr(
-        value: &[Self],
-    ) -> &[[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]] {
+    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -518,9 +515,7 @@ impl Record {
     /// Convenient conversion from slice of underlying representation to record for efficiency
     /// purposes.
     #[inline(always)]
-    pub fn slice_from_repr(
-        value: &[[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]],
-    ) -> &[Self] {
+    pub fn slice_from_repr(value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]]) -> &[Self] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -530,7 +525,7 @@ impl Record {
     #[inline(always)]
     pub fn slice_mut_to_repr(
         value: &mut [Self],
-    ) -> &mut [[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]] {
+    ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -539,7 +534,7 @@ impl Record {
     /// efficiency purposes.
     #[inline(always)]
     pub fn slice_mut_from_repr(
-        value: &mut [[[u8; const { RecordChunk::SIZE }]; const { Record::NUM_CHUNKS }]],
+        value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]],
     ) -> &mut [Self] {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -558,7 +553,7 @@ impl Record {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct RecordRoot([u8; const { RecordRoot::SIZE }]);
+pub struct RecordRoot([u8; RecordRoot::SIZE]);
 
 impl fmt::Debug for RecordRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -572,12 +567,12 @@ impl fmt::Debug for RecordRoot {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordRootBinary(#[serde(with = "BigArray")] [u8; const { RecordRoot::SIZE }]);
+struct RecordRootBinary(#[serde(with = "BigArray")] [u8; RecordRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordRootHex(#[serde(with = "hex")] [u8; const { RecordRoot::SIZE }]);
+struct RecordRootHex(#[serde(with = "hex")] [u8; RecordRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for RecordRoot {
@@ -621,7 +616,7 @@ impl TryFrom<&[u8]> for RecordRoot {
 
     #[inline]
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        <[u8; const { Self::SIZE }]>::try_from(slice).map(Self)
+        <[u8; Self::SIZE]>::try_from(slice).map(Self)
     }
 }
 
@@ -639,7 +634,7 @@ impl AsMut<[u8]> for RecordRoot {
     }
 }
 
-impl From<&RecordRoot> for &[u8; const { RecordRoot::SIZE }] {
+impl From<&RecordRoot> for &[u8; RecordRoot::SIZE] {
     #[inline]
     fn from(value: &RecordRoot) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
@@ -648,16 +643,16 @@ impl From<&RecordRoot> for &[u8; const { RecordRoot::SIZE }] {
     }
 }
 
-impl From<&[u8; const { RecordRoot::SIZE }]> for &RecordRoot {
+impl From<&[u8; RecordRoot::SIZE]> for &RecordRoot {
     #[inline]
-    fn from(value: &[u8; const { RecordRoot::SIZE }]) -> Self {
+    fn from(value: &[u8; RecordRoot::SIZE]) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RecordRoot> for &mut [u8; const { RecordRoot::SIZE }] {
+impl From<&mut RecordRoot> for &mut [u8; RecordRoot::SIZE] {
     #[inline]
     fn from(value: &mut RecordRoot) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
@@ -666,9 +661,9 @@ impl From<&mut RecordRoot> for &mut [u8; const { RecordRoot::SIZE }] {
     }
 }
 
-impl From<&mut [u8; const { RecordRoot::SIZE }]> for &mut RecordRoot {
+impl From<&mut [u8; RecordRoot::SIZE]> for &mut RecordRoot {
     #[inline]
-    fn from(value: &mut [u8; const { RecordRoot::SIZE }]) -> Self {
+    fn from(value: &mut [u8; RecordRoot::SIZE]) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -686,7 +681,7 @@ impl RecordRoot {
         record_proof: &RecordProof,
         position: PiecePosition,
     ) -> bool {
-        BalancedMerkleTree::<const { RecordedHistorySegment::NUM_PIECES }>::verify(
+        BalancedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
             segment_root,
             record_proof,
             usize::from(position),
@@ -699,7 +694,7 @@ impl RecordRoot {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct RecordChunksRoot([u8; const { RecordChunksRoot::SIZE }]);
+pub struct RecordChunksRoot([u8; RecordChunksRoot::SIZE]);
 
 impl fmt::Debug for RecordChunksRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -713,12 +708,12 @@ impl fmt::Debug for RecordChunksRoot {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordChunksRootBinary(#[serde(with = "BigArray")] [u8; const { RecordChunksRoot::SIZE }]);
+struct RecordChunksRootBinary(#[serde(with = "BigArray")] [u8; RecordChunksRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordChunksRootHex(#[serde(with = "hex")] [u8; const { RecordChunksRoot::SIZE }]);
+struct RecordChunksRootHex(#[serde(with = "hex")] [u8; RecordChunksRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for RecordChunksRoot {
@@ -762,7 +757,7 @@ impl TryFrom<&[u8]> for RecordChunksRoot {
 
     #[inline]
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        <[u8; const { Self::SIZE }]>::try_from(slice).map(Self)
+        <[u8; Self::SIZE]>::try_from(slice).map(Self)
     }
 }
 
@@ -780,7 +775,7 @@ impl AsMut<[u8]> for RecordChunksRoot {
     }
 }
 
-impl From<&RecordChunksRoot> for &[u8; const { RecordChunksRoot::SIZE }] {
+impl From<&RecordChunksRoot> for &[u8; RecordChunksRoot::SIZE] {
     #[inline]
     fn from(value: &RecordChunksRoot) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
@@ -789,16 +784,16 @@ impl From<&RecordChunksRoot> for &[u8; const { RecordChunksRoot::SIZE }] {
     }
 }
 
-impl From<&[u8; const { RecordChunksRoot::SIZE }]> for &RecordChunksRoot {
+impl From<&[u8; RecordChunksRoot::SIZE]> for &RecordChunksRoot {
     #[inline]
-    fn from(value: &[u8; const { RecordChunksRoot::SIZE }]) -> Self {
+    fn from(value: &[u8; RecordChunksRoot::SIZE]) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RecordChunksRoot> for &mut [u8; const { RecordChunksRoot::SIZE }] {
+impl From<&mut RecordChunksRoot> for &mut [u8; RecordChunksRoot::SIZE] {
     #[inline]
     fn from(value: &mut RecordChunksRoot) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
@@ -807,9 +802,9 @@ impl From<&mut RecordChunksRoot> for &mut [u8; const { RecordChunksRoot::SIZE }]
     }
 }
 
-impl From<&mut [u8; const { RecordChunksRoot::SIZE }]> for &mut RecordChunksRoot {
+impl From<&mut [u8; RecordChunksRoot::SIZE]> for &mut RecordChunksRoot {
     #[inline]
-    fn from(value: &mut [u8; const { RecordChunksRoot::SIZE }]) -> Self {
+    fn from(value: &mut [u8; RecordChunksRoot::SIZE]) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -825,7 +820,7 @@ impl RecordChunksRoot {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct RecordProof([[u8; OUT_LEN]; const { RecordProof::NUM_HASHES }]);
+pub struct RecordProof([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 
 impl fmt::Debug for RecordProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -844,7 +839,7 @@ impl fmt::Debug for RecordProof {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordProofBinary([[u8; OUT_LEN]; const { RecordProof::NUM_HASHES }]);
+struct RecordProofBinary([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
@@ -854,7 +849,7 @@ struct RecordProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordProofHex([RecordProofHexHash; const { RecordProof::NUM_HASHES }]);
+struct RecordProofHex([RecordProofHexHash; RecordProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
 impl Serialize for RecordProof {
@@ -868,8 +863,8 @@ impl Serialize for RecordProof {
             // same memory layout
             RecordProofHex(unsafe {
                 mem::transmute::<
-                    [[u8; OUT_LEN]; const { Self::NUM_HASHES }],
-                    [RecordProofHexHash; const { Self::NUM_HASHES }],
+                    [[u8; OUT_LEN]; Self::NUM_HASHES],
+                    [RecordProofHexHash; Self::NUM_HASHES],
                 >(self.0)
             })
             .serialize(serializer)
@@ -891,8 +886,8 @@ impl<'de> Deserialize<'de> for RecordProof {
             // same memory layout
             unsafe {
                 mem::transmute::<
-                    [RecordProofHexHash; const { Self::NUM_HASHES }],
-                    [[u8; OUT_LEN]; const { Self::NUM_HASHES }],
+                    [RecordProofHexHash; Self::NUM_HASHES],
+                    [[u8; OUT_LEN]; Self::NUM_HASHES],
                 >(RecordProofHex::deserialize(deserializer)?.0)
             }
         } else {
@@ -922,7 +917,7 @@ impl AsMut<[u8]> for RecordProof {
     }
 }
 
-impl From<&RecordProof> for &[u8; const { RecordProof::SIZE }] {
+impl From<&RecordProof> for &[u8; RecordProof::SIZE] {
     #[inline]
     fn from(value: &RecordProof) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
@@ -931,16 +926,16 @@ impl From<&RecordProof> for &[u8; const { RecordProof::SIZE }] {
     }
 }
 
-impl From<&[u8; const { RecordProof::SIZE }]> for &RecordProof {
+impl From<&[u8; RecordProof::SIZE]> for &RecordProof {
     #[inline]
-    fn from(value: &[u8; const { RecordProof::SIZE }]) -> Self {
+    fn from(value: &[u8; RecordProof::SIZE]) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RecordProof> for &mut [u8; const { RecordProof::SIZE }] {
+impl From<&mut RecordProof> for &mut [u8; RecordProof::SIZE] {
     #[inline]
     fn from(value: &mut RecordProof) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
@@ -949,9 +944,9 @@ impl From<&mut RecordProof> for &mut [u8; const { RecordProof::SIZE }] {
     }
 }
 
-impl From<&mut [u8; const { RecordProof::SIZE }]> for &mut RecordProof {
+impl From<&mut [u8; RecordProof::SIZE]> for &mut RecordProof {
     #[inline]
-    fn from(value: &mut [u8; const { RecordProof::SIZE }]) -> Self {
+    fn from(value: &mut [u8; RecordProof::SIZE]) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -968,7 +963,7 @@ impl RecordProof {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct SegmentProof([[u8; OUT_LEN]; const { SegmentProof::NUM_HASHES }]);
+pub struct SegmentProof([[u8; OUT_LEN]; SegmentProof::NUM_HASHES]);
 
 impl fmt::Debug for SegmentProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -987,7 +982,7 @@ impl fmt::Debug for SegmentProof {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SegmentProofBinary([[u8; OUT_LEN]; const { SegmentProof::NUM_HASHES }]);
+struct SegmentProofBinary([[u8; OUT_LEN]; SegmentProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
@@ -997,7 +992,7 @@ struct SegmentProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SegmentProofHex([SegmentProofHexHash; const { SegmentProof::NUM_HASHES }]);
+struct SegmentProofHex([SegmentProofHexHash; SegmentProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
 impl Serialize for SegmentProof {
@@ -1011,8 +1006,8 @@ impl Serialize for SegmentProof {
             // same memory layout
             SegmentProofHex(unsafe {
                 mem::transmute::<
-                    [[u8; OUT_LEN]; const { Self::NUM_HASHES }],
-                    [SegmentProofHexHash; const { Self::NUM_HASHES }],
+                    [[u8; OUT_LEN]; Self::NUM_HASHES],
+                    [SegmentProofHexHash; Self::NUM_HASHES],
                 >(self.0)
             })
             .serialize(serializer)
@@ -1034,8 +1029,8 @@ impl<'de> Deserialize<'de> for SegmentProof {
             // same memory layout
             unsafe {
                 mem::transmute::<
-                    [SegmentProofHexHash; const { Self::NUM_HASHES }],
-                    [[u8; OUT_LEN]; const { Self::NUM_HASHES }],
+                    [SegmentProofHexHash; Self::NUM_HASHES],
+                    [[u8; OUT_LEN]; Self::NUM_HASHES],
                 >(SegmentProofHex::deserialize(deserializer)?.0)
             }
         } else {
@@ -1065,7 +1060,7 @@ impl AsMut<[u8]> for SegmentProof {
     }
 }
 
-impl From<&SegmentProof> for &[u8; const { SegmentProof::SIZE }] {
+impl From<&SegmentProof> for &[u8; SegmentProof::SIZE] {
     #[inline]
     fn from(value: &SegmentProof) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
@@ -1074,16 +1069,16 @@ impl From<&SegmentProof> for &[u8; const { SegmentProof::SIZE }] {
     }
 }
 
-impl From<&[u8; const { SegmentProof::SIZE }]> for &SegmentProof {
+impl From<&[u8; SegmentProof::SIZE]> for &SegmentProof {
     #[inline]
-    fn from(value: &[u8; const { SegmentProof::SIZE }]) -> Self {
+    fn from(value: &[u8; SegmentProof::SIZE]) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut SegmentProof> for &mut [u8; const { SegmentProof::SIZE }] {
+impl From<&mut SegmentProof> for &mut [u8; SegmentProof::SIZE] {
     #[inline]
     fn from(value: &mut SegmentProof) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
@@ -1092,9 +1087,9 @@ impl From<&mut SegmentProof> for &mut [u8; const { SegmentProof::SIZE }] {
     }
 }
 
-impl From<&mut [u8; const { SegmentProof::SIZE }]> for &mut SegmentProof {
+impl From<&mut [u8; SegmentProof::SIZE]> for &mut SegmentProof {
     #[inline]
-    fn from(value: &mut [u8; const { SegmentProof::SIZE }]) -> Self {
+    fn from(value: &mut [u8; SegmentProof::SIZE]) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -1104,15 +1099,14 @@ impl From<&mut [u8; const { SegmentProof::SIZE }]> for &mut SegmentProof {
 impl SegmentProof {
     /// Size of segment proof in bytes
     pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
-    const NUM_HASHES: usize =
-        const { SuperSegmentRoot::MAX_SEGMENTS.next_power_of_two().ilog2() as usize };
+    const NUM_HASHES: usize = SuperSegmentRoot::MAX_SEGMENTS.next_power_of_two().ilog2() as usize;
 
     /// Returns a mutable reference to an internal array as uninitialized memory.
     ///
     /// This is a convenience method for proof generation.
     pub fn as_uninit_repr(
         &mut self,
-    ) -> &mut [MaybeUninit<[u8; OUT_LEN]>; const { SegmentProof::NUM_HASHES }] {
+    ) -> &mut [MaybeUninit<[u8; OUT_LEN]>; SegmentProof::NUM_HASHES] {
         // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
         unsafe { mem::transmute(&mut self.0) }
     }
@@ -1227,7 +1221,7 @@ impl InnerPiece {
     /// Convenient conversion from slice of piece array to underlying representation for efficiency
     /// purposes.
     #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
+    pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -1236,7 +1230,7 @@ impl InnerPiece {
     /// Convenient conversion from slice of underlying representation to piece array for efficiency
     /// purposes.
     #[inline]
-    pub fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
+    pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -1245,7 +1239,7 @@ impl InnerPiece {
     /// Convenient conversion from mutable slice of piece array to underlying representation for
     /// efficiency purposes.
     #[inline]
-    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; const { Self::SIZE }]] {
+    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
@@ -1254,7 +1248,7 @@ impl InnerPiece {
     /// Convenient conversion from mutable slice of underlying representation to piece array for
     /// efficiency purposes.
     #[inline]
-    pub fn slice_mut_from_repr(value: &mut [[u8; const { Self::SIZE }]]) -> &mut [Self] {
+    pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
         // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }

@@ -16,7 +16,7 @@ use serde_big_array::BigArray;
 
 /// Proof of space seed.
 #[derive(Copy, Clone, Eq, PartialEq, Deref, From, Into)]
-pub struct PosSeed([u8; const { PosSeed::SIZE }]);
+pub struct PosSeed([u8; PosSeed::SIZE]);
 
 impl fmt::Debug for PosSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -36,7 +36,7 @@ impl PosSeed {
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct PosProof([u8; const { PosProof::SIZE }]);
+pub struct PosProof([u8; PosProof::SIZE]);
 
 impl fmt::Debug for PosProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -50,12 +50,12 @@ impl fmt::Debug for PosProof {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PosProofBinary(#[serde(with = "BigArray")] [u8; const { PosProof::SIZE }]);
+struct PosProofBinary(#[serde(with = "BigArray")] [u8; PosProof::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PosProofHex(#[serde(with = "hex")] [u8; const { PosProof::SIZE }]);
+struct PosProofHex(#[serde(with = "hex")] [u8; PosProof::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for PosProof {
