@@ -514,9 +514,7 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
         // SAFETY: Valid pointer and size, no alignment requirements
         let child_shard_blocks = unsafe {
             slice::from_raw_parts(
-                child_shard_blocks
-                    .as_ptr()
-                    .cast::<[u8; const { BlockRoot::SIZE }]>(),
+                child_shard_blocks.as_ptr().cast::<[u8; BlockRoot::SIZE]>(),
                 num_blocks,
             )
         };
@@ -529,19 +527,18 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
     ///
     /// `None` is returned if there are no child shard blocks.
     pub fn root(&self) -> Option<Blake3Hash> {
-        let root =
-            UnbalancedMerkleTree::compute_root_only::<'_, const { u64::from(u32::MAX) }, _, _>(
-                // TODO: Keyed hash
-                self.child_shard_blocks
-                    .iter()
-                    .map(|child_shard_block_root| {
-                        // Hash the root again so we can prove it, otherwise headers root is
-                        // indistinguishable from individual block roots and can be used to confuse
-                        // verifier
-                        single_block_hash(child_shard_block_root.as_ref())
-                            .expect("Less than a single block worth of bytes; qed")
-                    }),
-            )?;
+        let root = UnbalancedMerkleTree::compute_root_only::<'_, { u64::from(u32::MAX) }, _, _>(
+            // TODO: Keyed hash
+            self.child_shard_blocks
+                .iter()
+                .map(|child_shard_block_root| {
+                    // Hash the root again so we can prove it, otherwise headers root is
+                    // indistinguishable from individual block roots and can be used to confuse
+                    // verifier
+                    single_block_hash(child_shard_block_root.as_ref())
+                        .expect("Less than a single block worth of bytes; qed")
+                }),
+        )?;
         Some(Blake3Hash::new(root))
     }
 }

@@ -1,5 +1,10 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
-#![feature(generic_const_args, generic_const_items, min_generic_const_args)]
+#![feature(
+    generic_const_args,
+    generic_const_items,
+    macroless_generic_const_args,
+    min_generic_const_args
+)]
 
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};

@@ -143,13 +143,13 @@ impl SlotNumber {
 
     /// Create slot number from bytes
     #[inline(always)]
-    pub const fn from_bytes(bytes: [u8; const { Self::SIZE }]) -> Self {
+    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
         Self(u64::from_le_bytes(bytes))
     }
 
     /// Convert slot number to bytes
     #[inline(always)]
-    pub const fn to_bytes(self) -> [u8; const { Self::SIZE }] {
+    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
         self.0.to_le_bytes()
     }
 
@@ -189,7 +189,7 @@ impl SlotNumber {
 /// Proof of time key(input to the encryption).
 #[derive(Default, Copy, Clone, Eq, PartialEq, From, Into, AsRef, AsMut, Deref, DerefMut)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
-pub struct PotKey([u8; const { PotKey::SIZE }]);
+pub struct PotKey([u8; PotKey::SIZE]);
 
 impl fmt::Debug for PotKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -203,12 +203,12 @@ impl fmt::Debug for PotKey {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PotKeyBinary([u8; const { PotKey::SIZE }]);
+struct PotKeyBinary([u8; PotKey::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PotKeyHex(#[serde(with = "hex")] [u8; const { PotKey::SIZE }]);
+struct PotKeyHex(#[serde(with = "hex")] [u8; PotKey::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for PotKey {
@@ -269,7 +269,7 @@ impl PotKey {
 /// Proof of time seed
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, Into, AsRef, AsMut, Deref, DerefMut)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
-pub struct PotSeed([u8; const { PotSeed::SIZE }]);
+pub struct PotSeed([u8; PotSeed::SIZE]);
 
 impl fmt::Debug for PotSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -283,12 +283,12 @@ impl fmt::Debug for PotSeed {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PotSeedBinary([u8; const { PotSeed::SIZE }]);
+struct PotSeedBinary([u8; PotSeed::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PotSeedHex(#[serde(with = "hex")] [u8; const { PotSeed::SIZE }]);
+struct PotSeedHex(#[serde(with = "hex")] [u8; PotSeed::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for PotSeed {
@@ -375,7 +375,7 @@ impl PotSeed {
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct PotOutput([u8; const { PotOutput::SIZE }]);
+pub struct PotOutput([u8; PotOutput::SIZE]);
 
 impl fmt::Debug for PotOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -389,12 +389,12 @@ impl fmt::Debug for PotOutput {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PotOutputBinary([u8; const { PotOutput::SIZE }]);
+struct PotOutputBinary([u8; PotOutput::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PotOutputHex(#[serde(with = "hex")] [u8; const { PotOutput::SIZE }]);
+struct PotOutputHex(#[serde(with = "hex")] [u8; PotOutput::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for PotOutput {
@@ -442,7 +442,7 @@ impl PotOutput {
     /// Derives the global challenge from the output and slot
     #[inline]
     pub fn derive_global_challenge(&self, slot: SlotNumber) -> Blake3Hash {
-        let mut bytes_to_hash = [0; const { Self::SIZE + SlotNumber::SIZE }];
+        let mut bytes_to_hash = [0; Self::SIZE + SlotNumber::SIZE];
         bytes_to_hash[..Self::SIZE].copy_from_slice(&self.0);
         bytes_to_hash[Self::SIZE..].copy_from_slice(&slot.to_bytes());
         Blake3Hash::new(
@@ -460,7 +460,7 @@ impl PotOutput {
     /// Derive seed from proof of time with entropy injection
     #[inline]
     pub fn seed_with_entropy(&self, entropy: &Blake3Hash) -> PotSeed {
-        let mut bytes_to_hash = [0; const { Blake3Hash::SIZE + Self::SIZE }];
+        let mut bytes_to_hash = [0; Blake3Hash::SIZE + Self::SIZE];
         bytes_to_hash[..Blake3Hash::SIZE].copy_from_slice(entropy.as_ref());
         bytes_to_hash[Blake3Hash::SIZE..].copy_from_slice(&self.0);
         let hash = single_block_hash(&bytes_to_hash)
@@ -473,7 +473,7 @@ impl PotOutput {
     /// Derive proof of time entropy from chunk and proof of time for injection purposes
     #[inline]
     pub fn derive_pot_entropy(&self, solution_chunk: &RecordChunk) -> Blake3Hash {
-        let mut bytes_to_hash = [0; const { RecordChunk::SIZE + Self::SIZE }];
+        let mut bytes_to_hash = [0; RecordChunk::SIZE + Self::SIZE];
         bytes_to_hash[..RecordChunk::SIZE].copy_from_slice(solution_chunk.as_ref());
         bytes_to_hash[RecordChunk::SIZE..].copy_from_slice(&self.0);
         Blake3Hash::new(
@@ -490,14 +490,14 @@ impl PotOutput {
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         // SAFETY: `PotOutput` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `PotOutput` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -523,7 +523,7 @@ impl PotCheckpoints {
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_bytes(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
+    pub const fn slice_from_bytes(value: &[[u8; Self::SIZE]]) -> &[Self] {
         // SAFETY: `PotOutput` and `PotCheckpoints` are `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -531,7 +531,7 @@ impl PotCheckpoints {
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn bytes_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
+    pub const fn bytes_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `PotOutput` and `PotCheckpoints` are `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }

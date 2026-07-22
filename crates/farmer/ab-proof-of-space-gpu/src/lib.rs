@@ -5,7 +5,10 @@
 
 #![cfg_attr(target_arch = "spirv", no_std)]
 #![feature(step_trait)]
-#![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
+#![cfg_attr(
+    not(target_arch = "spirv"),
+    feature(iter_array_chunks, macroless_generic_const_args, portable_simd)
+)]
 #![feature(generic_const_args, generic_const_items, min_generic_const_args)]
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![cfg_attr(

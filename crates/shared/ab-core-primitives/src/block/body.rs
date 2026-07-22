@@ -83,7 +83,7 @@ impl OwnSegments<'_> {
         let root = BalancedMerkleTree::compute_root_only(&[
             single_block_hash(self.first_local_segment_index.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
-            *compute_segments_root::<const { u64::from(u8::MAX) }, _>(self.segment_roots),
+            *compute_segments_root::<{ u64::from(u8::MAX) }, _>(self.segment_roots),
         ]);
 
         Blake3Hash::new(root)
@@ -109,7 +109,7 @@ impl OwnSegments<'_> {
 
                 single_block_hash(&pair).expect("Less than a single block worth of bytes; qed")
             },
-            *compute_segments_root::<const { u64::from(u8::MAX) }, _>(self.segment_roots),
+            *compute_segments_root::<{ u64::from(u8::MAX) }, _>(self.segment_roots),
         ]);
 
         Blake3Hash::new(root)
@@ -173,9 +173,7 @@ impl<'a> IntermediateShardBlockInfo<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };
@@ -477,7 +475,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let segments_proof = intermediate_shard_block.segments_proof.unwrap_or(&[0; _]);
 
             let leaf_shards_root =
-                UnbalancedMerkleTree::compute_root_only::<const { u64::from(u16::MAX) }, _, _>(
+                UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
                     intermediate_shard_block.leaf_shards_segments().map(
                         |(shard_index, own_segments)| {
                             own_segments.root_with_shard_index(shard_index)
@@ -559,9 +557,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 // SAFETY: Valid pointer and size, no alignment requirements
                 let own_segment_roots = unsafe {
                     slice::from_raw_parts(
-                        own_segment_roots
-                            .as_ptr()
-                            .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                        own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                         num_own_segment_roots,
                     )
                 };
@@ -629,9 +625,9 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of segment roots.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<const { u64::from(u16::MAX) }, _, _>(
+        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
             self.iter().map(|shard_block_info| {
-                UnbalancedMerkleTree::compute_root_only::<const { u64::from(u32::MAX) }, _, _>(
+                UnbalancedMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
                     shard_block_info
                         .own_segments
                         .as_ref()
@@ -656,7 +652,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<const { u64::from(u16::MAX) }, _, _>(
+        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
             // TODO: Keyed hash
             self.iter().map(|shard_block_info| {
                 // Hash the root again so we can prove it, otherwise the root of headers is
@@ -740,9 +736,7 @@ impl<'a> BeaconChainBody<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };
@@ -765,7 +759,7 @@ impl<'a> BeaconChainBody<'a> {
             slice::from_raw_parts(
                 pot_checkpoints
                     .as_ptr()
-                    .cast::<[u8; const { PotCheckpoints::SIZE }]>(),
+                    .cast::<[u8; PotCheckpoints::SIZE]>(),
                 num_pot_checkpoints,
             )
         };
@@ -826,9 +820,7 @@ impl<'a> BeaconChainBody<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };
@@ -851,7 +843,7 @@ impl<'a> BeaconChainBody<'a> {
             slice::from_raw_parts(
                 pot_checkpoints
                     .as_ptr()
-                    .cast::<[u8; const { PotCheckpoints::SIZE }]>(),
+                    .cast::<[u8; PotCheckpoints::SIZE]>(),
                 num_pot_checkpoints,
             )
         };
@@ -1204,9 +1196,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 // SAFETY: Valid pointer and size, no alignment requirements
                 let own_segment_roots = unsafe {
                     slice::from_raw_parts(
-                        own_segment_roots
-                            .as_ptr()
-                            .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                        own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                         num_own_segment_roots,
                     )
                 };
@@ -1245,7 +1235,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of segment roots.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<const { u64::from(u16::MAX) }, _, _>(
+        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
             self.iter().map(|shard_block_info| {
                 shard_block_info
                     .segments
@@ -1267,7 +1257,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<const { u64::from(u16::MAX) }, _, _>(
+        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
             self.iter().map(|shard_block_info| {
                 // Hash the root again so we can prove it, otherwise root of headers is
                 // indistinguishable from individual block roots and can be used to confuse
@@ -1340,9 +1330,7 @@ impl<'a> IntermediateShardBody<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };
@@ -1405,9 +1393,7 @@ impl<'a> IntermediateShardBody<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };
@@ -1571,7 +1557,7 @@ impl<'a> Transactions<'a> {
     /// Returns the default value for an empty collection of transactions.
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<const { u64::from(u32::MAX) }, _, _>(
+        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
             self.iter().map(|transaction| {
                 // Hash the hash again so we can prove it, otherwise root of transactions is
                 // indistinguishable from individual transaction roots and can be used to
@@ -1644,9 +1630,7 @@ impl<'a> LeafShardBody<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };
@@ -1709,9 +1693,7 @@ impl<'a> LeafShardBody<'a> {
             // SAFETY: Valid pointer and size, no alignment requirements
             let own_segment_roots = unsafe {
                 slice::from_raw_parts(
-                    own_segment_roots
-                        .as_ptr()
-                        .cast::<[u8; const { SegmentRoot::SIZE }]>(),
+                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
                     num_own_segment_roots,
                 )
             };

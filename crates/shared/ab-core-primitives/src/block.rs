@@ -107,13 +107,13 @@ impl BlockNumber {
 
     /// Create block number from bytes
     #[inline(always)]
-    pub const fn from_bytes(bytes: [u8; const { Self::SIZE }]) -> Self {
+    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
         Self(u64::from_le_bytes(bytes))
     }
 
     /// Convert block number to bytes
     #[inline(always)]
-    pub const fn to_bytes(self) -> [u8; const { Self::SIZE }] {
+    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
         self.0.to_le_bytes()
     }
 
@@ -280,7 +280,7 @@ impl BlockRoot {
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         let value = Blake3Hash::slice_from_repr(value);
         // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
@@ -288,7 +288,7 @@ impl BlockRoot {
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
         let value = unsafe { mem::transmute::<&[Self], &[Blake3Hash]>(value) };
         Blake3Hash::repr_from_slice(value)

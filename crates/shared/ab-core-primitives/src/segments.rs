@@ -126,7 +126,7 @@ impl SuperSegmentIndex {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct SuperSegmentRoot([u8; const { SuperSegmentRoot::SIZE }]);
+pub struct SuperSegmentRoot([u8; SuperSegmentRoot::SIZE]);
 
 impl fmt::Debug for SuperSegmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -147,12 +147,12 @@ const impl Default for SuperSegmentRoot {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SuperSegmentRootBinary(#[serde(with = "BigArray")] [u8; const { SuperSegmentRoot::SIZE }]);
+struct SuperSegmentRootBinary(#[serde(with = "BigArray")] [u8; SuperSegmentRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SuperSegmentRootHex(#[serde(with = "hex")] [u8; const { SuperSegmentRoot::SIZE }]);
+struct SuperSegmentRootHex(#[serde(with = "hex")] [u8; SuperSegmentRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for SuperSegmentRoot {
@@ -319,7 +319,7 @@ impl SuperSegment {
         // TODO: Keyed hash
         let maybe_super_segment_root =
             UnbalancedMerkleTree::compute_root_only::<
-                const { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
+                { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
                 _,
                 _,
             >(segment_roots.iter().map(ShardSegmentRootWithPosition::hash))?;
@@ -345,7 +345,7 @@ impl SuperSegment {
         // TODO: Keyed hash
         let mut segment_proof = SegmentProof::default();
         UnbalancedMerkleTree::compute_root_and_proof_in::<
-            const { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
+            { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
             _,
             _,
         >(
@@ -541,10 +541,8 @@ impl SegmentIndex {
 
     /// List of piece indexes that belong to this segment
     #[inline]
-    pub fn segment_piece_indexes(
-        &self,
-    ) -> [PieceIndex; const { RecordedHistorySegment::NUM_PIECES }] {
-        let mut piece_indices = [PieceIndex::ZERO; const { RecordedHistorySegment::NUM_PIECES }];
+    pub fn segment_piece_indexes(&self) -> [PieceIndex; RecordedHistorySegment::NUM_PIECES] {
+        let mut piece_indices = [PieceIndex::ZERO; RecordedHistorySegment::NUM_PIECES];
         (self.first_piece_index()..=self.last_piece_index())
             .zip(&mut piece_indices)
             .for_each(|(input, output)| {
@@ -572,7 +570,7 @@ impl SegmentIndex {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
-pub struct SegmentRoot([u8; const { SegmentRoot::SIZE }]);
+pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
 
 impl fmt::Debug for SegmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -586,12 +584,12 @@ impl fmt::Debug for SegmentRoot {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SegmentRootBinary(#[serde(with = "BigArray")] [u8; const { SegmentRoot::SIZE }]);
+struct SegmentRootBinary(#[serde(with = "BigArray")] [u8; SegmentRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SegmentRootHex(#[serde(with = "hex")] [u8; const { SegmentRoot::SIZE }]);
+struct SegmentRootHex(#[serde(with = "hex")] [u8; SegmentRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 impl Serialize for SegmentRoot {
@@ -650,14 +648,14 @@ impl SegmentRoot {
 
     /// Convenient conversion from a slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; const { Self::SIZE }]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
     /// Convenient conversion to a slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; const { Self::SIZE }]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
         // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -880,7 +878,7 @@ impl SegmentHeader {
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
 #[repr(C)]
-pub struct RecordedHistorySegment([Record; const { Self::NUM_RAW_RECORDS }]);
+pub struct RecordedHistorySegment([Record; Self::NUM_RAW_RECORDS]);
 
 impl fmt::Debug for RecordedHistorySegment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -913,7 +911,7 @@ impl RecordedHistorySegment {
     /// Number of pieces in one segment of archived history (taking erasure coding rate into
     /// account)
     pub const NUM_PIECES: usize =
-        const { Self::NUM_RAW_RECORDS * Self::ERASURE_CODING_RATE.1 / Self::ERASURE_CODING_RATE.0 };
+        Self::NUM_RAW_RECORDS * Self::ERASURE_CODING_RATE.1 / Self::ERASURE_CODING_RATE.0;
     /// Size of recorded history segment in bytes.
     ///
     /// It includes half of the records (just source records) that will later be erasure coded and
