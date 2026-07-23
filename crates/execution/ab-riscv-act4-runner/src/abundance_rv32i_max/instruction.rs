@@ -93,10 +93,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<
-        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
-        ExecutionError<Reg::Type, CustomError>,
-    > {
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
         Ok(ControlFlow::Continue(Default::default()))
     }
 }

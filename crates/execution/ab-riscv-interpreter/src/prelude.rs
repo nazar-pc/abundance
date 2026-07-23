@@ -34,7 +34,8 @@ pub use crate::zvbb::zvkb::zvkb_helpers;
 pub use crate::zvbc::zvbc_helpers;
 pub use crate::{
     BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
-    ExecutableInstructionOperands, ExecutionError, FetchInstructionResult, InstructionFetcher,
-    ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    ExecutableInstructionOperands, ExecutableInstructionResult, ExecutionError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };

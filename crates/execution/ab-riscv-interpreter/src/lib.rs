@@ -113,6 +113,11 @@
     ),
     feature(riscv_ext_intrinsics)
 )]
+// TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
+#![cfg_attr(
+    feature = "no-panic",
+    expect(clippy::no_effect_underscore_binding, reason = "False-positive")
+)]
 #![no_std]
 
 pub mod basic;
@@ -605,6 +610,18 @@ where
     }
 }
 
+/// Type alias for the result returned by [`ExecutableInstruction::execute`]
+pub type ExecutableInstructionResult<T, I, CustomError> = Result<
+    ControlFlow<
+        T,
+        (
+            <I as Instruction>::Reg,
+            <<I as Instruction>::Reg as Register>::Type,
+        ),
+    >,
+    ExecutionError<Address<I>, CustomError>,
+>;
+
 /// Trait for executable instructions
 pub trait ExecutableInstruction<
     Regs,
@@ -626,7 +643,6 @@ pub trait ExecutableInstruction<
     /// into the register file. In most cases this is the only register that needs to be written. If
     /// no value needs to be written, `Ok(ControlFlow::Continue(Default::default()))` should be
     /// returned, which corresponds to `Ok(ControlFlow::Continue(Reg::ZERO, 0))` and is no-op.
-    #[expect(clippy::type_complexity, reason = "Generic return type")]
     fn execute(
         self,
         rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
@@ -635,8 +651,5 @@ pub trait ExecutableInstruction<
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<
-        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
-        ExecutionError<Address<Self>, CustomError>,
-    >;
+    ) -> ExecutableInstructionResult<(), Self, CustomError>;
 }
