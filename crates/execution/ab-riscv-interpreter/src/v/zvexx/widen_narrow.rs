@@ -17,10 +17,13 @@ use core::fmt;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for ZveXxWidenNarrowInstruction<Reg> where Reg: Register {}
+const impl<Reg> ExecutableInstructionOperands for ZveXxWidenNarrowInstruction<Reg> where
+    Reg: Register
+{
+}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for ZveXxWidenNarrowInstruction<Reg>
 where
     Reg: Register,

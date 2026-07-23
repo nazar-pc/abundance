@@ -19,7 +19,8 @@ use core::fmt;
 ///
 /// All instructions use the OP-V major opcode (0b101_0111).
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxWidenNarrowInstruction<Reg> {

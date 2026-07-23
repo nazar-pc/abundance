@@ -15,7 +15,8 @@ use core::fmt;
     ignore = [Rv64ZkndInstruction],
     inherit = [Rv64ZkndInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZkneInstruction<Reg> {
     /// AES final round encryption: ShiftRows + SubBytes, no MixColumns
     Aes64Es { rd: Reg, rs1: Reg, rs2: Reg },

@@ -3,6 +3,7 @@
 use crate::{CsrError, Csrs};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
+use core::marker::Destruct;
 
 /// CSR privilege level check helper.
 ///
@@ -12,13 +13,14 @@ use core::hint::cold_path;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_csr_privilege_level<Reg, C, CustomError>(
+pub const fn check_csr_privilege_level<Reg, C, CustomError>(
     csrs: &C,
     csr_index: u16,
 ) -> Result<(), CsrError<CustomError>>
 where
-    Reg: Register,
-    C: Csrs<Reg, CustomError>,
+    Reg: [const] Register,
+    C: [const] Csrs<Reg, CustomError>,
+    CustomError: [const] Destruct,
 {
     let current = csrs.privilege_level();
     let required_bits = ((csr_index >> 8u8) & 0b11) as u8;

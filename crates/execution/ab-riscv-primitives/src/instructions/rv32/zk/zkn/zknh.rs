@@ -23,7 +23,8 @@ use core::fmt;
 /// `x[63:32] = X(rs2), x[31:0] = X(rs1)` (rs2 is the HIGH half) and writes the low 32 bits of the
 /// result to `rd`.
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZknhInstruction<Reg> {
     // SHA-256 (single-register, identical encoding to RV64)
     Sha256Sig0 { rd: Reg, rs1: Reg },

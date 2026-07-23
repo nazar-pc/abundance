@@ -39,7 +39,8 @@ use core::fmt;
 #[instruction(
     inherit = [ZveXxInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum ZvkbInstruction<Reg> {
     // vandn: vd[i] = ~vs1[i] & vs2[i]  (or ~rs1 & vs2[i])

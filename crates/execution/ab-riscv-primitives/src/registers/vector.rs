@@ -3,7 +3,8 @@
 use core::fmt;
 
 /// RISC-V vector register (v0-v31)
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum VReg {
     /// Vector register v0 (also used as mask register)
@@ -134,7 +135,8 @@ impl fmt::Debug for VReg {
 
 // TODO: CSR composition?
 /// Vector CSR addresses
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum VectorCsr {
     /// Vector start element index (URW)
     Vstart,

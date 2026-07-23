@@ -11,7 +11,8 @@ use core::fmt;
 
 /// RISC-V RV64 M instruction
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64MInstruction<Reg> {
     Mul { rd: Reg, rs1: Reg, rs2: Reg },
     Mulh { rd: Reg, rs1: Reg, rs2: Reg },

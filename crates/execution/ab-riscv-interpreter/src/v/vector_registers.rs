@@ -3,6 +3,7 @@
 use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::marker::Destruct;
 
 pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
 
@@ -23,16 +24,16 @@ const impl<const VLEN: Vlen> Default for VectorRegisterFile<VLEN> {
 impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Get reference to a vector register
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    pub const fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
     }
 
     /// Get mutable reference to a vector register
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    pub const fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
     }
@@ -41,7 +42,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
 /// Base for [`VectorRegisters`].
 ///
 /// This is primarily a workaround for type system cycles.
-pub trait VectorRegistersBase {
+pub const trait VectorRegistersBase {
     /// Maximum vector element width `ELEN` in bits
     const ELEN: Elen;
     /// Vector register width `VLEN` in bits
@@ -64,9 +65,9 @@ pub trait VectorRegistersBase {
 /// loads.
 ///
 /// `ELEN` is the maximum element width in bits.
-pub trait VectorRegisters<CustomError = CustomErrorPlaceholder>
+pub const trait VectorRegisters<CustomError = CustomErrorPlaceholder>
 where
-    Self: VectorRegistersBase,
+    Self: [const] VectorRegistersBase,
     [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
 {
     /// Read the vector register file
@@ -93,14 +94,14 @@ where
     /// sophisticated implementations may return values in `[ceil(AVL/2), VLMAX]` for
     /// `AVL < 2*VLMAX`, but this simple strategy satisfies all three spec requirements.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn compute_vl(&self, avl: Vl, vlmax: Vl) -> Vl {
         avl.min(vlmax)
     }
 
     /// Compute `VLMAX` for a given vtype
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl {
         vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
     }
@@ -115,19 +116,19 @@ where
 /// higher-performance implementations are often possible by overriding them and, for example,
 /// caching various CSRs as separate pre-decoded values rather than going through a generic code
 /// path with XLEN-sized raw CSR values during reads.
-pub trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
+pub const trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
 where
-    Self: Csrs<Reg, CustomError> + VectorRegisters<CustomError>,
+    Self: [const] Csrs<Reg, CustomError> + [const] VectorRegisters<CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
-    Reg: Register,
-    CustomError: fmt::Debug,
+    Reg: [const] Register,
+    CustomError: [const] Destruct + fmt::Debug,
 {
     /// Initialize the vector state to the recommended default configuration.
     ///
     /// Per spec: `vtype.vill` = 1, remaining `vtype` bits = `0`, `vl` = 0.
     /// `vstart`, `vxrm`, `vxsat` may have arbitrary values at reset but are zeroed here for
     /// deterministic behavior.
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn initialize_vector_state(&mut self) {
         self.set_vtype(None);
         self.set_vl(Vl::ZERO);
@@ -138,7 +139,7 @@ where
 
     /// Get current `vstart`
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn vstart(&self) -> Vstart {
         let raw = self
             .read_csr(VectorCsr::Vstart.to_csr_index())
@@ -152,7 +153,7 @@ where
     /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
     /// debug.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vstart(&mut self, vstart: Vstart) {
         let result = self.write_csr(
             VectorCsr::Vstart.to_csr_index(),
@@ -168,14 +169,14 @@ where
     ///
     /// Per spec, all vector instructions reset `vstart` to zero at the end of execution.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn reset_vstart(&mut self) {
         self.set_vstart(Vstart::ZERO);
     }
 
     /// Get `vxsat` (single bit)
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn vxsat(&self) -> bool {
         let raw = self
             .read_csr(VectorCsr::Vxsat.to_csr_index())
@@ -189,7 +190,7 @@ where
     /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
     /// debug.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vxsat(&mut self, vxsat: bool) {
         let masked = Reg::Type::from(u8::from(vxsat));
         let result = self.write_csr(VectorCsr::Vxsat.to_csr_index(), masked);
@@ -205,7 +206,7 @@ where
 
     /// Get `vxrm`
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn vxrm(&self) -> Vxrm {
         let raw = self
             .read_csr(VectorCsr::Vxrm.to_csr_index())
@@ -219,7 +220,7 @@ where
     /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
     /// debug.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vxrm(&mut self, vxrm: Vxrm) {
         let masked = Reg::Type::from(vxrm.to_bits());
         let result = self.write_csr(VectorCsr::Vxrm.to_csr_index(), masked);
@@ -235,7 +236,7 @@ where
 
     /// Get the current vl
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn vl(&self) -> Vl {
         let vl = self
             .read_csr(VectorCsr::Vl.to_csr_index())
@@ -253,7 +254,7 @@ where
     /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
     /// debug.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vl(&mut self, vl: Vl) {
         let result = self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(u32::from(vl)));
         debug_assert!(result.is_ok(), "Implementation must initialize `vl` CSR");
@@ -261,7 +262,7 @@ where
 
     /// Get the current decoded vtype
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
         self.read_csr(VectorCsr::Vtype.to_csr_index())
             .ok()
@@ -276,7 +277,7 @@ where
     /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
     /// debug.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
         let vtype_raw = if let Some(vt) = vtype {
             vt.to_raw::<Reg>()

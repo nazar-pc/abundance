@@ -14,10 +14,7 @@ use std::ops::ControlFlow;
 pub(crate) enum MachineModePlaceholder<Reg> {}
 
 #[instruction]
-const impl<Reg> Instruction for MachineModePlaceholder<Reg>
-where
-    Reg: [const] Register,
-{
+const impl<Reg> Instruction for MachineModePlaceholder<Reg> {
     type Reg = Reg;
 
     #[inline(always)]

@@ -220,9 +220,9 @@ pub struct BasicMemory<const BASE_ADDR: u64, const SIZE: usize> {
     data: [u8; SIZE],
 }
 
-impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE_ADDR, SIZE> {
+const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE_ADDR, SIZE> {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
     where
         T: BasicInt,
@@ -249,7 +249,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
     }
 
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     unsafe fn read_unchecked<T>(&self, address: u64) -> T
     where
         T: BasicInt,
@@ -265,7 +265,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
         }
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
         let Some(offset) = address.checked_sub(BASE_ADDR) else {
             cold_path();
@@ -279,11 +279,11 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
 
         self.data
             .get(offset as usize..)
-            .and_then(|data| data.get(..len as usize))
+            .and_then(const |data| data.get(..len as usize))
             .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
         let Some(offset) = address.checked_sub(BASE_ADDR) else {
             cold_path();
@@ -300,7 +300,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
     }
 
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt,
@@ -327,7 +327,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
         Ok(())
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
         let Some(offset) = address.checked_sub(BASE_ADDR) else {
             cold_path();
@@ -343,7 +343,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE
         let Some(target_data) = self
             .data
             .get_mut(offset as usize..)
-            .and_then(|data| data.get_mut(..len))
+            .and_then(const |data| data.get_mut(..len))
         else {
             cold_path();
             return Err(VirtualMemoryError::OutOfBoundsWrite { address });
@@ -367,7 +367,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
     ///
     /// This is primarily useful for setting up the program and should not be used beyond that.
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn get_mut_bytes(
+    pub const fn get_mut_bytes(
         &mut self,
         address: u64,
         size: usize,
@@ -381,7 +381,7 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
         let Some(slice) = self
             .data
             .get_mut(offset..)
-            .and_then(|data| data.get_mut(..size))
+            .and_then(const |data| data.get_mut(..size))
         else {
             cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address });
@@ -409,11 +409,11 @@ where
     _phantom: PhantomData<CustomError>,
 }
 
-impl<I, Memory, CustomError> ProgramCounter<Address<I>, Memory, CustomError>
+const impl<I, Memory, CustomError> ProgramCounter<Address<I>, Memory, CustomError>
     for BasicInstructionFetcher<I, CustomError>
 where
-    I: Instruction,
-    Memory: VirtualMemory,
+    I: [const] Instruction,
+    Memory: [const] VirtualMemory,
 {
     #[inline(always)]
     fn get_pc(&self) -> Address<I> {
@@ -421,7 +421,7 @@ where
     }
 
     #[inline]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_pc(
         &mut self,
         _memory: &Memory,
@@ -443,19 +443,19 @@ where
     }
 }
 
-impl<I, Memory, CustomError> InstructionFetcher<I, Memory, CustomError>
+const impl<I, Memory, CustomError> InstructionFetcher<I, Memory, CustomError>
     for BasicInstructionFetcher<I, CustomError>
 where
-    I: Instruction,
-    Memory: VirtualMemory,
+    I: [const] Instruction,
+    Memory: [const] VirtualMemory,
 {
     #[inline]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn fetch_instruction(
         &mut self,
         memory: &Memory,
     ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
-        let instruction = match memory.read(self.pc.as_u64()).or_else(|error| {
+        let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
             if let Ok(instruction) = memory.read::<u16>(self.pc.as_u64())
@@ -491,7 +491,7 @@ where
     /// `return_trap_address` is the address at which the interpreter will stop execution
     /// (gracefully).
     #[inline(always)]
-    pub fn new(return_trap_address: Address<I>, pc: Address<I>) -> Self {
+    pub const fn new(return_trap_address: Address<I>, pc: Address<I>) -> Self {
         Self {
             return_trap_address,
             pc,
@@ -505,15 +505,14 @@ where
 #[derive(Debug, Default, Clone, Copy)]
 pub struct IllegalEcallSystemInstructionHandler;
 
-impl<Reg, Regs, Memory, PC, CustomError>
+const impl<Reg, Regs, Memory, PC, CustomError>
     SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>
     for IllegalEcallSystemInstructionHandler
 where
-    Reg: Register,
-    Regs: RegisterFile<Reg>,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    Reg: [const] Register,
+    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
 {
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn handle_ecall(
         &mut self,
         _regs: &mut Regs,

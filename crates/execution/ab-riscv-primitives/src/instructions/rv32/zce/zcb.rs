@@ -16,7 +16,8 @@ use core::fmt;
 #[instruction(
     inherit = [Rv32ZcaInstruction, Rv32ZcbOnlyInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZcbInstruction<Reg> {}
 
 #[instruction]
@@ -55,7 +56,8 @@ where
 
 /// Instruction that contains isolated Zcb instructions without inheriting Zca for testing purposes
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum Rv32ZcbOnlyInstruction<Reg> {

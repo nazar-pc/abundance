@@ -20,7 +20,7 @@ pub const trait Instruction:
     fmt::Display + fmt::Debug + [const] Destruct + Copy + Send + Sync + Sized
 {
     /// A register type used by the instruction
-    type Reg: Register;
+    type Reg: [const] Register;
 
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;

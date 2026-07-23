@@ -12,10 +12,10 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for ZicondInstruction<Reg> where Reg: Register {}
+const impl<Reg> ExecutableInstructionOperands for ZicondInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for ZicondInstruction<Reg>
 where
     Reg: Register,
@@ -23,15 +23,15 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for ZicondInstruction<Reg>
 where
-    Reg: Register,
-    Regs: RegisterFile<Reg>,
+    Reg: [const] Register,
+    Regs: [const] RegisterFile<Reg>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {

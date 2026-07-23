@@ -17,10 +17,13 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for Rv64ZkneInstruction<Reg> where Reg: Register<Type = u64> {}
+const impl<Reg> ExecutableInstructionOperands for Rv64ZkneInstruction<Reg> where
+    Reg: Register<Type = u64>
+{
+}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Rv64ZkneInstruction<Reg>
 where
     Reg: Register<Type = u64>,

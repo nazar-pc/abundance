@@ -11,7 +11,8 @@ use core::fmt;
 /// 2-bit byte-select immediate for RV32 AES instructions.
 ///
 /// Selects which byte of `rs2` is fed into the S-box: `bs ∈ {0,1,2,3}`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Rv32AesBs {
     B0 = 0,
@@ -56,7 +57,8 @@ impl Rv32AesBs {
 
 /// RISC-V RV32 Zknd instructions (AES decryption)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZkndInstruction<Reg> {
     /// AES final round decryption step: InvSubBytes on one byte of rs2,
     /// rotated to the byte lane selected by bs, XOR'd into rs1.

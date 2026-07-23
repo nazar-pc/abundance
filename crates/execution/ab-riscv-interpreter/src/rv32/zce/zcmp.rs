@@ -14,13 +14,13 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for Rv32ZcmpInstruction<Reg> where
+const impl<Reg> ExecutableInstructionOperands for Rv32ZcmpInstruction<Reg> where
     Reg: ZcmpRegister<Type = u32>
 {
 }
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Rv32ZcmpInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u32>,
@@ -53,13 +53,13 @@ where
 }
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for Rv32ZcmpOnlyInstruction<Reg> where
+const impl<Reg> ExecutableInstructionOperands for Rv32ZcmpOnlyInstruction<Reg> where
     Reg: ZcmpRegister<Type = u32>
 {
 }
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Rv32ZcmpOnlyInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u32>,

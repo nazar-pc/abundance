@@ -1,7 +1,7 @@
 [package]
 name = "ab-riscv-interpreter"
 description = "Composable and generic RISC-V interpreter"
-keywords = ["riscv", "risc-v", "interpreter", "no-std"]
+keywords = ["riscv", "risc-v", "interpreter", "no-std", "const"]
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/execution/ab-riscv-interpreter"
 license = "0BSD"

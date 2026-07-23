@@ -9,11 +9,13 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for Rv32ZmmulInstruction<Reg> where Reg: Register<Type = u32>
-{}
+const impl<Reg> ExecutableInstructionOperands for Rv32ZmmulInstruction<Reg> where
+    Reg: Register<Type = u32>
+{
+}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Rv32ZmmulInstruction<Reg>
 where
     Reg: Register<Type = u32>,
@@ -21,14 +23,14 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for Rv32ZmmulInstruction<Reg>
 where
-    Reg: Register<Type = u32>,
+    Reg: [const] Register<Type = u32>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {

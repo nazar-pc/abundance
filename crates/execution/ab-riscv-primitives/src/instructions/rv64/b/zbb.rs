@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V RV64 Zbb instruction (Basic bit manipulation)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZbbInstruction<Reg> {
     // RV64 Zbb instructions
     Andn { rd: Reg, rs1: Reg, rs2: Reg },

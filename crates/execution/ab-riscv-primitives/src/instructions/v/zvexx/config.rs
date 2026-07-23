@@ -13,7 +13,8 @@ use core::fmt;
 /// These instructions set the vector type (`vtype`) and vector length (`vl`) registers. They use
 /// the OP-V major opcode (0b101_0111) with funct3=0b111 (OPCFG).
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxConfigInstruction<Reg> {

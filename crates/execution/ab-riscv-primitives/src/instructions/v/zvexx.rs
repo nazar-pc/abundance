@@ -63,7 +63,8 @@ use core::fmt;
         ZicsrInstruction,
     ],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum ZveXxInstruction<Reg> {}
 
 #[instruction]

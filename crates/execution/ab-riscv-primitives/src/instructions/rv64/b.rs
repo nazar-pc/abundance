@@ -17,7 +17,8 @@ use core::fmt;
 #[instruction(
     inherit = [Rv64ZbaInstruction, Rv64ZbbInstruction, Rv64ZbsInstruction]
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64BInstruction<Reg> {}
 
 #[instruction]

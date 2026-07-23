@@ -17,6 +17,7 @@ use core::ops::{
 pub const trait RegType
 where
     Self: [const] Default
+        + [const] Destruct
         + [const] From<bool>
         + [const] From<u8>
         + [const] From<u16>

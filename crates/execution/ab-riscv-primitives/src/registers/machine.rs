@@ -4,7 +4,8 @@ use crate::registers::general_purpose::{RegType, Register};
 
 // TODO: CSR composition?
 /// Machine CSR addresses (core mandatory registers from the Privileged Spec)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u16)]
 pub enum MCsr {
     /// Machine vendor ID register (MRO)
@@ -61,7 +62,8 @@ impl MCsr {
 }
 
 /// Machine exception causes (`mcause[XLEN‑1] = 0`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u32)]
 pub enum MCauseException {
     /// Instruction address misaligned
@@ -130,7 +132,8 @@ impl MCauseException {
 }
 
 /// Machine interrupt causes (`mcause[XLEN‑1] = 1`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u32)]
 pub enum MCauseInterrupt {
     /// User software interrupt
@@ -184,7 +187,8 @@ impl MCauseInterrupt {
 }
 
 /// Combined `mcause` CSR value
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum MCause {
     Exception(MCauseException),
     Interrupt(MCauseInterrupt),

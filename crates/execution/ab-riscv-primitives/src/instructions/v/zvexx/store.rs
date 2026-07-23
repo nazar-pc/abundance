@@ -16,7 +16,8 @@ use core::fmt;
 /// Encoded under the STORE-FP major opcode (0x27). All stores use rs1 (GPR) as a base address and
 /// vs3 (vector register) as a source.
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxStoreInstruction<Reg> {

@@ -13,7 +13,8 @@
 //! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> that ensures
 //! correct implementation.
 //!
-//! Does not require a standard library (`no_std`) or an allocator, never panics.
+//! Does not require a standard library (`no_std`) or an allocator, never panics, almost 100% of the
+//! API abstractions are usable in const, including several extensions beyond base ISA.
 //!
 //! ## Supported ISA variants and extensions
 //!
@@ -61,11 +62,17 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
     adt_const_params,
+    const_closures,
     const_cmp,
     const_convert,
     const_default,
+    const_destruct,
     const_index,
+    const_ops,
+    const_option_ops,
+    const_result_trait_fn,
     const_trait_impl,
+    const_try,
     generic_const_args,
     generic_const_items,
     inherent_associated_types,
@@ -75,7 +82,6 @@
     signed_bigint_helpers,
     widening_mul
 )]
-#![cfg_attr(feature = "no-panic", feature(const_closures))]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),
@@ -135,6 +141,7 @@ use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::cold_path;
+use core::marker::Destruct;
 use core::ops::{ControlFlow, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
@@ -191,7 +198,7 @@ impl BasicInt for i32 {}
 impl BasicInt for i64 {}
 
 /// Virtual memory interface
-pub trait VirtualMemory {
+pub const trait VirtualMemory {
     /// Read a value from memory at the specified address
     fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
     where
@@ -250,7 +257,7 @@ pub enum ProgramCounterError<Address, CustomError = CustomErrorPlaceholder> {
 }
 
 /// Generic program counter
-pub trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> {
+pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> {
     /// Get the current value of the program counter
     fn get_pc(&self) -> Address;
 
@@ -260,10 +267,10 @@ pub trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> 
     /// advanced during instruction fetching. As such, `pc - instruction_size` is expected to never
     /// underflow.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn old_pc(&self, instruction_size: u8) -> Address
     where
-        Address: From<u8> + Sub<Output = Address>,
+        Address: [const] From<u8> + [const] Sub<Output = Address>,
     {
         // TODO: Wrapping subtraction would be nice, but causes a lot of additional generic bounds
         //  that are bad for ergonomics
@@ -283,10 +290,10 @@ pub trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> 
 pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
     /// Program counter error
     #[error("Program counter error: {0}")]
-    ProgramCounter(#[from] ProgramCounterError<Address, CustomError>),
+    ProgramCounter(ProgramCounterError<Address, CustomError>),
     /// Memory access error
     #[error("Memory access error: {0}")]
-    MemoryAccess(#[from] VirtualMemoryError),
+    MemoryAccess(VirtualMemoryError),
     /// Unsupported `ecall` instruction
     #[error("Unsupported `ecall` instruction at address {address:#x}")]
     EcallUnsupported {
@@ -309,10 +316,35 @@ pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
     },
     /// CSR error
     #[error("CSR error: {0}")]
-    CsrError(#[from] CsrError<CustomError>),
+    CsrError(CsrError<CustomError>),
     /// Custom error
     #[error("Custom error: {0}")]
     Custom(CustomError),
+}
+
+const impl<Address, CustomError> From<ProgramCounterError<Address, CustomError>>
+    for ExecutionError<Address, CustomError>
+{
+    #[inline(always)]
+    fn from(value: ProgramCounterError<Address, CustomError>) -> Self {
+        Self::ProgramCounter(value)
+    }
+}
+
+const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Address, CustomError> {
+    #[inline(always)]
+    fn from(value: VirtualMemoryError) -> Self {
+        Self::MemoryAccess(value)
+    }
+}
+
+const impl<Address, CustomError> From<CsrError<CustomError>>
+    for ExecutionError<Address, CustomError>
+{
+    #[inline(always)]
+    fn from(value: CsrError<CustomError>) -> Self {
+        Self::CsrError(value)
+    }
 }
 
 /// Result of [`InstructionFetcher::fetch_instruction()`] call
@@ -325,7 +357,7 @@ pub enum FetchInstructionResult<Instruction> {
 }
 
 /// Generic instruction fetcher
-pub trait InstructionFetcher<I, Memory, CustomError = CustomErrorPlaceholder>
+pub const trait InstructionFetcher<I, Memory, CustomError = CustomErrorPlaceholder>
 where
     Self: ProgramCounter<Address<I>, Memory, CustomError>,
     I: Instruction,
@@ -384,9 +416,10 @@ pub enum CsrError<CustomError = CustomErrorPlaceholder> {
 }
 
 /// CSRs (Control and Status Registers)
-pub trait Csrs<Reg, CustomError = CustomErrorPlaceholder>
+pub const trait Csrs<Reg, CustomError = CustomErrorPlaceholder>
 where
-    Reg: Register,
+    Reg: [const] Register,
+    CustomError: [const] Destruct,
 {
     /// Current privilege level
     #[inline(always)]
@@ -408,14 +441,14 @@ where
     /// fine most of the time but can be overridden in special cases or for testing purposes.
     #[doc(hidden)]
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn process_csr_read<I>(
         &self,
         csr_index: u16,
         raw_value: Reg::Type,
     ) -> Result<Reg::Type, CsrError<CustomError>>
     where
-        I: ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
+        I: [const] ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
     {
         let mut out = Reg::Type::default();
         match I::prepare_csr_read(self, csr_index, raw_value, &mut out) {
@@ -440,14 +473,14 @@ where
     /// purposes.
     #[doc(hidden)]
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn process_csr_write<I>(
         &mut self,
         csr_index: u16,
         write_value: Reg::Type,
     ) -> Result<Reg::Type, CsrError<CustomError>>
     where
-        I: ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
+        I: [const] ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
     {
         let mut out = Reg::Type::default();
         match I::prepare_csr_write(self, csr_index, write_value, &mut out) {
@@ -465,10 +498,14 @@ where
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
-pub trait SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError = CustomErrorPlaceholder>
-where
+pub const trait SystemInstructionHandler<
+    Reg,
+    Regs,
+    Memory,
+    PC,
+    CustomError = CustomErrorPlaceholder,
+> where
     Reg: Register,
-    Regs: RegisterFile<Reg>,
 {
     // TODO: Figure out the correct API for this method
     /// Handle a `fence` instruction
@@ -535,7 +572,7 @@ pub struct Rs1Rs2OperandValues<RegType> {
 }
 
 /// `rs1`/`rs2` instruction operands
-pub trait ExecutableInstructionOperands
+pub const trait ExecutableInstructionOperands
 where
     Self: Instruction,
 {
@@ -546,7 +583,7 @@ where
     fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
 }
 
-pub trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
+pub const trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
 where
     Self: Instruction,
     ExtState: ?Sized,
@@ -623,7 +660,7 @@ pub type ExecutableInstructionResult<T, I, CustomError> = Result<
 >;
 
 /// Trait for executable instructions
-pub trait ExecutableInstruction<
+pub const trait ExecutableInstruction<
     Regs,
     ExtState,
     Memory,

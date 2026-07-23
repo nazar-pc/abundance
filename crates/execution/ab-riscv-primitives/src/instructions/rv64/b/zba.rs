@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V RV64 Zba instruction (Address generation)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZbaInstruction<Reg> {
     AddUw { rd: Reg, rs1: Reg, rs2: Reg },
     Sh1add { rd: Reg, rs1: Reg, rs2: Reg },

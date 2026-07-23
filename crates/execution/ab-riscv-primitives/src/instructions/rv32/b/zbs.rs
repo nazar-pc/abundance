@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V RV32 Zbs instruction (Single-bit instructions)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZbsInstruction<Reg> {
     // Single-Bit Set
     Bset { rd: Reg, rs1: Reg, rs2: Reg },

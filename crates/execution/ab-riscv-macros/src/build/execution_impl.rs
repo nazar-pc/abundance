@@ -16,7 +16,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter};
-use syn::{Ident, ImplItem, ImplItemFn, ItemImpl, parse_file, parse_quote, parse_str};
+use syn::{
+    Ident, ImplItem, ImplItemFn, ItemImpl, WherePredicate, parse_file, parse_quote, parse_str,
+};
 
 const ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_EXECUTION_IMPL_PATH";
 const ENUM_CSR_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_CSR_IMPL_PATH";
@@ -532,14 +534,18 @@ pub(super) fn process_enum_csr_impl(
     }
 
     // Comments will be stripped, this will suppress some of the lints that are caused by it
-    item_impl.attrs.extend([
+    item_impl.attrs.insert(
+        0,
         parse_quote! { #[expect(clippy::allow_attributes, reason = "Attribute below")] },
+    );
+    item_impl.attrs.insert(
+        1,
         parse_quote! { #[allow(
             clippy::undocumented_unsafe_blocks,
             reason = "Comments will be stripped, this will suppress some of the lints that are \
             caused by it"
         )] },
-    ]);
+    );
 
     output_processed_enum_csr_impl(&enum_name, item_impl, out_dir, state)
 }
@@ -620,6 +626,39 @@ pub(super) fn process_enum_execution_impl(
             already_inserted.insert(predicate.clone());
             where_clause.predicates.push(predicate);
         }
+
+        // TODO: This is a massive hack for implementations that strips `[const]` for non-const
+        //  instructions that inherit const instructions. `Destruct` is a special case here that is
+        //  avoided altogether for non-const implementations to improve downstream user experience.
+        if item_impl.attrs.last() != Some(&parse_quote! { #[cst] }) {
+            where_clause.predicates = where_clause
+                .predicates
+                .clone()
+                .into_iter()
+                .filter_map(|mut predicate| match &mut predicate {
+                    WherePredicate::Type(predicate_type) => {
+                        // TODO: Remove `Destruct` hack once stabilized:
+                        //  https://github.com/rust-lang/rust/issues/133214
+                        if predicate_type.bounds.to_token_stream().to_string()
+                            == "BRCONST + Destruct"
+                        {
+                            return None;
+                        }
+
+                        // TODO: `BRCONST` is a hack that allows `syn` to parse unstable Rust syntax
+                        //  around const traits and such. It will change to a proper modifier once
+                        //  stabilized
+                        if predicate_type.bounds.first() == Some(&parse_quote! { BRCONST }) {
+                            predicate_type.bounds =
+                                predicate_type.bounds.clone().into_iter().skip(1).collect();
+                        }
+
+                        Some(predicate)
+                    }
+                    _ => Some(predicate),
+                })
+                .collect();
+        }
     } else {
         return Err(anyhow::anyhow!(
             "Missing where clause on `#[instruction_execution] impl ExecutableInstruction for \
@@ -659,14 +698,18 @@ pub(super) fn process_enum_execution_impl(
     }};
 
     // Comments will be stripped, this will suppress some of the lints that are caused by it
-    item_impl.attrs.extend([
+    item_impl.attrs.insert(
+        0,
         parse_quote! { #[expect(clippy::allow_attributes, reason = "Attribute below")] },
+    );
+    item_impl.attrs.insert(
+        1,
         parse_quote! { #[allow(
             clippy::undocumented_unsafe_blocks,
             reason = "Comments will be stripped, this will suppress some of the lints that are \
             caused by it"
         )] },
-    ]);
+    );
 
     output_processed_enum_execution_impl(&enum_name, item_impl, out_dir, state)
 }

@@ -12,7 +12,8 @@ use core::fmt;
     ignore = [Rv32MInstruction],
     inherit = [Rv32MInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZmmulInstruction<Reg> {}
 
 #[instruction]

@@ -17,13 +17,17 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
+use core::marker::Destruct;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for Rv64Instruction<Reg> where Reg: Register<Type = u64> {}
+const impl<Reg> ExecutableInstructionOperands for Rv64Instruction<Reg> where
+    Reg: Register<Type = u64>
+{
+}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Rv64Instruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -31,18 +35,19 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for Rv64Instruction<Reg>
 where
-    Reg: Register<Type = u64>,
-    Regs: RegisterFile<Reg>,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    Reg: [const] Register<Type = u64>,
+    Regs: [const] RegisterFile<Reg>,
+    Memory: [const] VirtualMemory,
+    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -235,10 +240,14 @@ where
             Self::Jalr { rd, rs1: _, imm } => {
                 let target = (rs1_value.wrapping_add(i64::from(imm).cast_unsigned())) & !1u64;
                 regs.write(rd, program_counter.get_pc());
-                return program_counter
-                    .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+
+                match program_counter.set_pc(memory, target) {
+                    Ok(control_flow) => Ok(match control_flow {
+                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                        ControlFlow::Break(()) => ControlFlow::Break(()),
+                    }),
+                    Err(err) => Err(ExecutionError::from(err)),
+                }
             }
 
             Self::Sb {
@@ -285,10 +294,15 @@ where
             } => {
                 if rs1_value == rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::from(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -300,10 +314,15 @@ where
             } => {
                 if rs1_value != rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::from(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -315,10 +334,15 @@ where
             } => {
                 if rs1_value.cast_signed() < rs2_value.cast_signed() {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::from(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -330,10 +354,15 @@ where
             } => {
                 if rs1_value.cast_signed() >= rs2_value.cast_signed() {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::from(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -345,10 +374,15 @@ where
             } => {
                 if rs1_value < rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::from(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -360,10 +394,15 @@ where
             } => {
                 if rs1_value >= rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::from(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -385,10 +424,16 @@ where
                 let pc = program_counter.get_pc();
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                 regs.write(rd, pc);
-                return program_counter
+
+                match program_counter
                     .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+                {
+                    Ok(control_flow) => Ok(match control_flow {
+                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                        ControlFlow::Break(()) => ControlFlow::Break(()),
+                    }),
+                    Err(err) => Err(ExecutionError::from(err)),
+                }
             }
 
             Self::Fence { pred, succ } => {
@@ -401,9 +446,13 @@ where
             }
 
             Self::Ecall => {
-                return system_instruction_handler
-                    .handle_ecall(regs, memory, program_counter)
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()));
+                match system_instruction_handler.handle_ecall(regs, memory, program_counter) {
+                    Ok(control_flow) => Ok(match control_flow {
+                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                        ControlFlow::Break(()) => ControlFlow::Break(()),
+                    }),
+                    Err(err) => Err(err),
+                }
             }
             Self::Ebreak => {
                 system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
@@ -412,7 +461,7 @@ where
 
             Self::Unimp => {
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                return Err(ExecutionError::IllegalInstruction { address: old_pc });
+                Err(ExecutionError::IllegalInstruction { address: old_pc })
             }
         }
     }

@@ -51,7 +51,8 @@ use core::fmt;
 #[instruction(
     inherit = [ZvkbInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum ZvbbInstruction<Reg> {
     // vbrev: bit-reverse within each SEW-wide element (element granularity, unlike vbrev8's byte granularity)

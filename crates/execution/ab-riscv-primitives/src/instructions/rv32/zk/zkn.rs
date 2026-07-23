@@ -27,7 +27,8 @@ use core::fmt;
         Rv32ZknhInstruction,
     ]
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZknInstruction<Reg> {}
 
 #[instruction]

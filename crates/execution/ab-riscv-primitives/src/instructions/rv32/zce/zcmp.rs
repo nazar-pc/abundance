@@ -48,7 +48,8 @@ const unsafe impl ZcmpRegister for EReg<u64> {
 
 /// Values 0..=3 are reserved by the spec; only 4..=15 are valid.
 /// Construct via [`ZcmpUrlist::try_from_raw`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 enum ZcmpUrlistInner {
     /// {ra}
@@ -83,11 +84,20 @@ enum ZcmpUrlistInner {
 ///
 /// Only valid values (4..=15, further restricted to 4..=6 for RVE) are
 /// representable; construct via [`ZcmpUrlist::try_from_raw`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct ZcmpUrlist<Reg> {
     inner: ZcmpUrlistInner,
     reg: PhantomData<Reg>,
 }
+
+const impl<Reg> PartialEq<ZcmpUrlist<Reg>> for ZcmpUrlist<Reg> {
+    #[inline(always)]
+    fn eq(&self, other: &ZcmpUrlist<Reg>) -> bool {
+        self.inner == other.inner
+    }
+}
+
+const impl<Reg> Eq for ZcmpUrlist<Reg> {}
 
 impl<Reg> ZcmpUrlist<Reg>
 where
@@ -152,6 +162,7 @@ where
         self.inner as u8
     }
 
+    // TODO: Map iterator isn't const or else this method would be const too
     /// Iterator over the absolute register numbers in this list.
     ///
     /// Order matches the spec push/pop order: ra first, then s0 ascending.
@@ -248,7 +259,8 @@ impl<Reg> fmt::Display for ZcmpUrlist<Reg> {
 #[instruction(
     inherit = [Rv32ZcaInstruction, Rv32ZcmpOnlyInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZcmpInstruction<Reg> {}
 
 #[instruction]
@@ -287,7 +299,8 @@ where
 
 /// Instruction that contains isolated Zcmp instructions without inheriting Zca for testing purposes
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[doc(hidden)]
 pub enum Rv32ZcmpOnlyInstruction<Reg> {
     /// CM.PUSH - push reg_list, decrement sp by `stack_adj`
