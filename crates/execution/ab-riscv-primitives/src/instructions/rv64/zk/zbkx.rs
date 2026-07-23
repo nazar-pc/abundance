@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V RV64 Zbkx instruction (Crossbar permutations)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZbkxInstruction<Reg> {
     Xperm4 { rd: Reg, rs1: Reg, rs2: Reg },
     Xperm8 { rd: Reg, rs1: Reg, rs2: Reg },

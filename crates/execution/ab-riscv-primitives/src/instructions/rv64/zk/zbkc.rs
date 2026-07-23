@@ -12,7 +12,8 @@ use core::fmt;
     ignore = [Rv64ZbcInstruction],
     inherit = [Rv64ZbcInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZbkcInstruction<Reg> {}
 
 #[instruction]

@@ -10,7 +10,8 @@ use core::ops::RangeInclusive;
 use core::{cmp, fmt};
 
 /// Vector start element index
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(Default, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Vstart(u16);
 
 impl fmt::Display for Vstart {
@@ -69,7 +70,8 @@ impl Vstart {
 }
 
 /// Vector length
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(Default, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Vl(u32);
 
 impl fmt::Display for Vl {
@@ -150,7 +152,8 @@ impl Vl {
 }
 
 /// Element length
-#[derive(ConstParamTy, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConstParamTy, Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u32)]
 pub enum Elen {
     /// Element length is 8 bits
@@ -191,7 +194,8 @@ const impl From<Elen> for u32 {
 }
 
 /// Vector length
-#[derive(ConstParamTy, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConstParamTy, Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u32)]
 pub enum Vlen {
     /// Vector length is 8 bits
@@ -253,7 +257,8 @@ pub const SUPPORTED_ELEN_VLEN<const ELEN: Elen, const VLEN: Vlen>: usize = {
 ///
 /// Context status for the vector extension, analogous to `mstatus.FS`.
 /// Located at bits `[10:9]` in the respective status registers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum VsStatus {
     /// Vector unit is off; any vector instruction or CSR access raises illegal instruction
@@ -290,7 +295,8 @@ impl VsStatus {
 /// Encoded in `vtype[2:0]` as a signed 3-bit value.
 /// `LMUL = 2^vlmul` where `vlmul` is sign-extended. Positive values give integer multipliers,
 /// negative values give fractional.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Vlmul {
     /// LMUL = 1 (`vlmul` encoding 0b000)
@@ -447,7 +453,8 @@ impl fmt::Display for Vlmul {
 }
 
 /// Factor by which Vsew width is divided
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum VsewFactor {
     /// Divide width by 2
@@ -469,7 +476,8 @@ impl VsewFactor {
 /// Selected element width (SEW).
 ///
 /// Encoded in `vtype[5:3]` as `vsew`. `SEW = 8 * 2^vsew`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Vsew {
     /// SEW = 8 bits (vsew = 0b000)
@@ -612,7 +620,8 @@ impl fmt::Display for Vsew {
 }
 
 /// Effective element width for vector memory operations
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Eew {
     /// 8-bit elements
@@ -690,7 +699,8 @@ impl fmt::Display for Eew {
 /// Vector fixed-point rounding mode.
 ///
 /// Encoded in the `vxrm` CSR bits `[1:0]` and mirrored in `vcsr[2:1]`.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(Default, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Vxrm {
     /// Round-to-nearest-up (rnu)
@@ -730,7 +740,8 @@ impl Vxrm {
 ///
 /// The raw encoding is XLEN-dependent (vill is at bit XLEN-1), but this decoded form is
 /// XLEN-independent.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub struct Vtype<const ELEN: Elen, const VLEN: Vlen>
 where
     [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,

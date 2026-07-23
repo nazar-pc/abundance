@@ -22,7 +22,8 @@ use core::fmt;
 /// vadc/vsbc produce SEW-wide data results written to vd.
 /// vmadc/vmsbc produce one mask bit per element (carry-out/borrow-out) written to vd.
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxCarryInstruction<Reg> {

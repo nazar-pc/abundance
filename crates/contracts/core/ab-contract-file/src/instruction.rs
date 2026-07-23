@@ -264,10 +264,7 @@ const unsafe impl ZcmpRegister for ContractRegister {
 pub enum ContractInstruction<Reg = ContractRegister> {}
 
 #[instruction]
-const impl<Reg> Instruction for ContractInstruction<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
+const impl<Reg> Instruction for ContractInstruction<Reg> {
     type Reg = Reg;
 
     #[inline(always)]
@@ -297,10 +294,10 @@ where
 }
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for ContractInstruction<Reg> {}
+const impl<Reg> ExecutableInstructionOperands for ContractInstruction<Reg> {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for ContractInstruction<Reg>
 {
 }

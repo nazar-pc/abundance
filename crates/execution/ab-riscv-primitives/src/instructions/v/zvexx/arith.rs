@@ -22,7 +22,8 @@ use core::fmt;
 /// - OPIVX = 0b100: vector-scalar (x register)
 /// - OPIVI = 0b011: vector-immediate (5-bit signed or unsigned)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxArithInstruction<Reg> {

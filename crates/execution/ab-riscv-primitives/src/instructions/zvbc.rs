@@ -39,7 +39,8 @@ use core::fmt;
 #[instruction(
     inherit = [ZveXxInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum ZvbcInstruction<Reg> {
     // vclmul: lower SEW bits of the carry-less 2*SEW product

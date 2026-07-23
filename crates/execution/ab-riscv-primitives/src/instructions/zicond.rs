@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V Zicond instruction (Integer Conditional Operations)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum ZicondInstruction<Reg> {
     /// `czero.eqz rd, rs1, rs2` - move zero to `rd` if `rs2 == 0`, else move `rs1`
     CzeroEqz { rd: Reg, rs1: Reg, rs2: Reg },

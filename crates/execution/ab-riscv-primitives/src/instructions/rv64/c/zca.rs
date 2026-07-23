@@ -11,7 +11,8 @@ use core::fmt;
 
 /// RISC-V RV64 Zca compressed instruction set
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum Rv64ZcaInstruction<Reg> {
     // Quadrant 00

@@ -241,7 +241,6 @@ impl<Regs, I> SystemInstructionHandler<Reg<u32>, Regs, TestMemory, TestInstructi
     for TestInstructionHandler
 where
     I: Instruction<Reg = Reg<u32>>,
-    Regs: RegisterFile<Reg<u32>>,
 {
     #[inline(always)]
     fn handle_ecall(

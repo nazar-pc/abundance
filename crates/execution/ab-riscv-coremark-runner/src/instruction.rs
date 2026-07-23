@@ -21,10 +21,7 @@ type CoremarkRegister = Reg<u64>;
 pub(crate) enum CoremarkInstruction<Reg = CoremarkRegister> {}
 
 #[instruction]
-const impl<Reg> Instruction for CoremarkInstruction<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
+const impl<Reg> Instruction for CoremarkInstruction<Reg> {
     type Reg = Reg;
 
     #[inline(always)]

@@ -10,13 +10,17 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
+use core::marker::Destruct;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for Rv64ZcaInstruction<Reg> where Reg: Register<Type = u64> {}
+const impl<Reg> ExecutableInstructionOperands for Rv64ZcaInstruction<Reg> where
+    Reg: Register<Type = u64>
+{
+}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for Rv64ZcaInstruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -24,18 +28,19 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for Rv64ZcaInstruction<Reg>
 where
-    Reg: Register<Type = u64>,
-    Regs: RegisterFile<Reg>,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    Reg: [const] Register<Type = u64>,
+    Regs: [const] RegisterFile<Reg>,
+    Memory: [const] VirtualMemory,
+    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -147,18 +152,28 @@ where
             }
             Self::CJ { imm } => {
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                return program_counter
+                match program_counter
                     .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+                {
+                    Ok(control_flow) => Ok(match control_flow {
+                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                        ControlFlow::Break(()) => ControlFlow::Break(()),
+                    }),
+                    Err(err) => Err(ExecutionError::ProgramCounter(err)),
+                }
             }
             Self::CBeqz { rs1: _, imm } => {
                 if rs1_value == 0 {
                     let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::ProgramCounter(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -166,10 +181,15 @@ where
             Self::CBnez { rs1: _, imm } => {
                 if rs1_value != 0 {
                     let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                    return program_counter
+                    return match program_counter
                         .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                        .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                        .map_err(ExecutionError::from);
+                    {
+                        Ok(control_flow) => Ok(match control_flow {
+                            ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                            ControlFlow::Break(()) => ControlFlow::Break(()),
+                        }),
+                        Err(err) => Err(ExecutionError::ProgramCounter(err)),
+                    };
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -192,10 +212,13 @@ where
             }
             Self::CJr { rs1: _ } => {
                 let target = rs1_value & !1;
-                return program_counter
-                    .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+                match program_counter.set_pc(memory, target) {
+                    Ok(control_flow) => Ok(match control_flow {
+                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                        ControlFlow::Break(()) => ControlFlow::Break(()),
+                    }),
+                    Err(err) => Err(ExecutionError::ProgramCounter(err)),
+                }
             }
             Self::CMv { rd, rs2: _ } => Ok(ControlFlow::Continue((rd, rs2_value))),
             Self::CEbreak => {
@@ -206,10 +229,13 @@ where
                 let target = rs1_value & !1;
                 let return_addr = program_counter.get_pc();
                 regs.write(Reg::RA, return_addr);
-                return program_counter
-                    .set_pc(memory, target)
-                    .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from);
+                match program_counter.set_pc(memory, target) {
+                    Ok(control_flow) => Ok(match control_flow {
+                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                        ControlFlow::Break(()) => ControlFlow::Break(()),
+                    }),
+                    Err(err) => Err(ExecutionError::ProgramCounter(err)),
+                }
             }
             Self::CAdd { rd, rs2: _ } => {
                 let value = regs.read(rd).wrapping_add(rs2_value);

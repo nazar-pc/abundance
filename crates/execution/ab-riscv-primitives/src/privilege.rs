@@ -7,7 +7,8 @@
 /// `[9:8]` and in `mstatus`/`sstatus` privilege fields.
 ///
 /// The encoding `0b10` is architecturally reserved and is therefore absent.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum PrivilegeLevel {
     /// User / application mode (least privileged)
@@ -22,7 +23,7 @@ pub enum PrivilegeLevel {
 impl PrivilegeLevel {
     /// Create a privilege level from its bit representation
     #[inline(always)]
-    pub fn from_bits(bits: u8) -> Option<Self> {
+    pub const fn from_bits(bits: u8) -> Option<Self> {
         match bits {
             0b00 => Some(Self::User),
             0b01 => Some(Self::Supervisor),

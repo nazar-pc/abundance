@@ -15,7 +15,8 @@
 //! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> that ensures
 //! correct implementation.
 //!
-//! Does not require a standard library (`no_std`) or an allocator, never panics.
+//! Does not require a standard library (`no_std`) or an allocator, never panics, almost 100% of the
+//! API is usable in const.
 //!
 //! ## Supported ISA variants and extensions
 //!
@@ -72,6 +73,7 @@
     const_trait_impl,
     const_try,
     const_try_residual,
+    derive_const,
     exact_div,
     generic_const_args,
     generic_const_items,

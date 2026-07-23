@@ -19,7 +19,8 @@ use core::fmt;
 /// require a 128-bit multiplier). The decoder still recognizes these encodings; the SEW
 /// restriction is enforced at execution time via `vtype`.
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxMulDivInstruction<Reg> {

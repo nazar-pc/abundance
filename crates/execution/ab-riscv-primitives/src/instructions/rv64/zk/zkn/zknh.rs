@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V RV64 Zknh instruction (SHA-256 and SHA-512 sigma functions)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZknhInstruction<Reg> {
     Sha256Sig0 { rd: Reg, rs1: Reg },
     Sha256Sig1 { rd: Reg, rs1: Reg },

@@ -28,6 +28,10 @@ const FROM_BRACKETS_CONST_1: &str = "[const] ";
 const TO_BRACKETS_CONST_1: &str = "BRCONST+";
 const FROM_BRACKETS_CONST_2: &str = " [const] ";
 const TO_BRACKETS_CONST_2: &str = "BRCONST +";
+const FROM_BRACKETS_CONST_3: &str = ": [const]\n        ";
+const TO_BRACKETS_CONST_3: &str = ": BRCONST\n       +";
+const FROM_BRACKETS_CONST_4: &str = ": [const]\n         ";
+const TO_BRACKETS_CONST_4: &str = ": BRCONST\n        +";
 
 /// Replace bits of Rust nightly syntax with something that is technically valid in stable Rust, so
 /// `syn` can parse it
@@ -45,6 +49,8 @@ pub fn pre_process_rust_code(s: &mut str) {
     replace_inplace(s, FROM_IMPL_CONST_REVERT_5, TO_IMPL_CONST_REVERT_5);
     replace_inplace(s, FROM_BRACKETS_CONST_1, TO_BRACKETS_CONST_1);
     replace_inplace(s, FROM_BRACKETS_CONST_2, TO_BRACKETS_CONST_2);
+    replace_inplace(s, FROM_BRACKETS_CONST_3, TO_BRACKETS_CONST_3);
+    replace_inplace(s, FROM_BRACKETS_CONST_4, TO_BRACKETS_CONST_4);
 }
 
 /// The inverse of [`pre_process_rust_code()`]
@@ -57,6 +63,8 @@ pub fn post_process_rust_code(s: &mut str) {
     replace_inplace(s, TO_IMPL_CONST_4, FROM_IMPL_CONST_4);
     replace_inplace(s, TO_BRACKETS_CONST_1, FROM_BRACKETS_CONST_1);
     replace_inplace(s, TO_BRACKETS_CONST_2, FROM_BRACKETS_CONST_2);
+    replace_inplace(s, TO_BRACKETS_CONST_3, FROM_BRACKETS_CONST_3);
+    replace_inplace(s, TO_BRACKETS_CONST_4, FROM_BRACKETS_CONST_4);
 }
 
 fn replace_inplace(mut s: &mut str, from: &str, to: &str) {

@@ -7,8 +7,16 @@ use core::fmt;
 use core::ops::{Shl, Shr};
 
 /// New type for unsigned integers that stores 24-bit numbers
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Hash)]
+#[derive_const(PartialEq, Eq)]
 pub struct U24([u8; 3]);
+
+const impl Default for U24 {
+    #[inline(always)]
+    fn default() -> Self {
+        Self([0; _])
+    }
+}
 
 impl fmt::Debug for U24 {
     #[inline(always)]
@@ -74,14 +82,14 @@ const impl Shr<u8> for &U24 {
     }
 }
 
-impl From<U24> for u32 {
+const impl From<U24> for u32 {
     #[inline(always)]
     fn from(v: U24) -> Self {
         v.to_u32()
     }
 }
 
-impl From<U24> for u64 {
+const impl From<U24> for u64 {
     #[inline(always)]
     fn from(v: U24) -> Self {
         u64::from(v.to_u32())
@@ -113,8 +121,16 @@ impl U24 {
 }
 
 /// New type for signed integers that stores 24-bit numbers
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Hash)]
+#[derive_const(PartialEq, Eq)]
 pub struct I24([u8; 3]);
+
+const impl Default for I24 {
+    #[inline(always)]
+    fn default() -> Self {
+        Self([0; _])
+    }
+}
 
 impl fmt::Debug for I24 {
     #[inline(always)]
@@ -180,14 +196,14 @@ const impl Shr<u8> for &I24 {
     }
 }
 
-impl From<I24> for i32 {
+const impl From<I24> for i32 {
     #[inline(always)]
     fn from(v: I24) -> Self {
         v.to_i32()
     }
 }
 
-impl From<I24> for i64 {
+const impl From<I24> for i64 {
     #[inline(always)]
     fn from(v: I24) -> Self {
         i64::from(v.to_i32())
@@ -221,8 +237,16 @@ impl I24 {
 
 /// New type for signed integers that stores 32-bit numbers with `LOW_ZEROED_BITS` low bits zeroed
 /// and truncated to 24-bits
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Hash)]
+#[derive_const(PartialEq, Eq)]
 pub struct I24WithZeroedBits<const LOW_ZEROED_BITS: u8>([u8; 3]);
+
+const impl<const LOW_ZEROED_BITS: u8> Default for I24WithZeroedBits<LOW_ZEROED_BITS> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self([0; _])
+    }
+}
 
 impl<const LOW_ZEROED_BITS: u8> fmt::Debug for I24WithZeroedBits<LOW_ZEROED_BITS> {
     #[inline(always)]
@@ -252,14 +276,14 @@ impl<const LOW_ZEROED_BITS: u8> fmt::UpperHex for I24WithZeroedBits<LOW_ZEROED_B
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32 {
+const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32 {
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
         v.to_i32()
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i64 {
+const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i64 {
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
         i64::from(v.to_i32())

@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V RV32 Zba instruction (Address generation)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZbaInstruction<Reg> {
     Sh1add { rd: Reg, rs1: Reg, rs2: Reg },
     Sh2add { rd: Reg, rs1: Reg, rs2: Reg },

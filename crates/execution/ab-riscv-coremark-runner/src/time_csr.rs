@@ -67,10 +67,7 @@ impl TimeCsrState {
 pub(crate) enum TimeCsrInstruction<Reg> {}
 
 #[instruction]
-const impl<Reg> Instruction for TimeCsrInstruction<Reg>
-where
-    Reg: [const] Register,
-{
+const impl<Reg> Instruction for TimeCsrInstruction<Reg> {
     type Reg = Reg;
 
     #[inline(always)]

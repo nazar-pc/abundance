@@ -246,7 +246,6 @@ impl<Regs, I> SystemInstructionHandler<Reg<u64>, Regs, TestMemory, TestInstructi
     for TestInstructionHandler
 where
     I: Instruction<Reg = Reg<u64>>,
-    Regs: RegisterFile<Reg<u64>>,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -355,12 +354,12 @@ impl Csrs<Reg<u64>> for ExtState {
     }
 }
 
-impl VectorRegistersBase for ExtState {
+const impl VectorRegistersBase for ExtState {
     const ELEN: Elen = Elen::L64;
     const VLEN: Vlen = Vlen::L256;
 }
 
-impl VectorRegisters for ExtState
+const impl VectorRegisters for ExtState
 where
     Self: Csrs<Reg<u64>>,
 {

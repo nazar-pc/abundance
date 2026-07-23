@@ -10,7 +10,8 @@ use core::fmt;
 
 /// RISC-V Zicsr instruction (Control and Status Register)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum ZicsrInstruction<Reg> {
     Csrrw { rd: Reg, rs1: Reg, csr_index: u16 },
     Csrrs { rd: Reg, rs1: Reg, csr_index: u16 },

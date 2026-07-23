@@ -9,7 +9,8 @@ use ab_riscv_macros::instruction;
 use core::{fmt, mem};
 
 /// AES key schedule round constant number
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Rv64ZkndKsRnum {
     R0 = 0x0,
@@ -76,7 +77,8 @@ impl Rv64ZkndKsRnum {
 
 /// RISC-V RV64 Zknd instructions (AES decryption and key schedule)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZkndInstruction<Reg> {
     /// AES final round decryption: InvShiftRows + InvSubBytes, no MixColumns
     Aes64Ds { rd: Reg, rs1: Reg, rs2: Reg },

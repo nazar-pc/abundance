@@ -16,7 +16,8 @@ use core::fmt;
 ///
 /// Single-width reductions use OPMVV (funct3=0b010). Widening reductions use OPIVV (funct3=0b000).
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxReductionInstruction<Reg> {

@@ -11,7 +11,8 @@ use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// Number of fields per segment for load/store instructions
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Nf {
     /// 1 field per segment
@@ -74,7 +75,8 @@ impl Nf {
 ///
 /// This is a more compact representation that fits within a single byte rather than two when
 /// storing these separately.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub struct SegVmNf(u8);
 
 impl SegVmNf {
@@ -101,7 +103,8 @@ impl SegVmNf {
 }
 
 /// `nreg` field for load/store instructions
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum LoadStoreNreg {
     /// 1 register
@@ -146,7 +149,8 @@ impl LoadStoreNreg {
 /// Encoded under the LOAD-FP major opcode (0x07). All loads use rs1 (GPR) as a base address and vd
 /// (vector register) as a destination.
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
 pub enum ZveXxLoadInstruction<Reg> {

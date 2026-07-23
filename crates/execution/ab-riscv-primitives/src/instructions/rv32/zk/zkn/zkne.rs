@@ -11,7 +11,8 @@ use core::fmt;
 
 /// RISC-V RV32 Zkne instructions (AES encryption)
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv32ZkneInstruction<Reg> {
     /// AES final round encryption step: SubBytes on one byte of rs2, rotated to the byte lane
     /// selected by bs, XOR'd into rs1.

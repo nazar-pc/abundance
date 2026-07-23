@@ -15,7 +15,8 @@ use core::fmt;
     ignore = [Rv64ZbbInstruction],
     inherit = [Rv64ZbbInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZbkbInstruction<Reg> {
     /// Pack low 32 bits of `rs1` and `rs2` into `rd`
     Pack { rd: Reg, rs1: Reg, rs2: Reg },

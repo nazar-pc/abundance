@@ -15,7 +15,8 @@ use core::fmt;
 #[instruction(
     inherit = [Rv64ZcaInstruction, Rv64ZcmpOnlyInstruction],
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rv64ZcmpInstruction<Reg> {}
 
 #[instruction]
@@ -54,7 +55,8 @@ where
 
 /// Instruction that contains isolated Zcmp instructions without inheriting Zca for testing purposes
 #[instruction]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
 #[doc(hidden)]
 pub enum Rv64ZcmpOnlyInstruction<Reg> {
     /// CM.PUSH - push reg_list, decrement sp by `stack_adj`
