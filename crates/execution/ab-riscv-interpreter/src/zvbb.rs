@@ -22,8 +22,8 @@ use crate::zicsr::zicsr_helpers;
 use crate::zvbb::zvkb::zvkb_helpers;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    VirtualMemory,
+    ExecutableInstructionResult, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -55,6 +55,7 @@ where
     CustomError: fmt::Debug,
 {
     #[inline(always)]
+    // TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -66,10 +67,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<
-        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
-        ExecutionError<Reg::Type, CustomError>,
-    > {
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
         match self {
             // vbrev: reverse all bits within each SEW-wide element
             Self::VbrevV { vd, vs2, vm } => {

@@ -8,8 +8,9 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::load::zvexx_load_helpers;
 use crate::v::zvexx::zvexx_helpers;
 use crate::{
-    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
-    ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
+    ExecutableInstructionResult, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -41,6 +42,7 @@ where
     CustomError: fmt::Debug,
 {
     #[inline(always)]
+    // TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -52,10 +54,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<
-        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
-        ExecutionError<Reg::Type, CustomError>,
-    > {
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
         match self {
             // Whole-register store: stores `nreg` consecutive registers starting at `vs3` directly
             // to memory as a flat byte array of `EVL = nreg * VLEN.bytes()` bytes. `vs3` must be

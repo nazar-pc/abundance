@@ -6,7 +6,7 @@ pub mod zicsr_helpers;
 
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstructionResult, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -33,6 +33,7 @@ where
     ExtState: Csrs<Reg, CustomError>,
 {
     #[inline(always)]
+    // TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -44,10 +45,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<
-        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
-        ExecutionError<Reg::Type, CustomError>,
-    > {
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
         match self {
             // Atomic read/write CSR.
             //

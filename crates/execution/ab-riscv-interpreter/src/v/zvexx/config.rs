@@ -7,7 +7,7 @@ pub mod zvexx_config_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstructionResult, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -31,13 +31,11 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn prepare_csr_read(
-        ext_state: &ExtState,
+        _ext_state: &ExtState,
         csr_index: u16,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        // TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
-        let _: &ExtState = ext_state;
         if VectorCsr::from_csr_index(csr_index).is_some() {
             *output_value = raw_value;
             Ok(true)
@@ -123,6 +121,7 @@ where
     CustomError: fmt::Debug,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -134,10 +133,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> Result<
-        ControlFlow<(), (Self::Reg, <Self::Reg as Register>::Type)>,
-        ExecutionError<Reg::Type, CustomError>,
-    > {
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
                 let rd_value = zvexx_config_helpers::apply_vsetvl(

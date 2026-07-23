@@ -424,11 +424,9 @@ where
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn set_pc(
         &mut self,
-        memory: &Memory,
+        _memory: &Memory,
         pc: Address<I>,
     ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
-        // TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
-        let _: &Memory = memory;
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -518,13 +516,10 @@ where
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn handle_ecall(
         &mut self,
-        regs: &mut Regs,
-        memory: &mut Memory,
+        _regs: &mut Regs,
+        _memory: &mut Memory,
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
-        // TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
-        let _: &Regs = regs;
-        let _: &Memory = memory;
         Err(ExecutionError::IllegalInstruction {
             address: program_counter.old_pc(size_of::<u32>() as u8),
         })
