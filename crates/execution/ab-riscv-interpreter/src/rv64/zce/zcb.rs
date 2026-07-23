@@ -31,6 +31,7 @@ where
     Reg: Register<Type = u64>,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -73,6 +74,7 @@ where
     InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {

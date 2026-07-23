@@ -13,7 +13,7 @@
 //! Certification Tests runner for <https://github.com/riscv-non-isa/riscv-arch-test> that ensures
 //! correct implementation.
 //!
-//! Does not require a standard library (`no_std`) or an allocator.
+//! Does not require a standard library (`no_std`) or an allocator, never panics.
 //!
 //! ## Supported ISA variants and extensions
 //!
