@@ -127,14 +127,22 @@ jobs:
               sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
             if: contains(matrix.target, 'riscv64')
 
-          - uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
+          - name: Install wild-linker
+            uses: taiki-e/install-action@7572810d7dd469b651bb7793945692cf78da5dd7 # 2.85.0
+            with:
+              tool: wild-linker
             if: runner.os == 'Linux' && matrix.target == ''
 
-          # Use Mold linker for shorter build times
-          - name: Use Mold linker on Linux
+          # Use Wild linker for shorter build times
+          - name: Use Wild linker on Linux
             shell: bash
             run: |
-              echo "RUSTFLAGS=${RUSTFLAGS} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
+              LINKER_FLAGS="-C linker=clang -C link-arg=--ld-path=wild"
+              # TODO: Remove once https://github.com/wild-linker/wild/issues/2260 is resolved
+              if [[ "$(uname -m)" == "aarch64" ]]; then
+                LINKER_FLAGS="${LINKER_FLAGS} -A linker_messages"
+              fi
+              echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
             if: runner.os == 'Linux' && matrix.target == ''
 
           # Use LLD linker for shorter build times
@@ -311,7 +319,7 @@ jobs:
 
     steps: &test-steps
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # 2.84.0
+        uses: taiki-e/install-action@7572810d7dd469b651bb7793945692cf78da5dd7 # 2.85.0
         with:
           tool: cargo-nextest
 
