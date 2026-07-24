@@ -130,9 +130,11 @@ pub const trait Register:
 ///
 /// Use `Type = u32` for RV32E and `Type = u64` for RV64E.
 #[derive(Clone, Copy)]
+#[derive_const(Default)]
 #[repr(u8)]
 pub enum EReg<Type> {
     /// Always zero: `x0`
+    #[default]
     Zero = 0,
     /// Return address: `x1`
     Ra = 1,
@@ -167,13 +169,6 @@ pub enum EReg<Type> {
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
     Phantom(PhantomData<(!, Type)>),
-}
-
-const impl<Type> Default for EReg<Type> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self::Zero
-    }
 }
 
 impl<Type> fmt::Display for EReg<Type> {
@@ -287,9 +282,11 @@ const impl Register for EReg<u64> {
 ///
 /// Use `Type = u32` for RV32I and `Type = u64` for RV64I.
 #[derive(Clone, Copy)]
+#[derive_const(Default)]
 #[repr(u8)]
 pub enum Reg<Type> {
     /// Always zero: `x0`
+    #[default]
     Zero = 0,
     /// Return address: `x1`
     Ra = 1,
@@ -356,13 +353,6 @@ pub enum Reg<Type> {
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
     Phantom(PhantomData<(!, Type)>),
-}
-
-const impl<Type> Default for Reg<Type> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self::Zero
-    }
 }
 
 const impl<Type> From<EReg<u64>> for Reg<Type> {

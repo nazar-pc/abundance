@@ -303,21 +303,11 @@ impl Default for VectorExtState {
     }
 }
 
+#[derive(Default)]
 pub(crate) struct ExtState {
     csr: CsrExtState,
     vector: VectorExtState,
     reservation: Option<u64>,
-}
-
-impl Default for ExtState {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            csr: CsrExtState::default(),
-            vector: VectorExtState::default(),
-            reservation: None,
-        }
-    }
 }
 
 impl ReservationSet<Reg<u64>> for ExtState {
