@@ -74,19 +74,24 @@ where
                 };
                 let sew = vtype.vsew();
                 // Widening requires SEW < 64; 2*SEW must fit in ELEN=64
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -149,19 +154,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -216,19 +226,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -291,19 +306,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -362,19 +382,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -437,19 +462,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -503,19 +533,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -578,19 +613,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -648,19 +688,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -724,18 +769,23 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
+                let wide_eew = match sew {
+                    Vsew::E8 => Eew::E16,
+                    Vsew::E16 => Eew::E32,
+                    Vsew::E32 => Eew::E64,
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
+                };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
-                };
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -787,19 +837,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -862,18 +917,23 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
+                let wide_eew = match sew {
+                    Vsew::E8 => Eew::E16,
+                    Vsew::E16 => Eew::E32,
+                    Vsew::E32 => Eew::E64,
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
+                };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
-                };
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -928,19 +988,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1003,18 +1068,23 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
+                let wide_eew = match sew {
+                    Vsew::E8 => Eew::E16,
+                    Vsew::E16 => Eew::E32,
+                    Vsew::E32 => Eew::E64,
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
+                };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
-                };
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1065,19 +1135,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1140,18 +1215,23 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
+                let wide_eew = match sew {
+                    Vsew::E8 => Eew::E16,
+                    Vsew::E16 => Eew::E32,
+                    Vsew::E32 => Eew::E64,
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
+                };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 }
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
-                };
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1207,19 +1287,24 @@ where
                 };
                 let sew = vtype.vsew();
                 // SEW must be < 64 so that 2*SEW fits in ELEN
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1278,19 +1363,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1340,19 +1430,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1401,19 +1496,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1472,19 +1572,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1534,19 +1639,24 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) * 2 > u32::from(ExtState::ELEN) {
-                    ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 let wide_eew = match sew {
                     Vsew::E8 => Eew::E16,
                     Vsew::E16 => Eew::E32,
                     Vsew::E32 => Eew::E64,
-                    Vsew::E64 => unreachable!("SEW=64 already rejected above"),
+                    Vsew::E64 => {
+                        ::core::hint::cold_path();
+                        return Err(ExecutionError::IllegalInstruction {
+                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        });
+                    }
                 };
+                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
