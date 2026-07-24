@@ -1,3 +1,4 @@
+use crate::instruction::MachineModePlaceholder;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;

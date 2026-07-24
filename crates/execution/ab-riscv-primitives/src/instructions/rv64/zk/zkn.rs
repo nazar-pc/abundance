@@ -8,6 +8,7 @@ use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbb::Rv64ZbbInstruction;
 use crate::instructions::rv64::b::zbc::Rv64ZbcInstruction;
 use crate::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
+use crate::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
 use crate::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;
 use crate::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
 use crate::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;

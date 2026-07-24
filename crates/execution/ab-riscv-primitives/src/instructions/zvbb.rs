@@ -6,6 +6,7 @@ pub mod zvkb;
 
 use crate::instructions::Instruction;
 use crate::instructions::v::Eew;
+use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
 use crate::instructions::v::zvexx::config::ZveXxConfigInstruction;

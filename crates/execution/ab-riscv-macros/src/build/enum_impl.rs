@@ -313,9 +313,9 @@ pub(super) fn process_enum_decoding_impl(
     let mut all_dependency_size_entries = Vec::new();
     let mut all_where_predicates = Vec::new();
 
-    for (dependency_enum_name, dependency_enum_definition) in all_dependencies {
+    for (dependency_enum_name, dependency_enum_definition) in &all_dependencies {
         let Some(dependency_enum_impl) =
-            state.get_known_original_enum_decoding_impl(&dependency_enum_name)
+            state.get_known_original_enum_decoding_impl(dependency_enum_name)
         else {
             eprintln!(
                 "{enum_name} decoding is waiting on {dependency_enum_name} decoding implementation"
@@ -362,7 +362,7 @@ pub(super) fn process_enum_decoding_impl(
         }
     }
 
-    let allowed_instruction = enum_definition
+    let allowed_instructions = enum_definition
         .instructions
         .iter()
         .map(|instruction| &instruction.ident)
@@ -377,7 +377,7 @@ pub(super) fn process_enum_decoding_impl(
         .chain(iter::once(&*try_decode_block))
         .cloned()
         .map(|mut block| {
-            remove_ignored_variants(&mut block, &allowed_instruction);
+            remove_ignored_variants(&mut block, &allowed_instructions);
             block
         });
 
@@ -441,7 +441,7 @@ pub(super) fn process_enum_decoding_impl(
         // Filter-out extra elements
         all_dependency_size_entries.retain_mut(|(idents, _block)| {
             idents.retain(|ident| {
-                allowed_instruction.contains(ident) && already_covered.insert(*ident)
+                allowed_instructions.contains(ident) && already_covered.insert(*ident)
             });
 
             !idents.is_empty()
@@ -484,6 +484,24 @@ pub(super) fn process_enum_decoding_impl(
     item_impl
         .attrs
         .insert(0, parse_quote! { #[automatically_derived] });
+
+    let implemented_extensions =
+        all_dependencies
+            .iter()
+            .filter_map(|(dependency_enum_name, dependency_enum_definition)| {
+                dependency_enum_definition
+                    .instructions
+                    .iter()
+                    .all(|variant| allowed_instructions.contains(&variant.ident))
+                    .then_some(dependency_enum_name)
+            });
+
+    item_impl.items.push(parse_quote! {
+        const IMPLEMENTED_EXTENSIONS: &'static [::core::any::TypeId] = &[
+            ::core::any::TypeId::of::<Self>(),
+            #( ::core::any::TypeId::of::<#implemented_extensions<Reg>>(), )*
+        ];
+    });
 
     output_processed_enum_decoding_impl(&enum_name, original_item_impl, item_impl, out_dir, state)
 }
