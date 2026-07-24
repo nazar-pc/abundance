@@ -1085,7 +1085,7 @@ fn vsmul_vv_e8_int_min_saturates() {
 #[test]
 fn vsmul_vv_e64_int_min_saturates() {
     // i64::MIN * i64::MIN: product = 2^126, *2 = 2^127 which overflows i128.
-    // The implementation must detect this before multiplying and return i64::MAX with vxsat set.
+    // This exceeds Zve64x's specification and is only allowed by full V extension.
     let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1, Vxrm::Rdn);
     write_elem(&mut state, VReg::V2, 0, Vsew::E64, i64::MIN.cast_unsigned());
     write_elem(&mut state, VReg::V1, 0, Vsew::E64, i64::MIN.cast_unsigned());
@@ -1100,14 +1100,36 @@ fn vsmul_vv_e64_int_min_saturates() {
             rs2: Reg::Zero,
         },
     )
-    .unwrap();
-    assert_eq!(
-        sign_extend(read_elem(&state, VReg::V4, 0, Vsew::E64), Vsew::E64),
-        i64::MAX,
-        "INT64_MIN * INT64_MIN must saturate to INT64_MAX"
-    );
-    assert!(vxsat(&state));
+    .unwrap_err();
 }
+
+// TODO: Saturation will happen in full V extension, but not in ZveXx
+// #[test]
+// fn vsmul_vv_e64_int_min_saturates() {
+//     // i64::MIN * i64::MIN: product = 2^126, *2 = 2^127 which overflows i128.
+//     // The implementation must detect this before multiplying and return i64::MAX with vxsat set.
+//     let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1, Vxrm::Rdn);
+//     write_elem(&mut state, VReg::V2, 0, Vsew::E64, i64::MIN.cast_unsigned());
+//     write_elem(&mut state, VReg::V1, 0, Vsew::E64, i64::MIN.cast_unsigned());
+//     exec(
+//         &mut state,
+//         ZveXxFixedPointInstruction::VsmulVv {
+//             vd: VReg::V4,
+//             vs2: VReg::V2,
+//             vs1: VReg::V1,
+//             vm: true,
+//             rs1: Reg::Zero,
+//             rs2: Reg::Zero,
+//         },
+//     )
+//     .unwrap();
+//     assert_eq!(
+//         sign_extend(read_elem(&state, VReg::V4, 0, Vsew::E64), Vsew::E64),
+//         i64::MAX,
+//         "INT64_MIN * INT64_MIN must saturate to INT64_MAX"
+//     );
+//     assert!(vxsat(&state));
+// }
 
 #[test]
 fn vsmul_vv_e16_rnu_rounding() {

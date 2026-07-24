@@ -430,7 +430,11 @@ pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
 /// The helper ORs any saturation flag into `vxsat` after the loop.
 ///
 /// # Safety
-/// Same preconditions as `execute_arith_op` in the arithmetic helpers.
+/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
+/// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
+/// - `vl <= group_regs * VLEN.bytes() / sew_bytes` (all `vl` elements fit within the register
+///   group)
+/// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

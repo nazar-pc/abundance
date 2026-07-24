@@ -8,6 +8,7 @@ use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
 use crate::instructions::rv32::b::zbc::Rv32ZbcInstruction;
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
+use crate::instructions::rv32::zk::zbkc::Rv32ZbkcInstruction;
 use crate::instructions::rv32::zk::zbkx::Rv32ZbkxInstruction;
 use crate::instructions::rv32::zk::zkn::zknd::{Rv32AesBs, Rv32ZkndInstruction};
 use crate::instructions::rv32::zk::zkn::zkne::Rv32ZkneInstruction;

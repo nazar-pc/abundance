@@ -62,8 +62,6 @@ impl TimeCsrState {
     inherit = [ZicsrInstruction],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// TODO: Do something in the generated code that requires an import and suppresses this naturally
-#[expect(dead_code, reason = "Used as a dependency below, so not truly unused")]
 pub(crate) enum TimeCsrInstruction<Reg> {}
 
 #[instruction]

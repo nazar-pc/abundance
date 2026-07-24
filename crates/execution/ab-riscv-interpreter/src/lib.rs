@@ -58,6 +58,26 @@
 //!
 //! Experimental extensions are known to have bugs and need more work. They are not tested against
 //! ACTs yet.
+//!
+//! ## Design choices
+//!
+//! This crate was designed with a blockchain use case in mind, though it is in no way tied to any
+//! particular blockchain and is completely general purpose. As a result, the implementation is
+//! designed to be precise and non-ambiguous.
+//!
+//! A few key points:
+//! * anything "reserved" in the specification is considered to be illegal
+//! * anything "optional" in the specification is considered to be illegal
+//! * anything "implementation-defined" in the specification is selected to be the most natural and
+//!   deterministic
+//! * type system is used to make the majority of invalid invariants impossible to represent in code
+//!   and/or decode
+//!
+//! Examples:
+//! * `vma`/`vta` are always undisturbed in vector extensions
+//! * Zve64x extension instructions are purposefully restricted to what it is required to be capable
+//!   of, although it would be cheaper to support the fuller feature set only required by V
+//!   extension
 
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
@@ -82,6 +102,7 @@
     signed_bigint_helpers,
     widening_mul
 )]
+#![cfg_attr(test, feature(const_block_items))]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),

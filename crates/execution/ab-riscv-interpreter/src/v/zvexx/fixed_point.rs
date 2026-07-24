@@ -999,6 +999,13 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
+                // Not supported for SEW=64 in Zve64x (would need 128-bit result)
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -1055,6 +1062,13 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
+                // Not supported for SEW=64 in Zve64x (would need 128-bit result)
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
+                    ::core::hint::cold_path();
+                    return Err(ExecutionError::IllegalInstruction {
+                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    });
+                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
                     program_counter,

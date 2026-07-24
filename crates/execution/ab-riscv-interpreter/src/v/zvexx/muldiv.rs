@@ -155,7 +155,7 @@ where
                     );
                 }
             }
-            // vmulh.vv / vmulh.vx - signed×signed multiply, high half; illegal for SEW=64
+            // vmulh.vv / vmulh.vx - signed×signed multiply, high half
             Self::VmulhVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -169,8 +169,10 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                // vmulh is not supported for SEW=64 in Zve64x (would need 128-bit result)
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
+                // extension includes them; the arithmetic itself is width-complete because the
+                // 2*SEW product is formed in i128/u128
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -199,7 +201,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                // SAFETY: alignment checked above; SEW < 64 checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         ext_state,
@@ -230,7 +232,10 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
+                // extension includes them; the arithmetic itself is width-complete because the
+                // 2*SEW product is formed in i128/u128
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -255,7 +260,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above; SEW < 64 checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         ext_state,
@@ -268,7 +273,7 @@ where
                     );
                 }
             }
-            // vmulhu.vv / vmulhu.vx - unsigned×unsigned multiply, high half; illegal for SEW=64
+            // vmulhu.vv / vmulhu.vx - unsigned×unsigned multiply, high half
             Self::VmulhuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -282,7 +287,10 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
+                // extension includes them; the arithmetic itself is width-complete because the
+                // 2*SEW product is formed in i128/u128
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -311,7 +319,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                // SAFETY: alignment checked above; SEW < 64 checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         ext_state,
@@ -342,7 +350,10 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
+                // extension includes them; the arithmetic itself is width-complete because the
+                // 2*SEW product is formed in i128/u128
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -367,7 +378,7 @@ where
                 }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above; SEW < 64 checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         ext_state,
@@ -380,7 +391,7 @@ where
                     );
                 }
             }
-            // vmulhsu.vv / vmulhsu.vx - signed×unsigned multiply, high half; illegal for SEW=64
+            // vmulhsu.vv / vmulhsu.vx - signed×unsigned multiply, high half
             Self::VmulhsuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -394,7 +405,10 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
+                // extension includes them; the arithmetic itself is width-complete because the
+                // 2*SEW product is formed in i128/u128
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -423,7 +437,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                // SAFETY: alignment checked above; SEW < 64 checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         ext_state,
@@ -455,7 +469,10 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
+                // extension includes them; the arithmetic itself is width-complete because the
+                // 2*SEW product is formed in i128/u128
+                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -481,7 +498,7 @@ where
                 let sew = vtype.vsew();
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above; SEW < 64 checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         ext_state,
@@ -925,7 +942,7 @@ where
                     );
                 }
             }
-            // vwmulu.vv / vwmulu.vx - unsigned widening multiply; illegal for SEW=64
+            // vwmulu.vv / vwmulu.vx - unsigned widening multiply
             Self::VwmuluVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -939,8 +956,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                // Widening produces 2*SEW result; SEW=64 would require 128-bit output
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -991,7 +1009,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         ext_state,
@@ -1025,7 +1043,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1063,7 +1083,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         ext_state,
@@ -1079,7 +1099,7 @@ where
                     );
                 }
             }
-            // vwmulsu.vv / vwmulsu.vx - signed×unsigned widening multiply; illegal for SEW=64
+            // vwmulsu.vv / vwmulsu.vx - signed×unsigned widening multiply
             Self::VwmulsuVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -1093,7 +1113,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1142,7 +1164,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         ext_state,
@@ -1178,7 +1200,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1217,7 +1241,7 @@ where
                 let sew = vtype.vsew();
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         ext_state,
@@ -1234,7 +1258,7 @@ where
                     );
                 }
             }
-            // vwmul.vv / vwmul.vx - signed widening multiply; illegal for SEW=64
+            // vwmul.vv / vwmul.vx - signed widening multiply
             Self::VwmulVv { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -1248,7 +1272,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1297,7 +1323,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         ext_state,
@@ -1333,7 +1359,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1372,7 +1400,7 @@ where
                 let sew = vtype.vsew();
                 // scalar from rs1 is sign-extended to XLEN; treat as signed SEW-wide
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         ext_state,
@@ -1795,7 +1823,7 @@ where
                     );
                 }
             }
-            // vwmaccu.vv / vwmaccu.vx - unsigned widening multiply-add; illegal for SEW=64
+            // vwmaccu.vv / vwmaccu.vx - unsigned widening multiply-add
             Self::VwmaccuVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -1809,7 +1837,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1859,7 +1889,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         ext_state,
@@ -1894,7 +1924,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -1932,7 +1964,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         ext_state,
@@ -1948,7 +1980,7 @@ where
                     );
                 }
             }
-            // vwmacc.vv / vwmacc.vx - signed widening multiply-add; illegal for SEW=64
+            // vwmacc.vv / vwmacc.vx - signed widening multiply-add
             Self::VwmaccVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -1962,7 +1994,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -2011,7 +2045,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         ext_state,
@@ -2047,7 +2081,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -2085,7 +2121,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         ext_state,
@@ -2102,7 +2138,7 @@ where
                     );
                 }
             }
-            // vwmaccsu.vv / vwmaccsu.vx - signed×unsigned widening multiply-add; illegal for SEW=64
+            // vwmaccsu.vv / vwmaccsu.vx - signed×unsigned widening multiply-add
             Self::VwmaccsuVv { vd, vs1, vs2, vm } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -2116,7 +2152,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -2165,7 +2203,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         ext_state,
@@ -2201,7 +2239,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -2240,7 +2280,7 @@ where
                 let sew = vtype.vsew();
                 // scalar (rs1) is the signed operand; vs2 elements are unsigned
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         ext_state,
@@ -2260,7 +2300,7 @@ where
                     );
                 }
             }
-            // vwmaccus.vx - unsigned×signed widening multiply-add (vx only); illegal for SEW=64
+            // vwmaccus.vx - unsigned×signed widening multiply-add (vx only)
             Self::VwmaccusVx {
                 vd,
                 rs1: _,
@@ -2279,7 +2319,9 @@ where
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     });
                 };
-                if u32::from(vtype.vsew().bits_width()) == u64::BITS {
+                // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
+                // implementation, so this is not a Zve64x-specific restriction
+                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), ExtState::ELEN) {
                     ::core::hint::cold_path();
                     return Err(ExecutionError::IllegalInstruction {
                         address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
@@ -2318,7 +2360,7 @@ where
                 let sew = vtype.vsew();
                 // scalar (rs1) is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; SEW < 64 checked above
+                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         ext_state,
