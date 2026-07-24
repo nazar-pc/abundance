@@ -24,7 +24,6 @@ pub mod store;
 pub mod widen_narrow;
 
 use crate::instructions::Instruction;
-use crate::instructions::v::Eew;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
 use crate::instructions::v::zvexx::config::ZveXxConfigInstruction;
@@ -36,6 +35,7 @@ use crate::instructions::v::zvexx::perm::ZveXxPermInstruction;
 use crate::instructions::v::zvexx::reduction::ZveXxReductionInstruction;
 use crate::instructions::v::zvexx::store::ZveXxStoreInstruction;
 use crate::instructions::v::zvexx::widen_narrow::ZveXxWidenNarrowInstruction;
+use crate::instructions::v::{Eew, V};
 use crate::instructions::zicsr::ZicsrInstruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;

@@ -1,6 +1,9 @@
-use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::prelude::{VLENB_USIZE, VectorRegistersBase};
+use crate::rv64::test_utils::{ExtState, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::widening_dest_register_count;
+use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{
+    mulh_ss, mulhsu_su, mulhu_uu, widening_dest_register_count,
+};
 use crate::{
     ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands,
@@ -18,6 +21,10 @@ use core::ops::ControlFlow;
 //   E16/M2 -> VLMAX=32, 2 regs
 //   E32/M2 -> VLMAX=16, 2 regs (vd for widening E16 uses 2 regs)
 //   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
+const TEST_VLENB: usize = VLENB_USIZE::<{ <ExtState as VectorRegistersBase>::VLEN }>;
+const {
+    assert!(TEST_VLENB == 32);
+}
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
@@ -68,7 +75,7 @@ fn read_elem(
     sew: Vsew,
 ) -> u64 {
     let sew_bytes = usize::from(sew.bytes_width());
-    let elems_per_reg = 32 / sew_bytes;
+    let elems_per_reg = TEST_VLENB / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
@@ -80,6 +87,8 @@ fn read_elem(
     u64::from_le_bytes(buf)
 }
 
+// Wide elements are 2*SEW bytes; a register holds VLENB/wide_bytes of them, matching
+// `write_wide_element_u64` in the implementation
 fn read_wide_elem(
     state: &TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -87,7 +96,7 @@ fn read_wide_elem(
     sew: Vsew,
 ) -> u64 {
     let wide_bytes = usize::from(sew.bytes_width()) * 2;
-    let elems_per_reg = 16 / wide_bytes;
+    let elems_per_reg = TEST_VLENB / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let reg = state
@@ -107,7 +116,7 @@ fn write_elem(
     value: u64,
 ) {
     let sew_bytes = usize::from(sew.bytes_width());
-    let elems_per_reg = 32 / sew_bytes;
+    let elems_per_reg = TEST_VLENB / sew_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
@@ -126,7 +135,7 @@ fn write_wide_elem(
     value: u64,
 ) {
     let wide_bytes = usize::from(sew.bytes_width()) * 2;
-    let elems_per_reg = 16 / wide_bytes;
+    let elems_per_reg = TEST_VLENB / wide_bytes;
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let reg = state
@@ -352,6 +361,8 @@ fn vmulh_vx_e32() {
 
 #[test]
 fn vmulh_illegal_for_sew64() {
+    // Zve64x excludes the high-half multiplies at SEW=64; the test interpreter does not implement
+    // the full "V" extension, so this stays illegal here
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
@@ -495,6 +506,62 @@ fn vmulhsu_illegal_for_sew64() {
         result,
         Err(ExecutionError::IllegalInstruction { .. })
     ));
+}
+
+// High-half multiply helpers at SEW=64.
+//
+// These are only reachable through instruction execution once the full "V" extension is
+// implemented, but the arithmetic must already be correct so that enabling V requires no further
+// changes here.
+
+#[test]
+fn mulh_ss_sew64() {
+    // i64::MIN * i64::MIN = 2^126; high 64 bits = 2^62
+    assert_eq!(
+        mulh_ss(
+            i64::MIN.cast_unsigned(),
+            i64::MIN.cast_unsigned(),
+            Vsew::E64
+        ),
+        1u64 << 62u8
+    );
+    // -1 * 1 = -1; high 64 bits = all-ones
+    assert_eq!(mulh_ss((-1i64).cast_unsigned(), 1, Vsew::E64), u64::MAX);
+    // i64::MAX * 2 = 2^64 - 2; high 64 bits = 0
+    assert_eq!(mulh_ss(i64::MAX.cast_unsigned(), 2, Vsew::E64), 0);
+    // i64::MAX * i64::MAX = 2^126 - 2^64 + 1; high 64 bits = 2^62 - 1
+    assert_eq!(
+        mulh_ss(
+            i64::MAX.cast_unsigned(),
+            i64::MAX.cast_unsigned(),
+            Vsew::E64
+        ),
+        (1u64 << 62u8) - 1
+    );
+}
+
+#[test]
+fn mulhu_uu_sew64() {
+    // (2^64 - 1)^2 = 2^128 - 2^65 + 1; high 64 bits = 2^64 - 2
+    assert_eq!(mulhu_uu(u64::MAX, u64::MAX, Vsew::E64), u64::MAX - 1);
+    // 2^63 * 2 = 2^64; high 64 bits = 1
+    assert_eq!(mulhu_uu(1u64 << 63u8, 2, Vsew::E64), 1);
+    assert_eq!(mulhu_uu(u64::MAX, 0, Vsew::E64), 0);
+}
+
+#[test]
+fn mulhsu_su_sew64() {
+    // -1 (signed) * (2^64 - 1) (unsigned) = -(2^64 - 1); high 64 bits = all-ones
+    assert_eq!(
+        mulhsu_su((-1i64).cast_unsigned(), u64::MAX, Vsew::E64),
+        u64::MAX
+    );
+    // 1 (signed) * (2^64 - 1) (unsigned) fits in the low half; high 64 bits = 0
+    assert_eq!(mulhsu_su(1, u64::MAX, Vsew::E64), 0);
+    // i64::MIN (signed) * 2 (unsigned) = -2^64; high 64 bits = -1
+    assert_eq!(mulhsu_su(i64::MIN.cast_unsigned(), 2, Vsew::E64), u64::MAX);
+    // 2 (signed) * 2^63 (unsigned) = 2^64; high 64 bits = 1
+    assert_eq!(mulhsu_su(2, 1u64 << 63u8, Vsew::E64), 1);
 }
 
 // vdivu
@@ -914,6 +981,36 @@ fn vwmulu_vv_e8_to_e16() {
 }
 
 #[test]
+fn vwmulu_vv_e8_spans_two_dest_regs() {
+    // VLENB=32 gives 16 E16 elements per register, so vl=20 forces the wide writes to cross from
+    // V8 into V9. This exercises the `reg_off` path of `write_wide_element_u64`
+    let mut state = setup(Vl::new(20).unwrap(), Vsew::E8, Vlmul::M1);
+    for i in 0..20usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 1) as u64);
+        write_elem(&mut state, VReg::V4, i, Vsew::E8, 200);
+    }
+    exec(
+        &mut state,
+        ZveXxMulDivInstruction::VwmuluVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..20usize {
+        assert_eq!(
+            read_wide_elem(&state, VReg::V8, i, Vsew::E8),
+            (i + 1) as u64 * 200,
+            "elem {i}"
+        );
+    }
+}
+
+#[test]
 fn vwmulu_vx_e16_to_e32() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
     for i in 0..4usize {
@@ -938,6 +1035,36 @@ fn vwmulu_vx_e16_to_e32() {
             "elem {i}"
         );
     }
+}
+
+#[test]
+fn vwmulu_e32_to_e64_full_width() {
+    // SEW=E32 widens to a 64-bit destination element, the widest the register file can hold
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xFFFF_FFFF);
+    write_elem(&mut state, VReg::V4, 0, Vsew::E32, 0xFFFF_FFFF);
+    write_elem(&mut state, VReg::V2, 1, Vsew::E32, 0x1234_5678);
+    write_elem(&mut state, VReg::V4, 1, Vsew::E32, 2);
+    exec(
+        &mut state,
+        ZveXxMulDivInstruction::VwmuluVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        read_wide_elem(&state, VReg::V8, 0, Vsew::E32),
+        0xFFFF_FFFFu64 * 0xFFFF_FFFFu64
+    );
+    assert_eq!(
+        read_wide_elem(&state, VReg::V8, 1, Vsew::E32),
+        0x1234_5678u64 * 2
+    );
 }
 
 #[test]
@@ -1291,6 +1418,27 @@ fn vwmul_vx_e16_signed() {
     );
 }
 
+#[test]
+fn vwmul_e32_signed_min_squared() {
+    // i32::MIN * i32::MIN = 2^62, the largest magnitude a 64-bit destination element must hold
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x8000_0000);
+    write_elem(&mut state, VReg::V4, 0, Vsew::E32, 0x8000_0000);
+    exec(
+        &mut state,
+        ZveXxMulDivInstruction::VwmulVv {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            vs1: VReg::V4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_wide_elem(&state, VReg::V8, 0, Vsew::E32), 1u64 << 62u8);
+}
+
 // vwmulsu
 
 #[test]
@@ -1600,6 +1748,33 @@ fn vwmaccu_vx_e16() {
     assert_eq!(read_wide_elem(&state, VReg::V8, 0, Vsew::E16), 3_500);
     // 0 + 3*65535 = 196605
     assert_eq!(read_wide_elem(&state, VReg::V8, 1, Vsew::E16), 196_605);
+}
+
+#[test]
+fn vwmaccu_e32_full_width_accumulator() {
+    // SEW=E32 accumulates into 64-bit destination elements; check that a full-width accumulator
+    // survives the read-modify-write round trip
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
+    write_wide_elem(&mut state, VReg::V8, 0, Vsew::E32, u64::MAX - 10);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E32, 4);
+    write_elem(&mut state, VReg::V4, 0, Vsew::E32, 3);
+    exec(
+        &mut state,
+        ZveXxMulDivInstruction::VwmaccuVv {
+            vd: VReg::V8,
+            vs1: VReg::V2,
+            vs2: VReg::V4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    // (u64::MAX - 10) + 12 wraps to 1
+    assert_eq!(
+        read_wide_elem(&state, VReg::V8, 0, Vsew::E32),
+        (u64::MAX - 10).wrapping_add(12)
+    );
 }
 
 // vwmacc (signed widening multiply-add)
@@ -1920,6 +2095,7 @@ fn vl_zero_writes_nothing() {
 
 #[test]
 fn widening_mul_illegal_for_sew64() {
+    // Widening at SEW=64 would need a 128-bit EEW, which exceeds ELEN for every implementation
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
     for instr in [
         ZveXxMulDivInstruction::VwmuluVv {
@@ -1981,6 +2157,71 @@ fn widening_muladd_illegal_for_sew64() {
             vs2: VReg::V4,
             vm: true,
             rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    ] {
+        let result = exec(&mut state, instr);
+        assert!(
+            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+            "expected illegal for {instr:?}"
+        );
+    }
+}
+
+#[test]
+fn widening_vx_illegal_for_sew64() {
+    // The `.vx` forms take the same widening path as the `.vv` forms; the EEW>ELEN check must not
+    // be conditional on the implemented extension for any of them
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    state.regs.write(Reg::A0, 3u64);
+    for instr in [
+        ZveXxMulDivInstruction::VwmuluVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+        ZveXxMulDivInstruction::VwmulsuVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+        ZveXxMulDivInstruction::VwmulVx {
+            vd: VReg::V8,
+            vs2: VReg::V2,
+            rs1: Reg::A0,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+        ZveXxMulDivInstruction::VwmaccuVx {
+            vd: VReg::V8,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+        ZveXxMulDivInstruction::VwmaccVx {
+            vd: VReg::V8,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+        ZveXxMulDivInstruction::VwmaccsuVx {
+            vd: VReg::V8,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
+            rs2: Reg::Zero,
+        },
+        ZveXxMulDivInstruction::VwmaccusVx {
+            vd: VReg::V8,
+            rs1: Reg::A0,
+            vs2: VReg::V4,
+            vm: true,
             rs2: Reg::Zero,
         },
     ] {

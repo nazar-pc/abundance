@@ -14,6 +14,23 @@ use core::fmt;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
 
+/// Whether a widening operation is representable for the given `SEW` and `ELEN`.
+///
+/// Widening instructions produce a `2*SEW` result, and an EEW greater than `ELEN` is reserved by
+/// the RISC-V "V" spec §3.4.2 for *every* implementation. This is therefore not an extension-level
+/// restriction like the one on the high-half multiplies in Zve64x: no vector extension makes
+/// `SEW == ELEN` legal for a widening instruction.
+///
+/// This also underpins the safety preconditions of [`execute_widening_op()`],
+/// [`execute_widening_muladd_op()`] and [`execute_widening_muladd_scalar_op()`], because
+/// `ELEN <= 64` means `2*SEW <= 64` and the wide element fits in a `u64`.
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn widening_eew_supported(sew: Vsew, elen: Elen) -> bool {
+    u32::from(sew.bits_width()) * 2 <= u32::from(elen)
+}
+
 /// Compute the destination register count for a widening operation (`EMUL = 2 × LMUL`).
 ///
 /// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`, i.e. when
@@ -108,7 +125,11 @@ where
 /// `elem_i`.
 ///
 /// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32` must hold.
+/// - `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32` must hold.
+/// - `2 * sew.bits_width() <= 64` must hold, so that the wide element fits in a `u64` and
+///   `wide_bytes <= 8`. Callers establish this via
+///   [`widening_eew_supported()`][crate::v::zvexx::muldiv::zvexx_muldiv_helpers::widening_eew_supported],
+///   since `2*SEW <= ELEN` and `ELEN <= 64` for every supported configuration.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn write_wide_element_u64<const VLEN: Vlen>(
@@ -127,9 +148,10 @@ unsafe fn write_wide_element_u64<const VLEN: Vlen>(
     let reg = unsafe {
         vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
     };
-    // SAFETY: `byte_off + wide_bytes <= VLEN.bytes()`; `wide_bytes <= 8` for SEW < 64
+    // SAFETY: `byte_off + wide_bytes <= VLEN.bytes()`; `wide_bytes <= 8` by caller's precondition
     let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + wide_bytes) as usize) };
-    // SAFETY: `wide_bytes <= 8` because SEW < 64 is enforced before widening ops are called
+    // SAFETY: `wide_bytes <= 8` because `2*SEW <= ELEN <= 64` is enforced before widening ops are
+    // called
     dst.copy_from_slice(unsafe { buf.get_unchecked(..wide_bytes as usize) });
 }
 
@@ -196,7 +218,8 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
 /// - `vl <= src_group_regs * VLEN.bytes() / sew_bytes`
-/// - SEW < 64 verified by caller (so 2*SEW <= 64 and fits in u64)
+/// - `2*SEW <= ELEN` verified by caller via [`widening_eew_supported()`], so the 2*SEW result fits
+///   in a `u64`; this holds for every implementation because an EEW may not exceed ELEN
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -236,7 +259,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
         let result = op(a, b, sew);
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them because
         // `vl <= src_group_regs * VLEN.bytes() / sew_bytes` and dest stores at 2*SEW width so
-        // `i < dest_group_regs * VLEN.bytes() / (2*sew_bytes)`
+        // `i < dest_group_regs * VLEN.bytes() / (2*sew_bytes)`; `2*SEW <= ELEN <= 64` by caller
         unsafe {
             write_wide_element_u64(ext_state.write_vregs(), vd, i, sew, result);
         }
@@ -362,7 +385,8 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 /// # Safety
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
-/// - SEW < 64 verified by caller
+/// - `2*SEW <= ELEN` verified by caller via [`widening_eew_supported()`], so both the accumulator
+///   and the result fit in a `u64`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -392,7 +416,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
         }
         // Read the existing 2*SEW accumulator from vd
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
-        // `execute_widening_op` for the bound argument)
+        // `execute_widening_op` for the bound argument); `2*SEW <= ELEN <= 64` by caller
         let acc = unsafe { read_wide_element_u64(ext_state.read_vregs(), vd, i, sew) };
         // SAFETY: register bounds verified by caller
         let a = unsafe { read_element_u64(ext_state.read_vregs(), a_reg, i, sew) };
@@ -446,7 +470,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
             continue;
         }
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
-        // `execute_widening_op` for the bound argument)
+        // `execute_widening_op` for the bound argument); `2*SEW <= ELEN <= 64` by caller
         let acc = unsafe { read_wide_element_u64(ext_state.read_vregs(), vd, i, sew) };
         let b = match src {
             // SAFETY: register bounds verified by caller
@@ -469,6 +493,10 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 ///
 /// Both operands are sign-extended to i64, multiplied as i128, and the upper SEW bits of the
 /// 2*SEW product are returned (zero-extended to u64 for writeback into a SEW-wide element slot).
+///
+/// Valid for every SEW including 64, because the intermediate product is formed in i128. Whether
+/// SEW=64 is reachable at all is an extension-level decision made by the caller (Zve64x excludes
+/// it, the full "V" extension does not).
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -481,7 +509,9 @@ pub fn mulh_ss(a: u64, b: u64, sew: Vsew) -> u64 {
     high & sew_mask(sew)
 }
 
-/// Unsigned × unsigned high half
+/// Unsigned × unsigned high half.
+///
+/// Valid for every SEW including 64; see [`mulh_ss()`] for the extension-level caveat.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -496,6 +526,10 @@ pub fn mulhu_uu(a: u64, b: u64, sew: Vsew) -> u64 {
 /// Signed × unsigned high half.
 ///
 /// `a` (vs2) is the signed operand; `b` (vs1/rs1) is the unsigned operand.
+///
+/// Valid for every SEW including 64; see [`mulh_ss()`] for the extension-level caveat. Note that
+/// the unsigned operand is widened to i128 rather than i64, so a full-width unsigned value at
+/// SEW=64 keeps its magnitude instead of being reinterpreted as negative.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

@@ -4,8 +4,8 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::v::Eew;
 use crate::instructions::v::zvexx::load::{LoadStoreNreg, Nf, SegVmNf};
+use crate::instructions::v::{Eew, V};
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -141,6 +141,14 @@ where
             0b01 => {
                 let eew = Eew::from_width(width)?;
                 let vs2 = VReg::from_bits(rs2_bits)?;
+
+                if !Self::implements_extension::<V<_>>()
+                    && Reg::XLEN == u32::BITS as u8
+                    && eew == Eew::E64
+                {
+                    None?;
+                }
+
                 if nf == 0 {
                     Some(Self::Vsuxei {
                         vs3,
@@ -185,6 +193,14 @@ where
             0b11 => {
                 let eew = Eew::from_width(width)?;
                 let vs2 = VReg::from_bits(rs2_bits)?;
+
+                if !Self::implements_extension::<V<_>>()
+                    && Reg::XLEN == u32::BITS as u8
+                    && eew == Eew::E64
+                {
+                    None?;
+                }
+
                 if nf == 0 {
                     Some(Self::Vsoxei {
                         vs3,

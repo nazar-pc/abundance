@@ -2,7 +2,9 @@
 
 pub mod zvexx;
 
+use crate::instructions::Instruction;
 use crate::registers::general_purpose::{RegType, Register};
+use core::any::TypeId;
 use core::hint::cold_path;
 use core::marker::ConstParamTy;
 use core::num::NonZeroU8;
@@ -873,5 +875,50 @@ where
     {
         let vill_bit = Reg::XLEN - 1;
         Reg::Type::from(1u8) << vill_bit
+    }
+}
+
+/// RISC-V V instruction (placeholder)
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+#[doc(hidden)]
+pub enum V<Reg> {
+    V(Reg, !),
+}
+
+const impl<Reg> Instruction for V<Reg>
+where
+    Reg: [const] Register,
+{
+    const IMPLEMENTED_EXTENSIONS: &'static [TypeId] = &[];
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(_instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn alignment() -> u8 {
+        align_of::<u32>() as u8
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+impl<Reg> fmt::Display for V<Reg>
+where
+    Reg: fmt::Display,
+{
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            V::V(_, _) => {
+                unreachable!("Impossible to construct V instruction")
+            }
+        }
     }
 }
