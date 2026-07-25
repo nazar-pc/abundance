@@ -29,7 +29,11 @@
 //! * M (version 2.0)
 //! * B (version 1.0.0)
 //! * Zaamo (version 1.0.0)
+//! * Zabha (version 1.0.0)
+//! * Zacas (version 1.0.0)
+//! * (experimental) Zalasr (version 1.0.0)
 //! * Zalrsc (version 1.0.0)
+//! * Zawrs (version 1.0.0)
 //! * Zba (version 1.0.0)
 //! * Zbb (version 1.0.0)
 //! * Zbc (version 1.0.0)
@@ -59,8 +63,7 @@
 //!
 //! Any permutation of compatible extensions is supported.
 //!
-//! Experimental extensions are known to have bugs and need more work. They are not tested against
-//! ACTs yet.
+//! Experimental extensions may not have ACT4 tests yet and are not guaranteed to work correctly.
 //!
 //! ## Design choices
 //!
@@ -584,6 +587,24 @@ pub const trait SystemInstructionHandler<
         let _: &Regs = regs;
         let _: &mut Memory = memory;
         let _: Reg::Type = pc;
+        // NOP by default
+    }
+}
+
+/// Custom handler for `Zawrs` extension's `wrs.nto`/`wrs.sto` instructions.
+///
+/// These are hint instructions that may complete for any reason, so a no-op is a valid
+/// implementation for both.
+pub const trait WrsHandler {
+    /// Handle a `wrs.nto` instruction (Wait-on-Reservation-Set, no timeout)
+    #[inline(always)]
+    fn handle_wrs_nto(&mut self) {
+        // NOP by default
+    }
+
+    /// Handle a `wrs.sto` instruction (Wait-on-Reservation-Set, short timeout)
+    #[inline(always)]
+    fn handle_wrs_sto(&mut self) {
         // NOP by default
     }
 }

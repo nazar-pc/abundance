@@ -5,7 +5,7 @@ use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
     InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, ReservationSet,
     Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    VirtualMemoryError, WrsHandler,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
@@ -261,6 +261,8 @@ where
         })
     }
 }
+
+impl WrsHandler for TestInstructionHandler {}
 
 /// Extended state used by RV32 tests.
 ///

@@ -8,7 +8,7 @@ use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
     ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
     ProgramCounterError, RegisterFile, ReservationSet, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError, WrsHandler,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -265,6 +265,8 @@ where
         })
     }
 }
+
+impl WrsHandler for TestInstructionHandler {}
 
 struct CsrExtState {
     privilege_level: PrivilegeLevel,

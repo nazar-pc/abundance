@@ -1,0 +1,102 @@
+//! RV64 Zalasr extension
+
+#[cfg(test)]
+mod tests;
+
+use crate::{
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
+    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+};
+use ab_riscv_macros::instruction_execution;
+use ab_riscv_primitives::prelude::*;
+use core::ops::ControlFlow;
+
+#[instruction_execution]
+const impl<Reg> ExecutableInstructionOperands for Rv64ZalasrInstruction<Reg> where
+    Reg: Register<Type = u64>
+{
+}
+
+#[instruction_execution]
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+    for Rv64ZalasrInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for Rv64ZalasrInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+    Regs: [const] RegisterFile<Reg>,
+    Memory: [const] VirtualMemory,
+{
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn execute(
+        self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
+        _ext_state: &mut ExtState,
+        memory: &mut Memory,
+        _program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+        match self {
+            Self::LbAq { rd, rs1: _, rl: _ } => {
+                let value = i64::from(memory.read::<i8>(rs1_value)?);
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+            }
+            Self::LhAq { rd, rs1: _, rl: _ } => {
+                let value = i64::from(memory.read::<i16>(rs1_value)?);
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+            }
+            Self::LwAq { rd, rs1: _, rl: _ } => {
+                let value = i64::from(memory.read::<i32>(rs1_value)?);
+                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+            }
+            Self::LdAq { rd, rs1: _, rl: _ } => {
+                let value = memory.read::<u64>(rs1_value)?;
+                Ok(ControlFlow::Continue((rd, value)))
+            }
+            Self::SbRl {
+                rs1: _,
+                rs2: _,
+                aq: _,
+            } => {
+                memory.write(rs1_value, rs2_value as u8)?;
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::ShRl {
+                rs1: _,
+                rs2: _,
+                aq: _,
+            } => {
+                memory.write(rs1_value, rs2_value as u16)?;
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::SwRl {
+                rs1: _,
+                rs2: _,
+                aq: _,
+            } => {
+                memory.write(rs1_value, rs2_value as u32)?;
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+            Self::SdRl {
+                rs1: _,
+                rs2: _,
+                aq: _,
+            } => {
+                memory.write(rs1_value, rs2_value)?;
+                Ok(ControlFlow::Continue(Default::default()))
+            }
+        }
+    }
+}

@@ -13,6 +13,10 @@ pub use crate::instructions::rv32::b::zbs::Rv32ZbsInstruction;
 pub use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 pub use crate::instructions::rv32::m::Rv32MInstruction;
 pub use crate::instructions::rv32::m::zmmul::Rv32ZmmulInstruction;
+pub use crate::instructions::rv32::zabha::Rv32ZabhaInstruction;
+pub use crate::instructions::rv32::zacas::Rv32ZacasInstruction;
+pub use crate::instructions::rv32::zalasr::Rv32ZalasrInstruction;
+pub use crate::instructions::rv32::zawrs::Rv32ZawrsInstruction;
 pub use crate::instructions::rv32::zce::zcb::{Rv32ZcbInstruction, Rv32ZcbOnlyInstruction};
 pub use crate::instructions::rv32::zce::zcmp::{
     Rv32ZcmpInstruction, Rv32ZcmpOnlyInstruction, ZcmpRegister, ZcmpUrlist,
@@ -36,6 +40,10 @@ pub use crate::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 pub use crate::instructions::rv64::c::zca::Rv64ZcaInstruction;
 pub use crate::instructions::rv64::m::Rv64MInstruction;
 pub use crate::instructions::rv64::m::zmmul::Rv64ZmmulInstruction;
+pub use crate::instructions::rv64::zabha::Rv64ZabhaInstruction;
+pub use crate::instructions::rv64::zacas::Rv64ZacasInstruction;
+pub use crate::instructions::rv64::zalasr::Rv64ZalasrInstruction;
+pub use crate::instructions::rv64::zawrs::Rv64ZawrsInstruction;
 pub use crate::instructions::rv64::zce::zcb::{Rv64ZcbInstruction, Rv64ZcbOnlyInstruction};
 pub use crate::instructions::rv64::zce::zcmp::{Rv64ZcmpInstruction, Rv64ZcmpOnlyInstruction};
 pub use crate::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;

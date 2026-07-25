@@ -31,7 +31,11 @@
 //! * M (version 2.0)
 //! * B (version 1.0.0)
 //! * Zaamo (version 1.0.0)
+//! * Zabha (version 1.0.0)
+//! * Zacas (version 1.0.0)
+//! * (experimental) Zalasr (version 1.0.0)
 //! * Zalrsc (version 1.0.0)
+//! * Zawrs (version 1.0.0)
 //! * Zba (version 1.0.0)
 //! * Zbb (version 1.0.0)
 //! * Zbc (version 1.0.0)
@@ -61,8 +65,7 @@
 //!
 //! Any permutation of compatible extensions is supported.
 //!
-//! Experimental extensions are known to have bugs and need more work. They are not tested against
-//! ACTs yet.
+//! Experimental extensions may not have ACT4 tests yet and are not guaranteed to work correctly.
 //!
 //! ## Design choices
 //!
