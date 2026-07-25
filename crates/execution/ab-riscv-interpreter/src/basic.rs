@@ -10,6 +10,8 @@ use crate::{
     VirtualMemoryError, WrsHandler,
 };
 use ab_riscv_primitives::prelude::*;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::hint::cold_path;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
@@ -363,6 +365,12 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Default for BasicMemory<BASE_ADDR,
 }
 
 impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
+    #[cfg(feature = "alloc")]
+    pub fn new_boxed() -> Box<Self> {
+        // SAFETY: Zeroed memory is a valid invariant
+        unsafe { Box::<Self>::new_zeroed().assume_init() }
+    }
+
     /// Get a mutable slice of memory.
     ///
     /// This is primarily useful for setting up the program and should not be used beyond that.

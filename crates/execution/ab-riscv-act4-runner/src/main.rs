@@ -43,7 +43,7 @@ compile_error!("Only little-endian platforms are supported");
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
-const RAM_SIZE: usize = 0x80000;
+const RAM_SIZE: usize = 0x0020_0000;
 const MRET_INSTRUCTION: u32 = 0x3020_0073;
 
 const SIZE_OF<T>: usize = size_of::<T>();
@@ -325,7 +325,7 @@ fn run_rv32i_max_test(
 ) -> Result<(), TestError<RegisterType<AbundanceRv32IMaxInstruction>>> {
     let elf = ParsedElf::<<AbundanceRv32IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
 
-    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::default();
+    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::new_boxed();
     for (vaddr, data) in &elf.segments {
         ram.write_slice(*vaddr, data)
             .map_err(ExecutionError::from)?;
@@ -458,7 +458,7 @@ fn run_rv64i_max_test(
 ) -> Result<(), TestError<RegisterType<AbundanceRv64IMaxInstruction>>> {
     let elf = ParsedElf::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
 
-    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::default();
+    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::new_boxed();
     for (vaddr, data) in &elf.segments {
         ram.write_slice(*vaddr, data)
             .map_err(ExecutionError::from)?;

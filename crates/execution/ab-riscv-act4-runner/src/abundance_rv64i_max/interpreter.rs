@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 pub(crate) struct AbundanceRv64IMaxExtState {
     csrs: BTreeMap<u16, u64>,
     vregs: VectorRegisterFile<const { Self::VLEN }>,
+    reservation: Option<u64>,
 }
 
 impl AbundanceRv64IMaxExtState {
@@ -13,6 +14,7 @@ impl AbundanceRv64IMaxExtState {
         let mut s = Self {
             csrs: BTreeMap::new(),
             vregs: VectorRegisterFile::default(),
+            reservation: None,
         };
         // Vector CSRs
         s.init_csr(VectorCsr::Vstart.to_csr_index(), 0);
@@ -113,4 +115,20 @@ where
 impl VectorRegistersExt<<AbundanceRv64IMaxInstruction as Instruction>::Reg>
     for AbundanceRv64IMaxExtState
 {
+}
+
+impl ReservationSet<<AbundanceRv64IMaxInstruction as Instruction>::Reg>
+    for AbundanceRv64IMaxExtState
+{
+    fn reservation(&self) -> Option<u64> {
+        self.reservation
+    }
+
+    fn set_reservation(&mut self, address: u64) {
+        self.reservation = Some(address);
+    }
+
+    fn clear_reservation(&mut self) {
+        self.reservation = None;
+    }
 }

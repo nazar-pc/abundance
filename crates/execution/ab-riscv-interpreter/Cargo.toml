@@ -31,6 +31,7 @@ thiserror = { workspace = true }
 ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [features]
+alloc = []
 # TODO: no-panic coverage is limited very slightly:
 #  * Some `::execute()` methods do not have `no_panic_const::no_panic` macro applied due to unreasonable inlining limits
 #    required, but all helpers and other APIs used are guaranteed to not panic, and the rest of the code is trivially

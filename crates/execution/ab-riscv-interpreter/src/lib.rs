@@ -164,8 +164,13 @@ pub mod zicsr;
 pub mod zvbb;
 pub mod zvbc;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::fmt;
 use core::hint::cold_path;
 use core::marker::Destruct;
@@ -254,6 +259,52 @@ pub const trait VirtualMemory {
 
     /// Write a contiguous byte slice to memory
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError>;
+}
+
+#[cfg(feature = "alloc")]
+impl<M> VirtualMemory for Box<M>
+where
+    M: VirtualMemory,
+{
+    #[inline(always)]
+    fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        self.as_ref().read(address)
+    }
+
+    #[inline(always)]
+    unsafe fn read_unchecked<T>(&self, address: u64) -> T
+    where
+        T: BasicInt,
+    {
+        // SAFETY: Guaranteed by the caller
+        unsafe { self.as_ref().read_unchecked(address) }
+    }
+
+    #[inline(always)]
+    fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
+        self.as_ref().read_slice(address, len)
+    }
+
+    #[inline(always)]
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
+        self.as_ref().read_slice_up_to(address, len)
+    }
+
+    #[inline(always)]
+    fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        self.as_mut().write(address, value)
+    }
+
+    #[inline(always)]
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
+        self.as_mut().write_slice(address, data)
+    }
 }
 
 /// Placeholder for custom errors in [`ExecutionError`]

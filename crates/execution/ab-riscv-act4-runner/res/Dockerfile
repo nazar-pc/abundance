@@ -21,15 +21,15 @@
 # Global ARGs - declared before any FROM so they are overridable across all stages.
 # Each stage that uses them must redeclare them with a bare ARG (no default) to bring them into scope.
 ARG RISCV_TOOLCHAIN_PREFIX=/opt/riscv
-ARG SAIL_VERSION=0.11
-ARG RISCV_TOOLCHAIN_VERSION=2026.05.06
+ARG SAIL_VERSION=0.13
+ARG RISCV_TOOLCHAIN_VERSION=2026.07.15
 # Ice Lake (server) is the oldest CPU available in GitHub Actions right now
 ARG RISCV_TOOLCHAIN_HOST_MARCH_X86_64=icelake-server
 
 # Stage 1: build riscv-gnu-toolchain
 #
 # LDFLAGS=-static ensures no shared-lib dependencies survive into the final image.
-FROM ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS toolchain-builder
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 AS toolchain-builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG RISCV_TOOLCHAIN_PREFIX
@@ -105,7 +105,7 @@ RUN git clone --depth 1 --branch "${RISCV_TOOLCHAIN_VERSION}" https://github.com
 #
 # HOME=/home/shared is used so all caches (mise, uv, udb, etc.) land in a single directory that is copied to the final
 # image.
-FROM ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS mise-fetcher
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 AS mise-fetcher
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -151,7 +151,7 @@ RUN cd /act4 \
 RUN chmod -R 777 /act4 /home/shared
 
 # Stage 3: final runtime image
-FROM ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS act4-build
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 AS act4-build
 
 LABEL description="RISC-V Architectural Certification Tests (ACT4) build env"
 LABEL org.opencontainers.image.source="https://github.com/riscv/riscv-arch-test"
@@ -202,7 +202,9 @@ COPY --from=mise-fetcher /act4/.venv /act4/.venv
 COPY --chmod=777 . /act4
 
 # TODO: `make vector-tests` is only needed temporarily before vector tests are enabled by default
-RUN make vector-tests \
+RUN make tests \
+  && make vector-tests \
+  && chown -R ubuntu:ubuntu tests \
   && chmod -R 777 /act4/.venv
 
 # Default user with ID 1000 matching typical desktop installation

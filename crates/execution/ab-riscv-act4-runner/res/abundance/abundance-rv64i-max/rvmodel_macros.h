@@ -41,9 +41,13 @@
 // writes its address into mtvec (direct mode: low 2 bits = 0, so 4-byte
 // alignment is sufficient).
 //
-// Handler contract: skip the faulting instruction (mepc += 4) and return.
-// This covers reserved/hint encodings that the decoder rejects as illegal
-// rather than treating as nops. No register saving needed - the test
+// Handler contract: skip the faulting instruction and return. The faulting
+// instruction may be a 16-bit compressed encoding (Zca is enabled), so the
+// handler must not blindly add 4 - it reads the low halfword at mepc and
+// advances by 4 only if bits[1:0] == 0b11 (a 32-bit instruction), otherwise
+// by 2. This mirrors the framework's own default trap handler in
+// rvtest_trap_handler.h. mepc is always at least 2-byte aligned, so the lhu
+// cannot itself misalign-fault. No register saving needed - the test
 // framework doesn't inspect register state across a trap.
 // ---------------------------------------------------------------------------
 #define RVMODEL_BOOT                            \
@@ -55,7 +59,13 @@
     .global rvmodel_trap_handler;               \
     rvmodel_trap_handler:                       \
         csrr    t0, mepc;                       \
-        addi    t0, t0, 4;                      \
+        lhu     t1, 0(t0);                      \
+        andi    t1, t1, 3;                      \
+        addi    t1, t1, 1;                      \
+        srli    t1, t1, 2;                      \
+        addi    t1, t1, 1;                      \
+        slli    t1, t1, 1;                      \
+        add     t0, t0, t1;                     \
         csrw    mepc, t0;                       \
         mret;                                   \
     .align 2;                                   \
@@ -126,6 +136,14 @@
 #define RVMODEL_SET_SEXT_INT(_R1, _R2)
 #define RVMODEL_CLR_SEXT_INT(_R1, _R2)
 #define RVMODEL_CLR_STIMER_INT(_R1, _R2)
-#define RVMODEL_SET_VSW_INT(_R1, _R2)
-#define RVMODEL_CLR_VSW_INT(_R1, _R2)
+// RVMODEL_SET_VSW_INT / RVMODEL_CLR_VSW_INT are intentionally NOT defined
+// here: the framework invokes them bare, with no arguments (see
+// rvtest_trap_handler.h's `clr_Vsw_int` label), unlike their MSW/SSW
+// siblings. A function-like macro taking (_R1, _R2) never expands at a
+// parenthesis-less call site, so defining them like the others left the
+// literal macro name in the generated assembly and broke the build under
+// STANDARD_SM_SUPPORTED. Leaving them undefined lets the framework's own
+// `#ifndef` fallback (abort via RVTEST_DFLT_INT_HNDLR) apply, which is
+// correct since this core doesn't implement the H extension and should
+// never actually take a VS-mode software interrupt.
 #define RVMODEL_INTERRUPT_LATENCY

@@ -9,7 +9,14 @@ description: Abundance RV32I-max core
 implemented_extensions:
   - { name: I,        version: "= 2.1" }
   - { name: M,        version: "= 2.0" }
+  - { name: A,        version: "= 2.1" }
   - { name: B,        version: "= 1.0.0" }
+  - { name: Zaamo,    version: "= 1.0.0" }
+  - { name: Zabha,    version: "= 1.0.0" }
+  - { name: Zacas,    version: "= 1.0.0" }
+  - { name: Zalasr,   version: "= 1.0.0" }
+  - { name: Zalrsc,   version: "= 1.0.0" }
+  - { name: Zawrs,    version: "= 1.0.0" }
   - { name: Zba,      version: "= 1.0.0" }
   - { name: Zbb,      version: "= 1.0.0" }
   - { name: Zbc,      version: "= 1.0.0" }
@@ -171,7 +178,23 @@ params:
   MISALIGNED_MAX_ATOMICITY_GRANULE_SIZE: 4096
   MISALIGNED_SPLIT_STRATEGY: sequential_bytes
 
+  # --- Atomics ---
+  # Misaligned AMOs and LR/SC are allowed, same as plain loads/stores above.
+  MISALIGNED_AMO: true
+  # Only used when MISALIGNED_AMO is false, which it never is here.
+  LRSC_MISALIGNED_BEHAVIOR: "always raise access fault"
+  # The interpreter tracks a single reservation address and requires an exact
+  # match for `sc` to succeed.
+  LRSC_RESERVATION_STRATEGY: "reserve exactly enough to cover the access"
+  LRSC_FAIL_ON_NON_EXACT_LRSC: true
+  # No address translation is implemented, so VA and PA are always identical
+  # and this is never actually observable.
+  LRSC_FAIL_ON_VA_SYNONYM: true
+  # Zawrs params
+  ZAWRS_NTO_IS_NOP: true
+
   # --- Extension mutability ---
+  MUTABLE_MISA_A: false
   MUTABLE_MISA_M: false
   MUTABLE_MISA_B: false
 

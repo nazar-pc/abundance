@@ -12,8 +12,13 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
 #[instruction(
     inherit = [
         Rv64Instruction,
+        Rv64AInstruction,
         Rv64BInstruction,
         Rv64MInstruction,
+        Rv64ZabhaInstruction,
+        Rv64ZacasInstruction,
+        Rv64ZalasrInstruction,
+        Rv64ZawrsInstruction,
         Rv64ZbcInstruction,
         Rv64ZcaInstruction,
         Rv64ZcbInstruction,
