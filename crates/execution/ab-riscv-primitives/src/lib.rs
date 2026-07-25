@@ -27,8 +27,11 @@
 //! * RV64E (version 2.0)
 //!
 //! Extensions:
+//! * A (version 2.1)
 //! * M (version 2.0)
 //! * B (version 1.0.0)
+//! * Zaamo (version 1.0.0)
+//! * Zalrsc (version 1.0.0)
 //! * Zba (version 1.0.0)
 //! * Zbb (version 1.0.0)
 //! * Zbc (version 1.0.0)

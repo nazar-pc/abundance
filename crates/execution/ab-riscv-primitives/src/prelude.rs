@@ -2,6 +2,9 @@
 
 pub use crate::instructions::Instruction;
 pub use crate::instructions::rv32::Rv32Instruction;
+pub use crate::instructions::rv32::a::Rv32AInstruction;
+pub use crate::instructions::rv32::a::zaamo::Rv32ZaamoInstruction;
+pub use crate::instructions::rv32::a::zalrsc::Rv32ZalrscInstruction;
 pub use crate::instructions::rv32::b::Rv32BInstruction;
 pub use crate::instructions::rv32::b::zba::Rv32ZbaInstruction;
 pub use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
@@ -22,6 +25,9 @@ pub use crate::instructions::rv32::zk::zkn::zknd::{Rv32AesBs, Rv32ZkndInstructio
 pub use crate::instructions::rv32::zk::zkn::zkne::Rv32ZkneInstruction;
 pub use crate::instructions::rv32::zk::zkn::zknh::Rv32ZknhInstruction;
 pub use crate::instructions::rv64::Rv64Instruction;
+pub use crate::instructions::rv64::a::Rv64AInstruction;
+pub use crate::instructions::rv64::a::zaamo::Rv64ZaamoInstruction;
+pub use crate::instructions::rv64::a::zalrsc::Rv64ZalrscInstruction;
 pub use crate::instructions::rv64::b::Rv64BInstruction;
 pub use crate::instructions::rv64::b::zba::Rv64ZbaInstruction;
 pub use crate::instructions::rv64::b::zbb::Rv64ZbbInstruction;

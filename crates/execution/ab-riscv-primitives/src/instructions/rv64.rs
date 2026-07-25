@@ -1,5 +1,6 @@
 //! Base RISC-V RV64 instruction set
 
+pub mod a;
 pub mod b;
 pub mod c;
 pub mod m;

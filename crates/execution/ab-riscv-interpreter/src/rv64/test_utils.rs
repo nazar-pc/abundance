@@ -7,7 +7,7 @@ use crate::v::vector_registers::{
 use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
     ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ProgramCounterError, RegisterFile, ReservationSet, Rs1Rs2OperandValues, Rs1Rs2Operands,
     SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
@@ -304,6 +304,7 @@ impl Default for VectorExtState {
 pub(crate) struct ExtState {
     csr: CsrExtState,
     vector: VectorExtState,
+    reservation: Option<u64>,
 }
 
 impl Default for ExtState {
@@ -312,7 +313,22 @@ impl Default for ExtState {
         Self {
             csr: CsrExtState::default(),
             vector: VectorExtState::default(),
+            reservation: None,
         }
+    }
+}
+
+impl ReservationSet<Reg<u64>> for ExtState {
+    fn reservation(&self) -> Option<u64> {
+        self.reservation
+    }
+
+    fn set_reservation(&mut self, address: u64) {
+        self.reservation = Some(address);
+    }
+
+    fn clear_reservation(&mut self) {
+        self.reservation = None;
     }
 }
 
