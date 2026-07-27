@@ -2,7 +2,7 @@
 
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    OpSrc, check_mask_dest_no_overlap, check_vreg_group_alignment,
+    OpSrc, check_mask_dest_overlap, check_vreg_group_alignment,
 };
 use crate::v::zvexx::arith::zvexx_arith_helpers::{
     read_element_u64, sew_mask, write_element_u64, write_mask_bit,

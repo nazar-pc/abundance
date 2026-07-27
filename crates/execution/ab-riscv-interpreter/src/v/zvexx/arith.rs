@@ -1757,22 +1757,22 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: `vs2` and `vs1` alignment checked; `vd` is a single mask register,
-                // no alignment constraint; `vl <= VLMAX <= VLEN` so all element indices fit
-                // within the mask register. Mask-dest overlap rule (§11.8) checked above.
+                // SAFETY: `vs2`/`vs1` alignment and `vd` mask-destination overlap checked
+                // above; `vl <= VLMAX <= VLEN` so all element indices fit within the mask
+                // register
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -1812,7 +1812,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -1820,7 +1820,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -1855,7 +1855,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -1863,7 +1863,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -1904,20 +1904,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -1957,7 +1957,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -1965,7 +1965,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2000,7 +2000,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2008,7 +2008,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2049,20 +2049,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2102,7 +2102,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2110,7 +2110,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2151,20 +2151,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2204,7 +2204,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2212,7 +2212,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2253,20 +2253,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2306,7 +2306,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2314,7 +2314,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2349,7 +2349,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2364,7 +2364,7 @@ where
                 // zve64x_arith_helpers::sew_mask (the maximum SEW-wide unsigned value). This means
                 // vs2[i] <= imm is always true for SEW < XLEN when imm < 0.
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2405,20 +2405,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2458,7 +2458,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2466,7 +2466,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2501,7 +2501,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2509,7 +2509,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2550,7 +2550,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2558,7 +2558,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2593,7 +2593,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2601,7 +2601,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2642,7 +2642,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2650,7 +2650,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,
@@ -2685,7 +2685,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2693,7 +2693,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv`
+                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         ext_state,

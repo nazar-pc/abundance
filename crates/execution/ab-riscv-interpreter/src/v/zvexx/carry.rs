@@ -218,20 +218,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _, _>(
                         ext_state,
@@ -262,7 +262,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -270,7 +270,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _, _>(
                         ext_state,
@@ -301,7 +301,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -309,7 +309,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _, _>(
                         ext_state,
@@ -345,20 +345,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _, _>(
                         ext_state,
@@ -389,7 +389,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -397,7 +397,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _, _>(
                         ext_state,
@@ -428,7 +428,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -436,7 +436,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _, _>(
                         ext_state,
@@ -566,20 +566,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _, _>(
                         ext_state,
@@ -610,7 +610,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -618,7 +618,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _, _>(
                         ext_state,
@@ -654,20 +654,20 @@ where
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs1,
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _, _>(
                         ext_state,
@@ -698,7 +698,7 @@ where
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_no_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -706,7 +706,7 @@ where
                 )?;
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and overlap checked above
+                // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _, _>(
                         ext_state,
