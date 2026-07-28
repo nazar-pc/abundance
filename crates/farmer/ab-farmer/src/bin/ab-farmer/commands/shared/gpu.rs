@@ -1,7 +1,7 @@
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer::plotter::gpu::GpuPlotter;
-use ab_proof_of_space_gpu::{Device, DeviceType};
+use ab_proof_of_space_gpu::Device;
 use async_lock::{Mutex as AsyncMutex, Semaphore};
 use clap::Parser;
 use prometheus_client::registry::Registry;
@@ -50,24 +50,12 @@ where
     PG: PieceGetter + Clone + Send + Sync + 'static,
 {
     let GpuPlottingOptions {
-        gpu_record_encoding_concurrency,
+        gpu_record_encoding_concurrency: _,
         gpu_sector_downloading_concurrency,
         gpus,
     } = gpu_plotting_options;
 
-    let all_gpu_devices = Device::enumerate(|device_type| {
-        if let Some(gpu_record_encoding_concurrency) = gpu_record_encoding_concurrency {
-            return gpu_record_encoding_concurrency;
-        }
-        match device_type {
-            DeviceType::DiscreteGpu => NonZeroU8::new(4).expect("Not zero; qed"),
-            DeviceType::Other
-            | DeviceType::IntegratedGpu
-            | DeviceType::VirtualGpu
-            | DeviceType::Cpu => NonZeroU8::new(2).expect("Not zero; qed"),
-        }
-    })
-    .await;
+    let all_gpu_devices = vec![Device];
 
     let used_gpu_devices = if let Some(gpus) = gpus {
         if gpus.is_empty() {
@@ -82,10 +70,7 @@ where
 
         let gpu_devices = all_gpu_devices
             .into_iter()
-            .filter(|device| {
-                let id = device.id();
-                gpus_to_use.remove(&id)
-            })
+            .filter(|_device| gpus_to_use.remove(&0))
             .collect::<Vec<_>>();
 
         if !gpus_to_use.is_empty() {
@@ -94,70 +79,12 @@ where
 
         gpu_devices
     } else {
-        let mut has_igpu = false;
-        let mut has_dgpu = false;
-        for device in &all_gpu_devices {
-            match device.device_type() {
-                DeviceType::Other | DeviceType::VirtualGpu | DeviceType::Cpu => {}
-                DeviceType::IntegratedGpu => {
-                    has_igpu = true;
-                }
-                DeviceType::DiscreteGpu => {
-                    has_dgpu = true;
-                }
-            }
-        }
-
         all_gpu_devices
-            .into_iter()
-            .filter_map(|device| match device.device_type() {
-                DeviceType::Other => {
-                    debug!(?device, "Skipping an unknown GPU device type");
-                    None
-                }
-                DeviceType::IntegratedGpu => {
-                    if has_dgpu {
-                        debug!(?device, "Skipping iGPU in presence of dGPU");
-                        None
-                    } else {
-                        Some(device)
-                    }
-                }
-                DeviceType::DiscreteGpu => Some(device),
-                DeviceType::VirtualGpu => {
-                    if has_igpu || has_dgpu {
-                        debug!(
-                            ?device,
-                            "Skipping virtualized GPU in presence of iGPU or dGPU"
-                        );
-                        None
-                    } else {
-                        Some(device)
-                    }
-                }
-                DeviceType::Cpu => {
-                    debug!(?device, "Skipping GPU device emulated by the CPU");
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
     };
 
     if used_gpu_devices.is_empty() {
         debug!("No GPU devices were found or used");
         return Ok(None);
-    }
-
-    info!("Using GPUs:");
-    for device in &used_gpu_devices {
-        let device_type = match device.device_type() {
-            DeviceType::Other => "other",
-            DeviceType::IntegratedGpu => "Integrated GPU",
-            DeviceType::DiscreteGpu => "Discrete GPU",
-            DeviceType::VirtualGpu => "Virtual GPU",
-            DeviceType::Cpu => "CPU emulation",
-        };
-        info!("{}: {} ({device_type})", device.id(), device.name());
     }
 
     let downloading_semaphore = Arc::new(Semaphore::new(
@@ -170,9 +97,8 @@ where
             downloading_semaphore,
             used_gpu_devices
                 .into_iter()
-                .map(|device| device.instantiate(erasure_coding.clone(), Arc::clone(&global_mutex)))
-                .collect::<Result<_, _>>()
-                .map_err(|error| anyhow::anyhow!("Failed to instantiate GPU encoder: {error}"))?,
+                .map(|device| device.instantiate())
+                .collect(),
             global_mutex,
             erasure_coding,
             Some(registry),

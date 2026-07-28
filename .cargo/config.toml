@@ -2,6 +2,6 @@
 [target.'cfg(all())']
 # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
 #  needed for some crates due to `-Znext-solver=globally`
-rustflags = ["-Znext-solver=globally", "-Zmin-recursion-limit=256"]
-rustdocflags = ["-Znext-solver=globally", "-Zmin-recursion-limit=256"]
+rustflags = ["-Znext-solver=globally"]
+rustdocflags = ["-Znext-solver=globally"]
 # TODO: Specify `miriflags` is/when it is supported: https://github.com/rust-lang/cargo/issues/17079

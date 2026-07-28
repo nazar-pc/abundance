@@ -5,10 +5,8 @@ mod commands;
 use ab_cli_utils::{init_logger, raise_fd_limit, set_exit_on_panic};
 use ab_farmer::single_disk_farm::{ScrubTarget, SingleDiskFarm};
 use ab_proof_of_space::chia::ChiaTable;
-use ab_proof_of_space_gpu::{Device, DeviceType};
 use clap::Parser;
 use std::fs;
-use std::num::NonZeroU8;
 use std::path::PathBuf;
 use tracing::info;
 
@@ -86,24 +84,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Cluster(cluster_args) => {
             commands::cluster::cluster::<PosTable>(cluster_args).await?;
         }
-        Command::ListGpus { verbose } => {
-            let devices = Device::enumerate(|_| NonZeroU8::MIN).await;
-            for device in devices {
-                let device_type = match device.device_type() {
-                    DeviceType::Other => "other",
-                    DeviceType::IntegratedGpu => "Integrated GPU",
-                    DeviceType::DiscreteGpu => "Discrete GPU",
-                    DeviceType::VirtualGpu => "Virtual GPU",
-                    DeviceType::Cpu => "CPU emulation",
-                };
-                println!("{}: {} ({device_type})", device.id(), device.name());
-                if verbose {
-                    println!("   Backend: {}", device.backend());
-                    println!("   Driver: {}", device.driver());
-                    println!("   Driver info: {}", device.driver_info());
-                }
-            }
-        }
+        Command::ListGpus { .. } => {}
         Command::Benchmark(benchmark_args) => {
             commands::benchmark::benchmark(benchmark_args)?;
         }

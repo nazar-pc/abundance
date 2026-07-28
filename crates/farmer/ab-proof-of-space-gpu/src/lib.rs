@@ -1,37 +1,50 @@
-//! Proof of space plotting utilities for GPU (Vulkan/Metal).
-//!
-//! Similarly to `ab-proof-of-space`, max supported `K` within range `15..=24` due to internal data
-//! structures used (`ab-proof-of-space` also supports `K=25`, but this crate doesn't for now).
+#![expect(clippy::allow_attributes_without_reason)]
+#![allow(clippy::let_underscore_untyped)]
 
-#![cfg_attr(target_arch = "spirv", no_std)]
-#![feature(step_trait)]
-#![cfg_attr(
-    not(target_arch = "spirv"),
-    feature(iter_array_chunks, macroless_generic_const_args, portable_simd)
-)]
-#![feature(generic_const_args, generic_const_items, min_generic_const_args)]
-#![expect(incomplete_features, reason = "generic_const_*")]
-#![cfg_attr(
-    all(test, not(target_arch = "spirv")),
-    feature(const_convert, const_trait_impl, maybe_uninit_fill)
-)]
+use ab_core_primitives::pieces::Record;
+use ab_core_primitives::sectors::SectorId;
+use ab_farmer_components::plotting::RecordsEncoder;
+use ab_farmer_components::sector::SectorContentsMap;
+use rayon::{ThreadPool, ThreadPoolBuilder};
+use std::sync::atomic::AtomicBool;
 
-#[cfg(not(target_arch = "spirv"))]
-mod host;
-// This is used for benchmarks of isolated shaders externally, not for general use
-#[doc(hidden)]
-pub mod shader;
+/// Wrapper data structure encapsulating a single compatible device
+#[derive(Clone, Debug)]
+pub struct Device;
 
-// TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
-#[cfg(not(target_arch = "spirv"))]
-use ab_core_primitives::pos::PosProof;
-#[cfg(not(target_arch = "spirv"))]
-pub use host::{Device, GpuRecordsEncoder};
-#[cfg(not(target_arch = "spirv"))]
-pub use wgpu::{Backend, DeviceType};
+impl Device {
+    pub fn instantiate(&self) -> GpuRecordsEncoder {
+        let thread_pool = ThreadPoolBuilder::new().build().unwrap();
 
-// TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
-#[cfg(not(target_arch = "spirv"))]
-const _: () = {
-    assert!(PosProof::K >= 15 && PosProof::K <= 24);
-};
+        GpuRecordsEncoder {
+            instances: Vec::new(),
+            thread_pool,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GpuRecordsEncoder {
+    instances: Vec<GpuRecordsEncoderInstance>,
+    thread_pool: ThreadPool,
+}
+
+impl RecordsEncoder for GpuRecordsEncoder {
+    fn encode_records(
+        &mut self,
+        _sector_id: &SectorId,
+        _records: &mut [Record],
+        _abort_early: &AtomicBool,
+    ) -> anyhow::Result<SectorContentsMap> {
+        self.thread_pool.install(|| {
+            let _ = &self.instances[0];
+        });
+
+        Ok(SectorContentsMap::new(0))
+    }
+}
+
+#[derive(Debug)]
+struct GpuRecordsEncoderInstance {
+    _device: wgpu::Device,
+}
