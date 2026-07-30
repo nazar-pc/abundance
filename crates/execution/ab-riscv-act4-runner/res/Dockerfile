@@ -21,7 +21,7 @@
 # Global ARGs - declared before any FROM so they are overridable across all stages.
 # Each stage that uses them must redeclare them with a bare ARG (no default) to bring them into scope.
 ARG RISCV_TOOLCHAIN_PREFIX=/opt/riscv
-ARG SAIL_VERSION=0.13
+ARG SAIL_VERSION=0.13.1
 ARG XPACK_GCC_VERSION=15.2.0-1.1
 
 # Stage 1: install mise, then use it to install uv (Python) and Ruby, and pre-install the riscv-unified-db Bundler gem,
