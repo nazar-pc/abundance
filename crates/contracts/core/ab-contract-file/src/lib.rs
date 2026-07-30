@@ -36,6 +36,7 @@
     const_trait_impl,
     const_try,
     const_try_residual,
+    derive_const,
     maybe_uninit_fill,
     signed_bigint_helpers,
     trusted_len,

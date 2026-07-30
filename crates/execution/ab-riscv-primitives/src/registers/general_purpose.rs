@@ -3,13 +3,13 @@
 #[cfg(test)]
 mod tests;
 
-use core::fmt;
 use core::hint::unreachable_unchecked;
 use core::marker::{Destruct, PhantomData};
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr,
     Sub, SubAssign,
 };
+use core::{fmt, ptr};
 
 /// Register type.
 ///
@@ -130,9 +130,11 @@ pub const trait Register:
 ///
 /// Use `Type = u32` for RV32E and `Type = u64` for RV64E.
 #[derive(Clone, Copy)]
+#[derive_const(Default)]
 #[repr(u8)]
 pub enum EReg<Type> {
     /// Always zero: `x0`
+    #[default]
     Zero = 0,
     /// Return address: `x1`
     Ra = 1,
@@ -167,13 +169,6 @@ pub enum EReg<Type> {
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
     Phantom(PhantomData<(!, Type)>),
-}
-
-const impl<Type> Default for EReg<Type> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self::Zero
-    }
 }
 
 impl<Type> fmt::Display for EReg<Type> {
@@ -212,27 +207,8 @@ impl<Type> fmt::Debug for EReg<Type> {
 const impl<Type> PartialEq for EReg<Type> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        // This is quite ugly, but there doesn't seem to be a much better way with `Phantom` variant
-        matches!(
-            (self, other),
-            (Self::Zero, Self::Zero)
-                | (Self::Ra, Self::Ra)
-                | (Self::Sp, Self::Sp)
-                | (Self::Gp, Self::Gp)
-                | (Self::Tp, Self::Tp)
-                | (Self::T0, Self::T0)
-                | (Self::T1, Self::T1)
-                | (Self::T2, Self::T2)
-                | (Self::S0, Self::S0)
-                | (Self::S1, Self::S1)
-                | (Self::A0, Self::A0)
-                | (Self::A1, Self::A1)
-                | (Self::A2, Self::A2)
-                | (Self::A3, Self::A3)
-                | (Self::A4, Self::A4)
-                | (Self::A5, Self::A5)
-                | (Self::Phantom(_), Self::Phantom(_))
-        )
+        // SAFETY: `Self` is `#[repr(u8)]`, so its first byte is the discriminant
+        unsafe { *ptr::from_ref(self).cast::<u8>() == *ptr::from_ref(other).cast::<u8>() }
     }
 }
 
@@ -306,9 +282,11 @@ const impl Register for EReg<u64> {
 ///
 /// Use `Type = u32` for RV32I and `Type = u64` for RV64I.
 #[derive(Clone, Copy)]
+#[derive_const(Default)]
 #[repr(u8)]
 pub enum Reg<Type> {
     /// Always zero: `x0`
+    #[default]
     Zero = 0,
     /// Return address: `x1`
     Ra = 1,
@@ -375,13 +353,6 @@ pub enum Reg<Type> {
     /// Phantom register that is never constructed and is only used due to type system limitations
     #[doc(hidden)]
     Phantom(PhantomData<(!, Type)>),
-}
-
-const impl<Type> Default for Reg<Type> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self::Zero
-    }
 }
 
 const impl<Type> From<EReg<u64>> for Reg<Type> {
@@ -464,43 +435,8 @@ impl<Type> fmt::Debug for Reg<Type> {
 const impl<Type> PartialEq for Reg<Type> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        // This is quite ugly, but there doesn't seem to be a much better way with `Phantom` variant
-        matches!(
-            (self, other),
-            (Self::Zero, Self::Zero)
-                | (Self::Ra, Self::Ra)
-                | (Self::Sp, Self::Sp)
-                | (Self::Gp, Self::Gp)
-                | (Self::Tp, Self::Tp)
-                | (Self::T0, Self::T0)
-                | (Self::T1, Self::T1)
-                | (Self::T2, Self::T2)
-                | (Self::S0, Self::S0)
-                | (Self::S1, Self::S1)
-                | (Self::A0, Self::A0)
-                | (Self::A1, Self::A1)
-                | (Self::A2, Self::A2)
-                | (Self::A3, Self::A3)
-                | (Self::A4, Self::A4)
-                | (Self::A5, Self::A5)
-                | (Self::A6, Self::A6)
-                | (Self::A7, Self::A7)
-                | (Self::S2, Self::S2)
-                | (Self::S3, Self::S3)
-                | (Self::S4, Self::S4)
-                | (Self::S5, Self::S5)
-                | (Self::S6, Self::S6)
-                | (Self::S7, Self::S7)
-                | (Self::S8, Self::S8)
-                | (Self::S9, Self::S9)
-                | (Self::S10, Self::S10)
-                | (Self::S11, Self::S11)
-                | (Self::T3, Self::T3)
-                | (Self::T4, Self::T4)
-                | (Self::T5, Self::T5)
-                | (Self::T6, Self::T6)
-                | (Self::Phantom(_), Self::Phantom(_))
-        )
+        // SAFETY: `Self` is `#[repr(u8)]`, so its first byte is the discriminant
+        unsafe { *ptr::from_ref(self).cast::<u8>() == *ptr::from_ref(other).cast::<u8>() }
     }
 }
 
