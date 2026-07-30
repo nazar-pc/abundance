@@ -786,7 +786,7 @@ jobs:
 
   act4:
     env:
-      ACT4_REPO_REVISION: df4516ebd254eccbefdb5e395ac04f158390e178
+      ACT4_REPO_REVISION: e275a5cad3810f960bba751f6c9f3783930114d7
 
     strategy:
       matrix:

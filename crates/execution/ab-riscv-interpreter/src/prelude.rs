@@ -36,6 +36,6 @@ pub use crate::{
     BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
     ExecutableInstructionOperands, ExecutableInstructionResult, ExecutionError,
     FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    ReservationSet, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError, WrsHandler,
 };

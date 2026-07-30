@@ -25,8 +25,15 @@
 //! * RV64E (version 2.0)
 //!
 //! Extensions:
+//! * A (version 2.1)
 //! * M (version 2.0)
 //! * B (version 1.0.0)
+//! * Zaamo (version 1.0.0)
+//! * Zabha (version 1.0.0)
+//! * Zacas (version 1.0.0)
+//! * (experimental) Zalasr (version 1.0.0)
+//! * Zalrsc (version 1.0.0)
+//! * Zawrs (version 1.0.0)
 //! * Zba (version 1.0.0)
 //! * Zbb (version 1.0.0)
 //! * Zbc (version 1.0.0)
@@ -56,8 +63,7 @@
 //!
 //! Any permutation of compatible extensions is supported.
 //!
-//! Experimental extensions are known to have bugs and need more work. They are not tested against
-//! ACTs yet.
+//! Experimental extensions may not have ACT4 tests yet and are not guaranteed to work correctly.
 //!
 //! ## Design choices
 //!
@@ -158,8 +164,13 @@ pub mod zicsr;
 pub mod zvbb;
 pub mod zvbc;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::fmt;
 use core::hint::cold_path;
 use core::marker::Destruct;
@@ -248,6 +259,52 @@ pub const trait VirtualMemory {
 
     /// Write a contiguous byte slice to memory
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError>;
+}
+
+#[cfg(feature = "alloc")]
+impl<M> VirtualMemory for Box<M>
+where
+    M: VirtualMemory,
+{
+    #[inline(always)]
+    fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        self.as_ref().read(address)
+    }
+
+    #[inline(always)]
+    unsafe fn read_unchecked<T>(&self, address: u64) -> T
+    where
+        T: BasicInt,
+    {
+        // SAFETY: Guaranteed by the caller
+        unsafe { self.as_ref().read_unchecked(address) }
+    }
+
+    #[inline(always)]
+    fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
+        self.as_ref().read_slice(address, len)
+    }
+
+    #[inline(always)]
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
+        self.as_ref().read_slice_up_to(address, len)
+    }
+
+    #[inline(always)]
+    fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        self.as_mut().write(address, value)
+    }
+
+    #[inline(always)]
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
+        self.as_mut().write_slice(address, data)
+    }
 }
 
 /// Placeholder for custom errors in [`ExecutionError`]
@@ -518,6 +575,25 @@ where
     }
 }
 
+/// Reservation set used to implement `Zalrsc` extension's `lr`/`sc` instruction pairs.
+///
+/// `lr` places a reservation on an address, and a subsequent `sc` succeeds only if the reservation
+/// is still held for the same address. Regardless of success or failure, executing `sc` always
+/// invalidates the reservation, as does a subsequent `lr`.
+pub const trait ReservationSet<Reg>
+where
+    Reg: [const] Register,
+{
+    /// Returns the address of the currently held reservation, if any
+    fn reservation(&self) -> Option<Reg::Type>;
+
+    /// Place a reservation on `address`, replacing any previously held reservation
+    fn set_reservation(&mut self, address: Reg::Type);
+
+    /// Clear any currently held reservation
+    fn clear_reservation(&mut self);
+}
+
 /// Custom handler for system instructions `ecall` and `ebreak`
 pub const trait SystemInstructionHandler<
     Reg,
@@ -562,6 +638,24 @@ pub const trait SystemInstructionHandler<
         let _: &Regs = regs;
         let _: &mut Memory = memory;
         let _: Reg::Type = pc;
+        // NOP by default
+    }
+}
+
+/// Custom handler for `Zawrs` extension's `wrs.nto`/`wrs.sto` instructions.
+///
+/// These are hint instructions that may complete for any reason, so a no-op is a valid
+/// implementation for both.
+pub const trait WrsHandler {
+    /// Handle a `wrs.nto` instruction (Wait-on-Reservation-Set, no timeout)
+    #[inline(always)]
+    fn handle_wrs_nto(&mut self) {
+        // NOP by default
+    }
+
+    /// Handle a `wrs.sto` instruction (Wait-on-Reservation-Set, short timeout)
+    #[inline(always)]
+    fn handle_wrs_sto(&mut self) {
         // NOP by default
     }
 }

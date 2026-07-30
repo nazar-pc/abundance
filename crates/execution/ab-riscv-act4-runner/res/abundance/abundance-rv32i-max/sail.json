@@ -10,10 +10,55 @@
       // No writable HPM counters
       "value": "0x0"
     },
+    "mcounteren_writable_bits": {
+      "len": 32,
+      // No HPM counters, and no S-mode to observe mcounteren anyway
+      "value": "0x0"
+    },
     "scounteren_writable_bits": {
       "len": 32,
       // No S-mode counters
       "value": "0x0"
+    },
+    "privileged_isa_version": "Privileged_ISA_1_13",
+    // No traps can be delegated: there is no S-mode to delegate to.
+    "medeleg": {
+      "delegatable_bits": {
+        "len": 64,
+        "value": "0x0"
+      }
+    },
+    "mideleg": {
+      "delegatable_bits": {
+        "len": "xlen",
+        "value": "0x0"
+      }
+    },
+    "mstatus": {
+      // F is not implemented, so FS is read-only zero.
+      "fs_legal_states": "ExtContext_Off",
+      "vs_legal_states": "ExtContext_FourState"
+    },
+    "mtvec": {
+      "direct": {
+        "supported": true,
+        "base_alignment": 2
+      },
+      // MTVEC_MODES only allows mode 0 (direct).
+      "vectored": {
+        "supported": false,
+        "base_alignment": 2
+      }
+    },
+    // No S-mode, so stvec doesn't exist; values here are unobservable.
+    "stvec": {
+      "direct": {
+        "supported": false
+      },
+      "vectored": {
+        "supported": false,
+        "base_alignment": 2
+      }
     },
     // These settings control whether the specified exceptions
     // cause information to be written into the appropriate
@@ -66,6 +111,7 @@
     }
   },
   "memory": {
+    "physaddr_bits": 32,
     "pmp": {
       "grain": 0,
       // This specifies the number of PMP entries present.
@@ -106,19 +152,20 @@
         // whether it generates an access fault (use `"AccessFault"`)
         // or a misaligned exception (use `"AlignmentException"`).
         "lrsc": "AccessFault",
-        // Similarly, a misaligned AMO currently always faults, and this field
-        // can specify either `"AccessFault"` or `"AlignmentException"`.
-        "amo": "AccessFault"
+        // Misaligned AMOs are allowed, same as scalar/vector loads and stores above.
+        "amo": {
+          "None": null
+        }
       },
       // If a misaligned access was specified to have no fault in `exceptions` above, the
       // fields below specify how it is handled.
       //
       // Memory accesses that span multiple naturally aligned
-      // 2^allowed_within_exp sized regions will be split into multiple
+      // 2^default_allowed_within_exp sized regions will be split into multiple
       // memory operations. 0 means all misaligned accesses will be split.
       // The maximum value is 12 (one page).
-      "allowed_within_exp": 0,
-      // If the access gets split due to `allowed_within_exp` then the size
+      "default_allowed_within_exp": 0,
+      // If the access gets split due to `default_allowed_within_exp` then the size
       // of the operations will be one byte if `byte_by_byte` is set, otherwise
       // they will be the maximum size possible based on the alignment. For
       // example a 4-byte access to address 0x2 will use two 2-byte operations.
@@ -164,6 +211,8 @@
             "amo": "AccessFault"
           },
           "atomic_support": "AMONone",
+          "misaligned_atomicity_granule_size_exp": 0,
+          "vector_misaligned_atomicity_granule_size_exp": 0,
           "reservability": "RsrvNone",
           "supports_cbo_zero": false,
           "supports_pte_read": false,
@@ -179,7 +228,7 @@
         },
         "size": {
           "len": 64,
-          "value": "0x80000"
+          "value": "0x200000"
         },
         "attributes": {
           "mem_type": "MainMemory",
@@ -200,8 +249,12 @@
             },
             "amo": "AccessFault"
           },
-          "atomic_support": "AMONone",
-          "reservability": "RsrvNone",
+          // Supports Zaamo/Zalrsc, plus Zacas up to doubleword compare-and-swap.
+          // amocas.q does not exist on RV32 per the Zacas spec (it's RV64-only).
+          "atomic_support": "AMOCASD",
+          "misaligned_atomicity_granule_size_exp": 12,
+          "vector_misaligned_atomicity_granule_size_exp": 12,
+          "reservability": "RsrvEventual",
           "supports_cbo_zero": false,
           "supports_pte_read": false,
           "supports_pte_write": false
@@ -226,9 +279,13 @@
       // address as the matching Load-Reserve in order to succeed, regardless of the
       // configured reservation set size.  This controls whether such an exact address
       // match is required for a Store-Conditional to succeed.
-      "require_exact_reservation_addr": false
+      "require_exact_reservation_addr": false,
+      // The interpreter's reservation is only invalidated by a subsequent `lr` or `sc`,
+      // not by a plain store from the same hart.
+      "invalidate_on_same_hart_store": false
     },
     "clint": {
+      "supported": true,
       // This must be in a suitable memory region (see `memory.regions`)
       "base": 33554432,
       "size": 786432
@@ -236,6 +293,7 @@
     // Very simple MMIO device to generate interrupts for testing
     // purposes. See docs/SimpleInterruptGenerator.md for details.
     "simple_interrupt_generator": {
+      "supported": true,
       // This must be in a suitable IO memory region (see `memory.regions`)
       // and 4-byte aligned. The size is always 0x20.
       "base": 34078720
@@ -243,6 +301,8 @@
     "clock_frequency": 1000000000,
     "instructions_per_tick": 1,
     "wfi_is_nop": true,
+    // No U-mode is implemented.
+    "wfi_available_to_user_mode": false,
     // The maximum increment in the time CSR before a wait instruction
     // (e.g. WFI, WRS.NTO, WRS.STO) that is not a NOP expires its
     // wait. It is not possible to wait indefinitely.
@@ -258,7 +318,7 @@
   },
   "extensions": {
     "A": {
-      "supported": false
+      "supported": true
     },
     "B": {
       "supported": true
@@ -281,16 +341,40 @@
       "support_level": "Integer",
       "vlen_exp": 10,
       "elen_exp": 6,
-      "vl_use_ceil": false
+      "vl_use_ceil": false,
+      "reserved_behavior": {
+        "illegal_vtype": "IllegalVtype_SetVill",
+        "vstart_out_of_bounds": "Vstart_Illegal"
+      },
+      // Must not exceed the supported ELEN (2^elen_exp).
+      "max_index_eew_exp": 6,
+      "vstart": {
+        "zero_required": {
+          "arith": true,
+          "scalar_move": true
+        }
+      }
     },
     "Zaamo": {
-      "supported": false
+      "supported": true
     },
-    "Zalrsc": {
-      "supported": false
+    "Zabha": {
+      "supported": true
     },
     "Zacas": {
-      "supported": false
+      "supported": true
+    },
+    "Zalrsc": {
+      "supported": true
+    },
+    "Zawrs": {
+      "supported": true,
+      "nto": {
+        "is_nop": true
+      },
+      "sto": {
+        "is_nop": true
+      }
     },
     "Zba": {
       "supported": true
@@ -363,14 +447,35 @@
     "D": {
       "supported": false
     },
-    "F": {
+    // Not enabled: asserting this requires a 16-byte misaligned atomicity granule on
+    // every coherent/cacheable region, which is more than this core commits to.
+    "Zama16b": {
       "supported": false
+    },
+    "F": {
+      "supported": false,
+      "fflags_dirty_policy": "Fflags_Dirty_Precise"
     },
     "S": {
       "supported": false
     },
     "Smcntrpmf": {
       "supported": false
+    },
+    "Smmpm": {
+      "supported": false,
+      "supported_pmlen_7": false,
+      "supported_pmlen_16": false
+    },
+    "Smnpm": {
+      "supported": false,
+      "supported_pmlen_7": false,
+      "supported_pmlen_16": false
+    },
+    "Ssnpm": {
+      "supported": false,
+      "supported_pmlen_7": false,
+      "supported_pmlen_16": false
     },
     "Ssccptr": {
       "supported": false
@@ -441,18 +546,6 @@
     },
     "U": {
       "supported": false
-    },
-    "Zabha": {
-      "supported": false
-    },
-    "Zawrs": {
-      "supported": false,
-      "nto": {
-        "is_nop": false
-      },
-      "sto": {
-        "is_nop": false
-      }
     },
     "Zcd": {
       "supported": false

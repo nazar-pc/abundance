@@ -33,15 +33,24 @@ where
     Ok(())
 }
 
-/// Check mask-destination / source overlap constraint for compare instructions.
+/// Check mask-destination / source overlap constraint for compare/carry instructions.
 ///
-/// Per RVV §11.8: a mask destination register may overlap a source register group only when
-/// the source group occupies a single register (LMUL ≤ 1, i.e. `group_regs == 1`). Otherwise
-/// the encoding is reserved and raises an illegal instruction.
+/// Per RVV §5.2's narrowing-destination overlap rule (a mask destination has EEW=1, narrower
+/// than any source EEW), `vd` may overlap a multi-register source group only in the
+/// lowest-numbered register of that group. Overlapping any other register in the group is
+/// reserved: `execute_compare_op`/`execute_carry_*_mask` process elements in increasing index
+/// order and write one mask bit per element into `vd`. When `vd` is the group's base register,
+/// every mask byte written during the processing of register `base_reg` targets bytes that hold
+/// data from elements at or before the one just read (byte `b` can only be touched while
+/// processing elements `>= 8*b`, and it stores raw data for element `b / sew_bytes <= 8*b`, which
+/// is always read first). When `vd` is any later register in the group, that guarantee no longer
+/// holds: early elements from the group's *first* register write mask bits into byte 0 of `vd`,
+/// which is where the not-yet-read data of a later element (stored in `vd` itself) lives,
+/// corrupting it before it is read.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_mask_dest_no_overlap<Reg, Memory, PC, CustomError>(
+pub fn check_mask_dest_overlap<Reg, Memory, PC, CustomError>(
     program_counter: &PC,
     vd: VReg,
     src_base: VReg,
@@ -55,7 +64,7 @@ where
     if group_regs > 1 {
         let vd_idx = vd.to_bits();
         let src = src_base.to_bits();
-        if vd_idx >= src && vd_idx < src + group_regs {
+        if vd_idx > src && vd_idx < src + group_regs {
             cold_path();
             return Err(ExecutionError::IllegalInstruction {
                 address: program_counter.old_pc(INSTRUCTION_SIZE),

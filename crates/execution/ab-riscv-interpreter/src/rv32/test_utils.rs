@@ -3,8 +3,9 @@ extern crate alloc;
 use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, ReservationSet,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError, WrsHandler,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
@@ -261,9 +262,33 @@ where
     }
 }
 
+impl WrsHandler for TestInstructionHandler {}
+
+/// Extended state used by RV32 tests.
+///
+/// Currently only holds the reservation set used by `Zalrsc`.
+#[derive(Default)]
+pub(crate) struct ExtState {
+    reservation: Option<u32>,
+}
+
+impl ReservationSet<Reg<u32>> for ExtState {
+    fn reservation(&self) -> Option<u32> {
+        self.reservation
+    }
+
+    fn set_reservation(&mut self, address: u32) {
+        self.reservation = Some(address);
+    }
+
+    fn clear_reservation(&mut self) {
+        self.reservation = None;
+    }
+}
+
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
     BasicRegisters<Reg<u32>>,
-    (),
+    ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
     TestInstructionHandler,
@@ -278,7 +303,7 @@ where
 {
     BasicInterpreterState {
         regs: BasicRegisters::default(),
-        ext_state: (),
+        ext_state: ExtState::default(),
         memory: TestMemory::new(8192, u64::from(TEST_BASE_ADDR)),
         instruction_fetcher: TestInstructionFetcher::new(
             instructions,
@@ -297,7 +322,7 @@ where
     I: Instruction<Reg = Reg<u32>>
         + ExecutableInstruction<
             BasicRegisters<Reg<u32>>,
-            (),
+            ExtState,
             TestMemory,
             TestInstructionFetcher<I>,
             TestInstructionHandler,

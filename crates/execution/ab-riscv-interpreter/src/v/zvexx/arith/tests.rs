@@ -1566,9 +1566,67 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
 }
 
 #[test]
-fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1() {
-    // vmseq.vv with LMUL=2 and vd inside the vs2 group [v2, v3] is reserved
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
+fn compare_mask_dest_may_overlap_vs2_base_lmul_gt_1() {
+    // vmseq.vv with LMUL=2 and vd equal to the *lowest-numbered* register of the vs2 group
+    // [v2, v3] is permitted by RVV §5.2's narrowing-overlap exception (destination is a mask
+    // register, EEW=1, narrower than any source EEW). vl=16 spans both registers of the group
+    // (8 elements/register at SEW=32/VLEN=256b) so elements actually read from the overlapping
+    // register (v3) are exercised, not just the non-overlapping one.
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
+    for i in 0..16usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, i as u64);
+        write_elem(&mut state, VReg::V6, i, Vsew::E32, i as u64);
+    }
+    exec(
+        &mut state,
+        ZveXxArithInstruction::VmseqVv {
+            vd: VReg::V2,
+            vs2: VReg::V2,
+            vs1: VReg::V6,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        state.ext_state.read_vregs().get(VReg::V2)[0..2],
+        [0xFF, 0xFF]
+    );
+}
+
+#[test]
+fn compare_mask_dest_may_overlap_vs1_base_lmul_gt_1() {
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
+    for i in 0..16usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, i as u64);
+        write_elem(&mut state, VReg::V6, i, Vsew::E32, i as u64);
+    }
+    exec(
+        &mut state,
+        ZveXxArithInstruction::VmseqVv {
+            vd: VReg::V6,
+            vs2: VReg::V2,
+            vs1: VReg::V6,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        state.ext_state.read_vregs().get(VReg::V6)[0..2],
+        [0xFF, 0xFF]
+    );
+}
+
+#[test]
+fn error_compare_mask_dest_overlaps_vs2_non_base_lmul_gt_1() {
+    // vd overlapping any register of the vs2 group *other than* the lowest-numbered one is
+    // reserved per RVV §5.2 and must be rejected: mask bits written while processing earlier
+    // elements (stored in v2) would otherwise clobber not-yet-read data of later elements that
+    // live in v3 (== vd).
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1587,8 +1645,8 @@ fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1() {
 }
 
 #[test]
-fn error_compare_mask_dest_overlaps_vs1_lmul_gt_1() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
+fn error_compare_mask_dest_overlaps_vs1_non_base_lmul_gt_1() {
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1607,10 +1665,13 @@ fn error_compare_mask_dest_overlaps_vs1_lmul_gt_1() {
 }
 
 #[test]
-fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1_vx() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
+fn compare_mask_dest_may_overlap_vs2_lmul_gt_1_vx() {
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
+    for i in 0..16usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, 0);
+    }
     state.regs.write(Reg::A0, 0);
-    let result = exec(
+    exec(
         &mut state,
         ZveXxArithInstruction::VmseqVx {
             vd: VReg::V2,
@@ -1619,11 +1680,12 @@ fn error_compare_mask_dest_overlaps_vs2_lmul_gt_1_vx() {
             vm: true,
             rs2: Reg::Zero,
         },
+    )
+    .unwrap();
+    assert_eq!(
+        state.ext_state.read_vregs().get(VReg::V2)[0..2],
+        [0xFF, 0xFF]
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
 }
 
 #[test]

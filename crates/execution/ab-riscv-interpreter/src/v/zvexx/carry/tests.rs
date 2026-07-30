@@ -648,8 +648,43 @@ fn error_vill_vtype() {
 }
 
 #[test]
-fn error_vmadc_vd_overlaps_vs2_lmul_gt_1() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E32, Vlmul::M2);
+fn vmadc_vd_may_overlap_vs2_base_lmul_gt_1() {
+    // `vd` equal to the *lowest-numbered* register of the vs2 group [v2, v3] is permitted by
+    // RVV §5.2's narrowing-overlap exception (destination is a mask register, EEW=1, narrower
+    // than any source EEW): sequential per-element processing always reads element `m`'s data
+    // (stored at byte `m * sew_bytes` of the base register) before any mask write can reach that
+    // byte, because a write to byte `b` only happens while processing elements `>= 8*b`, and
+    // `m * sew_bytes / 1 <= 8*b` always holds. `vl=16` spans both registers of the group (8
+    // elements/register at SEW=32/VLEN=256b) so this also exercises elements actually read from
+    // the overlapping register (`v3`), not just the non-overlapping one.
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
+    for i in 0..16usize {
+        write_elem(&mut state, VReg::V2, i, Vsew::E32, 0xFFFF_FFFF);
+        write_elem(&mut state, VReg::V6, i, Vsew::E32, 1);
+    }
+    exec(
+        &mut state,
+        ZveXxCarryInstruction::VmadcVvm {
+            vd: VReg::V2,
+            vs2: VReg::V2,
+            vs1: VReg::V6,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    for i in 0..16 {
+        assert!(read_mask_bit(&state, VReg::V2, i), "elem {i}");
+    }
+}
+
+#[test]
+fn error_vmadc_vd_overlaps_vs2_non_base_lmul_gt_1() {
+    // `vd` overlapping any register of the vs2 group *other than* the lowest-numbered one is
+    // reserved per RVV §5.2 and must be rejected: without this check, mask bits written while
+    // processing earlier elements (stored in `v2`) would clobber not-yet-read data of later
+    // elements that live in `v3` (== `vd`).
+    let mut state = setup(Vl::new(16).unwrap(), Vsew::E32, Vlmul::M2);
     let result = exec(
         &mut state,
         ZveXxCarryInstruction::VmadcVvm {

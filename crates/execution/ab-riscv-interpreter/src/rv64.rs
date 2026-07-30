@@ -1,5 +1,6 @@
 //! Base RISC-V RV64 instruction set
 
+pub mod a;
 pub mod b;
 pub mod c;
 pub mod m;
@@ -7,6 +8,10 @@ pub mod m;
 pub(crate) mod test_utils;
 #[cfg(test)]
 mod tests;
+pub mod zabha;
+pub mod zacas;
+pub mod zalasr;
+pub mod zawrs;
 pub mod zce;
 pub mod zk;
 
