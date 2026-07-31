@@ -113,60 +113,65 @@ jobs:
             echo "RUST_GPU_CACHE=$HOME/.cache/rust-gpu" >> "$GITHUB_ENV"
           fi
 
-      - &shared-test-steps
-        parallel:
-          - *checkout-step
-          - *cache-restore-step
+      # TODO: Can't use parallel steps: https://github.com/taiki-e/install-action/issues/1958
+      #- &shared-test-steps
+      #  parallel:
+      - *checkout-step
+      - *cache-restore-step
 
-          - &install-sccache-step
-            name: Install sccache
-            uses: &install-action-version taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
-            with:
-              tool: sccache
+      - &install-sccache-step
+        name: Install sccache
+        uses: &install-action-version taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
+        with:
+          tool: sccache
 
-          # Speeds up builds across the multiple `CARGO_TARGET_DIR`s used within a job by sharing compiled
-          # artifacts through a local-disk cache instead of recompiling them for each target dir
-          - &use-sccache-step
-            name: Use sccache
-            shell: bash
-            run: |
-              echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      # Speeds up builds across the multiple `CARGO_TARGET_DIR`s used within a job by sharing compiled
+      # artifacts through a local-disk cache instead of recompiling them for each target dir
+      - &use-sccache-step
+        name: Use sccache
+        shell: bash
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
 
-          - name: RISC-V support
-            run: |
-              echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
-              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-              # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-              echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-              echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-              sudo apt-get update
-              sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
-            if: contains(matrix.target, 'riscv64')
+      - &riscv-support-step
+        name: RISC-V support
+        run: |
+          echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${RUSTFLAGS} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
+          echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
+        if: contains(matrix.target, 'riscv64')
 
-          - name: Install wild-linker
-            uses: *install-action-version
-            with:
-              tool: wild-linker
-            if: runner.os == 'Linux' && matrix.target == ''
+      - &install-wild-step
+        name: Install wild-linker
+        uses: *install-action-version
+        with:
+          tool: wild-linker
+        if: runner.os == 'Linux' && matrix.target == ''
 
-          # Use Wild linker for shorter build times
-          - name: Use Wild linker on Linux
-            shell: bash
-            run: |
-              LINKER_FLAGS="-C linker=clang -C link-arg=--ld-path=wild"
-              # TODO: Remove once https://github.com/wild-linker/wild/issues/2260 is resolved
-              if [[ "$(uname -m)" == "aarch64" ]]; then
-                LINKER_FLAGS="${LINKER_FLAGS} -A linker_messages"
-              fi
-              echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
-            if: runner.os == 'Linux' && matrix.target == ''
+      # Use Wild linker for shorter build times
+      - &use-wild-step
+        name: Use Wild linker on Linux
+        shell: bash
+        run: |
+          LINKER_FLAGS="-C linker=clang -C link-arg=--ld-path=wild"
+          # TODO: Remove once https://github.com/wild-linker/wild/issues/2260 is resolved
+          if [[ "$(uname -m)" == "aarch64" ]]; then
+            LINKER_FLAGS="${LINKER_FLAGS} -A linker_messages"
+          fi
+          echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
+        if: runner.os == 'Linux' && matrix.target == ''
 
-          # Use LLD linker for shorter build times
-          - name: Use LLD linker on Windows
-            shell: bash
-            run: |
-              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
-            if: runner.os == 'Windows'
+      # Use LLD linker for shorter build times
+      - &use-lld-step
+        name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
 
       - name: cargo clippy
         run: |
@@ -340,7 +345,16 @@ jobs:
           tool: cargo-nextest
 
       - *rust-gpu-cache
-      - *shared-test-steps
+      # TODO: Can't use parallel steps: https://github.com/taiki-e/install-action/issues/1958
+      #- *shared-test-steps
+      - *checkout-step
+      - *cache-restore-step
+      - *install-sccache-step
+      - *use-sccache-step
+      - *riscv-support-step
+      - *install-wild-step
+      - *use-wild-step
+      - *use-lld-step
 
       - name: Install Vulkan runtime (Linux)
         run: |
@@ -677,7 +691,16 @@ jobs:
 
     steps:
       - *rust-gpu-cache
-      - *shared-test-steps
+      # TODO: Can't use parallel steps: https://github.com/taiki-e/install-action/issues/1958
+      #- *shared-test-steps
+      - *checkout-step
+      - *cache-restore-step
+      - *install-sccache-step
+      - *use-sccache-step
+      - *riscv-support-step
+      - *install-wild-step
+      - *use-wild-step
+      - *use-lld-step
 
       # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
       # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
