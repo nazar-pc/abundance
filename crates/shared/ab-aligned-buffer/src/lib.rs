@@ -8,7 +8,6 @@
 //!
 //! Does not require a standard library (`no_std`) but does require allocator and atomics.
 
-#![feature(const_block_items, box_vec_non_null)]
 #![cfg_attr(test, feature(pointer_is_aligned_to))]
 #![no_std]
 
@@ -28,24 +27,24 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
-const {
+const _: () = {
     assert!(
         align_of::<u128>() == size_of::<u128>(),
         "Size and alignment are both 16 bytes"
     );
     assert!(size_of::<u128>() >= size_of::<AtomicU32>());
     assert!(align_of::<u128>() >= align_of::<AtomicU32>());
-}
+};
 
 #[repr(C, align(16))]
 struct ConstInnerBuffer {
     strong_count: AtomicU32,
 }
 
-const {
+const _: () = {
     assert!(align_of::<ConstInnerBuffer>() == align_of::<u128>());
     assert!(size_of::<ConstInnerBuffer>() == size_of::<u128>());
-}
+};
 
 static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
     inner: InnerBuffer {

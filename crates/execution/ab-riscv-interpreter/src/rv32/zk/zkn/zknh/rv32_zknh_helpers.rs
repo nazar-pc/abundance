@@ -10,9 +10,7 @@ pub fn sha256sig0(x: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha256sig0(x) }
         }
-        _ => {
-            x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
-        }
+        _ => x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3),
     }
 }
 
@@ -26,9 +24,7 @@ pub fn sha256sig1(x: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha256sig1(x) }
         }
-        _ => {
-            x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
-        }
+        _ => x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10),
     }
 }
 
@@ -42,9 +38,7 @@ pub fn sha256sum0(x: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha256sum0(x) }
         }
-        _ => {
-            x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
-        }
+        _ => x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22),
     }
 }
 
@@ -58,9 +52,7 @@ pub fn sha256sum1(x: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha256sum1(x) }
         }
-        _ => {
-            x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
-        }
+        _ => x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25),
     }
 }
 
@@ -83,9 +75,7 @@ pub fn sha512sig0h(rs1: u32, rs2: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha512sig0h(rs1, rs2) }
         }
-        _ => {
-            (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7)
-        }
+        _ => (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7),
     }
 }
 
@@ -106,9 +96,7 @@ pub fn sha512sig0l(rs1: u32, rs2: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha512sig0l(rs1, rs2) }
         }
-        _ => {
-            (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7) ^ (rs2 << 25)
-        }
+        _ => (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7) ^ (rs2 << 25),
     }
 }
 
@@ -131,9 +119,7 @@ pub fn sha512sig1h(rs1: u32, rs2: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha512sig1h(rs1, rs2) }
         }
-        _ => {
-            (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6)
-        }
+        _ => (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6),
     }
 }
 
@@ -154,9 +140,7 @@ pub fn sha512sig1l(rs1: u32, rs2: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha512sig1l(rs1, rs2) }
         }
-        _ => {
-            (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6) ^ (rs2 << 26)
-        }
+        _ => (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6) ^ (rs2 << 26),
     }
 }
 
@@ -188,9 +172,7 @@ pub fn sha512sum0r(rs1: u32, rs2: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha512sum0r(rs1, rs2) }
         }
-        _ => {
-            (rs1 >> 28) ^ (rs2 << 4) ^ (rs2 >> 2) ^ (rs1 << 30) ^ (rs2 >> 7) ^ (rs1 << 25)
-        }
+        _ => (rs1 >> 28) ^ (rs2 << 4) ^ (rs2 >> 2) ^ (rs1 << 30) ^ (rs2 >> 7) ^ (rs1 << 25),
     }
 }
 
@@ -222,8 +204,6 @@ pub fn sha512sum1r(rs1: u32, rs2: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::sha512sum1r(rs1, rs2) }
         }
-        _ => {
-            (rs1 >> 14) ^ (rs2 << 18) ^ (rs1 >> 18) ^ (rs2 << 14) ^ (rs2 >> 9) ^ (rs1 << 23)
-        }
+        _ => (rs1 >> 14) ^ (rs2 << 18) ^ (rs1 >> 18) ^ (rs2 << 14) ^ (rs2 >> 9) ^ (rs1 << 23),
     }
 }

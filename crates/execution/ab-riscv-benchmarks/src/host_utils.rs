@@ -14,9 +14,7 @@ use core::ops::ControlFlow;
 
 /// Contract file bytes
 pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
-    target_env = "abundance" => {
-        &[]
-    }
+    target_env = "abundance" => &[],
     _ => {
         include_bytes!(env!("CONTRACT_PATH"))
     }

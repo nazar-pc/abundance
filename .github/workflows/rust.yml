@@ -25,6 +25,8 @@ env:
   #  needed for some crates due to `-Znext-solver=globally`
   MIRIFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -Zmiri-disable-isolation
   RUST_BACKTRACE: full
+  # TODO: Short-term workaround for https://github.com/rust-lang/miri/issues/5234
+  __CARGO_TEMPORARY_BUILD_DIR_NEW_LAYOUT_OPT_OUT: 1
 
 jobs:
   cargo-fmt:

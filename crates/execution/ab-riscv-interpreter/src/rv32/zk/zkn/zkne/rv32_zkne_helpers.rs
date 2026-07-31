@@ -82,17 +82,11 @@ pub(in super::super) mod soft {
 pub fn aes32esi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
-        all(
-            not(miri),
-            target_arch = "riscv32",
-            target_feature = "zkne"
-        ) => {
+        all(not(miri), target_arch = "riscv32", target_feature = "zkne") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv32::aes32esi(rs1, rs2, u8::from(bs))
-            }
+            unsafe { core::arch::riscv32::aes32esi(rs1, rs2, u8::from(bs)) }
         }
-        _ => { soft::aes32esi(rs1, rs2, u8::from(bs)) }
+        _ => soft::aes32esi(rs1, rs2, u8::from(bs)),
     }
 }
 
@@ -102,16 +96,10 @@ pub fn aes32esi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
 pub fn aes32esmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
-        all(
-            not(miri),
-            target_arch = "riscv32",
-            target_feature = "zkne"
-        ) => {
+        all(not(miri), target_arch = "riscv32", target_feature = "zkne") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv32::aes32esmi(rs1, rs2, u8::from(bs))
-            }
+            unsafe { core::arch::riscv32::aes32esmi(rs1, rs2, u8::from(bs)) }
         }
-        _ => { soft::aes32esmi(rs1, rs2, u8::from(bs)) }
+        _ => soft::aes32esmi(rs1, rs2, u8::from(bs)),
     }
 }

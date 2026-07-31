@@ -1,5 +1,24 @@
 //! Opaque helpers for RV32 Zbc extension
 
+// TODO: Remove once https://github.com/rust-lang/rust-clippy/issues/17498 is resolved
+#![cfg_attr(
+    all(
+        any(miri, not(all(target_arch = "riscv32", target_feature = "zbc"))),
+        any(
+            all(
+                target_arch = "aarch64",
+                target_feature = "neon",
+                target_feature = "aes"
+            ),
+            all(target_arch = "x86_64", target_feature = "pclmulqdq")
+        )
+    ),
+    expect(
+        clippy::items_after_statements,
+        reason = "https://github.com/rust-lang/rust-clippy/issues/17498"
+    )
+)]
+
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -10,10 +29,10 @@ pub fn clmul(a: u32, b: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::clmul(a as usize, b as usize) as u32 }
         }
-        _ => {{
+        _ => {
             let result = clmul_internal(a, b);
             result as u32
-        }}
+        }
     }
 }
 
@@ -27,10 +46,10 @@ pub fn clmulh(a: u32, b: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::clmulh(a as usize, b as usize) as u32 }
         }
-        _ => {{
+        _ => {
             let result = clmul_internal(a, b);
             (result >> 32) as u32
-        }}
+        }
     }
 }
 
@@ -44,10 +63,10 @@ pub fn clmulr(a: u32, b: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::clmulr(a as usize, b as usize) as u32 }
         }
-        _ => {{
+        _ => {
             let result = clmul_internal(a, b);
             (result >> 31) as u32
-        }}
+        }
     }
 }
 
@@ -61,18 +80,18 @@ fn clmul_internal(a: u32, b: u32) -> u64 {
     let b = u64::from(b);
 
     cfg_select! {
-        // TODO: `llvm.aarch64.neon.pmull64` is not supported in Miri yet:
-        //  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
         all(
-            not(miri), target_arch = "aarch64", target_feature = "neon", target_feature = "aes"
-        ) => {{
+            target_arch = "aarch64",
+            target_feature = "neon",
+            target_feature = "aes"
+        ) => {
             use core::arch::aarch64::vmull_p64;
 
             // SAFETY: Compile-time checked for supported feature
             // Only lower 32 bits of a and b are meaningful; result fits in 64 bits
             unsafe { vmull_p64(a, b) as u64 }
-        }}
-        all(target_arch = "x86_64", target_feature = "pclmulqdq") => {{
+        }
+        all(target_arch = "x86_64", target_feature = "pclmulqdq") => {
             use core::arch::x86_64::{__m128i, _mm_clmulepi64_si128, _mm_cvtsi64_si128};
             use core::mem::transmute;
 
@@ -85,8 +104,8 @@ fn clmul_internal(a: u32, b: u32) -> u64 {
                 ));
                 result as u64
             }
-        }}
-        _ => {{
+        }
+        _ => {
             // Generic implementation: inputs are at most 32 bits wide, result fits in 64 bits
             let mut result = 0u64;
             let mut b = b;
@@ -96,6 +115,6 @@ fn clmul_internal(a: u32, b: u32) -> u64 {
                 b >>= 1;
             }
             result
-        }}
+        }
     }
 }

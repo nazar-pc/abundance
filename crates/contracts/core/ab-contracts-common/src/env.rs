@@ -214,9 +214,7 @@ impl<'a> Env<'a> {
                 let mut method = method;
                 self.executor_context.call(&self.state, &mut method)
             }
-            feature = "guest" => {
-                __ab_host_call(&method).into()
-            }
+            feature = "guest" => __ab_host_call(&method).into(),
             _ => {
                 let _: PreparedMethod<'_> = method;
                 Err(ContractError::InternalError)

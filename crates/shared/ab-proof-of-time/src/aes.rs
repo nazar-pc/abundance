@@ -17,7 +17,7 @@ use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
     cfg_select! {
-        target_arch = "x86_64" => {{
+        target_arch = "x86_64" => {
             cpufeatures::new!(has_aes, "aes");
             if has_aes::get() {
                 // SAFETY: Checked `aes` feature
@@ -25,8 +25,8 @@ pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> 
                     x86_64::create(seed.as_ref(), key.as_ref(), checkpoint_iterations)
                 };
             }
-        }}
-        target_arch = "aarch64" => {{
+        }
+        target_arch = "aarch64" => {
             cpufeatures::new!(has_aes, "aes");
             if has_aes::get() {
                 // SAFETY: Checked `aes` feature
@@ -34,7 +34,7 @@ pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> 
                     aarch64::create(seed.as_ref(), key.as_ref(), checkpoint_iterations)
                 };
             }
-        }}
+        }
         _ => {
             // Nothing to do here, fallback will be used
         }
@@ -82,7 +82,7 @@ pub(crate) fn verify_sequential(
     assert_eq!(checkpoint_iterations % 2, 0);
 
     cfg_select! {
-        target_arch = "x86_64" => {{
+        target_arch = "x86_64" => {
             // TODO: Remove this guard once this no longer causes problems for compiler
             #[cfg(not(feature = "no-panic"))]
             {
@@ -125,18 +125,13 @@ pub(crate) fn verify_sequential(
                     )
                 };
             }
-        }}
+        }
         target_arch = "aarch64" => {
             cpufeatures::new!(has_aes, "aes");
             if has_aes::get() {
                 // SAFETY: Checked `aes` feature
                 return unsafe {
-                    aarch64::verify_sequential_aes(
-                        &seed,
-                        &key,
-                        checkpoints,
-                        checkpoint_iterations,
-                    )
+                    aarch64::verify_sequential_aes(&seed, &key, checkpoints, checkpoint_iterations)
                 };
             }
         }

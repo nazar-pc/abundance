@@ -112,8 +112,8 @@ fn other_operations() {
     assert_eq!(file.len().unwrap(), 0);
     assert!(file.is_empty().unwrap());
 
-    // TODO: Not supported under Miri: https://github.com/rust-lang/miri/issues/5137
-    if !cfg!(miri) {
+    // TODO: Not supported under Miri
+    if !cfg!(all(miri, target_os = "macos")) {
         file.allocate(100).unwrap();
         assert_eq!(file.len().unwrap(), 100);
         assert!(!file.is_empty().unwrap());

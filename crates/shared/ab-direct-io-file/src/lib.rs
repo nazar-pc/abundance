@@ -7,7 +7,14 @@
 //! <https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering#alignment-and-file-access-requirements>
 //! <https://man7.org/linux/man-pages/man2/open.2.html>
 
-#![feature(const_block_items)]
+// TODO: Remove once https://github.com/rust-lang/rust-clippy/issues/17498 is resolved
+#![cfg_attr(
+    any(unix, windows),
+    expect(
+        clippy::items_after_statements,
+        reason = "https://github.com/rust-lang/rust-clippy/issues/17498"
+    )
+)]
 
 // TODO: Windows shims are incomplete under Miri: https://github.com/rust-lang/miri/issues/3482
 #[cfg(all(test, not(all(miri, windows))))]
@@ -24,9 +31,9 @@ pub const DISK_PAGE_SIZE: usize = 4096;
 /// Restrict how much data to read from the disk in a single call to avoid very large memory usage
 const MAX_READ_SIZE: usize = 1024 * 1024;
 
-const {
+const _: () = {
     assert!(MAX_READ_SIZE.is_multiple_of(AlignedPage::SIZE));
-}
+};
 
 /// A wrapper data structure with 4096 bytes alignment, which is the most common alignment for
 /// direct I/O operations.
@@ -34,9 +41,9 @@ const {
 #[repr(C, align(4096))]
 pub struct AlignedPage([u8; AlignedPage::SIZE]);
 
-const {
+const _: () = {
     assert!(align_of::<AlignedPage>() == AlignedPage::SIZE);
-}
+};
 
 impl Default for AlignedPage {
     #[inline(always)]
@@ -380,12 +387,12 @@ impl DirectIoFile {
         let buf = buf.as_flattened_mut();
 
         cfg_select! {
-            unix => {{
+            unix => {
                 use std::os::unix::fs::FileExt;
 
                 self.file.read_exact_at(buf, offset)
-            }}
-            windows => {{
+            }
+            windows => {
                 use std::os::windows::fs::FileExt;
 
                 let mut buf = buf;
@@ -416,7 +423,7 @@ impl DirectIoFile {
                         "failed to fill the whole buffer",
                     ))
                 }
-            }}
+            }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
             }
@@ -432,12 +439,12 @@ impl DirectIoFile {
         let buf = AlignedPage::slice_to_repr(buf).as_flattened();
 
         cfg_select! {
-            unix => {{
+            unix => {
                 use std::os::unix::fs::FileExt;
 
                 self.file.write_all_at(buf, offset)
-            }}
-            windows => {{
+            }
+            windows => {
                 use std::os::windows::fs::FileExt;
 
                 let mut buf = buf;
@@ -464,7 +471,7 @@ impl DirectIoFile {
                 }
 
                 Ok(())
-            }}
+            }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
             }

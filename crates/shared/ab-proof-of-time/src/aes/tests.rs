@@ -30,7 +30,7 @@ fn verify_test(
     assert_eq!(sequential, generic);
 
     cfg_select! {
-        target_arch = "x86_64" => {{
+        target_arch = "x86_64" => {
             cpufeatures::new!(has_avx512f_vaes, "avx512f", "vaes");
             if has_avx512f_vaes::get() {
                 // SAFETY: Checked `avx512f` and `vaes` features
@@ -72,8 +72,8 @@ fn verify_test(
                 };
                 assert_eq!(sequential, aes_sse41);
             }
-        }}
-        target_arch = "aarch64" => {{
+        }
+        target_arch = "aarch64" => {
             cpufeatures::new!(has_aes, "aes");
             if has_aes::get() {
                 // SAFETY: Checked `aes` feature
@@ -82,7 +82,7 @@ fn verify_test(
                 };
                 assert_eq!(sequential, aes);
             }
-        }}
+        }
         _ => {
             // Nothing to do here
         }
