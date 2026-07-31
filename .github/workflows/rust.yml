@@ -118,6 +118,20 @@ jobs:
           - *checkout-step
           - *cache-restore-step
 
+          - &install-sccache-step
+            name: Install sccache
+            uses: &install-action-version taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
+            with:
+              tool: sccache
+
+          # Speeds up builds across the multiple `CARGO_TARGET_DIR`s used within a job by sharing compiled
+          # artifacts through a local-disk cache instead of recompiling them for each target dir
+          - &use-sccache-step
+            name: Use sccache
+            shell: bash
+            run: |
+              echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+
           - name: RISC-V support
             run: |
               echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
@@ -130,7 +144,7 @@ jobs:
             if: contains(matrix.target, 'riscv64')
 
           - name: Install wild-linker
-            uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
+            uses: *install-action-version
             with:
               tool: wild-linker
             if: runner.os == 'Linux' && matrix.target == ''
@@ -321,7 +335,7 @@ jobs:
 
     steps: &test-steps
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
+        uses: *install-action-version
         with:
           tool: cargo-nextest
 
@@ -769,6 +783,8 @@ jobs:
     steps:
       - *checkout-step
       - *cache-restore-step
+      - *install-sccache-step
+      - *use-sccache-step
 
       # TODO: Run clippy and `no-panic` on custom target for contracts too
       - name: Ensure contracts compile for a custom target
