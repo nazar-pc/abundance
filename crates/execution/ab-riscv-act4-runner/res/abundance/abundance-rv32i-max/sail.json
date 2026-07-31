@@ -367,6 +367,14 @@
     "Zalrsc": {
       "supported": true
     },
+    // This extension just asserts that each memory region has a MAG
+    // PMA of at least 16 bytes. If you enable this you also need to ensure
+    // `misaligned_atomicity_granule_size_exp` for each coherent and
+    // cacheable main memory region is >= 4, otherwise you will get a
+    // config validation error.
+    "Zama16b": {
+      "supported": true
+    },
     "Zawrs": {
       "supported": true,
       "nto": {
@@ -445,11 +453,6 @@
     },
     // Below are unsupported extensions that may not be supported for a while (if ever)
     "D": {
-      "supported": false
-    },
-    // Not enabled: asserting this requires a 16-byte misaligned atomicity granule on
-    // every coherent/cacheable region, which is more than this core commits to.
-    "Zama16b": {
       "supported": false
     },
     "F": {

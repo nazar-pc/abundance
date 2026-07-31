@@ -35,7 +35,9 @@ jobs:
     steps:
       - &checkout-step
         name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # 7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 7.0.1
+        with:
+          persist-credentials: 'false'
 
       - &cache-restore-step
         name: Restore cache
@@ -128,7 +130,7 @@ jobs:
             if: contains(matrix.target, 'riscv64')
 
           - name: Install wild-linker
-            uses: taiki-e/install-action@7572810d7dd469b651bb7793945692cf78da5dd7 # 2.85.0
+            uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
             with:
               tool: wild-linker
             if: runner.os == 'Linux' && matrix.target == ''
@@ -319,7 +321,7 @@ jobs:
 
     steps: &test-steps
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@7572810d7dd469b651bb7793945692cf78da5dd7 # 2.85.0
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
         with:
           tool: cargo-nextest
 
@@ -786,7 +788,7 @@ jobs:
 
   act4:
     env:
-      ACT4_REPO_REVISION: e275a5cad3810f960bba751f6c9f3783930114d7
+      ACT4_REPO_REVISION: 482611e0918a79eb7d5dcf253f4f6d37a27f240c
 
     strategy:
       matrix:
