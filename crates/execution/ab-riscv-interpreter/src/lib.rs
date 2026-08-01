@@ -159,6 +159,7 @@ mod private;
 pub mod rv32;
 pub mod rv64;
 pub mod v;
+pub mod zawrs;
 pub mod zicond;
 pub mod zicsr;
 pub mod zvbb;
@@ -575,25 +576,6 @@ where
     }
 }
 
-/// Reservation set used to implement `Zalrsc` extension's `lr`/`sc` instruction pairs.
-///
-/// `lr` places a reservation on an address, and a subsequent `sc` succeeds only if the reservation
-/// is still held for the same address. Regardless of success or failure, executing `sc` always
-/// invalidates the reservation, as does a subsequent `lr`.
-pub const trait ReservationSet<Reg>
-where
-    Reg: [const] Register,
-{
-    /// Returns the address of the currently held reservation, if any
-    fn reservation(&self) -> Option<Reg::Type>;
-
-    /// Place a reservation on `address`, replacing any previously held reservation
-    fn set_reservation(&mut self, address: Reg::Type);
-
-    /// Clear any currently held reservation
-    fn clear_reservation(&mut self);
-}
-
 /// Custom handler for system instructions `ecall` and `ebreak`
 pub const trait SystemInstructionHandler<
     Reg,
@@ -638,24 +620,6 @@ pub const trait SystemInstructionHandler<
         let _: &Regs = regs;
         let _: &mut Memory = memory;
         let _: Reg::Type = pc;
-        // NOP by default
-    }
-}
-
-/// Custom handler for `Zawrs` extension's `wrs.nto`/`wrs.sto` instructions.
-///
-/// These are hint instructions that may complete for any reason, so a no-op is a valid
-/// implementation for both.
-pub const trait WrsHandler {
-    /// Handle a `wrs.nto` instruction (Wait-on-Reservation-Set, no timeout)
-    #[inline(always)]
-    fn handle_wrs_nto(&mut self) {
-        // NOP by default
-    }
-
-    /// Handle a `wrs.sto` instruction (Wait-on-Reservation-Set, short timeout)
-    #[inline(always)]
-    fn handle_wrs_sto(&mut self) {
         // NOP by default
     }
 }

@@ -1,36 +1,51 @@
-//! RV64 Zawrs extension
+//! Zawrs extension
 
 #[cfg(test)]
 mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, Rs1Rs2OperandValues, Rs1Rs2Operands, WrsHandler,
+    ExecutableInstructionResult, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
-#[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv64ZawrsInstruction<Reg> where
-    Reg: Register<Type = u64>
-{
+/// Custom handler for `Zawrs` extension's `wrs.nto`/`wrs.sto` instructions.
+///
+/// These are hint instructions that may complete for any reason, so a no-op is a valid
+/// implementation for both.
+pub const trait WrsHandler {
+    /// Handle a `wrs.nto` instruction (Wait-on-Reservation-Set, no timeout)
+    #[inline(always)]
+    fn handle_wrs_nto(&mut self) {
+        // NOP by default
+    }
+
+    /// Handle a `wrs.sto` instruction (Wait-on-Reservation-Set, short timeout)
+    #[inline(always)]
+    fn handle_wrs_sto(&mut self) {
+        // NOP by default
+    }
 }
 
 #[instruction_execution]
+const impl<Reg> ExecutableInstructionOperands for ZawrsInstruction<Reg> where Reg: Register {}
+
+#[instruction_execution]
 const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64ZawrsInstruction<Reg>
+    for ZawrsInstruction<Reg>
 where
-    Reg: Register<Type = u64>,
+    Reg: Register,
 {
 }
 
 #[instruction_execution]
 const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for Rv64ZawrsInstruction<Reg>
+    for ZawrsInstruction<Reg>
 where
-    Reg: [const] Register<Type = u64>,
+    Reg: [const] Register,
     InstructionHandler: [const] WrsHandler,
 {
     #[inline(always)]

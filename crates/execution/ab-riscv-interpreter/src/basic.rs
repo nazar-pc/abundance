@@ -3,11 +3,12 @@
 #[cfg(test)]
 mod tests;
 
+use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
     FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError, WrsHandler,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]

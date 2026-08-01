@@ -6,6 +6,7 @@ pub mod rv64;
 mod test_utils;
 pub mod utils;
 pub mod v;
+pub mod zawrs;
 pub mod zicond;
 pub mod zicsr;
 pub mod zvbb;

@@ -1,11 +1,12 @@
 extern crate alloc;
 
 use crate::basic::{BasicInterpreterState, BasicRegisters};
+use crate::rv32::a::ReservationSet;
+use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, ReservationSet,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError, WrsHandler,
+    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
