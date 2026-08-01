@@ -3,7 +3,7 @@ use ab_riscv_primitives::prelude::*;
 
 #[test]
 fn test_wrs_nto_is_nop() {
-    let mut state = initialize_state([Rv64ZawrsInstruction::WrsNto {
+    let mut state = initialize_state([ZawrsInstruction::WrsNto {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -14,7 +14,7 @@ fn test_wrs_nto_is_nop() {
 
 #[test]
 fn test_wrs_sto_is_nop() {
-    let mut state = initialize_state([Rv64ZawrsInstruction::WrsSto {
+    let mut state = initialize_state([ZawrsInstruction::WrsSto {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);

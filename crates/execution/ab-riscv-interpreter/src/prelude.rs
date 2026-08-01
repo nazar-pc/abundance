@@ -28,6 +28,7 @@ pub use crate::v::zvexx::reduction::zvexx_reduction_helpers;
 pub use crate::v::zvexx::store::zvexx_store_helpers;
 pub use crate::v::zvexx::widen_narrow::zvexx_widen_narrow_helpers;
 pub use crate::v::zvexx::zvexx_helpers;
+pub use crate::zawrs::WrsHandler;
 pub use crate::zicsr::zicsr_helpers;
 pub use crate::zvbb::zvbb_helpers;
 pub use crate::zvbb::zvkb::zvkb_helpers;
@@ -37,5 +38,5 @@ pub use crate::{
     ExecutableInstructionOperands, ExecutableInstructionResult, ExecutionError,
     FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
     ReservationSet, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError, WrsHandler,
+    VirtualMemoryError,
 };

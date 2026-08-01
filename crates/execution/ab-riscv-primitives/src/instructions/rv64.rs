@@ -9,7 +9,6 @@ mod tests;
 pub mod zabha;
 pub mod zacas;
 pub mod zalasr;
-pub mod zawrs;
 pub mod zce;
 pub mod zk;
 

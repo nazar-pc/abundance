@@ -4,11 +4,12 @@ use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::v::vector_registers::{
     VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
 };
+use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
     ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
     ProgramCounterError, RegisterFile, ReservationSet, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError, WrsHandler,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;

@@ -159,6 +159,7 @@ mod private;
 pub mod rv32;
 pub mod rv64;
 pub mod v;
+pub mod zawrs;
 pub mod zicond;
 pub mod zicsr;
 pub mod zvbb;
@@ -638,24 +639,6 @@ pub const trait SystemInstructionHandler<
         let _: &Regs = regs;
         let _: &mut Memory = memory;
         let _: Reg::Type = pc;
-        // NOP by default
-    }
-}
-
-/// Custom handler for `Zawrs` extension's `wrs.nto`/`wrs.sto` instructions.
-///
-/// These are hint instructions that may complete for any reason, so a no-op is a valid
-/// implementation for both.
-pub const trait WrsHandler {
-    /// Handle a `wrs.nto` instruction (Wait-on-Reservation-Set, no timeout)
-    #[inline(always)]
-    fn handle_wrs_nto(&mut self) {
-        // NOP by default
-    }
-
-    /// Handle a `wrs.sto` instruction (Wait-on-Reservation-Set, short timeout)
-    #[inline(always)]
-    fn handle_wrs_sto(&mut self) {
         // NOP by default
     }
 }

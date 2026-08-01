@@ -1,4 +1,4 @@
-//! RV64 Zawrs extension
+//! Zawrs extension
 
 #[cfg(test)]
 mod tests;
@@ -8,11 +8,11 @@ use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
-/// RISC-V RV64 Zawrs instruction (Wait-on-Reservation-Set)
+/// RISC-V Zawrs instruction (Wait-on-Reservation-Set)
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZawrsInstruction<Reg> {
+pub enum ZawrsInstruction<Reg> {
     /// Wait-on-Reservation-Set, no timeout
     WrsNto,
     /// Wait-on-Reservation-Set, short timeout
@@ -20,9 +20,9 @@ pub enum Rv64ZawrsInstruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZawrsInstruction<Reg>
+const impl<Reg> Instruction for ZawrsInstruction<Reg>
 where
-    Reg: [const] Register<Type = u64>,
+    Reg: [const] Register,
 {
     type Reg = Reg;
 
@@ -54,7 +54,7 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZawrsInstruction<Reg>
+impl<Reg> fmt::Display for ZawrsInstruction<Reg>
 where
     Reg: fmt::Display,
 {
