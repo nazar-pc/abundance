@@ -44,12 +44,13 @@
 //! * Zca (version 1.0.0)
 //! * Zcb (version 1.0.0)
 //! * (experimental) Zcmp (version 1.0.0)
+//! * Zicond (version 2.0)
+//! * Zicsr (version 2.0)
 //! * Zkn (version 1.0.1)
 //! * Zknd (version 1.0.1)
 //! * Zkne (version 1.0.1)
 //! * Zknh (version 1.0.1)
-//! * Zicond (version 2.0)
-//! * Zicsr (version 2.0)
+//! * Zkr (version 1.0.1)
 //! * Zvbb (version 1.0.0)
 //! * Zvbc (version 1.0.0)
 //! * ZveXx (version 1.0.0), where `X` is anything allowed by the specification like Zve32x or
@@ -108,7 +109,7 @@
     signed_bigint_helpers,
     widening_mul
 )]
-#![cfg_attr(test, feature(const_block_items))]
+#![cfg_attr(test, feature(const_block_items, try_blocks))]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),
@@ -157,6 +158,7 @@ pub mod v;
 pub mod zawrs;
 pub mod zicond;
 pub mod zicsr;
+pub mod zkr;
 pub mod zvbb;
 pub mod zvbc;
 
@@ -168,7 +170,6 @@ use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::fmt;
-use core::hint::cold_path;
 use core::marker::Destruct;
 use core::ops::{ControlFlow, Sub};
 
@@ -506,69 +507,6 @@ where
 
     /// Writes register value
     fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>>;
-
-    // TODO: Remove this method once tests do not need to customize it
-    /// Process CSR read.
-    ///
-    /// Must proxy calls to [`ExecutableInstructionCsr::prepare_csr_read()`] of the root instruction
-    /// and return the output value on success. The default implementation of the method should be
-    /// fine most of the time but can be overridden in special cases or for testing purposes.
-    #[doc(hidden)]
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn process_csr_read<I>(
-        &self,
-        csr_index: u16,
-        raw_value: Reg::Type,
-    ) -> Result<Reg::Type, CsrError<CustomError>>
-    where
-        I: [const] ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
-    {
-        let mut out = Reg::Type::default();
-        match I::prepare_csr_read(self, csr_index, raw_value, &mut out) {
-            Ok(true) => Ok(out),
-            Ok(false) => {
-                cold_path();
-                Err(CsrError::IllegalRead { csr_index })
-            }
-            Err(err) => {
-                cold_path();
-                Err(err)
-            }
-        }
-    }
-
-    // TODO: Remove this method once tests do not need to customize it
-    /// Process CSR write.
-    ///
-    /// Must proxy calls to [`ExecutableInstructionCsr::prepare_csr_write()`] of the root
-    /// instruction and return the output value on success. The default implementation of the method
-    /// should be fine most of the time but can be overridden in special cases or for testing
-    /// purposes.
-    #[doc(hidden)]
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn process_csr_write<I>(
-        &mut self,
-        csr_index: u16,
-        write_value: Reg::Type,
-    ) -> Result<Reg::Type, CsrError<CustomError>>
-    where
-        I: [const] ExecutableInstructionCsr<Self, CustomError, Reg = Reg>,
-    {
-        let mut out = Reg::Type::default();
-        match I::prepare_csr_write(self, csr_index, write_value, &mut out) {
-            Ok(true) => Ok(out),
-            Ok(false) => {
-                cold_path();
-                Err(CsrError::IllegalWrite { csr_index })
-            }
-            Err(err) => {
-                cold_path();
-                Err(err)
-            }
-        }
-    }
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
@@ -660,7 +598,6 @@ where
 pub const trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
 where
     Self: Instruction,
-    ExtState: ?Sized,
 {
     /// Prepare CSR read.
     ///
@@ -673,18 +610,27 @@ where
     /// Some extensions will just copy `raw_value` to output value, others will copy only some bits
     /// or zero some bits of the `raw_value`, as required by the specification.
     ///
+    /// `will_write` indicates whether the CSR instruction performing this read will also perform a
+    /// write immediately afterward (as part of the same instruction). It is always `true` for
+    /// `csrrw{,i}`, and `true` for `csrrs{,i}`/`csrrc{,i}` unless their `rs1`/`zimm` operand is
+    /// zero (in which case they are a pure read with no write). Some CSRs (e.g. `Zkr`'s `seed`)
+    /// are only legal to access through a genuine read-write instruction and must reject the read
+    /// when `will_write` is `false`.
+    ///
     /// If no extension returns `Ok(true)`, the read operation is implicitly rejected as illegal
     /// access.
     #[inline(always)]
     fn prepare_csr_read(
         ext_state: &ExtState,
         csr_index: u16,
+        will_write: bool,
         raw_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
     ) -> Result<bool, CsrError<CustomError>> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &ExtState = ext_state;
         let _: u16 = csr_index;
+        let _: bool = will_write;
         let _: RegisterType<Self> = raw_value;
         let _: &mut RegisterType<Self> = output_value;
         // The default implementation is to not allow anything

@@ -757,6 +757,7 @@ fn prepare_csr_read_passes_through_vector_csrs() {
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
         &state.ext_state,
         VectorCsr::Vstart.to_csr_index(),
+        true,
         42,
         &mut output,
     );
@@ -770,8 +771,13 @@ fn prepare_csr_read_ignores_non_vector_csrs() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.ext_state.init_vector_csrs();
 
-    let result =
-        <ZveXxConfigInstruction<_>>::prepare_csr_read(&state.ext_state, 0x300, 42, &mut output);
+    let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
+        &state.ext_state,
+        0x300,
+        true,
+        42,
+        &mut output,
+    );
     // Returns Ok(false) meaning "not handled by this extension"
     assert!(!result.unwrap());
 }
@@ -795,6 +801,7 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
         let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
             &state.ext_state,
             csr_index,
+            true,
             0xFF,
             &mut output,
         );
@@ -1661,6 +1668,7 @@ fn prepare_csr_read_vcsr_reflects_separate_csr_values() {
     <ZveXxConfigInstruction<_>>::prepare_csr_read(
         &state.ext_state,
         VectorCsr::Vcsr.to_csr_index(),
+        true,
         raw,
         &mut output,
     )

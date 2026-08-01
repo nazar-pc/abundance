@@ -2,12 +2,15 @@ use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
 use crate::instruction::{MHPMEVENT3_CSR_INDEX, MHPMEVENT31_CSR_INDEX};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{Rng, SeedableRng};
 use std::collections::BTreeMap;
 
 pub(crate) struct AbundanceRv32IMaxExtState {
     csrs: BTreeMap<u16, u32>,
     vregs: VectorRegisterFile<const { Self::VLEN }>,
     reservation: Option<u32>,
+    entropy_source: ChaCha8Rng,
 }
 
 impl AbundanceRv32IMaxExtState {
@@ -16,6 +19,8 @@ impl AbundanceRv32IMaxExtState {
             csrs: BTreeMap::new(),
             vregs: VectorRegisterFile::default(),
             reservation: None,
+            // Good enough for testing purposes
+            entropy_source: ChaCha8Rng::from_seed([0; _]),
         };
         // Vector CSRs
         s.init_csr(VectorCsr::Vstart.to_csr_index(), 0);
@@ -51,6 +56,7 @@ impl AbundanceRv32IMaxExtState {
         for csr_index in MHPMEVENT3_CSR_INDEX..=MHPMEVENT31_CSR_INDEX {
             s.init_csr(csr_index, 0);
         }
+        s.init_csr(SEED_CSR_INDEX, 0);
         s.initialize_vector_state();
         s
     }
@@ -146,5 +152,13 @@ impl ReservationSet<<AbundanceRv32IMaxInstruction as Instruction>::Reg>
 
     fn clear_reservation(&mut self) {
         self.reservation = None;
+    }
+}
+
+impl ZkrSeedSource for AbundanceRv32IMaxExtState {
+    fn poll_seed(&mut self) -> ZkrSeedPoll {
+        let mut randomness = [0; _];
+        self.entropy_source.fill_bytes(&mut randomness);
+        ZkrSeedPoll::Es16(u16::from_le_bytes(randomness))
     }
 }

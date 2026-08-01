@@ -17,7 +17,8 @@ include = [
 ]
 
 [package.metadata.docs.rs]
-all-features = true
+all-features = false
+features = ["alloc"]
 
 [lib]
 # Necessary for CLI options to work on benches

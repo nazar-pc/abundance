@@ -9,6 +9,7 @@ pub mod v;
 pub mod zawrs;
 pub mod zicond;
 pub mod zicsr;
+pub mod zkr;
 pub mod zvbb;
 pub mod zvbc;
 

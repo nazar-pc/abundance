@@ -18,7 +18,7 @@ use std::{env, fs, iter, mem};
 use syn::token::DotDot;
 use syn::{
     Block, Expr, Fields, FnArg, Ident, ImplItem, ItemImpl, Member, Pat, PatRest, Stmt, Type,
-    parse_file, parse_quote, parse_str,
+    WherePredicate, parse_file, parse_quote, parse_str,
 };
 
 const ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_ORIGINAL_IMPL_PATH";
@@ -360,6 +360,39 @@ pub(super) fn process_enum_decoding_impl(
                 where_clause.predicates.push(predicate);
             }
         }
+
+        // TODO: This is a massive hack for implementations that strips `[const]` for non-const
+        //  instructions that inherit const instructions. `Destruct` is a special case here that is
+        //  avoided altogether for non-const implementations to improve downstream user experience.
+        if item_impl.attrs.last() != Some(&parse_quote! { #[cst] }) {
+            where_clause.predicates = where_clause
+                .predicates
+                .clone()
+                .into_iter()
+                .filter_map(|mut predicate| match &mut predicate {
+                    WherePredicate::Type(predicate_type) => {
+                        // TODO: Remove `Destruct` hack once stabilized:
+                        //  https://github.com/rust-lang/rust/issues/133214
+                        if predicate_type.bounds.to_token_stream().to_string()
+                            == "BRCONST + Destruct"
+                        {
+                            return None;
+                        }
+
+                        // TODO: `BRCONST` is a hack that allows `syn` to parse unstable Rust syntax
+                        //  around const traits and such. It will change to a proper modifier once
+                        //  stabilized
+                        if predicate_type.bounds.first() == Some(&parse_quote! { BRCONST }) {
+                            predicate_type.bounds =
+                                predicate_type.bounds.clone().into_iter().skip(1).collect();
+                        }
+
+                        Some(predicate)
+                    }
+                    _ => Some(predicate),
+                })
+                .collect();
+        }
     }
 
     let allowed_instructions = enum_definition
@@ -396,6 +429,11 @@ pub(super) fn process_enum_decoding_impl(
             clippy::same_functions_in_if_condition,
             reason = "In presence of ignored instructions, simple replacement sometimes results in \
             redundant code like `Some(None?)`"
+        )]
+        #[allow(
+            clippy::manual_map,
+            reason = "In presence of ignored instructions, simple replacement sometimes results in \
+            redundant code like `if let Some(x) = .. { Some(x) } else { None }`"
         )]
         #( if let Some(decoded) = try { #all_try_decode_blocks? } { Some(decoded) } else )*
 

@@ -63,6 +63,7 @@ where
     fn prepare_csr_read(
         _ext_state: &ExtState,
         csr_index: u16,
+        _will_write: bool,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {

@@ -6,11 +6,12 @@ use crate::v::vector_registers::{
     VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
 };
 use crate::zawrs::WrsHandler;
+use crate::zkr::{ZkrSeedPoll, ZkrSeedSource};
 use crate::{
-    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr,
-    ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -305,11 +306,37 @@ impl Default for VectorExtState {
     }
 }
 
+struct SeedExtState {
+    sequence: Vec<ZkrSeedPoll>,
+    index: usize,
+}
+
+impl Default for SeedExtState {
+    fn default() -> Self {
+        Self {
+            sequence: vec![ZkrSeedPoll::Wait],
+            index: 0,
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct ExtState {
     csr: CsrExtState,
     vector: VectorExtState,
+    seed: SeedExtState,
     reservation: Option<u64>,
+}
+
+impl ZkrSeedSource for ExtState {
+    fn poll_seed(&mut self) -> ZkrSeedPoll {
+        // SAFETY: Protected internal invariant
+        let poll = *unsafe { self.seed.sequence.get_unchecked(self.seed.index) };
+        if self.seed.index + 1 < self.seed.sequence.len() {
+            self.seed.index += 1;
+        }
+        poll
+    }
 }
 
 impl ReservationSet<Reg<u64>> for ExtState {
@@ -347,20 +374,6 @@ impl Csrs<Reg<u64>> for ExtState {
             .ok_or(CsrError::IllegalWrite { csr_index })?;
         *stored_value = value;
         Ok(())
-    }
-
-    fn process_csr_read<I>(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError>
-    where
-        I: ExecutableInstructionCsr<Self, Reg = Reg<u64>>,
-    {
-        (self.csr.prepare_csr_read)(csr_index, raw_value)
-    }
-
-    fn process_csr_write<I>(&mut self, csr_index: u16, write_value: u64) -> Result<u64, CsrError>
-    where
-        I: ExecutableInstructionCsr<Self, Reg = Reg<u64>>,
-    {
-        (self.csr.prepare_csr_write)(csr_index, write_value)
     }
 }
 
@@ -406,9 +419,38 @@ impl ExtState {
         self.csr.prepare_csr_write = prepare_csr_write;
     }
 
+    /// Invoke the configurable read closure set via [`Self::set_prepare_csr_read_write()`].
+    ///
+    /// Used by `Zicsr`'s own tests to let a mock CSR-handling instruction, composed together with
+    /// `ZicsrInstruction`, simulate arbitrary/synthetic CSRs.
+    pub(crate) fn prepare_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
+        (self.csr.prepare_csr_read)(csr_index, raw_value)
+    }
+
+    /// Invoke the configurable write closure set via [`Self::set_prepare_csr_read_write()`].
+    ///
+    /// Used by `Zicsr`'s own tests to let a mock CSR-handling instruction, composed together with
+    /// `ZicsrInstruction`, simulate arbitrary/synthetic CSRs.
+    pub(crate) fn prepare_csr_write(
+        &mut self,
+        csr_index: u16,
+        write_value: u64,
+    ) -> Result<u64, CsrError> {
+        (self.csr.prepare_csr_write)(csr_index, write_value)
+    }
+
     /// Initialize a single CSR (without this attempts to read or write this `csr_index` will fail)
     pub(crate) fn init_csr(&mut self, csr_index: u16, value: u64) {
         self.csr.csrs.insert(csr_index, value);
+    }
+
+    /// Script the sequence of [`ZkrSeedPoll`]s returned by successive
+    /// [`ZkrSeedSource::poll_seed()`] calls. The last entry repeats once the sequence is
+    /// exhausted.
+    pub(crate) fn set_seed_poll_sequence(&mut self, sequence: Vec<ZkrSeedPoll>) {
+        assert!(!sequence.is_empty());
+        self.seed.sequence = sequence;
+        self.seed.index = 0;
     }
 
     /// Initialize all vector CSRs with default values

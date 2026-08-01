@@ -19,6 +19,7 @@ ab-riscv-interpreter = { workspace = true, features = ["alloc"] }
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
 anyhow = { workspace = true }
+chacha20 = { workspace = true, features = ["rng"] }
 clap = { workspace = true }
 colored = { workspace = true }
 object = { workspace = true, features = ["elf", "read_core"] }

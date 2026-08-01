@@ -26,6 +26,7 @@ pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionProto
         ZawrsInstruction,
         ZicondInstruction,
         ZicsrInstruction,
+        ZkrInstruction,
         ZvbbInstruction,
         ZvbcInstruction,
         ZveXxInstruction,
