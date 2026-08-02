@@ -152,8 +152,13 @@ zeroize = "1.9.0"
 ab-archiving = { opt-level = 3 }
 ab-proof-of-space = { opt-level = 3 }
 ab-proof-of-time = { opt-level = 3 }
+ab-riscv-macros = { opt-level = 3 }
 blake3 = { opt-level = 3 }
+prettyplease = { opt-level = 3 }
+proc-macro2 = { opt-level = 3 }
+quote = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }
+syn = { opt-level = 3 }
 
 [profile.contract]
 inherits = "release"

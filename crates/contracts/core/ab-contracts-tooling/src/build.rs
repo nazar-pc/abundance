@@ -41,10 +41,12 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
         // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
         // and they really don't like using normal features for it.
+        // `-Zthreads=4` takes advantage of the parallel frontend
         // `-Znext-solver=globally` is needed for `generic_const_args` in various crates.
         .env(
             "RUSTFLAGS",
             r#"--cfg sha2_backend="riscv-zknh" --cfg sha2_backend_riscv_zknh="compact"
+            -Zthreads=4
             -Znext-solver=globally"#,
         )
         .args([
