@@ -2,6 +2,7 @@
 name = "ab-chacha8"
 description = "Small GPU-friendly software implementation of ChaCha8"
 keywords = ["crypto", "chacha8", "no-std"]
+categories = ["algorithms", "cryptography", "no-std::no-alloc"]
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-chacha8"
 license = "0BSD"

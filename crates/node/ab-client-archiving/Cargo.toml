@@ -20,7 +20,7 @@ ab-client-api = { workspace = true }
 ab-client-consensus-common = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-erasure-coding = { workspace = true }
-bytesize = { workspace = true }
+bytesize = { workspace = true, features = ["alloc"] }
 chacha20 = { workspace = true, features = ["rng"] }
 futures = { workspace = true, features = ["alloc"] }
 thiserror = { workspace = true }
