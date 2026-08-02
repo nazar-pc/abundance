@@ -8,12 +8,13 @@ use ab_io_type::trivial_type::TrivialType;
 use anyhow::Context;
 use object::elf::{
     EF_RISCV_RVC, ELFCLASS64, ELFDATA2LSB, ELFMAG, ELFOSABI_GNU, EM_RISCV, ET_DYN, FileHeader64,
-    Ident, R_RISCV_JUMP_SLOT, SHN_LORESERVE, STB_GLOBAL, STV_DEFAULT,
+    FileVersion, Ident, R_RISCV_JUMP_SLOT, STB_GLOBAL, STV_DEFAULT,
 };
 use object::read::elf::{ElfFile, ElfFile64, FileHeader};
 use object::{
     CompressedData, CompressionFormat, LittleEndian, Object, ObjectSection, ObjectSymbol,
     ObjectSymbolTable, RelocationFlags, RelocationTarget, SymbolKind, SymbolSection, U16, U32, U64,
+    Wrap,
 };
 use std::collections::HashMap;
 use std::iter;
@@ -25,7 +26,7 @@ fn is_correct_header(header: &FileHeader64<LittleEndian>) -> bool {
             magic: ELFMAG,
             class: ELFCLASS64,
             data: ELFDATA2LSB,
-            version: 1,
+            version: FileVersion::from_inner(1),
             os_abi: ELFOSABI_GNU,
             abi_version: 0,
             padding: [0; _],
@@ -291,21 +292,22 @@ fn parse_sections(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::Resu
 }
 
 fn check_imports(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::Result<()> {
-    let imports = elf.imports().context("Failed to get imports")?;
+    let mut imports = elf.imports().context("Failed to get imports")?;
 
-    if imports.len() > 1 {
-        return Err(anyhow::anyhow!(
-            "Expected at most one import, got {}",
-            imports.len()
-        ));
-    }
-
-    if let Some(import) = imports.into_iter().next()
-        && import.name() != HOST_CALL_FN_IMPORT.as_bytes()
+    let maybe_host_call_fn_import = imports.next().transpose()?;
+    if let Some(import) = maybe_host_call_fn_import
+        && import.name().into_name() != Some(HOST_CALL_FN_IMPORT.as_bytes())
     {
         return Err(anyhow::anyhow!(
             "Expected import `{HOST_CALL_FN_IMPORT}`, got `{}`",
-            String::from_utf8_lossy(import.name())
+            String::from_utf8_lossy(import.name().into_name().unwrap_or_default())
+        ));
+    }
+
+    if imports.next().is_some() {
+        return Err(anyhow::anyhow!(
+            "Expected at most one import, got {}",
+            imports.count() + 1 + usize::from(maybe_host_call_fn_import.is_some())
         ));
     }
 
@@ -343,12 +345,12 @@ fn parse_exports<'a>(
                     "Non-STB_GLOBAL symbol {name}: {symbol:?}"
                 )));
             }
-            if elf_symbol.st_other != STV_DEFAULT {
+            if elf_symbol.st_visibility() != STV_DEFAULT {
                 return Some(Err(anyhow::anyhow!(
                     "Non-STV_DEFAULT symbol {name}: {symbol:?}"
                 )));
             }
-            if elf_symbol.st_shndx.get(LittleEndian) >= SHN_LORESERVE {
+            if elf_symbol.st_shndx.get(LittleEndian).is_reserved() {
                 return Some(Err(anyhow::anyhow!(
                     "Unexpected reserved section index for symbol {name}: {symbol:?}"
                 )));

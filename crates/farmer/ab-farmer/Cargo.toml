@@ -35,7 +35,7 @@ async-trait = { workspace = true }
 backon = { workspace = true, features = ["tokio-sleep"] }
 blake3 = { workspace = true }
 bytes = { workspace = true }
-bytesize = { workspace = true }
+bytesize = { workspace = true, features = ["alloc"] }
 clap = { workspace = true, optional = true }
 criterion = { workspace = true, features = ["rayon", "async"], optional = true }
 derive_more = { workspace = true, features = ["full"] }
