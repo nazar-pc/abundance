@@ -146,11 +146,6 @@
     ),
     feature(riscv_ext_intrinsics)
 )]
-// TODO: Workaround for https://github.com/rust-lang/rust-clippy/issues/17430
-#![cfg_attr(
-    feature = "no-panic",
-    expect(clippy::no_effect_underscore_binding, reason = "False-positive")
-)]
 #![no_std]
 
 pub mod basic;

@@ -68,14 +68,14 @@ mod ks {
 }
 
 cfg_select! {
-    all(
-        not(miri),
-        target_arch = "riscv64",
-        target_feature = "zknd"
-    ) => {
+    all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
         // Nothing, calling native intrinsics
     }
-    all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
+    all(
+        target_arch = "x86_64",
+        target_feature = "aes",
+        target_feature = "sse4.1"
+    ) => {
         /// x86-64 AES-NI implementation
         #[expect(
             clippy::inline_modules,
@@ -190,7 +190,10 @@ cfg_select! {
                 let r1 = gmul(s0, 0x09) ^ gmul(s1, 0x0e) ^ gmul(s2, 0x0b) ^ gmul(s3, 0x0d);
                 let r2 = gmul(s0, 0x0d) ^ gmul(s1, 0x09) ^ gmul(s2, 0x0e) ^ gmul(s3, 0x0b);
                 let r3 = gmul(s0, 0x0b) ^ gmul(s1, 0x0d) ^ gmul(s2, 0x09) ^ gmul(s3, 0x0e);
-                u32::from(r0) | (u32::from(r1) << 8u8) | (u32::from(r2) << 16u8) | (u32::from(r3) << 24u8)
+                u32::from(r0)
+                    | (u32::from(r1) << 8u8)
+                    | (u32::from(r2) << 16u8)
+                    | (u32::from(r3) << 24u8)
             }
 
             /// Apply InvShiftRows + InvSubBytes to the full 128-bit state `(rs1, rs2)` and return
@@ -247,29 +250,23 @@ cfg_select! {
 pub fn aes64ds(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
+        all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::aes64ds(rs1, rs2) }
+        }
         all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zknd"
+            target_arch = "x86_64",
+            target_feature = "aes",
+            target_feature = "sse4.1"
         ) => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64ds(rs1, rs2)
-            }
-        }
-        all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
-            // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                x86_64::aes64ds(rs1, rs2)
-            }
+            unsafe { x86_64::aes64ds(rs1, rs2) }
         }
         all(target_arch = "aarch64", target_feature = "aes") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                aarch64::aes64ds(rs1, rs2)
-            }
+            unsafe { aarch64::aes64ds(rs1, rs2) }
         }
-        _ => { soft::aes64ds(rs1, rs2) }
+        _ => soft::aes64ds(rs1, rs2),
     }
 }
 
@@ -279,29 +276,23 @@ pub fn aes64ds(rs1: u64, rs2: u64) -> u64 {
 pub fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
+        all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::aes64dsm(rs1, rs2) }
+        }
         all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zknd"
+            target_arch = "x86_64",
+            target_feature = "aes",
+            target_feature = "sse4.1"
         ) => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64dsm(rs1, rs2)
-            }
-        }
-        all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
-            // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                x86_64::aes64dsm(rs1, rs2)
-            }
+            unsafe { x86_64::aes64dsm(rs1, rs2) }
         }
         all(target_arch = "aarch64", target_feature = "aes") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                aarch64::aes64dsm(rs1, rs2)
-            }
+            unsafe { aarch64::aes64dsm(rs1, rs2) }
         }
-        _ => { soft::aes64dsm(rs1, rs2) }
+        _ => soft::aes64dsm(rs1, rs2),
     }
 }
 
@@ -311,29 +302,23 @@ pub fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
 pub fn aes64im(rs1: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
+        all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::aes64im(rs1) }
+        }
         all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zknd"
+            target_arch = "x86_64",
+            target_feature = "aes",
+            target_feature = "sse4.1"
         ) => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64im(rs1)
-            }
-        }
-        all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
-            // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                x86_64::aes64im(rs1)
-            }
+            unsafe { x86_64::aes64im(rs1) }
         }
         all(target_arch = "aarch64", target_feature = "aes") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                aarch64::aes64im(rs1)
-            }
+            unsafe { aarch64::aes64im(rs1) }
         }
-        _ => { soft::aes64im(rs1) }
+        _ => soft::aes64im(rs1),
     }
 }
 
@@ -343,17 +328,11 @@ pub fn aes64im(rs1: u64) -> u64 {
 pub fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
-        all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zknd"
-        ) => {
+        all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64ks1i(rs1, rnum as u8)
-            }
+            unsafe { core::arch::riscv64::aes64ks1i(rs1, rnum as u8) }
         }
-        _ => { ks::aes64ks1i(rs1, rnum) }
+        _ => ks::aes64ks1i(rs1, rnum),
     }
 }
 
@@ -363,16 +342,10 @@ pub fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
 pub fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
-        all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zknd"
-        ) => {
+        all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64ks2(rs1, rs2)
-            }
+            unsafe { core::arch::riscv64::aes64ks2(rs1, rs2) }
         }
-        _ => { ks::aes64ks2(rs1, rs2) }
+        _ => ks::aes64ks2(rs1, rs2),
     }
 }

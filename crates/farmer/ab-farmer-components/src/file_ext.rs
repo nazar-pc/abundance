@@ -24,7 +24,7 @@ pub trait OpenOptionsExt {
 impl OpenOptionsExt for OpenOptions {
     fn advise_random_access(&mut self) -> &mut Self {
         cfg_select! {
-            windows => {{
+            windows => {
                 use std::os::windows::fs::OpenOptionsExt;
                 // `FILE_FLAG_WRITE_THROUGH` below is a bit of a hack, especially in
                 // `advise_random_access`, but it helps with memory usage and feels like should be
@@ -34,7 +34,7 @@ impl OpenOptionsExt for OpenOptions {
                     windows::Win32::Storage::FileSystem::FILE_FLAG_RANDOM_ACCESS.0
                         | windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0,
                 )
-            }}
+            }
             _ => {
                 // Not supported
                 self
@@ -44,10 +44,10 @@ impl OpenOptionsExt for OpenOptions {
 
     fn advise_sequential_access(&mut self) -> &mut Self {
         cfg_select! {
-            windows => {{
+            windows => {
                 use std::os::windows::fs::OpenOptionsExt;
                 self.custom_flags(windows::Win32::Storage::FileSystem::FILE_FLAG_SEQUENTIAL_SCAN.0)
-            }}
+            }
             _ => {
                 // Not supported
                 self
@@ -57,17 +57,17 @@ impl OpenOptionsExt for OpenOptions {
 
     fn use_direct_io(&mut self) -> &mut Self {
         cfg_select! {
-            windows => {{
+            windows => {
                 use std::os::windows::fs::OpenOptionsExt;
                 self.custom_flags(
                     windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0
                         | windows::Win32::Storage::FileSystem::FILE_FLAG_NO_BUFFERING.0,
                 )
-            }}
-            target_os = "linux" => {{
+            }
+            target_os = "linux" => {
                 use std::os::unix::fs::OpenOptionsExt;
                 self.custom_flags(libc::O_DIRECT)
-            }}
+            }
             _ => {
                 // Not supported
                 self
@@ -114,17 +114,18 @@ impl FileExt for File {
 
     fn advise_random_access(&self) -> Result<()> {
         cfg_select! {
-            target_os = "linux" => {{
+            target_os = "linux" => {
                 use std::os::unix::io::AsRawFd;
                 // SAFETY: Correct low-level FFI file
-                let err = unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_RANDOM) };
+                let err =
+                    unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_RANDOM) };
                 if err != 0 {
                     Err(std::io::Error::from_raw_os_error(err))
                 } else {
                     Ok(())
                 }
-            }}
-            target_os = "macos" => {{
+            }
+            target_os = "macos" => {
                 use std::os::unix::io::AsRawFd;
                 // SAFETY: Correct low-level FFI file
                 if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 0) } != 0 {
@@ -132,7 +133,7 @@ impl FileExt for File {
                 } else {
                     Ok(())
                 }
-            }}
+            }
             _ => {
                 // Not supported
                 Ok(())
@@ -142,18 +143,19 @@ impl FileExt for File {
 
     fn advise_sequential_access(&self) -> Result<()> {
         cfg_select! {
-            target_os = "linux" => {{
+            target_os = "linux" => {
                 use std::os::unix::io::AsRawFd;
                 // SAFETY: Correct low-level FFI file
-                let err =
-                    unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL) };
+                let err = unsafe {
+                    libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL)
+                };
                 if err != 0 {
                     Err(std::io::Error::from_raw_os_error(err))
                 } else {
                     Ok(())
                 }
-            }}
-            target_os = "macos" => {{
+            }
+            target_os = "macos" => {
                 use std::os::unix::io::AsRawFd;
                 // SAFETY: Correct low-level FFI file
                 if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 1) } != 0 {
@@ -161,7 +163,7 @@ impl FileExt for File {
                 } else {
                     Ok(())
                 }
-            }}
+            }
             _ => {
                 // Not supported
                 Ok(())
@@ -171,7 +173,7 @@ impl FileExt for File {
 
     fn disable_cache(&self) -> Result<()> {
         cfg_select! {
-            target_os = "macos" => {{
+            target_os = "macos" => {
                 use std::os::unix::io::AsRawFd;
                 // SAFETY: Correct low-level FFI file
                 if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_NOCACHE, 1) } != 0 {
@@ -179,7 +181,7 @@ impl FileExt for File {
                 } else {
                     Ok(())
                 }
-            }}
+            }
             _ => {
                 // Not supported
                 Ok(())
@@ -189,10 +191,8 @@ impl FileExt for File {
 
     fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> Result<()> {
         cfg_select! {
-            unix => {
-                std::os::unix::fs::FileExt::read_exact_at(self, buf, offset)
-            }
-            windows => {{
+            unix => std::os::unix::fs::FileExt::read_exact_at(self, buf, offset),
+            windows => {
                 let mut buf = buf;
                 let mut offset = offset;
 
@@ -222,7 +222,7 @@ impl FileExt for File {
                         "failed to fill whole buffer",
                     ))
                 }
-            }}
+            }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
             }
@@ -231,10 +231,8 @@ impl FileExt for File {
 
     fn write_all_at(&self, buf: &[u8], offset: u64) -> Result<()> {
         cfg_select! {
-            unix => {
-                std::os::unix::fs::FileExt::write_all_at(self, buf, offset)
-            }
-            windows => {{
+            unix => std::os::unix::fs::FileExt::write_all_at(self, buf, offset),
+            windows => {
                 let mut buf = buf;
                 let mut offset = offset;
 
@@ -260,7 +258,7 @@ impl FileExt for File {
                 }
 
                 Ok(())
-            }}
+            }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
             }

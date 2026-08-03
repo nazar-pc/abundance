@@ -10,12 +10,12 @@ pub fn orc_b(src: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::orc_b(src as usize) as u32 }
         }
-        _ => {{
+        _ => {
             let mut bytes = src.to_le_bytes();
             for byte in &mut bytes {
                 *byte = if *byte != 0 { 0xFF } else { 0 };
             }
             u32::from_le_bytes(bytes)
-        }}
+        }
     }
 }

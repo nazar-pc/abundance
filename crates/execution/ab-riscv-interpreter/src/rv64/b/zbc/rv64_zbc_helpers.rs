@@ -10,10 +10,10 @@ pub fn clmul(a: u64, b: u64) -> u64 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv64::clmul(a as usize, b as usize) as u64 }
         }
-        _ => {{
+        _ => {
             let result = clmul_internal(a, b);
             result as u64
-        }}
+        }
     }
 }
 
@@ -27,10 +27,10 @@ pub fn clmulh(a: u64, b: u64) -> u64 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv64::clmulh(a as usize, b as usize) as u64 }
         }
-        _ => {{
+        _ => {
             let result = clmul_internal(a, b);
             (result >> 64) as u64
-        }}
+        }
     }
 }
 
@@ -44,10 +44,10 @@ pub fn clmulr(a: u64, b: u64) -> u64 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv64::clmulr(a as usize, b as usize) as u64 }
         }
-        _ => {{
+        _ => {
             let result = clmul_internal(a, b);
             (result >> 63) as u64
-        }}
+        }
     }
 }
 
@@ -57,17 +57,17 @@ pub fn clmulr(a: u64, b: u64) -> u64 {
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn clmul_internal(a: u64, b: u64) -> u128 {
     cfg_select! {
-        // TODO: `llvm.aarch64.neon.pmull64` is not supported in Miri yet:
-        //  https://github.com/rust-lang/miri/issues/3172#issuecomment-3730602707
         all(
-            not(miri), target_arch = "aarch64", target_feature = "neon", target_feature = "aes"
-        ) => {{
+            target_arch = "aarch64",
+            target_feature = "neon",
+            target_feature = "aes"
+        ) => {
             use core::arch::aarch64::vmull_p64;
 
             // SAFETY: Compile-time checked for supported feature
             unsafe { vmull_p64(a, b) }
-        }}
-        all(target_arch = "x86_64", target_feature = "pclmulqdq") => {{
+        }
+        all(target_arch = "x86_64", target_feature = "pclmulqdq") => {
             use core::arch::x86_64::{__m128i, _mm_clmulepi64_si128, _mm_cvtsi64_si128};
             use core::mem::transmute;
 
@@ -80,8 +80,8 @@ fn clmul_internal(a: u64, b: u64) -> u128 {
                     0,
                 ))
             }
-        }}
-        _ => {{
+        }
+        _ => {
             // Generic implementation
             let mut result = 0u128;
             let a = u128::from(a);
@@ -92,6 +92,6 @@ fn clmul_internal(a: u64, b: u64) -> u128 {
                 b >>= 1u8;
             }
             result
-        }}
+        }
     }
 }

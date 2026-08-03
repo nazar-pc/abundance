@@ -1,14 +1,14 @@
 //! Opaque helpers for RV64 Zkne extension
 
 cfg_select! {
-    all(
-        not(miri),
-        target_arch = "riscv64",
-        target_feature = "zkne"
-    ) => {
+    all(not(miri), target_arch = "riscv64", target_feature = "zkne") => {
         // Nothing, calling native intrinsics
     }
-    all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
+    all(
+        target_arch = "x86_64",
+        target_feature = "aes",
+        target_feature = "sse4.1"
+    ) => {
         /// x86-64 AES-NI implementation
         #[expect(
             clippy::inline_modules,
@@ -16,8 +16,8 @@ cfg_select! {
         )]
         mod x86_64 {
             use core::arch::x86_64::{
-                _mm_aesenclast_si128, _mm_aesenc_si128, _mm_extract_epi64,
-                _mm_set_epi64x, _mm_setzero_si128,
+                _mm_aesenc_si128, _mm_aesenclast_si128, _mm_extract_epi64, _mm_set_epi64x,
+                _mm_setzero_si128,
             };
 
             /// `_mm_aesenclast_si128(state, zero)` computes ShiftRows + SubBytes then XORs with
@@ -150,29 +150,23 @@ cfg_select! {
 pub fn aes64es(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
+        all(not(miri), target_arch = "riscv64", target_feature = "zkne") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::aes64es(rs1, rs2) }
+        }
         all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zkne"
+            target_arch = "x86_64",
+            target_feature = "aes",
+            target_feature = "sse4.1"
         ) => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64es(rs1, rs2)
-            }
-        }
-        all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
-            // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                x86_64::aes64es(rs1, rs2)
-            }
+            unsafe { x86_64::aes64es(rs1, rs2) }
         }
         all(target_arch = "aarch64", target_feature = "aes") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                aarch64::aes64es(rs1, rs2)
-            }
+            unsafe { aarch64::aes64es(rs1, rs2) }
         }
-        _ => { soft::aes64es(rs1, rs2) }
+        _ => soft::aes64es(rs1, rs2),
     }
 }
 
@@ -182,28 +176,22 @@ pub fn aes64es(rs1: u64, rs2: u64) -> u64 {
 pub fn aes64esm(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
+        all(not(miri), target_arch = "riscv64", target_feature = "zkne") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::aes64esm(rs1, rs2) }
+        }
         all(
-            not(miri),
-            target_arch = "riscv64",
-            target_feature = "zkne"
+            target_arch = "x86_64",
+            target_feature = "aes",
+            target_feature = "sse4.1"
         ) => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                core::arch::riscv64::aes64esm(rs1, rs2)
-            }
-        }
-        all(target_arch = "x86_64", target_feature = "aes", target_feature = "sse4.1") => {
-            // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                x86_64::aes64esm(rs1, rs2)
-            }
+            unsafe { x86_64::aes64esm(rs1, rs2) }
         }
         all(target_arch = "aarch64", target_feature = "aes") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe {
-                aarch64::aes64esm(rs1, rs2)
-            }
+            unsafe { aarch64::aes64esm(rs1, rs2) }
         }
-        _ => { soft::aes64esm(rs1, rs2) }
+        _ => soft::aes64esm(rs1, rs2),
     }
 }
