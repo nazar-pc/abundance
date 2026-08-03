@@ -4,8 +4,8 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 use core::hint::cold_path;
+use core::marker::Destruct;
 
 /// Apply `vsetvli` / `vsetvl` logic.
 ///
@@ -16,7 +16,7 @@ use core::hint::cold_path;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
+pub const fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
     ext_state: &mut ExtState,
     program_counter: &PC,
     rd: Reg,
@@ -25,11 +25,11 @@ pub fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
     vtype_raw: Reg::Type,
 ) -> Result<Reg::Type, ExecutionError<Reg::Type, CustomError>>
 where
-    Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    Reg: [const] Register,
+    ExtState: [const] VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Debug,
+    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: [const] Destruct,
 {
     // Check whether vector instructions are enabled
     if !ext_state.vector_instructions_allowed() {
@@ -67,7 +67,8 @@ where
         // spec).
         let current_vl = ext_state.vl();
         let old_vtype = ext_state.vtype();
-        let old_vlmax = old_vtype.map_or_default(|old_vtype| ext_state.vlmax_for_vtype(old_vtype));
+        let old_vlmax =
+            old_vtype.map_or_default(const |old_vtype| ext_state.vlmax_for_vtype(old_vtype));
 
         if vlmax != old_vlmax {
             cold_path();
@@ -99,18 +100,18 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
+pub const fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
     ext_state: &mut ExtState,
     program_counter: &PC,
     uimm: u8,
     vtypei: u16,
 ) -> Result<Reg::Type, ExecutionError<Reg::Type, CustomError>>
 where
-    Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    Reg: [const] Register,
+    ExtState: [const] VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Debug,
+    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: [const] Destruct,
 {
     // Check whether vector instructions are enabled
     if !ext_state.vector_instructions_allowed() {

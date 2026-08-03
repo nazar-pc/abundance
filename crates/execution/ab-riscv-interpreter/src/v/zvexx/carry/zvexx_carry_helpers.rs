@@ -9,7 +9,6 @@ use crate::v::zvexx::arith::zvexx_arith_helpers::{
 };
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 
 // TODO: Safety comment here doesn't make sense
 /// Read a single mask bit from vector register `v0` at element index `i`.
@@ -53,7 +52,6 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState, CustomErr
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -113,7 +111,6 @@ pub unsafe fn execute_carry_sub<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -175,7 +172,6 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState, Cust
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -240,7 +236,6 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState, Cus
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();

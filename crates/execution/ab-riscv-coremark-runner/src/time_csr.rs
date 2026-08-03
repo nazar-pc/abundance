@@ -145,7 +145,6 @@ impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
-    CustomError: fmt::Debug,
 {
     fn execute(
         self,

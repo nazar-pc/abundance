@@ -4,7 +4,6 @@ use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::arith::zvexx_arith_helpers::{write_element_u64, write_mask_bit};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 
 /// Execute a mask-register logical operation (§16.1).
 ///
@@ -30,7 +29,6 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, CustomError, F>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
     F: Fn(bool, bool) -> bool,
 {
     let vl = ext_state.vl();
@@ -75,7 +73,6 @@ where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -121,7 +118,6 @@ where
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -181,7 +177,6 @@ pub unsafe fn execute_vmsbf<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
@@ -227,7 +222,6 @@ pub unsafe fn execute_vmsof<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
@@ -273,7 +267,6 @@ pub unsafe fn execute_vmsif<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
@@ -329,7 +322,6 @@ pub unsafe fn execute_viota<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
@@ -376,7 +368,6 @@ pub unsafe fn execute_vid<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();

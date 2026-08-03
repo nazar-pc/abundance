@@ -5,7 +5,6 @@ use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
 
@@ -201,7 +200,6 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let vl = ext_state.vl();
@@ -267,7 +265,6 @@ pub unsafe fn execute_compare_op<Reg, ExtState, CustomError, F>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> bool,
 {
     let vl = ext_state.vl();

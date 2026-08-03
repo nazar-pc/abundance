@@ -2,7 +2,6 @@
 
 use crate::{Csrs, CustomErrorPlaceholder};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 use core::marker::Destruct;
 
 pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
@@ -121,7 +120,7 @@ where
     Self: [const] Csrs<Reg, CustomError> + [const] VectorRegisters<CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
     Reg: [const] Register,
-    CustomError: [const] Destruct + fmt::Debug,
+    CustomError: [const] Destruct,
 {
     /// Initialize the vector state to the recommended default configuration.
     ///

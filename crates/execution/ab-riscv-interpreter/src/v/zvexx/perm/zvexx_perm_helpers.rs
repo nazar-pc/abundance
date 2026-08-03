@@ -7,7 +7,6 @@ use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
 
@@ -181,7 +180,6 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -231,7 +229,6 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -284,7 +281,6 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -337,7 +333,6 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -384,7 +379,6 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -432,7 +426,6 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -486,7 +479,6 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let index_group_regs = index_group_regs.get();
     let vl = ext_state.vl();
@@ -549,7 +541,6 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -599,7 +590,6 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -646,7 +636,6 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let mask_bytes = usize::from(vl.bytes());
     let vreg = ext_state.read_vregs();

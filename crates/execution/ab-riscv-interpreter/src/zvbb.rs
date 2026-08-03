@@ -27,14 +27,14 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
+use core::marker::Destruct;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZvbbInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for ZvbbInstruction<Reg>
 where
     Reg: Register,
@@ -52,7 +52,6 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Debug,
 {
     #[inline(always)]
     // TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

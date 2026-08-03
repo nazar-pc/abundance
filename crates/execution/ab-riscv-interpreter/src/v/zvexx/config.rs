@@ -11,25 +11,26 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
+use core::marker::Destruct;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZveXxConfigInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
     for ZveXxConfigInstruction<Reg>
 where
-    Reg: Register,
-    ExtState: Csrs<Reg, CustomError>,
+    Reg: [const] Register,
+    ExtState: [const] Csrs<Reg, CustomError>,
+    CustomError: [const] Destruct,
 {
     /// Validate reads to vector CSRs from Zicsr instructions.
     ///
     /// All vector CSRs are accessible from unprivileged code (U-mode).
     /// Reads are pass-through: the raw value stored in the CSR is the output value.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn prepare_csr_read(
         _ext_state: &ExtState,
         csr_index: u16,
@@ -55,7 +56,7 @@ where
     /// - `vcsr`: only bits `[2:0]` are writable; mirrors into `vxsat` and `vxrm`
     /// - `vstart`: full XLEN write allowed (WARL, implementation may restrict range)
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn prepare_csr_write(
         ext_state: &mut ExtState,
         csr_index: u16,
@@ -110,19 +111,19 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
     for ZveXxConfigInstruction<Reg>
 where
-    Reg: Register,
-    Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    Reg: [const] Register,
+    Regs: [const] RegisterFile<Reg>,
+    ExtState: [const] VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Debug,
+    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {
