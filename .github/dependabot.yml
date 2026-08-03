@@ -1,27 +1,28 @@
 version: 2
 
 updates:
-  - package-ecosystem: cargo
-    versioning-strategy: increase
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: chore(deps)
-    groups:
-      rust-minor-patch:
-        patterns:
-          - "*"
-        update-types:
-          - minor
-          - patch
-      rust-major:
-        patterns:
-          - "*"
-        update-types:
-          - major
+  # TODO: Un-comment once https://github.com/dependabot/dependabot-core/issues/12392 is resolved
+  # - package-ecosystem: cargo
+  #   versioning-strategy: increase
+  #   directory: /
+  #   schedule:
+  #     interval: weekly
+  #     day: monday
+  #   open-pull-requests-limit: 10
+  #   commit-message:
+  #     prefix: chore(deps)
+  #   groups:
+  #     rust-minor-patch:
+  #       patterns:
+  #         - "*"
+  #       update-types:
+  #         - minor
+  #         - patch
+  #     rust-major:
+  #       patterns:
+  #         - "*"
+  #       update-types:
+  #         - major
 
   - package-ecosystem: github-actions
     directory: /
