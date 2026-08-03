@@ -2,7 +2,7 @@
 # https://github.com/riscv/riscv-arch-test (branch: act4)
 #
 # Includes:
-#   - riscv-none-elf-gcc   (xPack GNU RISC-V Embedded GCC)
+#   - clang/lld/llvm       (Clang RISC-V bare-metal toolchain, from Ubuntu repos)
 #   - mise                 (tool manager; installs uv/Python and Ruby automatically)
 #   - sail-riscv           (RISC-V reference model)
 #
@@ -20,9 +20,8 @@
 
 # Global ARGs - declared before any FROM so they are overridable across all stages.
 # Each stage that uses them must redeclare them with a bare ARG (no default) to bring them into scope.
-ARG RISCV_TOOLCHAIN_PREFIX=/opt/riscv
 ARG SAIL_VERSION=0.13.1
-ARG XPACK_GCC_VERSION=15.2.0-1.1
+ARG CLANG_VERSION=22
 
 # Stage 1: install mise, then use it to install uv (Python) and Ruby, and pre-install the riscv-unified-db Bundler gem,
 # and pre-download all Python dependencies via uv sync.
@@ -77,40 +76,7 @@ RUN cd /act4 \
   && mise exec -- uv sync \
   && chmod -R 777 /act4 /home/shared
 
-# Stage 2: fetch riscv-none-elf-gcc (xPack GNU RISC-V Embedded GCC) via xpm.
-#
-# xpm resolves the host arch itself; under buildx this stage runs emulated as TARGETARCH, so no
-# manual arch-name mapping is needed here (contrast with the sail-riscv curl fetch below, which
-# needs one because it is a raw tar.gz per-arch download).
-FROM ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb AS xpack-fetcher
-
-ARG DEBIAN_FRONTEND=noninteractive
-ARG RISCV_TOOLCHAIN_PREFIX
-ARG XPACK_GCC_VERSION
-
-# nodejs/npm from the stock archive are old, but xpm itself has no meaningful version
-# sensitivity here; it is only used once, non-interactively, to pull a binary release archive.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates \
-  nodejs \
-  npm \
-  && rm -rf /var/lib/apt/lists/*
-
-ENV XPACKS_STORE_FOLDER=/opt/xpacks-store \
-  XPACKS_CACHE_FOLDER=/opt/xpacks-cache
-
-RUN npm install --global xpm@0.23.2 \
-  && xpm install --global "@xpack-dev-tools/riscv-none-elf-gcc@${XPACK_GCC_VERSION}"
-
-# xpm lays the extracted toolchain out as
-# ${XPACKS_STORE_FOLDER}/@xpack-dev-tools/riscv-none-elf-gcc/<version>/.content
-# It is moved (not symlinked) to RISCV_TOOLCHAIN_PREFIX because COPY --from in the next stage
-# copies symlinks as-is rather than dereferencing them; a symlink pointing back into
-# XPACKS_STORE_FOLDER would be copied as a dangling link once that folder is left behind.
-RUN toolchain_dir="$(find "${XPACKS_STORE_FOLDER}/@xpack-dev-tools/riscv-none-elf-gcc" -mindepth 1 -maxdepth 1 -type d)" \
-  && mv "${toolchain_dir}/.content" "${RISCV_TOOLCHAIN_PREFIX}"
-
-# Stage 3: final runtime image
+# Stage 2: final runtime image
 FROM ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb AS act4-build
 
 LABEL description="RISC-V Architectural Certification Tests (ACT4) build env"
@@ -118,23 +84,29 @@ LABEL org.opencontainers.image.source="https://github.com/riscv/riscv-arch-test"
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TZ=UTC
-ARG RISCV_TOOLCHAIN_PREFIX
 ARG SAIL_VERSION
+ARG CLANG_VERSION
 ARG TARGETARCH
 
 ENV TZ="${TZ}" \
   SAIL_PREFIX=/opt/sail \
   MISE_YES=1 \
   HOME=/home/shared
-ENV PATH="${RISCV_TOOLCHAIN_PREFIX}/bin:${SAIL_PREFIX}/bin:/home/shared/.local/bin:${PATH}"
+ENV PATH="${SAIL_PREFIX}/bin:/home/shared/.local/bin:${PATH}"
 
 # Runtime packages:
 #   - make, ca-certificates: drive the ACT4 Makefile
 #   - curl: required to fetch the sail-riscv release archive
+#   - clang, lld, llvm: RISC-V bare-metal toolchain. Clang has RISC-V codegen built in (no separate
+#     cross-compiler package needed); lld provides the linker (ld.lld, selected via -fuse-ld=lld);
+#     llvm provides llvm-objdump/llvm-nm used for debug disassembly and symbol lookup.
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   curl \
   make \
+  "clang-${CLANG_VERSION}" \
+  "lld-${CLANG_VERSION}" \
+  "llvm-${CLANG_VERSION}" \
   && rm -rf /var/lib/apt/lists/*
 
 # Fetch and install sail-riscv directly into the final image
@@ -148,12 +120,10 @@ RUN case "${TARGETARCH}" in \
   "https://github.com/riscv/sail-riscv/releases/download/${SAIL_VERSION}/sail-riscv-Linux-${SAIL_ARCH}.tar.gz" \
   | tar xz --directory="${SAIL_PREFIX}" --strip-components=1
 
-COPY --from=xpack-fetcher ${RISCV_TOOLCHAIN_PREFIX} ${RISCV_TOOLCHAIN_PREFIX}
 COPY --from=mise-fetcher /home/shared /home/shared
 
-# Smoke-test: verify all the binaries landed correctly (runs as root during build, before USER switch)
-RUN riscv-none-elf-gcc --version \
-  && sail_riscv_sim --version \
+# Smoke-test: verify all the binaries landed correctly
+RUN sail_riscv_sim --version \
   && mise --version
 
 WORKDIR /act4
