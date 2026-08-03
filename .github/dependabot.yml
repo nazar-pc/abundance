@@ -1,0 +1,45 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    versioning-strategy: increase
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      rust-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      rust-major:
+        patterns:
+          - "*"
+        update-types:
+          - major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - major
