@@ -10,9 +10,12 @@
 #   Run `sail_riscv_sim --help` to verify the binary name on your system;
 #   some distros install it as `riscv_sim_RV64`.
 #
-# include_priv_tests: false because the interpreter has no trap/interrupt
-#   infrastructure (no writable mtvec, no CLINT, ECALL is unsupported).
-#   Enable only after you implement a machine-mode trap handler.
+# include_priv_tests: false because this core only implements M-mode (no S/U, no PMP,
+#   no CLINT-backed timer interrupts) - most of the priv/ suite exercises those. The core
+#   does implement a real M-mode trap handler (mtvec is writable, ecall/illegal-instruction
+#   dispatch through it; see STANDARD_SM_SUPPORTED in rvmodel_macros.h), so extensions whose
+#   tests happen to live under priv/ despite only needing M-mode (e.g. Zkr) can still be run
+#   individually via EXTENSIONS=... without flipping this on for the whole suite.
 
 name: abundance-rv64i-max
 compiler_exe: clang-22

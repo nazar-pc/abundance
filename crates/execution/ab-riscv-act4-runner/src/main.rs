@@ -436,6 +436,52 @@ fn run_rv32i_max_test(
             Ok(ControlFlow::Break(())) => {
                 break;
             }
+            // TODO: This custom handling is temporary until interpreter has abstractions and
+            //  support for privileged instructions
+            //
+            // Two distinct error shapes land here and both dispatch through the trap handler
+            // exactly like the decode-time illegal-instruction case above:
+            // - CsrError: illegal/unauthorized CSR access (e.g. Zkr's `seed` pure-read restriction)
+            //   is an illegal-instruction exception per the privileged spec - there is no dedicated
+            //   CSR-error trap cause. It carries no address, so it is recovered from the fetcher's
+            //   old PC.
+            // - IllegalInstruction: a successfully *decoded* instruction whose execution is
+            //   illegal, currently only `ecall` (IllegalEcallSystemInstructionHandler always
+            //   rejects it - the interpreter has no other way to support it yet). Unlike the
+            //   decode-time case, this one already carries the correct address.
+            Err(
+                error @ (ExecutionError::CsrError(_) | ExecutionError::IllegalInstruction { .. }),
+            ) => {
+                let address = match error {
+                    ExecutionError::IllegalInstruction { address } => address,
+                    _ => ProgramCounter::<u32, BasicMemory<RAM_BASE, RAM_SIZE>>::old_pc(
+                        &state.instruction_fetcher,
+                        instruction.size(),
+                    ),
+                };
+                let raw_instruction = state
+                    .memory
+                    .read::<u32>(u64::from(address))
+                    .map_err(ExecutionError::from)?;
+                let trap_pc = state
+                    .ext_state
+                    .take_trap(
+                        MCauseException::IllegalInstruction,
+                        address,
+                        raw_instruction,
+                    )
+                    .ok_or(ExecutionError::IllegalInstruction { address })?;
+                match state
+                    .instruction_fetcher
+                    .set_pc(&state.memory, trap_pc)
+                    .map_err(ExecutionError::from)?
+                {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
             Err(error) => {
                 if state
                     .memory
@@ -568,6 +614,52 @@ fn run_rv64i_max_test(
             }
             Ok(ControlFlow::Break(())) => {
                 break;
+            }
+            // TODO: This custom handling is temporary until interpreter has abstractions and
+            //  support for privileged instructions
+            //
+            // Two distinct error shapes land here and both dispatch through the trap handler
+            // exactly like the decode-time illegal-instruction case above:
+            // - CsrError: illegal/unauthorized CSR access (e.g. Zkr's `seed` pure-read restriction)
+            //   is an illegal-instruction exception per the privileged spec - there is no dedicated
+            //   CSR-error trap cause. It carries no address, so it is recovered from the fetcher's
+            //   old PC.
+            // - IllegalInstruction: a successfully *decoded* instruction whose execution is
+            //   illegal, currently only `ecall` (IllegalEcallSystemInstructionHandler always
+            //   rejects it - the interpreter has no other way to support it yet). Unlike the
+            //   decode-time case, this one already carries the correct address.
+            Err(
+                error @ (ExecutionError::CsrError(_) | ExecutionError::IllegalInstruction { .. }),
+            ) => {
+                let address = match error {
+                    ExecutionError::IllegalInstruction { address } => address,
+                    _ => ProgramCounter::<u64, BasicMemory<RAM_BASE, RAM_SIZE>>::old_pc(
+                        &state.instruction_fetcher,
+                        instruction.size(),
+                    ),
+                };
+                let raw_instruction = state
+                    .memory
+                    .read::<u32>(address)
+                    .map_err(ExecutionError::from)?;
+                let trap_pc = state
+                    .ext_state
+                    .take_trap(
+                        MCauseException::IllegalInstruction,
+                        address,
+                        u64::from(raw_instruction),
+                    )
+                    .ok_or(ExecutionError::IllegalInstruction { address })?;
+                match state
+                    .instruction_fetcher
+                    .set_pc(&state.memory, trap_pc)
+                    .map_err(ExecutionError::from)?
+                {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
             }
             Err(error) => {
                 if state

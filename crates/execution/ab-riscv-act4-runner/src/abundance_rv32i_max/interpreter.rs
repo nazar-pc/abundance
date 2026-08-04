@@ -1,4 +1,5 @@
 use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
+use crate::instruction::{MHPMEVENT3_CSR_INDEX, MHPMEVENT31_CSR_INDEX};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use std::collections::BTreeMap;
@@ -27,11 +28,29 @@ impl AbundanceRv32IMaxExtState {
         // Machine trap CSRs - zero-initialized, mtvec must be written by test
         // boot code before any trap can be taken.
         s.init_csr(MCsr::Mstatus as u16, 0);
+        // MISA_CSR_IMPLEMENTED is false for this core, so misa is hardwired to 0 - correctly
+        // signaling "no extensions" including no H (bit 7), which the ACT4 framework's own trap
+        // handler (under STANDARD_SM_SUPPORTED) reads unconditionally on every M-mode trap to
+        // decide whether to also save mtval2/mtinst.
+        s.init_csr(MCsr::Misa as u16, 0);
+        s.init_csr(MCsr::Mie as u16, 0);
         s.init_csr(MCsr::Mtvec as u16, 0);
         s.init_csr(MCsr::Mscratch as u16, 0);
         s.init_csr(MCsr::Mepc as u16, 0);
         s.init_csr(MCsr::Mcause as u16, 0);
         s.init_csr(MCsr::Mtval as u16, 0);
+        s.init_csr(MCsr::Mip as u16, 0);
+        // mstatush only exists on RV32; the ACT4 framework's default M-mode boot
+        // (RVTEST_BOOT_TO_MMODE, under STANDARD_SM_SUPPORTED) unconditionally clears it
+        // unless SM1P11P0_SUPPORTED is defined, which this core does not define.
+        s.init_csr(MCsr::Mstatush as u16, 0);
+        // mcountinhibit and mhpmevent3..31 are unconditionally zeroed by the same boot
+        // sequence ("They must be implemented" per its own comment) regardless of whether
+        // this core actually implements extra hardware performance counters.
+        s.init_csr(MCsr::Mcountinhibit as u16, 0);
+        for csr_index in MHPMEVENT3_CSR_INDEX..=MHPMEVENT31_CSR_INDEX {
+            s.init_csr(csr_index, 0);
+        }
         s.initialize_vector_state();
         s
     }

@@ -1145,29 +1145,65 @@ fn test_fence_valid() {
 
 #[test]
 fn test_fence_invalid() {
-    // Non-zero fm (reserved, must be 0)
-    // fm=1
-    let inst = 0x10f0_000f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
-
     // FENCE.I (funct3=1) - we explicitly reject it
     let inst = 0x0000_100f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
-
-    // rd != 0
-    // rd=1 (example)
-    let inst = 0x0ff0_100f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
-
-    // rs1 != 0
-    // rs1=1 (example)
-    let inst = 0x0ff8_000f_u32;
     assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
 
     // Wrong funct3 for memory fence (not 0, not 1)
     // funct3=2 (example)
     let inst = 0x0ff0_200f_u32;
     assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+}
+
+/// Per spec, `rd`/`rs1` are reserved for finer-grain fences in future extensions and "base
+/// implementations shall ignore these fields" - so a non-zero encoding must still decode as an
+/// ordinary fence, not be rejected as illegal.
+#[test]
+fn test_fence_reserved_rd_rs1_still_decodes() {
+    // rd=1, funct3=0, pred=15, succ=15
+    let inst = 0x0ff0_008f_u32;
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv64Instruction::Fence {
+            pred: 15,
+            succ: 15,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
+
+    // rs1=16, funct3=0, pred=15, succ=15
+    let inst = 0x0ff8_000f_u32;
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv64Instruction::Fence {
+            pred: 15,
+            succ: 15,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
+}
+
+/// Per spec, "base implementations shall treat all such reserved configurations as normal
+/// fences" - a non-zero `fm` (other than the canonical FENCE.TSO encoding) must still decode as
+/// an ordinary fence, not be rejected as illegal.
+#[test]
+fn test_fence_reserved_fm_still_decodes() {
+    // fm=1, pred=0, succ=15
+    let inst = 0x10f0_000f_u32;
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv64Instruction::Fence {
+            pred: 0,
+            succ: 15,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 #[test]
@@ -1184,23 +1220,48 @@ fn test_fence_tso() {
     );
 }
 
+/// Only the exact fm=8, pred=RW, succ=RW encoding is FENCE.TSO; any other fm=8 variant is a
+/// reserved configuration that must still decode as an ordinary fence rather than be rejected.
 #[test]
-fn test_fence_tso_invalid_variants() {
-    // fm=8 but pred != 0b0011 - reserved
+fn test_fence_tso_reserved_variants_decode_as_fence() {
+    // fm=8 but pred != 0b0011
     let inst = 0x8230_000f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv64Instruction::Fence {
+            pred: 0b0010,
+            succ: 0b0011,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 
-    // fm=8 but succ != 0b0011 - reserved
+    // fm=8 but succ != 0b0011
     let inst = 0x8310_000f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
-
-    // fm=1 - still reserved
-    let inst = 0x10f0_000f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv64Instruction::Fence {
+            pred: 0b0011,
+            succ: 0b0001,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 
     // fm=15 - reserved
     let inst = 0xfff0_000f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    assert_eq!(
+        decoded,
+        Rv64Instruction::Fence {
+            pred: 15,
+            succ: 15,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }
+    );
 }
 
 // System instructions

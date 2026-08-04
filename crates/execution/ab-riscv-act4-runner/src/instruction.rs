@@ -4,6 +4,16 @@ use ab_riscv_primitives::prelude::*;
 use std::fmt;
 use std::ops::ControlFlow;
 
+/// First `mhpmeventN` CSR index (`N` starts at 3, the first non-reserved HPM event selector).
+pub(crate) const MHPMEVENT3_CSR_INDEX: u16 = 0x323;
+/// Last `mhpmeventN` CSR index.
+pub(crate) const MHPMEVENT31_CSR_INDEX: u16 = 0x33F;
+
+/// Whether `csr_index` is one of the `mhpmevent3..31` CSRs.
+pub(crate) const fn is_mhpmevent(csr_index: u16) -> bool {
+    csr_index >= MHPMEVENT3_CSR_INDEX && csr_index <= MHPMEVENT31_CSR_INDEX
+}
+
 /// Placeholder implementation for machine mode, which the interpreter doesn't support directly
 #[instruction(
     inherit = [ZicsrInstruction],
@@ -56,9 +66,22 @@ where
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
-        if let Some(
-            MCsr::Mstatus | MCsr::Mtvec | MCsr::Mscratch | MCsr::Mepc | MCsr::Mcause | MCsr::Mtval,
-        ) = MCsr::from_index(csr_index)
+        if matches!(
+            MCsr::from_index(csr_index),
+            Some(
+                MCsr::Mstatus
+                    | MCsr::Misa
+                    | MCsr::Mie
+                    | MCsr::Mtvec
+                    | MCsr::Mstatush
+                    | MCsr::Mcountinhibit
+                    | MCsr::Mscratch
+                    | MCsr::Mepc
+                    | MCsr::Mcause
+                    | MCsr::Mtval
+                    | MCsr::Mip
+            )
+        ) || crate::instruction::is_mhpmevent(csr_index)
         {
             *output_value = raw_value;
             Ok(true)
@@ -74,7 +97,17 @@ where
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
         match MCsr::from_index(csr_index) {
-            Some(MCsr::Mstatus | MCsr::Mtvec | MCsr::Mscratch | MCsr::Mcause | MCsr::Mtval) => {
+            Some(
+                MCsr::Mstatus
+                | MCsr::Mie
+                | MCsr::Mtvec
+                | MCsr::Mstatush
+                | MCsr::Mcountinhibit
+                | MCsr::Mscratch
+                | MCsr::Mcause
+                | MCsr::Mtval
+                | MCsr::Mip,
+            ) => {
                 *output_value = write_value;
                 Ok(true)
             }
@@ -82,7 +115,20 @@ where
                 *output_value = write_value & !Reg::Type::from(1u32);
                 Ok(true)
             }
-            _ => Ok(false),
+            Some(MCsr::Misa) => {
+                // MISA_CSR_IMPLEMENTED is false for this core: misa is hardwired to 0 and writes
+                // are WARL-ignored rather than illegal
+                *output_value = Reg::Type::from(0u32);
+                Ok(true)
+            }
+            _ => {
+                if crate::instruction::is_mhpmevent(csr_index) {
+                    *output_value = write_value;
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
         }
     }
 }
