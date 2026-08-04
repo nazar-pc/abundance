@@ -5,7 +5,6 @@ pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_al
 use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, sew_mask, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 
 /// Execute element-wise and-not over `vstart..vl`, writing SEW-wide results into `vd`.
 ///
@@ -33,7 +32,6 @@ pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -89,7 +87,6 @@ pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -138,7 +135,6 @@ pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -185,7 +181,6 @@ pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -244,7 +239,6 @@ pub unsafe fn execute_vror<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();

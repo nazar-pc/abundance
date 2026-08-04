@@ -248,21 +248,19 @@ where
             }
             // Fence (I-type like, simplified for EM)
             0b000_1111 => {
-                if funct3 == 0b000 && rd_bits == 0 && rs1_bits == 0 {
+                if funct3 == 0b000 {
                     let fm = (instruction >> 28) & 0b1111;
                     let pred = ((instruction >> 24) & 0xf) as u8;
                     let succ = ((instruction >> 20) & 0xf) as u8;
-                    match fm {
-                        0b0000 => Some(Self::Fence { pred, succ }),
-                        0b1000 => {
-                            // FENCE.TSO: fm=8, pred=RW(0b0011), succ=RW(0b0011) - fixed by spec
-                            if pred == 0b0011 && succ == 0b0011 {
-                                Some(Self::FenceTso)
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
+                    if fm == 0b1000 && pred == 0b0011 && succ == 0b0011 {
+                        // FENCE.TSO: fm=8, pred=RW(0b0011), succ=RW(0b0011) - fixed by spec
+                        Some(Self::FenceTso)
+                    } else {
+                        // rd, rs1, and any other fm/pred/succ combination are reserved for
+                        // finer-grain fences and hints; implementations that don't support those
+                        // must ignore them and execute an ordinary (conservative) fence rather
+                        // than trapping.
+                        Some(Self::Fence { pred, succ })
                     }
                 } else {
                     None

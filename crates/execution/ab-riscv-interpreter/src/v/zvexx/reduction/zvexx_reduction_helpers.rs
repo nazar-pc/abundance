@@ -5,7 +5,6 @@ use crate::v::zvexx::arith::zvexx_arith_helpers::{
 };
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 use core::hint::cold_path;
 
 /// Execute a single-width integer reduction.
@@ -32,7 +31,6 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     // Spec §5.4: when vstart >= vl, no element of vd is updated. For reductions this means
@@ -95,7 +93,6 @@ pub unsafe fn execute_widening_reduce_op<
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let Some(wide_sew) = sew.double_width() else {

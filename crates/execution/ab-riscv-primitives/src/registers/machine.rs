@@ -25,6 +25,10 @@ pub enum MCsr {
     Mie = 0x304,
     /// Machine trap-vector base address register (MRW)
     Mtvec = 0x305,
+    /// Additional machine status register, RV32 only (MRW)
+    Mstatush = 0x310,
+    /// Machine count-inhibit register (MRW)
+    Mcountinhibit = 0x320,
 
     /// Machine scratch register (MRW)
     Mscratch = 0x340,
@@ -51,6 +55,8 @@ impl MCsr {
             0x301 => Some(Self::Misa),
             0x304 => Some(Self::Mie),
             0x305 => Some(Self::Mtvec),
+            0x310 => Some(Self::Mstatush),
+            0x320 => Some(Self::Mcountinhibit),
             0x340 => Some(Self::Mscratch),
             0x341 => Some(Self::Mepc),
             0x342 => Some(Self::Mcause),

@@ -6,7 +6,6 @@ pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_al
 use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, sew_mask, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
 
 /// Lower SEW bits of the carry-less product of two SEW-wide values.
 ///
@@ -71,7 +70,6 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();
@@ -125,7 +123,6 @@ pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
     Reg: Register,
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    CustomError: fmt::Debug,
 {
     let vl = ext_state.vl();
     let vstart = ext_state.vstart();

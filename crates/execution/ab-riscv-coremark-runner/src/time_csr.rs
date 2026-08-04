@@ -107,6 +107,7 @@ where
     fn prepare_csr_read(
         ext_state: &ExtState,
         csr_index: u16,
+        _will_write: bool,
         _raw_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError<CustomError>> {
@@ -144,7 +145,6 @@ impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
-    CustomError: fmt::Debug,
 {
     fn execute(
         self,

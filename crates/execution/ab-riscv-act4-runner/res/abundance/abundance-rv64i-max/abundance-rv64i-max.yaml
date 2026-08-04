@@ -33,6 +33,7 @@ implemented_extensions:
   - { name: Zknd,     version: "= 1.0.1" }
   - { name: Zkne,     version: "= 1.0.1" }
   - { name: Zknh,     version: "= 1.0.1" }
+  - { name: Zkr,      version: "= 1.0.1" }
   - { name: Zmmul,    version: "= 1.0.0" }
   - { name: Zvbb,     version: "= 1.0.0" }
   - { name: Zvbc,     version: "= 1.0.0" }

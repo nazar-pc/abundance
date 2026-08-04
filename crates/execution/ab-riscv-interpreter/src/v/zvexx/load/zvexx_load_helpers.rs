@@ -5,7 +5,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
-use core::fmt;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
 
@@ -324,7 +323,6 @@ where
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    CustomError: fmt::Debug,
 {
     let group_regs = group_regs.get();
     let vl = ext_state.vl();
@@ -452,7 +450,6 @@ where
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    CustomError: fmt::Debug,
 {
     let group_regs = group_regs.get();
     let vl = ext_state.vl();
@@ -545,7 +542,6 @@ where
     ExtState: VectorRegistersExt<Reg, CustomError>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    CustomError: fmt::Debug,
 {
     let data_group_regs = data_group_regs.get();
     let vl = ext_state.vl();

@@ -31,6 +31,7 @@ pub use crate::v::zvexx::widen_narrow::zvexx_widen_narrow_helpers;
 pub use crate::v::zvexx::zvexx_helpers;
 pub use crate::zawrs::WrsHandler;
 pub use crate::zicsr::zicsr_helpers;
+pub use crate::zkr::{ZkrSeedPoll, ZkrSeedSource, zkr_helpers};
 pub use crate::zvbb::zvbb_helpers;
 pub use crate::zvbb::zvkb::zvkb_helpers;
 pub use crate::zvbc::zvbc_helpers;

@@ -738,6 +738,7 @@ dependencies = [
  "ab-riscv-macros",
  "ab-riscv-primitives",
  "anyhow",
+ "chacha20 0.10.1",
  "clap",
  "colored",
  "object",

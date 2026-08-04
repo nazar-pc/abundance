@@ -1,7 +1,146 @@
-use crate::rv64::test_utils::{execute, initialize_state};
-use crate::{CsrError, Csrs, ExecutionError, RegisterFile};
+use crate::rv64::test_utils::{ExtState, execute, initialize_state};
+use crate::zicsr::zicsr_helpers;
+use crate::{
+    CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction, ExecutableInstructionCsr,
+    ExecutableInstructionOperands, ExecutableInstructionResult, ExecutionError, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands,
+};
+use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
-use core::assert_matches;
+use core::ops::ControlFlow;
+use core::{assert_matches, fmt};
+
+/// Lets [`TestZicsr`] forward to the closures configured via
+/// [`ExtState::set_prepare_csr_read_write()`]
+trait CsrMock<CustomError> {
+    fn mock_prepare_csr_read(
+        &self,
+        csr_index: u16,
+        raw_value: u64,
+    ) -> Result<u64, CsrError<CustomError>>;
+
+    fn mock_prepare_csr_write(
+        &mut self,
+        csr_index: u16,
+        write_value: u64,
+    ) -> Result<u64, CsrError<CustomError>>;
+}
+
+impl CsrMock<CustomErrorPlaceholder> for ExtState {
+    fn mock_prepare_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
+        self.prepare_csr_read(csr_index, raw_value)
+    }
+
+    fn mock_prepare_csr_write(
+        &mut self,
+        csr_index: u16,
+        write_value: u64,
+    ) -> Result<u64, CsrError> {
+        self.prepare_csr_write(csr_index, write_value)
+    }
+}
+
+/// `Zicsr` composed with a mock CSR handler forwarding to the closures configured via
+/// [`ExtState::set_prepare_csr_read_write()`], used by every test in this module in place of bare
+/// `ZicsrInstruction` so `execute()` actually dispatches CSR reads/writes somewhere.
+///
+/// This is the one place in the codebase where composing a synthetic instruction is warranted:
+/// every other extension's tests drive their own real `prepare_csr_read`/`prepare_csr_write`
+/// through the harness instead (see e.g. `zkr::tests`).
+#[instruction(inherit = [ZicsrInstruction])]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TestZicsr<Reg> {}
+
+#[instruction]
+impl<Reg> Instruction for TestZicsr<Reg>
+where
+    Reg: Register,
+{
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn alignment() -> u8 {
+        align_of::<u32>() as u8
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for TestZicsr<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+#[instruction_execution]
+impl<Reg> ExecutableInstructionOperands for TestZicsr<Reg> where Reg: Register {}
+
+#[instruction_execution]
+impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError> for TestZicsr<Reg>
+where
+    Reg: Register<Type = u64>,
+    ExtState: CsrMock<CustomError>,
+{
+    #[inline(always)]
+    fn prepare_csr_read(
+        ext_state: &ExtState,
+        csr_index: u16,
+        _will_write: bool,
+        raw_value: u64,
+        output_value: &mut u64,
+    ) -> Result<bool, CsrError<CustomError>> {
+        *output_value = ext_state.mock_prepare_csr_read(csr_index, raw_value)?;
+        Ok(true)
+    }
+
+    #[inline(always)]
+    fn prepare_csr_write(
+        ext_state: &mut ExtState,
+        csr_index: u16,
+        write_value: u64,
+        output_value: &mut u64,
+    ) -> Result<bool, CsrError<CustomError>> {
+        *output_value = ext_state.mock_prepare_csr_write(csr_index, write_value)?;
+        Ok(true)
+    }
+}
+
+#[instruction_execution]
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+    for TestZicsr<Reg>
+where
+    Reg: Register<Type = u64>,
+    ExtState: Csrs<Reg, CustomError> + CsrMock<CustomError>,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value: _,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
+        ext_state: &mut ExtState,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+        _system_instruction_handler: &mut InstructionHandler,
+    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+        Ok(ControlFlow::Continue(Default::default()))
+    }
+}
 
 // CSR address constants
 //
@@ -56,7 +195,7 @@ fn allow_write(_csr_index: u16, write_value: u64) -> Result<u64, CsrError> {
 
 #[test]
 fn test_csrrw_reads_old_value_into_rd() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -77,7 +216,7 @@ fn test_csrrw_reads_old_value_into_rd() {
 
 #[test]
 fn test_csrrw_writes_rs1_to_csr() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -98,7 +237,7 @@ fn test_csrrw_writes_rs1_to_csr() {
 
 #[test]
 fn test_csrrw_rd_zero_skips_read_no_side_effects() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::Zero,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -120,7 +259,7 @@ fn test_csrrw_rd_zero_skips_read_no_side_effects() {
 
 #[test]
 fn test_csrrw_all_ones() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -142,7 +281,7 @@ fn test_csrrw_all_ones() {
 
 #[test]
 fn test_csrrw_overwrites_completely() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -168,7 +307,7 @@ fn test_csrrw_overwrites_completely() {
 
 #[test]
 fn test_csrrs_reads_old_value_into_rd() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -189,7 +328,7 @@ fn test_csrrs_reads_old_value_into_rd() {
 
 #[test]
 fn test_csrrs_sets_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -210,7 +349,7 @@ fn test_csrrs_sets_bits() {
 
 #[test]
 fn test_csrrs_rs1_zero_no_write() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: U_CSR,
@@ -231,7 +370,7 @@ fn test_csrrs_rs1_zero_no_write() {
 
 #[test]
 fn test_csrrs_idempotent_when_bits_already_set() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -260,7 +399,7 @@ fn test_csrrs_idempotent_when_bits_already_set() {
 
 #[test]
 fn test_csrrc_reads_old_value_into_rd() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -281,7 +420,7 @@ fn test_csrrc_reads_old_value_into_rd() {
 
 #[test]
 fn test_csrrc_clears_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -303,7 +442,7 @@ fn test_csrrc_clears_bits() {
 
 #[test]
 fn test_csrrc_rs1_zero_no_write() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: U_CSR,
@@ -324,7 +463,7 @@ fn test_csrrc_rs1_zero_no_write() {
 
 #[test]
 fn test_csrrc_clears_all_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -348,7 +487,7 @@ fn test_csrrc_clears_all_bits() {
 
 #[test]
 fn test_csrrc_idempotent_when_bits_already_clear() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -371,7 +510,7 @@ fn test_csrrc_idempotent_when_bits_already_clear() {
 
 #[test]
 fn test_csrrwi_reads_old_value_into_rd() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A2,
         zimm: 0b11111,
         csr_index: U_CSR,
@@ -392,7 +531,7 @@ fn test_csrrwi_reads_old_value_into_rd() {
 
 #[test]
 fn test_csrrwi_writes_zimm_zero_extended() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A2,
         zimm: 0b11111,
         csr_index: U_CSR,
@@ -417,7 +556,7 @@ fn test_csrrwi_writes_zimm_zero_extended() {
 
 #[test]
 fn test_csrrwi_rd_zero_skips_read() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::Zero,
         zimm: 0b00101,
         csr_index: U_CSR,
@@ -439,7 +578,7 @@ fn test_csrrwi_rd_zero_skips_read() {
 
 #[test]
 fn test_csrrwi_zimm_zero_writes_zero() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A1,
         zimm: 0,
         csr_index: U_CSR,
@@ -461,7 +600,7 @@ fn test_csrrwi_zimm_zero_writes_zero() {
 
 #[test]
 fn test_csrrwi_max_zimm() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A1,
         zimm: 31,
         csr_index: U_CSR,
@@ -484,7 +623,7 @@ fn test_csrrwi_max_zimm() {
 
 #[test]
 fn test_csrrsi_reads_old_value_into_rd() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 0b00001,
         csr_index: U_CSR,
@@ -505,7 +644,7 @@ fn test_csrrsi_reads_old_value_into_rd() {
 
 #[test]
 fn test_csrrsi_sets_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 0b00111,
         csr_index: U_CSR,
@@ -526,7 +665,7 @@ fn test_csrrsi_sets_bits() {
 
 #[test]
 fn test_csrrsi_zimm_zero_no_write() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 0,
         csr_index: U_CSR,
@@ -548,7 +687,7 @@ fn test_csrrsi_zimm_zero_no_write() {
 
 #[test]
 fn test_csrrsi_does_not_clear_existing_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 0b10101,
         csr_index: U_CSR,
@@ -577,7 +716,7 @@ fn test_csrrsi_does_not_clear_existing_bits() {
 
 #[test]
 fn test_csrrci_reads_old_value_into_rd() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 0b00001,
         csr_index: U_CSR,
@@ -598,7 +737,7 @@ fn test_csrrci_reads_old_value_into_rd() {
 
 #[test]
 fn test_csrrci_clears_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 0b11111,
         csr_index: U_CSR,
@@ -626,7 +765,7 @@ fn test_csrrci_clears_bits() {
 
 #[test]
 fn test_csrrci_zimm_zero_no_write() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 0,
         csr_index: U_CSR,
@@ -648,7 +787,7 @@ fn test_csrrci_zimm_zero_no_write() {
 
 #[test]
 fn test_csrrci_does_not_set_new_bits() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 0b10101,
         csr_index: U_CSR,
@@ -669,7 +808,7 @@ fn test_csrrci_does_not_set_new_bits() {
 
 #[test]
 fn test_csrrci_partial_clear() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 0b01010,
         csr_index: U_CSR,
@@ -693,7 +832,7 @@ fn test_csrrci_partial_clear() {
 
 #[test]
 fn test_csrrs_rd_zero_still_reads_no_gp_write() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::Zero,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -715,7 +854,7 @@ fn test_csrrs_rd_zero_still_reads_no_gp_write() {
 
 #[test]
 fn test_csrrc_rd_zero_still_reads_no_gp_write() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::Zero,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -739,7 +878,7 @@ fn test_csrrc_rd_zero_still_reads_no_gp_write() {
 
 #[test]
 fn test_csrrw_rd_rs1_alias() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A0,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -761,7 +900,7 @@ fn test_csrrw_rd_rs1_alias() {
 
 #[test]
 fn test_csrrs_rd_rs1_alias() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A0,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -783,7 +922,7 @@ fn test_csrrs_rd_rs1_alias() {
 
 #[test]
 fn test_csrrc_rd_rs1_alias() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A0,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -807,7 +946,7 @@ fn test_csrrc_rd_rs1_alias() {
 
 #[test]
 fn test_csrrw_read_only_csr_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: RO_CSR,
@@ -828,7 +967,7 @@ fn test_csrrw_read_only_csr_is_rejected() {
 
 #[test]
 fn test_csrrwi_read_only_csr_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: RO_CSR,
@@ -848,7 +987,7 @@ fn test_csrrwi_read_only_csr_is_rejected() {
 
 #[test]
 fn test_csrrs_read_only_csr_with_nonzero_rs1_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: RO_CSR,
@@ -869,7 +1008,7 @@ fn test_csrrs_read_only_csr_with_nonzero_rs1_is_rejected() {
 
 #[test]
 fn test_csrrc_read_only_csr_with_nonzero_rs1_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: RO_CSR,
@@ -890,7 +1029,7 @@ fn test_csrrc_read_only_csr_with_nonzero_rs1_is_rejected() {
 
 #[test]
 fn test_csrrsi_read_only_csr_with_nonzero_zimm_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: RO_CSR,
@@ -910,7 +1049,7 @@ fn test_csrrsi_read_only_csr_with_nonzero_zimm_is_rejected() {
 
 #[test]
 fn test_csrrci_read_only_csr_with_nonzero_zimm_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 1,
         csr_index: RO_CSR,
@@ -933,7 +1072,7 @@ fn test_csrrci_read_only_csr_with_nonzero_zimm_is_rejected() {
 #[test]
 fn test_csrrs_read_only_csr_with_rs1_zero_is_legal() {
     // csrrs rd, ro_csr, x0 is the canonical CSR read idiom; must succeed even on RO CSRs.
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: RO_CSR,
@@ -952,7 +1091,7 @@ fn test_csrrs_read_only_csr_with_rs1_zero_is_legal() {
 
 #[test]
 fn test_csrrc_read_only_csr_with_rs1_zero_is_legal() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: RO_CSR,
@@ -971,7 +1110,7 @@ fn test_csrrc_read_only_csr_with_rs1_zero_is_legal() {
 
 #[test]
 fn test_csrrsi_read_only_csr_with_zimm_zero_is_legal() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 0,
         csr_index: RO_CSR,
@@ -991,7 +1130,7 @@ fn test_csrrsi_read_only_csr_with_zimm_zero_is_legal() {
 
 #[test]
 fn test_csrrci_read_only_csr_with_zimm_zero_is_legal() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 0,
         csr_index: RO_CSR,
@@ -1013,7 +1152,7 @@ fn test_csrrci_read_only_csr_with_zimm_zero_is_legal() {
 
 #[test]
 fn test_csrrw_last_writable_address_succeeds() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: LAST_WRITABLE_CSR,
@@ -1034,7 +1173,7 @@ fn test_csrrw_last_writable_address_succeeds() {
 
 #[test]
 fn test_csrrw_first_read_only_address_is_rejected() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: RO_CSR,
@@ -1071,7 +1210,7 @@ fn test_csrrw_first_read_only_address_is_rejected() {
 
 #[test]
 fn test_priv_user_csr_accessible_from_user_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1089,7 +1228,7 @@ fn test_priv_user_csr_accessible_from_user_mode() {
 
 #[test]
 fn test_priv_user_csr_accessible_from_supervisor_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1109,7 +1248,7 @@ fn test_priv_user_csr_accessible_from_supervisor_mode() {
 
 #[test]
 fn test_priv_user_csr_accessible_from_machine_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1129,7 +1268,7 @@ fn test_priv_user_csr_accessible_from_machine_mode() {
 
 #[test]
 fn test_priv_supervisor_csr_rejected_from_user_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: S_CSR,
@@ -1148,7 +1287,7 @@ fn test_priv_supervisor_csr_rejected_from_user_mode() {
 
 #[test]
 fn test_priv_supervisor_csr_accessible_from_supervisor_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: S_CSR,
@@ -1168,7 +1307,7 @@ fn test_priv_supervisor_csr_accessible_from_supervisor_mode() {
 
 #[test]
 fn test_priv_supervisor_csr_accessible_from_machine_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: S_CSR,
@@ -1188,7 +1327,7 @@ fn test_priv_supervisor_csr_accessible_from_machine_mode() {
 
 #[test]
 fn test_priv_machine_csr_rejected_from_user_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: M_CSR,
@@ -1207,7 +1346,7 @@ fn test_priv_machine_csr_rejected_from_user_mode() {
 
 #[test]
 fn test_priv_machine_csr_rejected_from_supervisor_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: M_CSR,
@@ -1228,7 +1367,7 @@ fn test_priv_machine_csr_rejected_from_supervisor_mode() {
 
 #[test]
 fn test_priv_machine_csr_accessible_from_machine_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: M_CSR,
@@ -1250,7 +1389,7 @@ fn test_priv_machine_csr_accessible_from_machine_mode() {
 fn test_priv_check_fires_before_csr_is_read_or_written() {
     // Supervisor CSR accessed from User mode - rd would normally receive the old
     // value, but the privilege check must abort before any access occurs.
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: S_CSR,
@@ -1274,7 +1413,7 @@ fn test_priv_check_fires_before_csr_is_read_or_written() {
 
 #[test]
 fn test_csrrs_privilege_check() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: M_CSR,
@@ -1294,7 +1433,7 @@ fn test_csrrs_privilege_check() {
 
 #[test]
 fn test_csrrc_privilege_check() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: M_CSR,
@@ -1314,7 +1453,7 @@ fn test_csrrc_privilege_check() {
 
 #[test]
 fn test_csrrwi_privilege_check() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: M_CSR,
@@ -1333,7 +1472,7 @@ fn test_csrrwi_privilege_check() {
 
 #[test]
 fn test_csrrsi_privilege_check() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: S_CSR,
@@ -1352,7 +1491,7 @@ fn test_csrrsi_privilege_check() {
 
 #[test]
 fn test_csrrci_privilege_check() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 1,
         csr_index: S_CSR,
@@ -1374,7 +1513,7 @@ fn test_csrrci_privilege_check() {
 
 #[test]
 fn test_reserved_privilege_csr_rejected_from_supervisor_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: RESERVED_PRIV_CSR,
@@ -1395,7 +1534,7 @@ fn test_reserved_privilege_csr_rejected_from_supervisor_mode() {
 
 #[test]
 fn test_reserved_privilege_csr_rejected_from_user_mode() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: RESERVED_PRIV_CSR,
@@ -1414,7 +1553,7 @@ fn test_reserved_privilege_csr_rejected_from_user_mode() {
 
 #[test]
 fn test_reserved_privilege_csr() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A1,
         rs1: Reg::A0,
         csr_index: RESERVED_PRIV_CSR,
@@ -1439,7 +1578,7 @@ fn test_reserved_privilege_csr() {
 
 #[test]
 fn test_csrrw_prepare_read_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1458,7 +1597,7 @@ fn test_csrrw_prepare_read_error_is_propagated() {
 
 #[test]
 fn test_csrrw_rd_zero_prepare_write_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::Zero,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1478,7 +1617,7 @@ fn test_csrrw_rd_zero_prepare_write_error_is_propagated() {
 
 #[test]
 fn test_csrrs_prepare_read_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1497,7 +1636,7 @@ fn test_csrrs_prepare_read_error_is_propagated() {
 
 #[test]
 fn test_csrrs_prepare_write_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1517,7 +1656,7 @@ fn test_csrrs_prepare_write_error_is_propagated() {
 
 #[test]
 fn test_csrrc_prepare_read_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1536,7 +1675,7 @@ fn test_csrrc_prepare_read_error_is_propagated() {
 
 #[test]
 fn test_csrrc_prepare_write_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,
@@ -1556,7 +1695,7 @@ fn test_csrrc_prepare_write_error_is_propagated() {
 
 #[test]
 fn test_csrrwi_prepare_read_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: U_CSR,
@@ -1575,7 +1714,7 @@ fn test_csrrwi_prepare_read_error_is_propagated() {
 
 #[test]
 fn test_csrrwi_prepare_write_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::Zero,
         zimm: 1,
         csr_index: U_CSR,
@@ -1595,7 +1734,7 @@ fn test_csrrwi_prepare_write_error_is_propagated() {
 
 #[test]
 fn test_csrrsi_prepare_read_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: U_CSR,
@@ -1614,7 +1753,7 @@ fn test_csrrsi_prepare_read_error_is_propagated() {
 
 #[test]
 fn test_csrrsi_prepare_write_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: U_CSR,
@@ -1634,7 +1773,7 @@ fn test_csrrsi_prepare_write_error_is_propagated() {
 
 #[test]
 fn test_csrrci_prepare_read_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 1,
         csr_index: U_CSR,
@@ -1653,7 +1792,7 @@ fn test_csrrci_prepare_read_error_is_propagated() {
 
 #[test]
 fn test_csrrci_prepare_write_error_is_propagated() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 1,
         csr_index: U_CSR,
@@ -1675,7 +1814,7 @@ fn test_csrrci_prepare_write_error_is_propagated() {
 
 #[test]
 fn test_csrrw_unknown_csr_returns_error() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: UNKNOWN_CSR,
@@ -1688,7 +1827,7 @@ fn test_csrrw_unknown_csr_returns_error() {
 
 #[test]
 fn test_csrrs_unknown_csr_returns_error() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: UNKNOWN_CSR,
@@ -1701,7 +1840,7 @@ fn test_csrrs_unknown_csr_returns_error() {
 
 #[test]
 fn test_csrrc_unknown_csr_returns_error() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrc {
+    let mut state = initialize_state([TestZicsr::Csrrc {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: UNKNOWN_CSR,
@@ -1714,7 +1853,7 @@ fn test_csrrc_unknown_csr_returns_error() {
 
 #[test]
 fn test_csrrwi_unknown_csr_returns_error() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrwi {
+    let mut state = initialize_state([TestZicsr::Csrrwi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: UNKNOWN_CSR,
@@ -1727,7 +1866,7 @@ fn test_csrrwi_unknown_csr_returns_error() {
 
 #[test]
 fn test_csrrsi_unknown_csr_returns_error() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrsi {
+    let mut state = initialize_state([TestZicsr::Csrrsi {
         rd: Reg::A2,
         zimm: 1,
         csr_index: UNKNOWN_CSR,
@@ -1740,7 +1879,7 @@ fn test_csrrsi_unknown_csr_returns_error() {
 
 #[test]
 fn test_csrrci_unknown_csr_returns_error() {
-    let mut state = initialize_state([ZicsrInstruction::Csrrci {
+    let mut state = initialize_state([TestZicsr::Csrrci {
         rd: Reg::A2,
         zimm: 1,
         csr_index: UNKNOWN_CSR,
@@ -1756,7 +1895,7 @@ fn test_csrrci_unknown_csr_returns_error() {
 #[test]
 fn test_prepare_csr_read_filtered_value_reaches_rd() {
     // Simulates a 32-bit-wide CSR that is zero-extended on read.
-    let mut state = initialize_state([ZicsrInstruction::Csrrs {
+    let mut state = initialize_state([TestZicsr::Csrrs {
         rd: Reg::A2,
         rs1: Reg::Zero,
         csr_index: U_CSR,
@@ -1775,7 +1914,7 @@ fn test_prepare_csr_read_filtered_value_reaches_rd() {
 #[test]
 fn test_prepare_csr_write_filtered_value_reaches_csr() {
     // Simulates WARL: low byte is ignored on write.
-    let mut state = initialize_state([ZicsrInstruction::Csrrw {
+    let mut state = initialize_state([TestZicsr::Csrrw {
         rd: Reg::A2,
         rs1: Reg::A0,
         csr_index: U_CSR,

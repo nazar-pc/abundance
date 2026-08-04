@@ -7,6 +7,19 @@
 // No console, no timer, no interrupts implemented.
 
 // ---------------------------------------------------------------------------
+// This core is M-mode only (no S/U), but does implement a real, writable
+// mtvec and dispatches traps (ecall, illegal instruction, ...) through it -
+// see AbundanceRv32IMaxExtState::take_trap() in the interpreter. Defining
+// this lets the framework install and use its own real trap handler
+// (RVTEST_TRAP_HANDLER), instead of leaving tests that rely on it (e.g. any
+// RVTEST_GOTO_MMODE user, or extensions - like Zkr - whose tests are
+// registered under priv/) with no working trap handler at all. Every other
+// DUT config in this framework defines this the same way, leaving
+// RVMODEL_BOOT undefined below.
+// ---------------------------------------------------------------------------
+#define STANDARD_SM_SUPPORTED
+
+// ---------------------------------------------------------------------------
 // HTIF tohost helper: writes VALUE to tohost then spins.
 // Clobbers t0, t1.
 // ---------------------------------------------------------------------------
@@ -34,44 +47,10 @@
 // ---------------------------------------------------------------------------
 #define RVMODEL_HALT  RVMODEL_HALT_PASS
 
-// ---------------------------------------------------------------------------
-// Boot macro - runs inside `rvmodel_boot` before the jump to `rvtest_init`.
-//
-// Emits a minimal direct-mode trap handler inline, branching over it, then
-// writes its address into mtvec (direct mode: low 2 bits = 0).
-//
-// Handler contract: skip the faulting instruction and return. The faulting
-// instruction may be a 16-bit compressed encoding (Zca is enabled), so the
-// handler must not blindly add 4 - it reads the low halfword at mepc and
-// advances by 4 only if bits[1:0] == 0b11 (a 32-bit instruction), otherwise
-// by 2. This mirrors the framework's own default trap handler in
-// rvtest_trap_handler.h. mepc is always at least 2-byte aligned, so the lhu
-// cannot itself misalign-fault. No register saving needed - the test
-// framework doesn't inspect register state across a trap.
-// ---------------------------------------------------------------------------
-#define RVMODEL_BOOT                            \
-    .option push;                               \
-    .option norvc;                              \
-    .option arch, +zicsr;                       \
-    j       1f;                                 \
-    .align 2;                                   \
-    .global rvmodel_trap_handler;               \
-    rvmodel_trap_handler:                       \
-        csrr    t0, mepc;                       \
-        lhu     t1, 0(t0);                      \
-        andi    t1, t1, 3;                      \
-        addi    t1, t1, 1;                      \
-        srli    t1, t1, 2;                      \
-        addi    t1, t1, 1;                      \
-        slli    t1, t1, 1;                      \
-        add     t0, t0, t1;                     \
-        csrw    mepc, t0;                       \
-        mret;                                   \
-    .align 2;                                   \
-    1:                                          \
-    la      t0, rvmodel_trap_handler;           \
-    csrw    mtvec, t0;                          \
-    .option pop
+# Perform boot operations. Can be empty or left undefined unless needed for
+# DUT-specific behavior such as turning on a memory controller or
+# initializing custom state.
+//#define RVMODEL_BOOT
 
 // ---------------------------------------------------------------------------
 // Data section placement: default .data section is fine.
@@ -108,11 +87,15 @@
 #define RVMODEL_ACCESS_FAULT_ADDRESS 0x00000000
 
 // ---------------------------------------------------------------------------
-// Timer: no CLINT accessible from test code; leave blank.
-// The CLINT is in the sail.json memory map for Sail's own use only.
+// Timer: no CLINT accessible from test code. RVMODEL_MTIME_ADDRESS is
+// intentionally left undefined - it is not required (see check_defines.h:
+// "If RVMODEL_MTIME_ADDRESS is not defined, no machine timer interrupts are
+// tested"), and defining it would make RVTEST_TRAP_PROLOG (under
+// STANDARD_SM_SUPPORTED) write to RVMODEL_MTIMECMP_ADDRESS during boot,
+// which is not backed by real memory in this DUT's memory map (only
+// RAM_BASE..RAM_BASE+RAM_SIZE is, see main.rs) and would fault. The CLINT
+// address in sail.json is for Sail's own reference-model use only.
 // ---------------------------------------------------------------------------
-#define RVMODEL_MTIME_ADDRESS    0x200bff8
-#define RVMODEL_MTIMECMP_ADDRESS 0x2004000
 
 // No timers
 
