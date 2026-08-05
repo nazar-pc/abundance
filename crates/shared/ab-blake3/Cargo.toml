@@ -24,20 +24,15 @@ all-features = true
 # TODO: Would be nice to have benchmarks here
 
 [dependencies]
-# NOTE: `blake3` is here only for `no-panic` feature
-blake3 = { workspace = true, optional = true }
-no-panic = { workspace = true, optional = true }
-
-# TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
-[target.'cfg(not(target_arch = "spirv"))'.dependencies]
 blake3 = { workspace = true }
+no-panic = { workspace = true, optional = true }
 
 [features]
 # Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic",
     # Helps with testing on CPUs without AVX512 support
-    "blake3?/no_avx512",
+    "blake3/no_avx512",
 ]
 
 [lints]
