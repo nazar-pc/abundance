@@ -422,6 +422,10 @@ async fn initialize_farm(
         let plotted_sectors_buffer = Arc::clone(&plotted_sectors_buffer);
 
         move |(_sector_index, sector_update)| {
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
             if let SectorUpdate::Plotting(SectorPlottingDetails::Finished {
                 plotted_sector,
                 old_plotted_sector,

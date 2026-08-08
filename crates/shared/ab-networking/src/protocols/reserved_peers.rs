@@ -168,6 +168,10 @@ impl NetworkBehaviour for Behaviour {
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not care about other fields"
+        )]
         match event {
             FromSwarm::ConnectionEstablished(ConnectionEstablished { peer_id, .. }) => {
                 if let Some(state) = self.reserved_peers_state.get_mut(&peer_id) {

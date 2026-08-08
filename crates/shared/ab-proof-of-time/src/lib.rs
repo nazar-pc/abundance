@@ -4,6 +4,11 @@
     any(target_arch = "aarch64", target_arch = "x86_64"),
     feature(portable_simd)
 )]
+// TODO: Remove once https://github.com/RustCrypto/utils/issues/1514 is resolved
+#![cfg_attr(
+    any(target_arch = "aarch64", target_arch = "x86_64"),
+    expect(deprecated, reason = "https://github.com/RustCrypto/utils/issues/1514")
+)]
 #![no_std]
 
 mod aes;

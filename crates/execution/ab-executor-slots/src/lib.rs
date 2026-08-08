@@ -1,3 +1,7 @@
+#![expect(
+    clippy::rest_pattern_accessible_field,
+    reason = "Intentionally not needing other fields, too verbose otherwise"
+)]
 #![no_std]
 
 extern crate alloc;
@@ -824,7 +828,7 @@ impl<'a> NestedSlots<'a> {
                 .1;
             replace_with_or_abort(slot, |slot| match slot {
                 SlotState::Original(_buffer) => {
-                    unreachable!("Slot can't be in `Original` state after being accessed; qed")
+                    unreachable!("Slot can't be in `Original` state after being accessed; qed");
                 }
                 SlotState::OriginalReadOnly(buffer) => SlotState::Original(buffer),
                 SlotState::Modified(buffer) => SlotState::Modified(buffer),

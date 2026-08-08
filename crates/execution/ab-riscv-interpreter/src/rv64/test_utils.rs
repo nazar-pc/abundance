@@ -448,7 +448,7 @@ impl ExtState {
     /// [`ZkrSeedSource::poll_seed()`] calls. The last entry repeats once the sequence is
     /// exhausted.
     pub(crate) fn set_seed_poll_sequence(&mut self, sequence: Vec<ZkrSeedPoll>) {
-        assert!(!sequence.is_empty());
+        assert_ne!(sequence, []);
         self.seed.sequence = sequence;
         self.seed.index = 0;
     }

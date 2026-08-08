@@ -51,7 +51,7 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
             fingerprint,
             external_args,
             method_context,
-            ..
+            phantom: _,
         } = prepared_method;
 
         let env_state = EnvState {

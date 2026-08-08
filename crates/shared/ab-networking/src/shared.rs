@@ -36,6 +36,10 @@ pub enum PeerDiscovered {
 impl PeerDiscovered {
     /// Extracts peer ID from event.
     pub fn peer_id(&self) -> PeerId {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             PeerDiscovered::UnroutablePeer { peer_id } => *peer_id,
             PeerDiscovered::RoutablePeer { peer_id, .. } => *peer_id,

@@ -766,6 +766,10 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn update_output_buffer_details(&mut self) {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         let TransactionPayloadDecoder {
             external_args_buffer,
             output_buffer_details,

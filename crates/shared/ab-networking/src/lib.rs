@@ -3,6 +3,13 @@
 
 #![feature(duration_constructors, exact_size_is_empty, ip, trivial_bounds)]
 #![warn(missing_docs)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Too verbose for tests"
+    )
+)]
 
 mod behavior;
 mod constructor;

@@ -1039,7 +1039,13 @@ where
 
         let sectors_queued = sectors_to_replot.len();
         sectors_to_replot.sort_by_key(|sector_to_replot| sector_to_replot.expires_at);
-        for (index, SectorToReplot { sector_index, .. }) in sectors_to_replot.drain(..).enumerate()
+        for (
+            index,
+            SectorToReplot {
+                sector_index,
+                expires_at: _,
+            },
+        ) in sectors_to_replot.drain(..).enumerate()
         {
             let (acknowledgement_sender, acknowledgement_receiver) = oneshot::channel();
             if let Err(error) = sectors_to_plot_sender

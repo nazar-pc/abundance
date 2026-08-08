@@ -345,6 +345,10 @@ impl ClusterFarm {
                 let mut solution_subscription = pin!(solution_subscription);
 
                 let sector_updates_fut = async {
+                    #[expect(
+                        clippy::rest_pattern_accessible_field,
+                        reason = "Do not need other fields"
+                    )]
                     while let Some(ClusterFarmerSectorUpdateBroadcast {
                         sector_index,
                         sector_update,
@@ -357,6 +361,10 @@ impl ClusterFarm {
                     }
                 };
                 let farming_notifications_fut = async {
+                    #[expect(
+                        clippy::rest_pattern_accessible_field,
+                        reason = "Do not need other fields"
+                    )]
                     while let Some(ClusterFarmerFarmingNotificationBroadcast {
                         farming_notification,
                         ..
@@ -368,6 +376,10 @@ impl ClusterFarm {
                     }
                 };
                 let solutions_fut = async {
+                    #[expect(
+                        clippy::rest_pattern_accessible_field,
+                        reason = "Do not need other fields"
+                    )]
                     while let Some(ClusterFarmerSolutionBroadcast {
                         solution_response, ..
                     }) = solution_subscription.next().await

@@ -128,7 +128,10 @@ pub fn main() -> anyhow::Result<()> {
             println!("Verification successful");
             Ok(())
         }
-        Cli::Recover { .. } => {
+        Cli::Recover {
+            input_file: _,
+            output_file: _,
+        } => {
             unimplemented!("Recovering of ELF files is not implemented yet");
         }
     }

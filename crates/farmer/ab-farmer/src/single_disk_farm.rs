@@ -201,24 +201,40 @@ impl SingleDiskFarmInfo {
     }
 
     /// ID of the farm
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn id(&self) -> &FarmId {
         let Self::V0 { id, .. } = self;
         id
     }
 
     /// Genesis hash of the chain used for farm creation
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn genesis_root(&self) -> &BlockRoot {
         let Self::V0 { genesis_root, .. } = self;
         genesis_root
     }
 
     /// Public key of identity used for farm creation
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn public_key(&self) -> &Ed25519PublicKey {
         let Self::V0 { public_key, .. } = self;
         public_key
     }
 
     /// Seed used for deriving shard commitments
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn shard_commitments_seed(&self) -> &Blake3Hash {
         let Self::V0 {
             shard_commitments_seed,
@@ -227,7 +243,11 @@ impl SingleDiskFarmInfo {
         shard_commitments_seed
     }
 
-    /// How many pieces does one sector contain.
+    /// How many pieces does one sector contain
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn pieces_in_sector(&self) -> u16 {
         match self {
             SingleDiskFarmInfo::V0 {
@@ -237,6 +257,10 @@ impl SingleDiskFarmInfo {
     }
 
     /// How much space in bytes is allocated for this farm
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn allocated_space(&self) -> u64 {
         match self {
             SingleDiskFarmInfo::V0 {
@@ -1315,6 +1339,10 @@ impl SingleDiskFarm {
                 );
 
                 let new_allocated_space = allocated_space;
+                #[expect(
+                    clippy::rest_pattern_accessible_field,
+                    reason = "Do not need other fields"
+                )]
                 match &mut single_disk_farm_info {
                     SingleDiskFarmInfo::V0 {
                         allocated_space, ..

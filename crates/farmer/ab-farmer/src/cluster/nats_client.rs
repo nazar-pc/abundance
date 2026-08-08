@@ -101,6 +101,10 @@ enum GenericStreamResponses<Response> {
 impl<Response> From<GenericStreamResponses<Response>> for VecDeque<Response> {
     #[inline]
     fn from(value: GenericStreamResponses<Response>) -> Self {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match value {
             GenericStreamResponses::Continue { responses, .. } => responses,
             GenericStreamResponses::Last { responses, .. } => responses,
@@ -110,6 +114,10 @@ impl<Response> From<GenericStreamResponses<Response>> for VecDeque<Response> {
 
 impl<Response> GenericStreamResponses<Response> {
     fn next(&mut self) -> Option<Response> {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             GenericStreamResponses::Continue { responses, .. } => responses.pop_front(),
             GenericStreamResponses::Last { responses, .. } => responses.pop_front(),
@@ -117,6 +125,10 @@ impl<Response> GenericStreamResponses<Response> {
     }
 
     fn index(&self) -> u32 {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             GenericStreamResponses::Continue { index, .. } => *index,
             GenericStreamResponses::Last { index, .. } => *index,
@@ -124,6 +136,10 @@ impl<Response> GenericStreamResponses<Response> {
     }
 
     fn ack_subject(&self) -> Option<&str> {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         if let GenericStreamResponses::Continue { ack_subject, .. } = self {
             Some(ack_subject)
         } else {
@@ -131,6 +147,10 @@ impl<Response> GenericStreamResponses<Response> {
         }
     }
 
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not care about fields"
+    )]
     fn is_last(&self) -> bool {
         matches!(self, Self::Last { .. })
     }

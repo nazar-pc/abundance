@@ -63,7 +63,7 @@ anyhow = { version = "1.0.104", default-features = false }
 arrayvec = { version = "0.7.8", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
 async-nats = { version = "0.50.0", default-features = false, features = ["ring"] }
-async-trait = "0.1.91"
+async-trait = "0.1.92"
 backon = { version = "1.6.0", default-features = false }
 bech32 = { version = "0.12.0", default-features = false }
 blake3 = { version = "1.8.5", default-features = false }
@@ -133,7 +133,7 @@ stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "3.0.3"
 tempfile = "3.27.0"
-thiserror = { version = "2.0.19", default-features = false }
+thiserror = { version = "2.0.20", default-features = false }
 tokio = { version = "1.53.1", default-features = false }
 tokio-stream = "0.1.19"
 tracing = "0.1.44"
@@ -174,7 +174,9 @@ rust_2018_idioms = "warn"
 missing_debug_implementations = "warn"
 # `spirv` target architecture is not upstream yet
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_arch, values("spirv"))'], priority = 1 }
-unreachable_pub = { level = "warn" }
+# TODO: Remove once rust-gpu's nightly is updated, this is triggered by `clippy::assert_is_empty`
+unknown_lints = { level = "allow", priority = -1 }
+unreachable_pub = "warn"
 
 [workspace.lints.clippy]
 # Enable very conservative/invasive lints by default, see https://billylevin.dev/posts/clippy-config/
@@ -187,6 +189,8 @@ absolute_paths = "allow"
 arbitrary_source_item_ordering = "allow"
 as_ptr_cast_mut = "deny"
 as_underscore = "allow"
+# TODO: Unusable for now: https://github.com/rust-lang/rust-clippy/issues/17523
+assert_is_empty = "allow"
 big_endian_bytes = "allow"
 cognitive_complexity = "allow"
 collapsible_else_if = "allow"
@@ -206,6 +210,8 @@ inline_always = "allow"
 integer_division = "allow"
 integer_division_remainder_used = "allow"
 little_endian_bytes = "allow"
+# TODO: Unusable for now: https://github.com/rust-lang/rust-clippy/issues/17524
+manual_assert_eq = "allow"
 match_same_arms = "allow"
 min_ident_chars = "allow"
 missing_docs_in_private_items = "allow"
@@ -307,7 +313,5 @@ redundant_type_annotations = "allow"
 semicolon_if_nothing_returned = "allow"
 # TODO: False-positives: https://github.com/rust-lang/rust-clippy/issues/11024
 tests_outside_test_module = "allow"
-# TODO: Re-enable once false-positive is resolved: https://github.com/rust-lang/rust-clippy/issues/17039
-unnecessary_safety_comment = "allow"
 # TODO: https://github.com/rust-lang/rust-clippy/issues/5368#issuecomment-4665479346
 verbose_file_reads = "allow"

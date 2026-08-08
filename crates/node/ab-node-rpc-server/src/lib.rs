@@ -80,6 +80,10 @@ pub enum Error {
 
 impl From<Error> for ErrorObjectOwned {
     fn from(error: Error) -> Self {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Only extracting error code"
+        )]
         let code = match &error {
             Error::SolutionWasIgnored { .. } => 0,
             Error::SuperSegmentHeadersLengthExceeded { .. } => 1,

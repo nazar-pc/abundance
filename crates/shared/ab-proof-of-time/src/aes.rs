@@ -1,4 +1,4 @@
-//! AES related functionality.
+//! AES related functionality
 
 #[cfg(target_arch = "aarch64")]
 mod aarch64;

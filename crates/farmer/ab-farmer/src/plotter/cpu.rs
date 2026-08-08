@@ -487,6 +487,10 @@ impl ProgressUpdater {
         PS::Error: Error,
     {
         if let Some(metrics) = &self.metrics {
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Just counting occurrences"
+            )]
             match &progress {
                 SectorPlottingProgress::Downloading => {
                     metrics.sector_downloading.inc();

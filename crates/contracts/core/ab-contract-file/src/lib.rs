@@ -504,6 +504,10 @@ impl<'a> ContractFile<'a> {
 
             // The instruction is an unconditional relative jump:
             //   jal x0, offset
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
             let matches_expected_pattern = match instruction {
                 ContractInstruction::Jal { rd, .. } => rd == Register::ZERO,
                 ContractInstruction::CJ { .. } => true,

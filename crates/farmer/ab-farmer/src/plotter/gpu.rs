@@ -456,6 +456,10 @@ impl ProgressUpdater {
         PS::Error: Error,
     {
         if let Some(metrics) = &self.metrics {
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
             match &progress {
                 SectorPlottingProgress::Downloading => {
                     metrics.sector_downloading.inc();

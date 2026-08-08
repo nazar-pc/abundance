@@ -14,11 +14,10 @@ use quote::{ToTokens, format_ident, quote};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
-use std::{env, fs, iter, mem};
-use syn::token::DotDot;
+use std::{env, fs, iter};
 use syn::{
-    Block, Expr, Fields, FnArg, Ident, ImplItem, ItemImpl, Member, Pat, PatRest, Stmt, Type,
-    WherePredicate, parse_file, parse_quote, parse_str,
+    Block, Expr, FieldPat, Fields, FnArg, Ident, ImplItem, ItemImpl, Member, Pat, PatWild, Stmt,
+    Token, Type, WherePredicate, parse_file, parse_quote, parse_str,
 };
 
 const ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_ORIGINAL_IMPL_PATH";
@@ -512,6 +511,11 @@ pub(super) fn process_enum_decoding_impl(
             }
 
             *size_block = parse_quote! {{
+                #[expect(clippy::allow_attributes, reason = "Attribute below")]
+                #[allow(
+                    clippy::rest_pattern_accessible_field,
+                    reason = "Generated code"
+                )]
                 match self {
                     #( #match_arms, )*
                 }
@@ -622,23 +626,14 @@ pub(super) fn process_enum_display_impl(
         }
 
         let Pat::Struct(pat_struct) = &mut arm.pat else {
-            // Must be path otherwise, replace it with a trivial struct
-            arm.pat = parse_quote! { #path { .. } };
+            // Must be path otherwise, ignore generated fields
+            arm.pat = parse_quote! { #path { rs1: _, rs2: _ } };
             return true;
         };
 
-        if pat_struct.rest.is_some() {
-            return true;
-        }
-
-        let mut has_ignore = false;
         let mut rs1_found = false;
         let mut rs2_found = false;
         for field in &pat_struct.fields {
-            if let Pat::Wild(_) = &*field.pat {
-                has_ignore = true;
-            }
-
             let Member::Named(ident) = &field.member else {
                 return false;
             };
@@ -650,23 +645,26 @@ pub(super) fn process_enum_display_impl(
             }
         }
 
-        if !rs1_found || !rs2_found {
-            if has_ignore {
-                // This prevents clippy warnings
-                pat_struct.fields = mem::take(&mut pat_struct.fields)
-                    .into_iter()
-                    .filter_map(|field| {
-                        if let Pat::Wild(_) = &*field.pat {
-                            return None;
-                        }
-
-                        Some(field)
-                    })
-                    .collect();
-            }
-            pat_struct.rest.replace(PatRest {
+        if !rs1_found {
+            pat_struct.fields.push(FieldPat {
                 attrs: vec![],
-                dot2_token: DotDot::default(),
+                member: Member::Named(format_ident!("rs1")),
+                colon_token: Some(<Token![:]>::default()),
+                pat: Box::new(Pat::Wild(PatWild {
+                    attrs: vec![],
+                    underscore_token: <Token![_]>::default(),
+                })),
+            });
+        }
+        if !rs2_found {
+            pat_struct.fields.push(FieldPat {
+                attrs: vec![],
+                member: Member::Named(format_ident!("rs2")),
+                colon_token: Some(<Token![:]>::default()),
+                pat: Box::new(Pat::Wild(PatWild {
+                    attrs: vec![],
+                    underscore_token: <Token![_]>::default(),
+                })),
             });
         }
 
