@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RealShardKind","ShardKind"],"struct":["NumShards","NumShardsUnchecked","ShardIndex"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_PROOF_ELEMENTS","NUM_PEAKS"],"struct":["MerkleMountainRange","MerkleMountainRangeBytes","MmrPeaks"]};
