@@ -1,9 +1,9 @@
-use quote::{ToTokens, quote};
-use std::{iter, mem};
-use syn::token::{DotDot, Semi};
+use quote::{ToTokens, format_ident, quote};
+use std::iter;
+use syn::token::Semi;
 use syn::{
-    Arm, Block, Expr, ExprBlock, ExprMatch, Ident, Member, Pat, PatRest, PathArguments, Stmt,
-    parse_quote,
+    Arm, Block, Expr, ExprBlock, ExprMatch, FieldPat, Ident, Member, Pat, PatWild, PathArguments,
+    Stmt, Token, parse_quote,
 };
 
 fn is_exact_ok(expr: &Expr) -> bool {
@@ -54,56 +54,54 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
 
         // Fix up match pattern after `rs1`/`rs2` fields were added automatically
         if let Pat::Struct(pat_struct) = &mut arm.pat {
-            if pat_struct.rest.is_none() {
-                let mut has_ignore = false;
-                let mut rs1_found = false;
-                let mut rs2_found = false;
-                for field in &pat_struct.fields {
-                    if let Pat::Wild(_) = &*field.pat {
-                        has_ignore = true;
-                    }
+            let mut rs1_found = false;
+            let mut rs2_found = false;
+            for field in &pat_struct.fields {
+                let Member::Named(ident) = &field.member else {
+                    break;
+                };
 
-                    let Member::Named(ident) = &field.member else {
-                        break;
-                    };
-
-                    if ident == "rs1" {
-                        rs1_found = true;
-                    } else if ident == "rs2" {
-                        rs2_found = true;
-                    }
-                }
-
-                if !rs1_found || !rs2_found {
-                    if has_ignore {
-                        // This prevents clippy warnings
-                        pat_struct.fields = mem::take(&mut pat_struct.fields)
-                            .into_iter()
-                            .filter_map(|field| {
-                                // TODO: Ensure all fields correspond to those in the enum
-                                //  definition, right now this silently accepts non-existing ignored
-                                //  fields
-                                if let Pat::Wild(_) = &*field.pat {
-                                    return None;
-                                }
-
-                                Some(field)
-                            })
-                            .collect();
-                    }
-                    pat_struct.rest.replace(PatRest {
-                        attrs: vec![],
-                        dot2_token: DotDot::default(),
-                    });
+                if ident == "rs1" {
+                    rs1_found = true;
+                } else if ident == "rs2" {
+                    rs2_found = true;
                 }
             }
+
+            if !rs1_found {
+                pat_struct.fields.push(FieldPat {
+                    attrs: vec![],
+                    member: Member::Named(format_ident!("rs1")),
+                    colon_token: Some(<Token![:]>::default()),
+                    pat: Box::new(Pat::Wild(PatWild {
+                        attrs: vec![],
+                        underscore_token: <Token![_]>::default(),
+                    })),
+                });
+            }
+            if !rs2_found {
+                pat_struct.fields.push(FieldPat {
+                    attrs: vec![],
+                    member: Member::Named(format_ident!("rs2")),
+                    colon_token: Some(<Token![:]>::default()),
+                    pat: Box::new(Pat::Wild(PatWild {
+                        attrs: vec![],
+                        underscore_token: <Token![_]>::default(),
+                    })),
+                });
+            }
         } else {
-            // Must be path otherwise, replace it with a trivial struct
-            arm.pat = parse_quote! { #path { .. } };
+            // Must be path otherwise, ignore generated fields
+            arm.pat = parse_quote! { #path { rs1: _, rs2: _ } };
         }
 
         // If not a block then must be an expression, which we'll keep as is
-        if let Expr::Block(ExprBlock { block, .. }) = arm.body.as_mut() {
+        if let Expr::Block(ExprBlock {
+            attrs: _,
+            label: _,
+            block,
+        }) = arm.body.as_mut()
+        {
             let continue_expr = parse_quote! { Ok(ControlFlow::Continue(Default::default())) };
             if let Some(last_statement) = block.stmts.last_mut() {
                 // Has at least one statement

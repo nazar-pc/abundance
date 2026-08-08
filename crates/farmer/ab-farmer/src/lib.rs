@@ -6,6 +6,13 @@
     iter_collect_into,
     try_blocks
 )]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Too verbose for tests"
+    )
+)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 
 //! `ab-farmer` is both a library and an app for everything related to farming.

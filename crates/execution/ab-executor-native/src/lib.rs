@@ -150,6 +150,10 @@ impl NativeExecutorBuilder {
                     method_metadata,
                     ffi_fn,
                 } = native_executor_method;
+                #[expect(
+                    clippy::rest_pattern_accessible_field,
+                    reason = "Do not need other fields"
+                )]
                 let recommended_capacities = match MetadataDecoder::new(main_contract_metadata)
                     .decode_next()
                     .ok_or(NativeExecutorError::ContractMetadataNotFound)?

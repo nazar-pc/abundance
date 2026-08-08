@@ -364,6 +364,10 @@ impl FarmingError {
     /// String variant of the error, primarily for monitoring purposes
     #[inline]
     pub fn str_variant(&self) -> &str {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not care about fields"
+        )]
         match self {
             FarmingError::FailedToSubscribeSlotInfo { .. } => "FailedToSubscribeSlotInfo",
             FarmingError::FailedToGetFarmerInfo { .. } => "FailedToGetFarmerInfo",
@@ -377,6 +381,10 @@ impl FarmingError {
 
     /// Whether this error is fatal and makes farm unusable
     pub fn is_fatal(&self) -> bool {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not care about fields"
+        )]
         match self {
             FarmingError::FailedToSubscribeSlotInfo { .. } => true,
             FarmingError::FailedToGetFarmerInfo { .. } => true,

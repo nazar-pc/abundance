@@ -262,6 +262,10 @@ where
         let header = block.header.header();
         let body = block.body.body();
 
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not care about fields"
+        )]
         let log_block_import = match origin {
             BlockOrigin::LocalBlockBuilder { .. } => true,
             BlockOrigin::Sync => false,

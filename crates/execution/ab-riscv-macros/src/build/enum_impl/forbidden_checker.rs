@@ -13,22 +13,35 @@ impl<'ast> Visit<'ast> for ForbiddenChecker<'ast> {
         }
 
         match i {
-            Expr::Return(ExprReturn { .. }) => {
+            Expr::Return(ExprReturn {
+                attrs: _,
+                return_token: _,
+                expr: _,
+            }) => {
                 self.found = true;
             }
 
             // Unit variant: `Enum::Foo` (qself must be None to avoid <T as Trait>::Assoc false
             // positives)
             Expr::Path(ExprPath {
-                qself: None, path, ..
+                attrs: _,
+                qself: None,
+                path,
             }) if is_forbidden_variant_path(path, self.enum_name) => {
                 self.found = true;
             }
 
             // Tuple variant: `Enum::Foo(...)`
-            Expr::Call(ExprCall { func, .. }) => {
+            Expr::Call(ExprCall {
+                attrs: _,
+                func,
+                paren_token: _,
+                args: _,
+            }) => {
                 if let Expr::Path(ExprPath {
-                    qself: None, path, ..
+                    attrs: _,
+                    qself: None,
+                    path,
                 }) = func.as_ref()
                     && is_forbidden_variant_path(path, self.enum_name)
                 {
@@ -37,9 +50,15 @@ impl<'ast> Visit<'ast> for ForbiddenChecker<'ast> {
             }
 
             // Struct variant: `Enum::Foo { .. }`
-            Expr::Struct(ExprStruct { path, .. })
-                if is_forbidden_variant_path(path, self.enum_name) =>
-            {
+            Expr::Struct(ExprStruct {
+                attrs: _,
+                qself: _,
+                path,
+                brace_token: _,
+                fields: _,
+                dot2_token: _,
+                rest: _,
+            }) if is_forbidden_variant_path(path, self.enum_name) => {
                 self.found = true;
             }
 

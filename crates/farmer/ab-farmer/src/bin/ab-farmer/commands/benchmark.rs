@@ -131,6 +131,7 @@ fn audit(audit_options: AuditOptions) -> anyhow::Result<()> {
         }
     };
 
+    #[expect(clippy::rest_pattern_accessible_field, reason = "Intentional")]
     match single_disk_farm_info {
         SingleDiskFarmInfo::V0 { .. } => {
             audit_inner::<PosTable>(audit_options, single_disk_farm_info)
@@ -303,6 +304,7 @@ fn prove(prove_options: ProveOptions) -> anyhow::Result<()> {
         }
     };
 
+    #[expect(clippy::rest_pattern_accessible_field, reason = "Intentional")]
     match single_disk_farm_info {
         SingleDiskFarmInfo::V0 { .. } => {
             prove_inner::<PosTable>(prove_options, single_disk_farm_info)

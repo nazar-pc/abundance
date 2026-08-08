@@ -281,6 +281,10 @@ where
 impl<Reg> ContractInstruction<Reg> {
     /// Check if the instruction is a jump instruction of any kind (affects program counter)
     #[inline]
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not care about fields"
+    )]
     pub fn is_jump(&self) -> bool {
         matches!(
             self,

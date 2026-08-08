@@ -260,6 +260,10 @@ where
                 return Err(ContractError::InternalError);
             }
         };
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     let MethodMetadataItem {
         method_kind,
         num_arguments,

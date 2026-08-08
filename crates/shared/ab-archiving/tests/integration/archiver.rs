@@ -557,17 +557,11 @@ fn invalid_usage() {
 
         assert_matches!(
             result,
-            Err(ArchiverInstantiationError::InvalidBlockSmallSize { .. }),
+            Err(ArchiverInstantiationError::InvalidBlockSmallSize {
+                block_bytes: 6,
+                archived_block_bytes: 10,
+            }),
         );
-
-        if let Err(ArchiverInstantiationError::InvalidBlockSmallSize {
-            block_bytes,
-            archived_block_bytes,
-        }) = result
-        {
-            assert_eq!(block_bytes, 6);
-            assert_eq!(archived_block_bytes, 10);
-        }
     }
 }
 

@@ -415,6 +415,10 @@ fn run_rv32i_max_test(
             rs2_value: state.regs.read(rs2),
         };
 
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match instruction.execute(
             rs1rs2_values,
             &mut state.regs,
@@ -594,6 +598,10 @@ fn run_rv64i_max_test(
             rs2_value: state.regs.read(rs2),
         };
 
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match instruction.execute(
             rs1rs2_values,
             &mut state.regs,

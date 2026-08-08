@@ -61,6 +61,10 @@ pub enum ProvingError {
 impl ProvingError {
     /// Whether this error is fatal and makes farm unusable
     pub fn is_fatal(&self) -> bool {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not care about fields"
+        )]
         match self {
             ProvingError::FailedToCreatePolynomialForRecord { .. } => false,
             ProvingError::FailedToDecodeSectorContentsMap(_) => false,

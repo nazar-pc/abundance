@@ -111,6 +111,13 @@
     try_blocks
 )]
 #![cfg_attr(feature = "no-panic", feature(const_closures))]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Too verbose for tests"
+    )
+)]
 
 pub mod instructions;
 pub mod prelude;

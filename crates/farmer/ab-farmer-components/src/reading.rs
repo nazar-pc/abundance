@@ -76,6 +76,10 @@ pub enum ReadingError {
 impl ReadingError {
     /// Whether this error is fatal and renders farm unusable
     pub fn is_fatal(&self) -> bool {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not care about fields"
+        )]
         match self {
             ReadingError::FailedToReadChunk { .. } => false,
             ReadingError::MissingPosProof { .. } => false,

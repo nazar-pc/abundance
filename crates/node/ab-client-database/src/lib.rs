@@ -451,6 +451,10 @@ where
 {
     #[inline(always)]
     fn header(&self) -> &Block::Header {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             Self::InMemory { block, .. } => block.header(),
             Self::Persisted { header, .. } | Self::PersistedConfirmed { header, .. } => header,
@@ -459,6 +463,10 @@ where
 
     #[inline(always)]
     fn full_block(&self) -> FullBlock<'_, Block> {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             Self::InMemory { block, .. } => FullBlock::InMemory(block),
             Self::Persisted {
@@ -479,6 +487,10 @@ where
 
     #[inline(always)]
     fn block_details(&self) -> Option<&BlockDetails> {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             Self::InMemory { block_details, .. } | Self::Persisted { block_details, .. } => {
                 Some(block_details)
@@ -489,6 +501,10 @@ where
 
     #[inline(always)]
     fn beacon_chain_block_details(&self) -> Option<&BeaconChainBlockDetails> {
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         match self {
             Self::InMemory {
                 beacon_chain_block_details,
@@ -1804,6 +1820,10 @@ where
                 .iter()
                 .enumerate()
                 .filter_map(|(fork_offset, client_database_block)| {
+                    #[expect(
+                        clippy::rest_pattern_accessible_field,
+                        reason = "Do not need other fields"
+                    )]
                     match client_database_block {
                         ClientDatabaseBlock::InMemory {
                             block,
@@ -2065,6 +2085,10 @@ where
             }
 
             // Blocks that are already persisted
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not care about fields"
+            )]
             match block {
                 ClientDatabaseBlock::InMemory { .. } => {
                     // Prune
@@ -2115,35 +2139,41 @@ where
                 return;
             };
 
-            replace_with_or_abort(canonical_block, |block| match block {
-                ClientDatabaseBlock::InMemory { .. } => {
-                    error!(
-                        %best_number,
-                        block_offset,
-                        header = ?block.header(),
-                        "Block to be confirmed must not be in memory, this is an implementation bug"
-                    );
-                    block
-                }
-                ClientDatabaseBlock::Persisted {
-                    header,
-                    block_details: _,
-                    beacon_chain_block_details,
-                    write_location,
-                } => ClientDatabaseBlock::PersistedConfirmed {
-                    header,
-                    beacon_chain_block_details,
-                    write_location,
-                },
-                ClientDatabaseBlock::PersistedConfirmed { .. } => {
-                    error!(
-                        %best_number,
-                        block_offset,
-                        header = ?block.header(),
-                        "Block to be confirmed must not be confirmed yet, this is an \
-                        implementation bug"
-                    );
-                    block
+            replace_with_or_abort(canonical_block, |block| {
+                #[expect(
+                    clippy::rest_pattern_accessible_field,
+                    reason = "Do not need other fields"
+                )]
+                match block {
+                    ClientDatabaseBlock::InMemory { .. } => {
+                        error!(
+                            %best_number,
+                            block_offset,
+                            header = ?block.header(),
+                            "Block to be confirmed must not be in memory, this is an implementation bug"
+                        );
+                        block
+                    }
+                    ClientDatabaseBlock::Persisted {
+                        header,
+                        block_details: _,
+                        beacon_chain_block_details,
+                        write_location,
+                    } => ClientDatabaseBlock::PersistedConfirmed {
+                        header,
+                        beacon_chain_block_details,
+                        write_location,
+                    },
+                    ClientDatabaseBlock::PersistedConfirmed { .. } => {
+                        error!(
+                            %best_number,
+                            block_offset,
+                            header = ?block.header(),
+                            "Block to be confirmed must not be confirmed yet, this is an \
+                            implementation bug"
+                        );
+                        block
+                    }
                 }
             });
         }

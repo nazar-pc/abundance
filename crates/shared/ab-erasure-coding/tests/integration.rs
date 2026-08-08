@@ -102,8 +102,10 @@ fn basic_data() {
                 num_shards / 4..num_shards * 2 / 4,
             ),
         ),
-        Err(ErasureCodingError::DecoderError(
-            Error::NotEnoughShards { .. }
-        ))
+        Err(ErasureCodingError::DecoderError(Error::NotEnoughShards {
+            original_count: _,
+            original_received_count: _,
+            recovery_received_count: _,
+        }))
     );
 }

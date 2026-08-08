@@ -298,7 +298,6 @@ pub trait BeaconChainInfoWrite: BeaconChainInfo + ChainInfoWrite<OwnedBeaconChai
     /// Persist a new super segment header.
     ///
     /// Returns `Ok(true)` if the header was inserted, `Ok(false)` if it was already present.
-    #[must_use]
     fn persist_super_segment_header(
         &self,
         super_segment_header: SuperSegmentHeader,

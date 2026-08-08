@@ -11,7 +11,12 @@ impl Visit<'_> for ForbiddenChecker {
             return;
         }
 
-        if let Expr::Return(ExprReturn { .. }) = i {
+        if let Expr::Return(ExprReturn {
+            attrs: _,
+            return_token: _,
+            expr: _,
+        }) = i
+        {
             self.found = true;
         }
 

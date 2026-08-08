@@ -78,6 +78,10 @@ pub enum MetadataItem<'a, 'metadata> {
 impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn num_methods(&self) -> u8 {
         match self {
             MetadataItem::Contract { num_methods, .. }
@@ -87,6 +91,10 @@ impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Do not need other fields"
+    )]
     pub fn into_decoder(self) -> MethodsMetadataDecoder<'a, 'metadata> {
         match self {
             MetadataItem::Contract { decoder, .. } | MetadataItem::Trait { decoder, .. } => decoder,

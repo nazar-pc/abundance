@@ -1,3 +1,8 @@
+#![expect(
+    clippy::rest_pattern_accessible_field,
+    reason = "Too verbose otherwise"
+)]
+
 use crate::behavior::persistent_parameters::{
     KnownPeersRegistry, PeerAddressRemovedEvent, append_p2p_suffix, remove_p2p_suffix,
 };
@@ -857,7 +862,7 @@ impl NodeRunner {
 
         match event {
             KademliaEvent::InboundRequest {
-                request: InboundRequest::AddProvider { record, .. },
+                request: InboundRequest::AddProvider { record },
             } => {
                 debug!("Unexpected AddProvider request received: {:?}", record);
             }

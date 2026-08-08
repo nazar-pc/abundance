@@ -148,6 +148,10 @@ impl TransactionPayloadBuilder {
                 .map_err(TransactionPayloadBuilderError::MetadataDecodingError)?;
         let mut metadata_decoder = metadata_decoder.without_auto_drain();
 
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
         let MethodMetadataItem {
             method_kind,
             num_arguments,

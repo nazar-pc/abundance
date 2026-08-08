@@ -146,6 +146,10 @@ impl Reconstructor {
         let mut partial_block = self.partial_block.take().unwrap_or_default();
 
         for segment_item in segment.items {
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
             match segment_item {
                 SegmentItem::Padding => {
                     // Doesn't contain anything

@@ -4,15 +4,37 @@ use syn::{Block, Expr, ExprCall, ExprPath, ExprStruct, Ident};
 
 fn extract_self_variant_ident(expr: &Expr) -> Option<Ident> {
     let path = match expr {
-        Expr::Path(ExprPath { path, .. }) => path,
-        Expr::Call(ExprCall { func, .. }) => {
-            if let Expr::Path(ExprPath { path, .. }) = func.as_ref() {
+        Expr::Path(ExprPath {
+            attrs: _,
+            qself: _,
+            path,
+        }) => path,
+        Expr::Call(ExprCall {
+            attrs: _,
+            func,
+            paren_token: _,
+            args: _,
+        }) => {
+            if let Expr::Path(ExprPath {
+                attrs: _,
+                qself: _,
+                path,
+            }) = func.as_ref()
+            {
                 path
             } else {
                 return None;
             }
         }
-        Expr::Struct(ExprStruct { path, .. }) => path,
+        Expr::Struct(ExprStruct {
+            attrs: _,
+            qself: _,
+            path,
+            brace_token: _,
+            fields: _,
+            dot2_token: _,
+            rest: _,
+        }) => path,
         _ => return None,
     };
 

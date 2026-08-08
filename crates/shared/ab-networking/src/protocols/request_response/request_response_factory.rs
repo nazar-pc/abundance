@@ -673,7 +673,11 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                     request_id,
                     protocol: protocol_name,
                     inner_channel,
-                    response: OutgoingResponse { result, .. },
+                    response:
+                        OutgoingResponse {
+                            result,
+                            sent_feedback: _,
+                        },
                 }) = outcome
                 else {
                     // The response builder was too busy, or handling the request failed. This is
@@ -766,6 +770,10 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                         }
                     };
 
+                    #[expect(
+                        clippy::rest_pattern_accessible_field,
+                        reason = "Do not care about other fields"
+                    )]
                     match event {
                         // Received a request from a remote.
                         RequestResponseEvent::Message {

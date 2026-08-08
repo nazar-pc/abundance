@@ -512,6 +512,10 @@ impl Archiver {
                         }
                     }
                 }
+                #[expect(
+                    clippy::rest_pattern_accessible_field,
+                    reason = "Do not care about fields"
+                )]
                 SegmentItem::BlockStart { .. } => {
                     unreachable!("Buffer never contains SegmentItem::BlockStart; qed");
                 }

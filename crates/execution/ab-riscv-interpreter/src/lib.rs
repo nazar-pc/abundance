@@ -147,6 +147,13 @@
     ),
     feature(riscv_ext_intrinsics)
 )]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::rest_pattern_accessible_field,
+        reason = "Too verbose for tests"
+    )
+)]
 #![no_std]
 
 pub mod basic;
