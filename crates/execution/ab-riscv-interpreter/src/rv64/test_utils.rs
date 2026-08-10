@@ -9,9 +9,8 @@ use crate::zawrs::WrsHandler;
 use crate::zkr::{ZkrSeedPoll, ZkrSeedSource};
 use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -169,7 +168,7 @@ where
         &mut self,
         _memory: &TestMemory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         self.pc = pc;
 
         Ok(ControlFlow::Continue(()))

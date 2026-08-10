@@ -89,6 +89,7 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
     adt_const_params,
+    const_block_items,
     const_closures,
     const_cmp,
     const_convert,
@@ -109,7 +110,7 @@
     signed_bigint_helpers,
     widening_mul
 )]
-#![cfg_attr(test, feature(const_block_items, try_blocks))]
+#![cfg_attr(test, feature(try_blocks))]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),
@@ -321,23 +322,6 @@ impl fmt::Display for CustomErrorPlaceholder {
     }
 }
 
-/// Program counter errors
-#[derive(Debug, thiserror::Error)]
-pub enum ProgramCounterError<Address, CustomError = CustomErrorPlaceholder> {
-    /// Unaligned instruction
-    #[error("Unaligned instruction at address {address}")]
-    UnalignedInstruction {
-        /// Address of the unaligned instruction fetch
-        address: Address,
-    },
-    /// Memory access error
-    #[error("Memory access error: {0}")]
-    MemoryAccess(#[from] VirtualMemoryError),
-    /// Custom error
-    #[error("Custom error: {0}")]
-    Custom(CustomError),
-}
-
 /// Generic program counter
 pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> {
     /// Get the current value of the program counter
@@ -364,18 +348,38 @@ pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceho
         &mut self,
         memory: &Memory,
         pc: Address,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<Address, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
 }
 
-/// Execution errors
+/// Execution errors.
+///
+/// The variants of [`VirtualMemoryError`] and [`CsrError`] are inlined
+/// here rather than nested. Nesting cost an extra discriminant per level, which made this type 24
+/// bytes; flattened it is 16, which is what lets `Result<_, ExecutionError>` be returned in
+/// registers instead of through a hidden out-pointer. `From` implementations for all three are
+/// provided, so `?` on them keeps working unchanged.
+///
+/// Note that a large `CustomError` will grow this type past that threshold again.
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
-    /// Program counter error
-    #[error("Program counter error: {0}")]
-    ProgramCounter(ProgramCounterError<Address, CustomError>),
-    /// Memory access error
-    #[error("Memory access error: {0}")]
-    MemoryAccess(VirtualMemoryError),
+    /// Unaligned instruction
+    #[error("Unaligned instruction at address {address}")]
+    UnalignedInstruction {
+        /// Address of the unaligned instruction fetch
+        address: Address,
+    },
+    /// Out-of-bounds read
+    #[error("Out-of-bounds read at address {address}")]
+    OutOfBoundsRead {
+        /// Address of the out-of-bounds read
+        address: u64,
+    },
+    /// Out-of-bounds write
+    #[error("Out-of-bounds write at address {address}")]
+    OutOfBoundsWrite {
+        /// Address of the out-of-bounds write
+        address: u64,
+    },
     /// Unsupported `ecall` instruction
     #[error("Unsupported `ecall` instruction at address {address:#x}")]
     EcallUnsupported {
@@ -396,36 +400,86 @@ pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
         /// Instruction that caused the error
         instruction: u32,
     },
-    /// CSR error
-    #[error("CSR error: {0}")]
-    CsrError(CsrError<CustomError>),
+    /// Read only CSR
+    #[error("Read only CSR {csr_index:#x}")]
+    CsrReadOnly {
+        /// Index of CSR where write was attempted
+        csr_index: u16,
+    },
+    /// Illegal read access
+    #[error("Illegal read access to CSR {csr_index:#x}")]
+    CsrIllegalRead {
+        /// Index of the accessed CSR
+        csr_index: u16,
+    },
+    /// Illegal write access
+    #[error("Illegal write access to CSR {csr_index:#x}")]
+    CsrIllegalWrite {
+        /// Index of the accessed CSR
+        csr_index: u16,
+    },
+    /// Unknown CSR
+    #[error("Unknown CSR {csr_index:#x}")]
+    CsrUnknown {
+        /// Index of the accessed CSR
+        csr_index: u16,
+    },
+    /// Insufficient privilege level
+    #[error(
+        "Insufficient privilege level for CSR {csr_index:#x}: required {required:?}, \
+        current {current:?}"
+    )]
+    CsrInsufficientPrivilege {
+        /// Index of the accessed CSR
+        csr_index: u16,
+        /// Required privilege level
+        required: PrivilegeLevel,
+        /// Current privilege level
+        current: PrivilegeLevel,
+    },
     /// Custom error
     #[error("Custom error: {0}")]
     Custom(CustomError),
 }
 
-const impl<Address, CustomError> From<ProgramCounterError<Address, CustomError>>
-    for ExecutionError<Address, CustomError>
-{
-    #[inline(always)]
-    fn from(value: ProgramCounterError<Address, CustomError>) -> Self {
-        Self::ProgramCounter(value)
-    }
+const {
+    // Ensure error type retains its size
+    assert!(size_of::<ExecutionError<u64>>() == 16);
 }
 
 const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Address, CustomError> {
     #[inline(always)]
     fn from(value: VirtualMemoryError) -> Self {
-        Self::MemoryAccess(value)
+        match value {
+            VirtualMemoryError::OutOfBoundsRead { address } => Self::OutOfBoundsRead { address },
+            VirtualMemoryError::OutOfBoundsWrite { address } => Self::OutOfBoundsWrite { address },
+        }
     }
 }
 
 const impl<Address, CustomError> From<CsrError<CustomError>>
     for ExecutionError<Address, CustomError>
+where
+    CustomError: [const] Destruct,
 {
     #[inline(always)]
     fn from(value: CsrError<CustomError>) -> Self {
-        Self::CsrError(value)
+        match value {
+            CsrError::ReadOnly { csr_index } => Self::CsrReadOnly { csr_index },
+            CsrError::IllegalRead { csr_index } => Self::CsrIllegalRead { csr_index },
+            CsrError::IllegalWrite { csr_index } => Self::CsrIllegalWrite { csr_index },
+            CsrError::Unknown { csr_index } => Self::CsrUnknown { csr_index },
+            CsrError::InsufficientPrivilege {
+                csr_index,
+                required,
+                current,
+            } => Self::CsrInsufficientPrivilege {
+                csr_index,
+                required,
+                current,
+            },
+            CsrError::Custom(error) => Self::Custom(error),
+        }
     }
 }
 

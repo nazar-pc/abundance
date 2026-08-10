@@ -245,13 +245,10 @@ where
                 let target = (rs1_value.wrapping_add(i64::from(imm).cast_unsigned())) & !1u64;
                 regs.write(rd, program_counter.get_pc());
 
-                match program_counter.set_pc(memory, target) {
-                    Ok(control_flow) => Ok(match control_flow {
-                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
-                        ControlFlow::Break(()) => ControlFlow::Break(()),
-                    }),
-                    Err(err) => Err(ExecutionError::from(err)),
-                }
+                Ok(match program_counter.set_pc(memory, target)? {
+                    ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                    ControlFlow::Break(()) => ControlFlow::Break(()),
+                })
             }
 
             Self::Sb {
@@ -298,15 +295,14 @@ where
             } => {
                 if rs1_value == rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -318,15 +314,14 @@ where
             } => {
                 if rs1_value != rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -338,15 +333,14 @@ where
             } => {
                 if rs1_value.cast_signed() < rs2_value.cast_signed() {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -358,15 +352,14 @@ where
             } => {
                 if rs1_value.cast_signed() >= rs2_value.cast_signed() {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -378,15 +371,14 @@ where
             } => {
                 if rs1_value < rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -398,15 +390,14 @@ where
             } => {
                 if rs1_value >= rs2_value {
                     let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -429,15 +420,14 @@ where
                 let old_pc = program_counter.old_pc(size_of::<u32>() as u8);
                 regs.write(rd, pc);
 
-                match program_counter
-                    .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))
-                {
-                    Ok(control_flow) => Ok(match control_flow {
+                Ok(
+                    match program_counter
+                        .set_pc(memory, old_pc.wrapping_add(i64::from(imm).cast_unsigned()))?
+                    {
                         ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                         ControlFlow::Break(()) => ControlFlow::Break(()),
-                    }),
-                    Err(err) => Err(ExecutionError::from(err)),
-                }
+                    },
+                )
             }
 
             Self::Fence { pred, succ } => {

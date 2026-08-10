@@ -560,6 +560,6 @@ fn test_clw_oob() {
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
         execute(&mut state),
-        Err(ExecutionError::MemoryAccess(_))
+        Err(ExecutionError::OutOfBoundsRead { .. })
     ));
 }

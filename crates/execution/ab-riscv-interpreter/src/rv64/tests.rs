@@ -1166,7 +1166,10 @@ fn test_out_of_bounds_read() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsRead { .. })
+    ));
 }
 
 #[test]
@@ -1183,7 +1186,10 @@ fn test_out_of_bounds_write() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
 }
 
 // Register Zero Tests

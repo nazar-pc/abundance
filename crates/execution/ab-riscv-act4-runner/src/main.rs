@@ -361,11 +361,7 @@ fn run_rv32i_max_test(
                         .ext_state
                         .read_csr(MCsr::Mepc as u16)
                         .map_err(ExecutionError::from)?;
-                    match state
-                        .instruction_fetcher
-                        .set_pc(&state.memory, mepc)
-                        .map_err(ExecutionError::from)?
-                    {
+                    match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
                         ControlFlow::Continue(()) => {
                             continue;
                         }
@@ -384,11 +380,7 @@ fn run_rv32i_max_test(
                         raw_instruction,
                     )
                     .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }
@@ -454,7 +446,12 @@ fn run_rv32i_max_test(
             //   rejects it - the interpreter has no other way to support it yet). Unlike the
             //   decode-time case, this one already carries the correct address.
             Err(
-                error @ (ExecutionError::CsrError(_) | ExecutionError::IllegalInstruction { .. }),
+                error @ (ExecutionError::CsrReadOnly { .. }
+                | ExecutionError::CsrIllegalRead { .. }
+                | ExecutionError::CsrIllegalWrite { .. }
+                | ExecutionError::CsrUnknown { .. }
+                | ExecutionError::CsrInsufficientPrivilege { .. }
+                | ExecutionError::IllegalInstruction { .. }),
             ) => {
                 let address = match error {
                     ExecutionError::IllegalInstruction { address } => address,
@@ -475,11 +472,7 @@ fn run_rv32i_max_test(
                         raw_instruction,
                     )
                     .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;
@@ -544,11 +537,7 @@ fn run_rv64i_max_test(
                         .ext_state
                         .read_csr(MCsr::Mepc as u16)
                         .map_err(ExecutionError::from)?;
-                    match state
-                        .instruction_fetcher
-                        .set_pc(&state.memory, mepc)
-                        .map_err(ExecutionError::from)?
-                    {
+                    match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
                         ControlFlow::Continue(()) => {
                             continue;
                         }
@@ -567,11 +556,7 @@ fn run_rv64i_max_test(
                         u64::from(raw_instruction),
                     )
                     .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }
@@ -637,7 +622,12 @@ fn run_rv64i_max_test(
             //   rejects it - the interpreter has no other way to support it yet). Unlike the
             //   decode-time case, this one already carries the correct address.
             Err(
-                error @ (ExecutionError::CsrError(_) | ExecutionError::IllegalInstruction { .. }),
+                error @ (ExecutionError::CsrReadOnly { .. }
+                | ExecutionError::CsrIllegalRead { .. }
+                | ExecutionError::CsrIllegalWrite { .. }
+                | ExecutionError::CsrUnknown { .. }
+                | ExecutionError::CsrInsufficientPrivilege { .. }
+                | ExecutionError::IllegalInstruction { .. }),
             ) => {
                 let address = match error {
                     ExecutionError::IllegalInstruction { address } => address,
@@ -658,11 +648,7 @@ fn run_rv64i_max_test(
                         u64::from(raw_instruction),
                     )
                     .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;

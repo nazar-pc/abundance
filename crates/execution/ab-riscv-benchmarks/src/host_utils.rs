@@ -281,11 +281,7 @@ where
     }
 
     #[inline]
-    fn set_pc(
-        &mut self,
-        memory: &Memory,
-        pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
+    fn set_pc(&mut self, memory: &Memory, pc: u64) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -295,7 +291,7 @@ where
             ContractInstruction::<ContractRegister>::alignment(),
         )) {
             cold_path();
-            return Err(ProgramCounterError::UnalignedInstruction { address: pc });
+            return Err(ExecutionError::UnalignedInstruction { address: pc });
         }
 
         // Note: This will not allow reading a 16-bit instruction at the very end of memory range,
@@ -381,7 +377,7 @@ where
         &mut self,
         _memory: &Memory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         let address = pc;
 
         if address == self.return_trap_address {
@@ -391,14 +387,12 @@ where
 
         if !address.is_multiple_of(size_of::<u16>() as u64) {
             cold_path();
-            return Err(ProgramCounterError::UnalignedInstruction { address });
+            return Err(ExecutionError::UnalignedInstruction { address });
         }
 
         let Some(offset) = address.checked_sub(self.base_addr) else {
             cold_path();
-            return Err(ProgramCounterError::MemoryAccess(
-                VirtualMemoryError::OutOfBoundsRead { address },
-            ));
+            return Err(ExecutionError::OutOfBoundsRead { address });
         };
         let offset = offset as usize;
         let instruction_offset = offset / size_of::<u16>();

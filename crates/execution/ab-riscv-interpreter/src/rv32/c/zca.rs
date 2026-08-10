@@ -87,15 +87,14 @@ where
                 let return_addr = program_counter.get_pc();
                 regs.write(Reg::RA, return_addr);
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                match program_counter
-                    .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))
-                {
-                    Ok(control_flow) => Ok(match control_flow {
+                Ok(
+                    match program_counter
+                        .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))?
+                    {
                         ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                         ControlFlow::Break(()) => ControlFlow::Break(()),
-                    }),
-                    Err(err) => Err(ExecutionError::from(err)),
-                }
+                    },
+                )
             }
             Self::CLi { rd, imm } => {
                 Ok(ControlFlow::Continue((rd, i32::from(imm).cast_unsigned())))
@@ -139,28 +138,26 @@ where
             }
             Self::CJ { imm } => {
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                match program_counter
-                    .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))
-                {
-                    Ok(control_flow) => Ok(match control_flow {
+                Ok(
+                    match program_counter
+                        .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))?
+                    {
                         ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                         ControlFlow::Break(()) => ControlFlow::Break(()),
-                    }),
-                    Err(err) => Err(ExecutionError::from(err)),
-                }
+                    },
+                )
             }
             Self::CBeqz { rs1: _, imm } => {
                 if rs1_value == 0 {
                     let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -168,15 +165,14 @@ where
             Self::CBnez { rs1: _, imm } => {
                 if rs1_value != 0 {
                     let old_pc = program_counter.old_pc(size_of::<u16>() as u8);
-                    return match program_counter
-                        .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))
-                    {
-                        Ok(control_flow) => Ok(match control_flow {
+                    return Ok(
+                        match program_counter
+                            .set_pc(memory, old_pc.wrapping_add(i32::from(imm).cast_unsigned()))?
+                        {
                             ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
                             ControlFlow::Break(()) => ControlFlow::Break(()),
-                        }),
-                        Err(err) => Err(ExecutionError::from(err)),
-                    };
+                        },
+                    );
                 }
 
                 Ok(ControlFlow::Continue(Default::default()))
@@ -194,13 +190,10 @@ where
             }
             Self::CJr { rs1: _ } => {
                 let target = rs1_value & !1;
-                match program_counter.set_pc(memory, target) {
-                    Ok(control_flow) => Ok(match control_flow {
-                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
-                        ControlFlow::Break(()) => ControlFlow::Break(()),
-                    }),
-                    Err(err) => Err(ExecutionError::from(err)),
-                }
+                Ok(match program_counter.set_pc(memory, target)? {
+                    ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                    ControlFlow::Break(()) => ControlFlow::Break(()),
+                })
             }
             Self::CMv { rd, rs2: _ } => Ok(ControlFlow::Continue((rd, rs2_value))),
             Self::CEbreak => {
@@ -211,13 +204,10 @@ where
                 let target = rs1_value & !1;
                 let return_addr = program_counter.get_pc();
                 regs.write(Reg::RA, return_addr);
-                return match program_counter.set_pc(memory, target) {
-                    Ok(control_flow) => Ok(match control_flow {
-                        ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
-                        ControlFlow::Break(()) => ControlFlow::Break(()),
-                    }),
-                    Err(err) => Err(ExecutionError::from(err)),
-                };
+                Ok(match program_counter.set_pc(memory, target)? {
+                    ControlFlow::Continue(()) => ControlFlow::Continue(Default::default()),
+                    ControlFlow::Break(()) => ControlFlow::Break(()),
+                })
             }
             Self::CAdd { rd, rs2: _ } => {
                 let value = regs.read(rd).wrapping_add(rs2_value);

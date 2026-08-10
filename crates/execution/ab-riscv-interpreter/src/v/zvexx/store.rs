@@ -92,7 +92,7 @@ where
                             unsafe { ext_state.read_vregs().get(reg).get_unchecked(in_reg..) };
                         if let Err(error) = memory.write_slice(base + byte_off, src) {
                             ext_state.set_vstart(Vstart::from(byte_off as u16));
-                            return Err(ExecutionError::MemoryAccess(error));
+                            return Err(ExecutionError::from(error));
                         }
                         byte_off += src.len() as u64;
                     }
@@ -124,7 +124,7 @@ where
                     };
                     memory
                         .write_slice(base + u64::from(u16::from(start_byte)), src)
-                        .map_err(ExecutionError::MemoryAccess)?;
+                        .map_err(ExecutionError::from)?;
                 }
                 ext_state.reset_vstart();
             }

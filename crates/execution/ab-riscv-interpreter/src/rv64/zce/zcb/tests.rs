@@ -46,7 +46,7 @@ fn test_clbu_oob() {
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
         execute(&mut state),
-        Err(ExecutionError::MemoryAccess(_))
+        Err(ExecutionError::OutOfBoundsRead { .. })
     ));
 }
 
@@ -93,7 +93,7 @@ fn test_clhu_oob() {
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
         execute(&mut state),
-        Err(ExecutionError::MemoryAccess(_))
+        Err(ExecutionError::OutOfBoundsRead { .. })
     ));
 }
 
@@ -140,7 +140,7 @@ fn test_clh_oob() {
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
         execute(&mut state),
-        Err(ExecutionError::MemoryAccess(_))
+        Err(ExecutionError::OutOfBoundsRead { .. })
     ));
 }
 
@@ -170,7 +170,7 @@ fn test_csb_oob() {
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
         execute(&mut state),
-        Err(ExecutionError::MemoryAccess(_))
+        Err(ExecutionError::OutOfBoundsWrite { .. })
     ));
 }
 
@@ -200,7 +200,7 @@ fn test_csh_oob() {
     state.regs.write(Reg::A0, 0);
     assert!(matches!(
         execute(&mut state),
-        Err(ExecutionError::MemoryAccess(_))
+        Err(ExecutionError::OutOfBoundsWrite { .. })
     ));
 }
 

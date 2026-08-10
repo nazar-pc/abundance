@@ -146,7 +146,7 @@ where
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
                 ext_state.set_vstart(Vstart::from(i));
-                return Err(ExecutionError::MemoryAccess(error));
+                return Err(ExecutionError::from(error));
             }
         }
     }
@@ -214,7 +214,7 @@ where
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
                 ext_state.set_vstart(Vstart::from(i));
-                return Err(ExecutionError::MemoryAccess(error));
+                return Err(ExecutionError::from(error));
             }
         }
     }
@@ -294,7 +294,7 @@ where
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
                 cold_path();
                 ext_state.set_vstart(Vstart::from(i));
-                return Err(ExecutionError::MemoryAccess(error));
+                return Err(ExecutionError::from(error));
             }
         }
     }

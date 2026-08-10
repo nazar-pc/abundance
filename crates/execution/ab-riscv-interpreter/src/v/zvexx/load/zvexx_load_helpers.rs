@@ -377,7 +377,7 @@ where
                         // vstart records the faulting element for restartability.
                         ext_state.set_vstart(Vstart::from(i));
                     }
-                    return Err(ExecutionError::MemoryAccess(mem_err));
+                    return Err(ExecutionError::from(mem_err));
                 }
             }
         }
@@ -476,7 +476,7 @@ where
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(Vstart::from(i));
                     }
-                    return Err(ExecutionError::MemoryAccess(mem_err));
+                    return Err(ExecutionError::from(mem_err));
                 }
             };
             // SAFETY: Guaranteed by function contract
@@ -580,7 +580,7 @@ where
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(Vstart::from(i));
                     }
-                    return Err(ExecutionError::MemoryAccess(mem_err));
+                    return Err(ExecutionError::from(mem_err));
                 }
             };
             // SAFETY: Guaranteed by function contract

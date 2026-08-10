@@ -388,5 +388,8 @@ fn test_cm_push_oob_memory() {
     }]);
     state.regs.write(Reg::Sp, 2);
     let result = execute(&mut state);
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
 }

@@ -1526,7 +1526,10 @@ fn vse_out_of_bounds_write_returns_memory_access_error() {
         },
     );
 
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
 }
 
 #[test]
@@ -1548,5 +1551,8 @@ fn vsse_out_of_bounds_write_returns_memory_access_error() {
         },
     );
 
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
 }

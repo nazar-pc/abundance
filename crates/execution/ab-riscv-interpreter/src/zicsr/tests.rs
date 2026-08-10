@@ -1568,9 +1568,9 @@ fn test_reserved_privilege_csr() {
 
     assert_matches!(
         execute(&mut state),
-        Err(ExecutionError::CsrError(CsrError::IllegalRead {
+        Err(ExecutionError::CsrIllegalRead {
             csr_index: RESERVED_PRIV_CSR
-        }))
+        })
     );
 }
 

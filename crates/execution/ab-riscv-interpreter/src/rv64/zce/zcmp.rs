@@ -108,7 +108,6 @@ where
                 program_counter
                     .set_pc(memory, target)
                     .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from)
             }
             Self::CmPopret { urlist, stack_adj } => {
                 let ra_val = rv64_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
@@ -117,7 +116,6 @@ where
                 program_counter
                     .set_pc(memory, target)
                     .map(|control_flow| control_flow.map_continue(|()| Default::default()))
-                    .map_err(ExecutionError::from)
             }
             Self::CmMva01s { rs1: _, rs2: _ } => {
                 // Read both sources before any write to avoid aliasing

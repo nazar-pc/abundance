@@ -5,8 +5,8 @@ use crate::rv32::a::ReservationSet;
 use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    InstructionFetcher, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
@@ -163,7 +163,7 @@ where
         &mut self,
         _memory: &TestMemory,
         pc: u32,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u32>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
         self.pc = pc;
 
         Ok(ControlFlow::Continue(()))

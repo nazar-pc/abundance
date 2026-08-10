@@ -6,9 +6,8 @@ mod tests;
 use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    FetchInstructionResult, InstructionFetcher, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
@@ -435,7 +434,7 @@ where
         &mut self,
         _memory: &Memory,
         pc: Address<I>,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -443,7 +442,7 @@ where
 
         if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
             cold_path();
-            return Err(ProgramCounterError::UnalignedInstruction { address: pc });
+            return Err(ExecutionError::UnalignedInstruction { address: pc });
         }
 
         self.pc = pc;
@@ -477,7 +476,7 @@ where
             Ok(instruction) => instruction,
             Err(error) => {
                 cold_path();
-                return Err(ExecutionError::MemoryAccess(error));
+                return Err(ExecutionError::from(error));
             }
         };
 
