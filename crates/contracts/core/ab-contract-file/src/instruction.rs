@@ -2,7 +2,6 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
-use core::ops::ControlFlow;
 
 /// Registers used by contracts
 #[derive(Debug, Default, Clone, Copy)]
@@ -273,8 +272,8 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
-        Ok(ControlFlow::Continue(Default::default()))
+    ) -> ExecutionResult<Self::Reg, CustomError> {
+        ExecutionResult::CONTINUE_ZERO
     }
 }
 

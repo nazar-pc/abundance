@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZabhaInstruction<Reg> where
@@ -47,7 +46,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::AmoswapB {
                 rd,
@@ -58,7 +57,10 @@ where
             } => {
                 let old = memory.read::<i8>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), rs2_value as u8)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoswapH {
                 rd,
@@ -69,7 +71,10 @@ where
             } => {
                 let old = memory.read::<i16>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), rs2_value as u16)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoaddB {
                 rd,
@@ -81,7 +86,10 @@ where
                 let old = memory.read::<i8>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned().wrapping_add(rs2_value as u8);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoaddH {
                 rd,
@@ -93,7 +101,10 @@ where
                 let old = memory.read::<i16>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned().wrapping_add(rs2_value as u16);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoxorB {
                 rd,
@@ -105,7 +116,10 @@ where
                 let old = memory.read::<i8>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned() ^ (rs2_value as u8);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoxorH {
                 rd,
@@ -117,7 +131,10 @@ where
                 let old = memory.read::<i16>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned() ^ (rs2_value as u16);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoandB {
                 rd,
@@ -129,7 +146,10 @@ where
                 let old = memory.read::<i8>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned() & (rs2_value as u8);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoandH {
                 rd,
@@ -141,7 +161,10 @@ where
                 let old = memory.read::<i16>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned() & (rs2_value as u16);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoorB {
                 rd,
@@ -153,7 +176,10 @@ where
                 let old = memory.read::<i8>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned() | (rs2_value as u8);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmoorH {
                 rd,
@@ -165,7 +191,10 @@ where
                 let old = memory.read::<i16>(u64::from(rs1_value))?;
                 let new = old.cast_unsigned() | (rs2_value as u16);
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmominB {
                 rd,
@@ -181,7 +210,10 @@ where
                     rs2_value as u8
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmominH {
                 rd,
@@ -197,7 +229,10 @@ where
                     rs2_value as u16
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmomaxB {
                 rd,
@@ -213,7 +248,10 @@ where
                     rs2_value as u8
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmomaxH {
                 rd,
@@ -229,7 +267,10 @@ where
                     rs2_value as u16
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmominuB {
                 rd,
@@ -245,7 +286,10 @@ where
                     rs2_value as u8
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmominuH {
                 rd,
@@ -261,7 +305,10 @@ where
                     rs2_value as u16
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmomaxuB {
                 rd,
@@ -277,7 +324,10 @@ where
                     rs2_value as u8
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmomaxuH {
                 rd,
@@ -293,7 +343,10 @@ where
                     rs2_value as u16
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmocasB {
                 rd,
@@ -307,7 +360,10 @@ where
                 if old.cast_unsigned() == compare {
                     memory.write(u64::from(rs1_value), rs2_value as u8)?;
                 }
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
             Self::AmocasH {
                 rd,
@@ -321,7 +377,10 @@ where
                 if old.cast_unsigned() == compare {
                     memory.write(u64::from(rs1_value), rs2_value as u16)?;
                 }
-                Ok(ControlFlow::Continue((rd, i32::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i32::from(old).cast_unsigned(),
+                }
             }
         }
     }

@@ -5,7 +5,7 @@ use crate::v::zvexx::load::zvexx_load_helpers::{
     check_register_group_alignment, mask_bit, read_group_element, snapshot_mask,
 };
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
+use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
@@ -70,7 +70,7 @@ where
     if total > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())

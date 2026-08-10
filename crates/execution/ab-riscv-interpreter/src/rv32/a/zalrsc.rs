@@ -6,11 +6,10 @@ mod tests;
 use crate::rv32::a::ReservationSet;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZalrscInstruction<Reg> where
@@ -49,7 +48,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Lr {
                 rd,
@@ -59,7 +58,7 @@ where
             } => {
                 let value = memory.read::<u32>(u64::from(rs1_value))?;
                 ext_state.set_reservation(rs1_value);
-                Ok(ControlFlow::Continue((rd, value)))
+                ExecutionResult::Continue { rd, value }
             }
             Self::Sc {
                 rd,
@@ -73,9 +72,9 @@ where
 
                 if success {
                     memory.write(u64::from(rs1_value), rs2_value)?;
-                    Ok(ControlFlow::Continue((rd, 0)))
+                    ExecutionResult::Continue { rd, value: 0 }
                 } else {
-                    Ok(ControlFlow::Continue((rd, 1)))
+                    ExecutionResult::Continue { rd, value: 1 }
                 }
             }
         }

@@ -5,12 +5,11 @@ use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{
     mulh_ss, mulhsu_su, mulhu_uu, widening_dest_register_count,
 };
 use crate::{
-    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
 use core::num::NonZeroU8;
-use core::ops::ControlFlow;
 
 // With TEST_VLEN=256, VLENB=32:
 //   E8/M1  -> VLMAX=32, 1 reg
@@ -54,15 +53,23 @@ fn exec(
         rs2_value: state.regs.read(rs2),
     };
 
-    if let ControlFlow::Continue((rd, rd_value)) = instr.execute(
+    match instr.execute(
         rs1rs2_values,
         &mut state.regs,
         &mut state.ext_state,
         &mut state.memory,
         &mut state.instruction_fetcher,
         &mut state.system_instruction_handler,
-    )? {
-        state.regs.write(rd, rd_value);
+    ) {
+        ExecutionResult::Continue { rd, value } => {
+            state.regs.write(rd, value);
+        }
+        ExecutionResult::Err(error) => {
+            return Err(error);
+        }
+        result => {
+            panic!("Unexpected result: {result:?}");
+        }
     }
 
     Ok(())

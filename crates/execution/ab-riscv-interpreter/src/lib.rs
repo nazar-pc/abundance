@@ -108,6 +108,7 @@
     macroless_generic_const_args,
     min_generic_const_args,
     signed_bigint_helpers,
+    try_trait_v2,
     widening_mul
 )]
 #![cfg_attr(test, feature(try_blocks))]
@@ -162,6 +163,8 @@ pub mod prelude;
 mod private;
 pub mod rv32;
 pub mod rv64;
+#[cfg(test)]
+mod tests;
 pub mod v;
 pub mod zawrs;
 pub mod zicond;
@@ -177,9 +180,11 @@ use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+use core::convert::Infallible;
 use core::fmt;
+use core::hint::cold_path;
 use core::marker::Destruct;
-use core::ops::{ControlFlow, Sub};
+use core::ops::{ControlFlow, FromResidual, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
 type Address<I> = RegisterType<I>;
@@ -323,7 +328,10 @@ impl fmt::Display for CustomErrorPlaceholder {
 }
 
 /// Generic program counter
-pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder> {
+pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder>
+where
+    Address: Copy,
+{
     /// Get the current value of the program counter
     fn get_pc(&self) -> Address;
 
@@ -343,12 +351,91 @@ pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceho
         self.get_pc() - Address::from(instruction_size)
     }
 
+    /// Apply [`ExecutionResult::Branch`], continuing `offset` bytes from the instruction being
+    /// executed.
+    ///
+    /// A simple implementation can resolve the offset against the program counter and call
+    /// [`Self::set_pc()`]. Implementation that keeps the program counter as a position in an
+    /// already decoded instruction stream can move within that stream directly, which avoids
+    /// converting an address back into a position.
+    fn set_pc_relative(
+        &mut self,
+        memory: &Memory,
+        instruction_size: u8,
+        offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
+
     /// Set the current value of the program counter
     fn set_pc(
         &mut self,
         memory: &Memory,
         pc: Address,
     ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
+}
+
+/// Address wrapper for [`ExecutionError`] with an alignment of 4 rather than its natural one.
+///
+/// This is needed for [`ExecutionResult`] that contains [`ExecutionError`] to fit within 16 bytes
+/// or two native registers on 64-bit platforms.
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(C, packed(4))]
+pub struct PackedAddress<Address>(Address);
+
+impl<Address> PackedAddress<Address>
+where
+    Address: Copy,
+{
+    /// Create a new instance
+    #[inline(always)]
+    pub const fn new(address: Address) -> Self {
+        Self(address)
+    }
+
+    /// Read the address back
+    #[inline(always)]
+    pub const fn get(self) -> Address {
+        self.0
+    }
+}
+
+const impl<Address> From<Address> for PackedAddress<Address>
+where
+    Address: Copy + [const] Destruct,
+{
+    #[inline(always)]
+    fn from(address: Address) -> Self {
+        Self(address)
+    }
+}
+
+impl<Address> fmt::Debug for PackedAddress<Address>
+where
+    Address: fmt::Debug + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let address = self.0;
+        fmt::Debug::fmt(&address, f)
+    }
+}
+
+impl<Address> fmt::Display for PackedAddress<Address>
+where
+    Address: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let address = self.0;
+        fmt::Display::fmt(&address, f)
+    }
+}
+
+impl<Address> fmt::LowerHex for PackedAddress<Address>
+where
+    Address: fmt::LowerHex + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let address = self.0;
+        fmt::LowerHex::fmt(&address, f)
+    }
 }
 
 /// Execution errors.
@@ -361,44 +448,39 @@ pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceho
 ///
 /// Note that a large `CustomError` will grow this type past that threshold again.
 #[derive(Debug, thiserror::Error)]
-pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
+pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder>
+where
+    Address: Copy,
+{
     /// Unaligned instruction
     #[error("Unaligned instruction at address {address}")]
     UnalignedInstruction {
         /// Address of the unaligned instruction fetch
-        address: Address,
+        address: PackedAddress<Address>,
     },
     /// Out-of-bounds read
     #[error("Out-of-bounds read at address {address}")]
     OutOfBoundsRead {
         /// Address of the out-of-bounds read
-        address: u64,
+        address: PackedAddress<u64>,
     },
     /// Out-of-bounds write
     #[error("Out-of-bounds write at address {address}")]
     OutOfBoundsWrite {
         /// Address of the out-of-bounds write
-        address: u64,
+        address: PackedAddress<u64>,
     },
     /// Unsupported `ecall` instruction
     #[error("Unsupported `ecall` instruction at address {address:#x}")]
     EcallUnsupported {
         /// Address of the unsupported instruction
-        address: Address,
+        address: PackedAddress<Address>,
     },
     /// Unimplemented/illegal instruction
     #[error("Unimplemented/illegal instruction at address {address:#x}")]
     IllegalInstruction {
         /// Address of the `unimp` instruction
-        address: Address,
-    },
-    /// Invalid instruction
-    #[error("Invalid instruction at address {address:#x}: {instruction:#010x}")]
-    InvalidInstruction {
-        /// Address of the invalid instruction
-        address: Address,
-        /// Instruction that caused the error
-        instruction: u32,
+        address: PackedAddress<Address>,
     },
     /// Read only CSR
     #[error("Read only CSR {csr_index:#x}")]
@@ -442,17 +524,145 @@ pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder> {
     Custom(CustomError),
 }
 
-const {
-    // Ensure error type retains its size
-    assert!(size_of::<ExecutionError<u64>>() == 16);
+/// Where execution continues after an instruction, or why it could not.
+///
+/// Instructions describe control flow rather than performing it: they say where execution goes next
+/// instead of moving the program counter themselves. This keeps instruction bodies independent of
+/// how the program counter is represented, which is what allows the same bodies to drive both an
+/// interpreter loop that owns a program counter and one that carries it in a register.
+#[derive(Debug)]
+pub enum ExecutionResult<Reg, CustomError = CustomErrorPlaceholder>
+where
+    Reg: Register,
+{
+    /// Write the register and continue with the instruction that follows this one.
+    ///
+    /// `rd` being the zero register writes nothing, see [`Self::CONTINUE_ZERO`].
+    Continue {
+        /// Register to write
+        rd: Reg,
+        /// Value to write into it
+        value: Reg::Type,
+    },
+    /// Continue `offset` bytes away from the address of *this* instruction.
+    ///
+    /// Keeping it relative rather than resolving it against the program counter here means a
+    /// pre-decoded interpreter can reach the target by moving within the decoded stream instead of
+    /// converting an address back into a position.
+    Branch {
+        /// Signed byte offset from this instruction
+        offset: i32,
+    },
+    /// Continue at an absolute guest address, as `jalr`-style jumps produce
+    Jump {
+        /// Address to continue at
+        target: Reg::Type,
+    },
+    /// Stop execution
+    Break,
+    /// Execution failed
+    Err(ExecutionError<Reg::Type, CustomError>),
 }
 
-const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Address, CustomError> {
+const {
+    // Ensure result type retains its size
+    assert!(size_of::<ExecutionResult<Reg<u64>>>() <= 16);
+    assert!(size_of::<ExecutionResult<Reg<u32>>>() <= 16);
+}
+
+impl<Reg, CustomError> ExecutionResult<Reg, CustomError>
+where
+    Reg: Register,
+{
+    /// Continue with the instruction that follows this one without writing a register.
+    ///
+    /// The zero register discards whatever is written to it, so this is what an instruction whose
+    /// only effect is elsewhere returns.
+    pub const CONTINUE_ZERO: Self = Self::Continue {
+        rd: Reg::ZERO,
+        value: Reg::Type::from(0u8),
+    };
+}
+
+const impl<Reg, CustomError> From<ExecutionError<Reg::Type, CustomError>>
+    for ExecutionResult<Reg, CustomError>
+where
+    Reg: Register,
+{
+    #[inline(always)]
+    fn from(error: ExecutionError<Reg::Type, CustomError>) -> Self {
+        cold_path();
+        Self::Err(error)
+    }
+}
+
+const impl<Reg, CustomError>
+    FromResidual<Result<Infallible, ExecutionError<Reg::Type, CustomError>>>
+    for ExecutionResult<Reg, CustomError>
+where
+    Reg: Register,
+    CustomError: [const] Destruct,
+{
+    #[inline(always)]
+    fn from_residual(residual: Result<Infallible, ExecutionError<Reg::Type, CustomError>>) -> Self {
+        match residual {
+            Ok(never) => match never {},
+            Err(error) => {
+                cold_path();
+                Self::Err(error)
+            }
+        }
+    }
+}
+
+const impl<Reg, CustomError> FromResidual<Result<Infallible, VirtualMemoryError>>
+    for ExecutionResult<Reg, CustomError>
+where
+    Reg: Register,
+{
+    #[inline(always)]
+    fn from_residual(residual: Result<Infallible, VirtualMemoryError>) -> Self {
+        match residual {
+            Ok(never) => match never {},
+            Err(error) => {
+                cold_path();
+                Self::Err(ExecutionError::from(error))
+            }
+        }
+    }
+}
+
+const impl<Reg, CustomError> FromResidual<Result<Infallible, CsrError<CustomError>>>
+    for ExecutionResult<Reg, CustomError>
+where
+    Reg: Register,
+    CustomError: [const] Destruct,
+{
+    #[inline(always)]
+    fn from_residual(residual: Result<Infallible, CsrError<CustomError>>) -> Self {
+        match residual {
+            Ok(never) => match never {},
+            Err(error) => {
+                cold_path();
+                Self::Err(ExecutionError::from(error))
+            }
+        }
+    }
+}
+
+const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Address, CustomError>
+where
+    Address: Copy,
+{
     #[inline(always)]
     fn from(value: VirtualMemoryError) -> Self {
         match value {
-            VirtualMemoryError::OutOfBoundsRead { address } => Self::OutOfBoundsRead { address },
-            VirtualMemoryError::OutOfBoundsWrite { address } => Self::OutOfBoundsWrite { address },
+            VirtualMemoryError::OutOfBoundsRead { address } => Self::OutOfBoundsRead {
+                address: PackedAddress::new(address),
+            },
+            VirtualMemoryError::OutOfBoundsWrite { address } => Self::OutOfBoundsWrite {
+                address: PackedAddress::new(address),
+            },
         }
     }
 }
@@ -460,6 +670,7 @@ const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Add
 const impl<Address, CustomError> From<CsrError<CustomError>>
     for ExecutionError<Address, CustomError>
 where
+    Address: Copy,
     CustomError: [const] Destruct,
 {
     #[inline(always)]
@@ -728,18 +939,6 @@ where
     }
 }
 
-/// Type alias for the result returned by [`ExecutableInstruction::execute`]
-pub type ExecutableInstructionResult<T, I, CustomError> = Result<
-    ControlFlow<
-        T,
-        (
-            <I as Instruction>::Reg,
-            <<I as Instruction>::Reg as Register>::Type,
-        ),
-    >,
-    ExecutionError<Address<I>, CustomError>,
->;
-
 /// Trait for executable instructions
 pub const trait ExecutableInstruction<
     Regs,
@@ -757,10 +956,11 @@ pub const trait ExecutableInstruction<
     /// registers or other resources. If no such constraint is used, `()` can be used as a
     /// placeholder.
     ///
-    /// On success `Ok(ControlFlow::Continue((rd, rd_value)))` is returned, which will be written
-    /// into the register file. In most cases this is the only register that needs to be written. If
-    /// no value needs to be written, `Ok(ControlFlow::Continue(Default::default()))` should be
-    /// returned, which corresponds to `Ok(ControlFlow::Continue(Reg::ZERO, 0))` and is no-op.
+    /// On success `ExecutionResult::Continue { rd: rd, value: rd_value }` is returned, which will
+    /// be written into the register file. In most cases this is the only register that needs to
+    /// be written. If no value needs to be written,
+    /// `ExecutionResult::CONTINUE_ZERO` should be returned, which corresponds
+    /// to `Ok(ControlFlow::Continue(Reg::ZERO, 0))` and is no-op.
     fn execute(
         self,
         rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
@@ -769,5 +969,5 @@ pub const trait ExecutableInstruction<
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError>;
+    ) -> ExecutionResult<Self::Reg, CustomError>;
 }

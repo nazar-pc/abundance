@@ -7,12 +7,11 @@ pub mod zvexx_config_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::marker::Destruct;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZveXxConfigInstruction<Reg> where Reg: Register {}
@@ -135,7 +134,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
                 let rd_value = zvexx_config_helpers::apply_vsetvl(
@@ -147,13 +146,19 @@ where
                     Reg::Type::from(vtypei),
                 )?;
 
-                Ok(ControlFlow::Continue((rd, rd_value)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rd_value,
+                }
             }
             Self::Vsetivli { rd, uimm, vtypei } => {
                 let rd_value =
                     zvexx_config_helpers::apply_vsetivli(ext_state, program_counter, uimm, vtypei)?;
 
-                Ok(ControlFlow::Continue((rd, rd_value)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rd_value,
+                }
             }
             Self::Vsetvl { rd, rs1, rs2: _ } => {
                 let vtype_raw = rs2_value;
@@ -166,7 +171,10 @@ where
                     vtype_raw,
                 )?;
 
-                Ok(ControlFlow::Continue((rd, rd_value)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rd_value,
+                }
             }
         }
     }

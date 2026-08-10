@@ -6,8 +6,9 @@ mod tests;
 use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
@@ -175,17 +176,38 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
                         rs2_value: self.regs.read(rs2),
                     };
 
-                    match instruction.execute(
+                    let outcome = instruction.execute(
                         rs1rs2_values,
                         &mut self.regs,
                         &mut self.ext_state,
                         &mut self.memory,
                         &mut instruction_fetcher,
                         &mut self.system_instruction_handler,
-                    ) {
-                        Ok(ControlFlow::Continue((rd, rd_value))) => {
-                            self.regs.write(rd, rd_value);
-                        }
+                    );
+
+                    let control_flow =
+                        match outcome {
+                            ExecutionResult::Continue { rd, value } => {
+                                self.regs.write(rd, value);
+                                continue;
+                            }
+                            ExecutionResult::Branch { offset } => instruction_fetcher
+                                .set_pc_relative(&self.memory, instruction.size(), offset),
+                            ExecutionResult::Jump { target } => {
+                                instruction_fetcher.set_pc(&self.memory, target)
+                            }
+                            ExecutionResult::Break => {
+                                cold_path();
+                                break;
+                            }
+                            ExecutionResult::Err(error) => {
+                                cold_path();
+                                return (Err(error), instruction_fetcher);
+                            }
+                        };
+
+                    match control_flow {
+                        Ok(ControlFlow::Continue(())) => {}
                         Ok(ControlFlow::Break(())) => {
                             cold_path();
                             break;
@@ -428,6 +450,17 @@ where
         self.pc
     }
 
+    #[inline(always)]
+    fn set_pc_relative(
+        &mut self,
+        memory: &Memory,
+        instruction_size: u8,
+        offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
+        let old_pc = <Self as ProgramCounter<_, Memory, _>>::old_pc(self, instruction_size);
+        self.set_pc(memory, old_pc.wrapping_add_signed(offset))
+    }
+
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_pc(
@@ -442,7 +475,9 @@ where
 
         if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
             cold_path();
-            return Err(ExecutionError::UnalignedInstruction { address: pc });
+            return Err(ExecutionError::UnalignedInstruction {
+                address: PackedAddress::new(pc),
+            });
         }
 
         self.pc = pc;
@@ -482,7 +517,9 @@ where
 
         let Some(instruction) = I::try_decode(instruction) else {
             cold_path();
-            return Err(ExecutionError::IllegalInstruction { address: self.pc });
+            return Err(ExecutionError::IllegalInstruction {
+                address: PackedAddress::new(self.pc),
+            });
         };
         self.pc += instruction.size().into();
 
@@ -528,7 +565,7 @@ where
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(size_of::<u32>() as u8),
+            address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })
     }
 }

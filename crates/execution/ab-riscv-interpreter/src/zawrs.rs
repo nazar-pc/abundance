@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 /// Custom handler for `Zawrs` extension's `wrs.nto`/`wrs.sto` instructions.
 ///
@@ -61,15 +60,15 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::WrsNto => {
                 system_instruction_handler.handle_wrs_nto();
-                Ok(ControlFlow::Continue(Default::default()))
+                ExecutionResult::CONTINUE_ZERO
             }
             Self::WrsSto => {
                 system_instruction_handler.handle_wrs_sto();
-                Ok(ControlFlow::Continue(Default::default()))
+                ExecutionResult::CONTINUE_ZERO
             }
         }
     }

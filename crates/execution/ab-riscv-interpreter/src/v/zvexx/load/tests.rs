@@ -1,8 +1,8 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
-    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 use core::array;
@@ -74,16 +74,18 @@ fn exec_one(
         rs2_value: state.regs.read(rs2),
     };
 
-    instr
-        .execute(
-            rs1rs2_values,
-            &mut state.regs,
-            &mut state.ext_state,
-            &mut state.memory,
-            &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
-        )
-        .map(|_| ())
+    if let ExecutionResult::Err(error) = instr.execute(
+        rs1rs2_values,
+        &mut state.regs,
+        &mut state.ext_state,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+        &mut state.system_instruction_handler,
+    ) {
+        Err(error)
+    } else {
+        Ok(())
+    }
 }
 
 // `Vlr` tests

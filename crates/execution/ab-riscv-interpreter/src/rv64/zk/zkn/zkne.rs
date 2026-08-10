@@ -10,11 +10,10 @@ mod tests;
 use crate::rv64::zk::zkn::zknd::rv64_zknd_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZkneInstruction<Reg> where
@@ -51,23 +50,23 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Aes64Es { rd, rs1: _, rs2: _ } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zkne_helpers::aes64es(v1, v2),
-                )))
+                    value: rv64_zkne_helpers::aes64es(v1, v2),
+                }
             }
             Self::Aes64Esm { rd, rs1: _, rs2: _ } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zkne_helpers::aes64esm(v1, v2),
-                )))
+                    value: rv64_zkne_helpers::aes64esm(v1, v2),
+                }
             }
         }
     }

@@ -2,7 +2,6 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use std::fmt;
-use std::ops::ControlFlow;
 
 /// First `mhpmeventN` CSR index (`N` starts at 3, the first non-reserved HPM event selector).
 pub(crate) const MHPMEVENT3_CSR_INDEX: u16 = 0x323;
@@ -152,7 +151,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
-        Ok(ControlFlow::Continue(Default::default()))
+    ) -> ExecutionResult<Self::Reg, CustomError> {
+        ExecutionResult::CONTINUE_ZERO
     }
 }

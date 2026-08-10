@@ -1,9 +1,10 @@
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
-    VirtualMemory,
+    ExecutableInstruction, ExecutionError, ExecutionResult, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // C.ADDI4SPN
 
@@ -109,23 +110,27 @@ fn test_cjal_negative_offset() {
             .instruction_fetcher
             .set_pc(&state.memory, pc_before + u32::from(instruction.size()))
             .unwrap()
-            .continue_ok()
+            .continue_value()
             .unwrap();
         instruction
     };
-    let (rd, rd_value) = instruction
-        .execute(
-            Rs1Rs2OperandValues::default(),
-            &mut state.regs,
-            &mut state.ext_state,
-            &mut state.memory,
-            &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
-        )
+    // `c.jal` writes `ra` itself and asks to continue at an offset from this instruction, which the
+    // interpreter loop applies
+    let next = instruction.execute(
+        Rs1Rs2OperandValues::default(),
+        &mut state.regs,
+        &mut state.ext_state,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+        &mut state.system_instruction_handler,
+    );
+    assert_matches!(next, ExecutionResult::Branch { offset: -4 });
+    state
+        .instruction_fetcher
+        .set_pc_relative(&state.memory, instruction.size(), -4)
         .unwrap()
-        .continue_ok()
+        .continue_value()
         .unwrap();
-    state.regs.write(rd, rd_value);
     assert_eq!(state.regs.read(Reg::Ra), pc_before + 2);
     assert_eq!(
         state.instruction_fetcher.get_pc(),

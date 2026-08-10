@@ -3,7 +3,7 @@
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter};
+use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
@@ -26,7 +26,7 @@ where
     if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -66,7 +66,7 @@ where
         if vd_idx > src && vd_idx < src + group_regs {
             cold_path();
             return Err(ExecutionError::IllegalInstruction {
-                address: program_counter.old_pc(INSTRUCTION_SIZE),
+                address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
             });
         }
     }

@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZacasInstruction<Reg> where
@@ -47,7 +46,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::AmocasW {
                 rd,
@@ -62,7 +61,7 @@ where
                 if old == compare {
                     memory.write(addr, rs2_value)?;
                 }
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmocasD {
                 rd,
@@ -97,7 +96,7 @@ where
                 if rd != Reg::ZERO {
                     regs.write(rd_hi, old_hi);
                 }
-                Ok(ControlFlow::Continue((rd, old_lo)))
+                ExecutionResult::Continue { rd, value: old_lo }
             }
         }
     }

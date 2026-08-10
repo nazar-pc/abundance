@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZalasrInstruction<Reg> where
@@ -47,22 +46,28 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::LbAq { rd, rs1: _, rl: _ } => {
                 let addr = u64::from(rs1_value);
                 let value = i32::from(memory.read::<i8>(addr)?);
-                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: value.cast_unsigned(),
+                }
             }
             Self::LhAq { rd, rs1: _, rl: _ } => {
                 let addr = u64::from(rs1_value);
                 let value = i32::from(memory.read::<i16>(addr)?);
-                Ok(ControlFlow::Continue((rd, value.cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: value.cast_unsigned(),
+                }
             }
             Self::LwAq { rd, rs1: _, rl: _ } => {
                 let addr = u64::from(rs1_value);
                 let value = memory.read::<u32>(addr)?;
-                Ok(ControlFlow::Continue((rd, value)))
+                ExecutionResult::Continue { rd, value }
             }
             Self::SbRl {
                 rs1: _,
@@ -71,7 +76,7 @@ where
             } => {
                 let addr = u64::from(rs1_value);
                 memory.write(addr, rs2_value as u8)?;
-                Ok(ControlFlow::Continue(Default::default()))
+                ExecutionResult::CONTINUE_ZERO
             }
             Self::ShRl {
                 rs1: _,
@@ -80,7 +85,7 @@ where
             } => {
                 let addr = u64::from(rs1_value);
                 memory.write(addr, rs2_value as u16)?;
-                Ok(ControlFlow::Continue(Default::default()))
+                ExecutionResult::CONTINUE_ZERO
             }
             Self::SwRl {
                 rs1: _,
@@ -89,7 +94,7 @@ where
             } => {
                 let addr = u64::from(rs1_value);
                 memory.write(addr, rs2_value)?;
-                Ok(ControlFlow::Continue(Default::default()))
+                ExecutionResult::CONTINUE_ZERO
             }
         }
     }

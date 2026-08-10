@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZicondInstruction<Reg> where Reg: Register {}
@@ -43,7 +42,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             // Conditional zero, equal to zero.
             //
@@ -56,7 +55,7 @@ where
                 } else {
                     src
                 };
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
 
             // Conditional zero, nonzero.
@@ -70,7 +69,7 @@ where
                 } else {
                     Reg::Type::from(0u8)
                 };
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
         }
     }

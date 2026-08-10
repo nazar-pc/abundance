@@ -9,7 +9,7 @@ use crate::v::zvexx::arith::zvexx_arith_helpers::{
 };
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter};
+use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 
@@ -570,7 +570,7 @@ where
     if sew.bits_width() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -607,7 +607,7 @@ where
         Vsew::E64 => {
             cold_path();
             return Err(ExecutionError::IllegalInstruction {
-                address: program_counter.old_pc(INSTRUCTION_SIZE),
+                address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
             });
         }
     };
@@ -615,7 +615,7 @@ where
     let Some(wide_group) = vlmul.data_register_count(wide_eew, sew) else {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     };
     let wide_group = wide_group.get();
@@ -623,7 +623,7 @@ where
     if !vs2_idx.is_multiple_of(wide_group) || vs2_idx + wide_group > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())

@@ -6,11 +6,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZkndInstruction<Reg> where
@@ -47,7 +46,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Aes32Dsi {
                 rd,
@@ -57,10 +56,10 @@ where
             } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv32_zknd_helpers::aes32dsi(v1, v2, bs),
-                )))
+                    value: rv32_zknd_helpers::aes32dsi(v1, v2, bs),
+                }
             }
             Self::Aes32Dsmi {
                 rd,
@@ -70,10 +69,10 @@ where
             } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv32_zknd_helpers::aes32dsmi(v1, v2, bs),
-                )))
+                    value: rv32_zknd_helpers::aes32dsmi(v1, v2, bs),
+                }
             }
         }
     }

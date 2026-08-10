@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZbaInstruction<Reg> where
@@ -46,19 +45,19 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Sh1add { rd, rs1: _, rs2: _ } => {
                 let value = (rs1_value << 1).wrapping_add(rs2_value);
-                Ok(ControlFlow::Continue((rd, value)))
+                ExecutionResult::Continue { rd, value }
             }
             Self::Sh2add { rd, rs1: _, rs2: _ } => {
                 let value = (rs1_value << 2).wrapping_add(rs2_value);
-                Ok(ControlFlow::Continue((rd, value)))
+                ExecutionResult::Continue { rd, value }
             }
             Self::Sh3add { rd, rs1: _, rs2: _ } => {
                 let value = (rs1_value << 3).wrapping_add(rs2_value);
-                Ok(ControlFlow::Continue((rd, value)))
+                ExecutionResult::Continue { rd, value }
             }
         }
     }

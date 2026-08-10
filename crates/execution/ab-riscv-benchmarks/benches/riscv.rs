@@ -185,7 +185,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .instruction_fetcher
                     .set_pc(&lazy_state.memory, benchmarks_blake3_hash_chunk_addr)
                     .unwrap()
-                    .continue_ok()
+                    .continue_value()
                     .unwrap();
                 lazy_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
@@ -201,7 +201,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .instruction_fetcher
                     .set_pc(&eager_state.memory, benchmarks_blake3_hash_chunk_addr)
                     .unwrap()
-                    .continue_ok()
+                    .continue_value()
                     .unwrap();
                 eager_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
@@ -259,7 +259,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .instruction_fetcher
                     .set_pc(&lazy_state.memory, benchmarks_ed25519_verify_addr)
                     .unwrap()
-                    .continue_ok()
+                    .continue_value()
                     .unwrap();
                 lazy_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory
@@ -275,7 +275,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .instruction_fetcher
                     .set_pc(&eager_state.memory, benchmarks_ed25519_verify_addr)
                     .unwrap()
-                    .continue_ok()
+                    .continue_value()
                     .unwrap();
                 eager_state.regs.write(Register::A0, internal_args_addr);
                 // Stack is between internal arguments and contract memory

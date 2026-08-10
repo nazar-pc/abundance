@@ -4,9 +4,10 @@ use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::rv32::a::ReservationSet;
 use crate::zawrs::WrsHandler;
 use crate::{
-    Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
+    FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
@@ -159,6 +160,17 @@ where
         self.pc
     }
 
+    #[inline(always)]
+    fn set_pc_relative(
+        &mut self,
+        memory: &TestMemory,
+        instruction_size: u8,
+        offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
+        let old_pc = self.old_pc(instruction_size);
+        self.set_pc(memory, old_pc.wrapping_add_signed(offset))
+    }
+
     fn set_pc(
         &mut self,
         _memory: &TestMemory,
@@ -191,7 +203,9 @@ where
         };
 
         let Some(instruction) = maybe_instruction else {
-            return Err(ExecutionError::IllegalInstruction { address: self.pc });
+            return Err(ExecutionError::IllegalInstruction {
+                address: PackedAddress::new(self.pc),
+            });
         };
         self.pc += u32::from(instruction.size());
 
@@ -252,12 +266,14 @@ where
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
         Err(ExecutionError::EcallUnsupported {
-            address: program_counter.old_pc(
-                Rv32Instruction::<Reg<u32>>::Ecall {
-                    rs1: Reg::Zero,
-                    rs2: Reg::Zero,
-                }
-                .size(),
+            address: crate::PackedAddress::new(
+                program_counter.old_pc(
+                    Rv32Instruction::<Reg<u32>>::Ecall {
+                        rs1: Reg::Zero,
+                        rs2: Reg::Zero,
+                    }
+                    .size(),
+                ),
             ),
         })
     }
@@ -353,12 +369,34 @@ where
             &mut state.memory,
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
-        )? {
-            ControlFlow::Continue((rd, rd_value)) => {
-                state.regs.write(rd, rd_value);
+        ) {
+            ExecutionResult::Continue { rd, value } => {
+                state.regs.write(rd, value);
             }
-            ControlFlow::Break(()) => {
+            ExecutionResult::Branch { offset } => {
+                let control_flow = state.instruction_fetcher.set_pc_relative(
+                    &state.memory,
+                    instruction.size(),
+                    offset,
+                )?;
+                if control_flow.is_break() {
+                    break;
+                }
+            }
+            ExecutionResult::Jump { target } => {
+                if state
+                    .instruction_fetcher
+                    .set_pc(&state.memory, target)?
+                    .is_break()
+                {
+                    break;
+                }
+            }
+            ExecutionResult::Break => {
                 break;
+            }
+            ExecutionResult::Err(error) => {
+                return Err(error);
             }
         }
     }

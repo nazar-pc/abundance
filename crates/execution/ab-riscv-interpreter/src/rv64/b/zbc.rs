@@ -6,11 +6,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZbcInstruction<Reg> where
@@ -47,25 +46,34 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Clmul { rd, rs1: _, rs2: _ } => {
                 let a = rs1_value;
                 let b = rs2_value;
 
-                Ok(ControlFlow::Continue((rd, rv64_zbc_helpers::clmul(a, b))))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zbc_helpers::clmul(a, b),
+                }
             }
             Self::Clmulh { rd, rs1: _, rs2: _ } => {
                 let a = rs1_value;
                 let b = rs2_value;
 
-                Ok(ControlFlow::Continue((rd, rv64_zbc_helpers::clmulh(a, b))))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zbc_helpers::clmulh(a, b),
+                }
             }
             Self::Clmulr { rd, rs1: _, rs2: _ } => {
                 let a = rs1_value;
                 let b = rs2_value;
 
-                Ok(ControlFlow::Continue((rd, rv64_zbc_helpers::clmulr(a, b))))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zbc_helpers::clmulr(a, b),
+                }
             }
         }
     }
