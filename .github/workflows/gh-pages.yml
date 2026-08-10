@@ -23,7 +23,7 @@ jobs:
           submodules: 'true'
 
       - name: Install mdbook with extra preprocessors
-        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # 2.85.5
+        uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # 2.85.10
         with:
           tool: d2@0.7.1,mdbook@0.5,mdbook-d2@0.3.8
 
