@@ -172,7 +172,7 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// * matching in the following style: `match self { Self::Variant { .. } }`
 ///   * note that `Self` must be used instead of the explicit type name, such that it works when
 ///     inherited
-/// * `Ok(ControlFlow::Continue(Default::default()))` expression.
+/// * `ExecutionResult::CONTINUE_ZERO` expression.
 ///
 /// Also requires `process_instruction_macros()` in `build.rs` to function, see `#[instruction]`
 /// macro documentation.

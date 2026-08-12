@@ -7,13 +7,12 @@ pub mod zvexx_load_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::zvexx_helpers;
 use crate::{
-    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, ExecutionError, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    ExecutionResult, PackedAddress, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
     Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZveXxLoadInstruction<Reg> where Reg: Register {}
@@ -51,7 +50,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             // Whole-register load: loads `nreg` consecutive registers starting at `vd` directly
             // from memory. `vd` must be aligned to `nreg`. Ignores vtype, vl, vstart, masking.
@@ -64,14 +63,18 @@ where
                 let nreg = nreg.num_registers();
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 if vd.to_bits() % nreg != 0 {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let base = rs1_value.as_u64();
@@ -101,8 +104,10 @@ where
             Self::Vlm { vd, rs1: _ } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let vl = ext_state.vl();
@@ -139,21 +144,27 @@ where
             } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let group_regs = vtype
                     .vlmul()
                     .index_register_count(eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -169,8 +180,10 @@ where
                     )
                 {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 // SAFETY:
@@ -204,21 +217,27 @@ where
             } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let group_regs = vtype
                     .vlmul()
                     .index_register_count(eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -234,8 +253,10 @@ where
                     )
                 {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 // SAFETY: preconditions identical to `Vle`; see that arm for the full argument.
@@ -263,21 +284,27 @@ where
             } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let group_regs = vtype
                     .vlmul()
                     .index_register_count(eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -293,8 +320,10 @@ where
                     )
                 {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 // rs2 holds a signed stride; reinterpret the register value as signed
@@ -332,14 +361,18 @@ where
             } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
@@ -347,7 +380,9 @@ where
                     .vlmul()
                     .index_register_count(index_eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -372,8 +407,10 @@ where
                     vtype.vlmul(),
                 ) {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 if !vm
@@ -385,8 +422,10 @@ where
                     )
                 {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 // SAFETY:
@@ -428,14 +467,18 @@ where
             } => {
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
@@ -443,7 +486,9 @@ where
                     .vlmul()
                     .index_register_count(index_eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
                     program_counter,
@@ -467,8 +512,10 @@ where
                     vtype.vlmul(),
                 ) {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 if !vm
@@ -480,8 +527,10 @@ where
                     )
                 {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 // SAFETY: preconditions identical to `Vluxei`; see that arm for the full
@@ -513,21 +562,27 @@ where
                 let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let group_regs = vtype
                     .vlmul()
                     .index_register_count(eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
                     program_counter,
@@ -569,21 +624,27 @@ where
                 let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let group_regs = vtype
                     .vlmul()
                     .index_register_count(eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
                     program_counter,
@@ -619,21 +680,27 @@ where
                 let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let group_regs = vtype
                     .vlmul()
                     .index_register_count(eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
                     program_counter,
@@ -677,14 +744,18 @@ where
                 let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
@@ -692,7 +763,9 @@ where
                     .vlmul()
                     .index_register_count(index_eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 // `validate_segment_registers` is called before the per-field overlap loop so
                 // that `vd.to_bits() + f * data_group_regs < 32` is established for all `f < nf`,
@@ -724,8 +797,10 @@ where
                         index_group_regs,
                     ) {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::IllegalInstruction {
-                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
                         });
                     }
                 }
@@ -771,14 +846,18 @@ where
                 let nf = vm_nf.nf();
                 if !ext_state.vector_instructions_allowed() {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 }
                 let Some(vtype) = ext_state.vtype() else {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
@@ -786,7 +865,9 @@ where
                     .vlmul()
                     .index_register_count(index_eew, vtype.vsew())
                     .ok_or(ExecutionError::IllegalInstruction {
-                        address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
                     })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
                     program_counter,
@@ -815,8 +896,10 @@ where
                         index_group_regs,
                     ) {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::IllegalInstruction {
-                            address: program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
                         });
                     }
                 }
@@ -839,6 +922,6 @@ where
             }
         }
 
-        Ok(ControlFlow::Continue(Default::default()))
+        ExecutionResult::CONTINUE_ZERO
     }
 }

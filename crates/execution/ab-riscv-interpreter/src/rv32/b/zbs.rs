@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZbsInstruction<Reg> where
@@ -46,48 +45,48 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Bset { rd, rs1: _, rs2: _ } => {
                 // Only the bottom 5 bits for RV32
                 let index = rs2_value & 0x1f;
                 let result = rs1_value | (1u32 << index);
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Bseti { rd, rs1: _, shamt } => {
                 let index = shamt;
                 let result = rs1_value | (1u32 << index);
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Bclr { rd, rs1: _, rs2: _ } => {
                 let index = rs2_value & 0x1f;
                 let result = rs1_value & !(1u32 << index);
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Bclri { rd, rs1: _, shamt } => {
                 let index = shamt;
                 let result = rs1_value & !(1u32 << index);
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Binv { rd, rs1: _, rs2: _ } => {
                 let index = rs2_value & 0x1f;
                 let result = rs1_value ^ (1u32 << index);
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Binvi { rd, rs1: _, shamt } => {
                 let index = shamt;
                 let result = rs1_value ^ (1u32 << index);
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Bext { rd, rs1: _, rs2: _ } => {
                 let index = rs2_value & 0x1f;
                 let result = (rs1_value >> index) & 1;
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
             Self::Bexti { rd, rs1: _, shamt } => {
                 let index = shamt;
                 let result = (rs1_value >> index) & 1;
-                Ok(ControlFlow::Continue((rd, result)))
+                ExecutionResult::Continue { rd, value: result }
             }
         }
     }

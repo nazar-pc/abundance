@@ -6,11 +6,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZbkxInstruction<Reg> where
@@ -47,16 +46,16 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
-            Self::Xperm4 { rd, rs1: _, rs2: _ } => Ok(ControlFlow::Continue((
+            Self::Xperm4 { rd, rs1: _, rs2: _ } => ExecutionResult::Continue {
                 rd,
-                rv64_zbkx_helpers::xperm4(rs1_value, rs2_value),
-            ))),
-            Self::Xperm8 { rd, rs1: _, rs2: _ } => Ok(ControlFlow::Continue((
+                value: rv64_zbkx_helpers::xperm4(rs1_value, rs2_value),
+            },
+            Self::Xperm8 { rd, rs1: _, rs2: _ } => ExecutionResult::Continue {
                 rd,
-                rv64_zbkx_helpers::xperm8(rs1_value, rs2_value),
-            ))),
+                value: rv64_zbkx_helpers::xperm8(rs1_value, rs2_value),
+            },
         }
     }
 }

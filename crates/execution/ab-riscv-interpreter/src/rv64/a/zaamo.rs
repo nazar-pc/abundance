@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZaamoInstruction<Reg> where
@@ -47,7 +46,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Amoswap {
                 rd,
@@ -58,7 +57,10 @@ where
             } => {
                 let old = memory.read::<i32>(rs1_value)?;
                 memory.write(rs1_value, rs2_value as u32)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amoadd {
                 rd,
@@ -70,7 +72,10 @@ where
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = (old.cast_unsigned()).wrapping_add(rs2_value as u32);
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amoxor {
                 rd,
@@ -82,7 +87,10 @@ where
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = old.cast_unsigned() ^ (rs2_value as u32);
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amoand {
                 rd,
@@ -94,7 +102,10 @@ where
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = old.cast_unsigned() & (rs2_value as u32);
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amoor {
                 rd,
@@ -106,7 +117,10 @@ where
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = old.cast_unsigned() | (rs2_value as u32);
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amomin {
                 rd,
@@ -122,7 +136,10 @@ where
                     rs2_value as u32
                 };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amomax {
                 rd,
@@ -138,7 +155,10 @@ where
                     rs2_value as u32
                 };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amominu {
                 rd,
@@ -154,7 +174,10 @@ where
                     rs2_value as u32
                 };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
             Self::Amomaxu {
                 rd,
@@ -170,7 +193,10 @@ where
                     rs2_value as u32
                 };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, i64::from(old).cast_unsigned())))
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(old).cast_unsigned(),
+                }
             }
 
             Self::AmoswapD {
@@ -182,7 +208,7 @@ where
             } => {
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmoaddD {
                 rd,
@@ -193,7 +219,7 @@ where
             } => {
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old.wrapping_add(rs2_value))?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmoxorD {
                 rd,
@@ -204,7 +230,7 @@ where
             } => {
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old ^ rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmoandD {
                 rd,
@@ -215,7 +241,7 @@ where
             } => {
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old & rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmoorD {
                 rd,
@@ -226,7 +252,7 @@ where
             } => {
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old | rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmominD {
                 rd,
@@ -242,7 +268,7 @@ where
                     rs2_value
                 };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmomaxD {
                 rd,
@@ -258,7 +284,7 @@ where
                     rs2_value
                 };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmominuD {
                 rd,
@@ -270,7 +296,7 @@ where
                 let old = memory.read::<u64>(rs1_value)?;
                 let new = if old < rs2_value { old } else { rs2_value };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::AmomaxuD {
                 rd,
@@ -282,7 +308,7 @@ where
                 let old = memory.read::<u64>(rs1_value)?;
                 let new = if old > rs2_value { old } else { rs2_value };
                 memory.write(rs1_value, new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
         }
     }

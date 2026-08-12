@@ -6,8 +6,8 @@ mod tests;
 use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
-    FetchInstructionResult, InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
@@ -155,16 +155,16 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
             |mut instruction_fetcher| {
                 loop {
                     let instruction = match instruction_fetcher.fetch_instruction(&self.memory) {
-                        Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-                        Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+                        FetchInstructionResult::Instruction(instruction) => instruction,
+                        FetchInstructionResult::Continue => {
                             cold_path();
                             continue;
                         }
-                        Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+                        FetchInstructionResult::Break => {
                             cold_path();
                             break;
                         }
-                        Err(error) => {
+                        FetchInstructionResult::Err(error) => {
                             cold_path();
                             return (Err(error), instruction_fetcher);
                         }
@@ -176,17 +176,38 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
                         rs2_value: self.regs.read(rs2),
                     };
 
-                    match instruction.execute(
+                    let outcome = instruction.execute(
                         rs1rs2_values,
                         &mut self.regs,
                         &mut self.ext_state,
                         &mut self.memory,
                         &mut instruction_fetcher,
                         &mut self.system_instruction_handler,
-                    ) {
-                        Ok(ControlFlow::Continue((rd, rd_value))) => {
-                            self.regs.write(rd, rd_value);
-                        }
+                    );
+
+                    let control_flow =
+                        match outcome {
+                            ExecutionResult::Continue { rd, value } => {
+                                self.regs.write(rd, value);
+                                continue;
+                            }
+                            ExecutionResult::Branch { offset } => instruction_fetcher
+                                .set_pc_relative(&self.memory, instruction.size(), offset),
+                            ExecutionResult::Jump { target } => {
+                                instruction_fetcher.set_pc(&self.memory, target)
+                            }
+                            ExecutionResult::Break => {
+                                cold_path();
+                                break;
+                            }
+                            ExecutionResult::Err(error) => {
+                                cold_path();
+                                return (Err(error), instruction_fetcher);
+                            }
+                        };
+
+                    match control_flow {
+                        Ok(ControlFlow::Continue(())) => {}
                         Ok(ControlFlow::Break(())) => {
                             cold_path();
                             break;
@@ -429,13 +450,24 @@ where
         self.pc
     }
 
+    #[inline(always)]
+    fn set_pc_relative(
+        &mut self,
+        memory: &Memory,
+        instruction_size: u8,
+        offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
+        let old_pc = <Self as ProgramCounter<_, Memory, _>>::old_pc(self, instruction_size);
+        self.set_pc(memory, old_pc.wrapping_add_signed(offset))
+    }
+
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_pc(
         &mut self,
         _memory: &Memory,
         pc: Address<I>,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<Address<I>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -443,7 +475,9 @@ where
 
         if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
             cold_path();
-            return Err(ProgramCounterError::UnalignedInstruction { address: pc });
+            return Err(ExecutionError::UnalignedInstruction {
+                address: PackedAddress::new(pc),
+            });
         }
 
         self.pc = pc;
@@ -460,10 +494,7 @@ where
 {
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn fetch_instruction(
-        &mut self,
-        memory: &Memory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError> {
         let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
@@ -477,17 +508,19 @@ where
             Ok(instruction) => instruction,
             Err(error) => {
                 cold_path();
-                return Err(ExecutionError::MemoryAccess(error));
+                return FetchInstructionResult::Err(ExecutionError::from(error));
             }
         };
 
         let Some(instruction) = I::try_decode(instruction) else {
             cold_path();
-            return Err(ExecutionError::IllegalInstruction { address: self.pc });
+            return FetchInstructionResult::Err(ExecutionError::IllegalInstruction {
+                address: PackedAddress::new(self.pc),
+            });
         };
         self.pc += instruction.size().into();
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 
@@ -529,7 +562,7 @@ where
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
         Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(size_of::<u32>() as u8),
+            address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })
     }
 }

@@ -154,12 +154,58 @@ where
                 / size_of::<CoremarkInstruction>() as u64
     }
 
+    /// Moves within the decoded stream instead of resolving an address and converting it back,
+    /// which is what going through [`Self::set_pc()`] would do.
+    ///
+    /// One comparison and one test are all this needs to hand every case it does not handle itself
+    /// over to [`Self::set_pc()`]: a target past the end of the decoded stream, a backwards branch
+    /// that ran off its start, and an unaligned target. The return trap sits outside the decoded
+    /// stream, so a branch to it fails the bounds check here and is stopped by [`Self::set_pc()`]
+    /// like any other jump to it.
+    #[inline(always)]
+    fn set_pc_relative(
+        &mut self,
+        memory: &Memory,
+        instruction_size: u8,
+        offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+        // Byte offset from the instruction being executed to the branch target. The program counter
+        // is advanced during instruction fetching, so that instruction starts `instruction_size`
+        // bytes back.
+        let offset = offset as isize - isize::from(instruction_size);
+        // Every `size_of::<u16>()` of guest code owns one decoded instruction, so the target is
+        // reached by moving within the decoded stream
+        let decoded_instruction_byte_offset =
+            self.decoded_instruction_byte_offset.wrapping_add_signed(
+                offset * (size_of::<CoremarkInstruction>() / size_of::<u16>()).cast_signed(),
+            );
+
+        // A target that does not land on a decoded instruction sits between two guest
+        // instructions, which makes it an unaligned instruction rather than something to round to
+        // the start of one. That rule lives in `set_pc()`, so rather than restating it here, where
+        // it could drift, such a target simply fails to qualify for the fast path, as does one past
+        // the end of the decoded stream, which a backwards branch that ran off its start wraps
+        // around into.
+        if decoded_instruction_byte_offset
+            >= self.instructions.len() * size_of::<CoremarkInstruction>()
+            || !decoded_instruction_byte_offset.is_multiple_of(size_of::<CoremarkInstruction>())
+        {
+            cold_path();
+            let pc = <Self as ProgramCounter<_, Memory>>::get_pc(self);
+            return self.set_pc(memory, pc.wrapping_add_signed(offset as i64));
+        }
+
+        self.decoded_instruction_byte_offset = decoded_instruction_byte_offset;
+
+        Ok(ControlFlow::Continue(()))
+    }
+
     #[inline]
     fn set_pc(
         &mut self,
         _memory: &Memory,
         pc: u64,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u64>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         let address = pc;
 
         if address == self.return_trap_address {
@@ -169,14 +215,16 @@ where
 
         if !address.is_multiple_of(size_of::<u16>() as u64) {
             cold_path();
-            return Err(ProgramCounterError::UnalignedInstruction { address });
+            return Err(ExecutionError::UnalignedInstruction {
+                address: PackedAddress::new(address),
+            });
         }
 
         let Some(offset) = address.checked_sub(self.base_addr) else {
             cold_path();
-            return Err(ProgramCounterError::MemoryAccess(
-                VirtualMemoryError::OutOfBoundsRead { address },
-            ));
+            return Err(ExecutionError::OutOfBoundsRead {
+                address: PackedAddress::new(address),
+            });
         };
         let offset = offset as usize;
         let instruction_offset = offset / size_of::<u16>();
@@ -201,7 +249,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &Memory,
-    ) -> Result<FetchInstructionResult<CoremarkInstruction>, ExecutionError<u64>> {
+    ) -> FetchInstructionResult<CoremarkInstruction> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -216,7 +264,7 @@ where
         self.decoded_instruction_byte_offset +=
             usize::from(instruction.size()) / size_of::<u16>() * size_of::<CoremarkInstruction>();
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 
@@ -228,7 +276,9 @@ impl EagerInstructionFetcher {
     ///
     /// # Safety
     /// The program counter must be valid and aligned, the instructions processed must end with a
-    /// jump instruction.
+    /// jump instruction, and `return_trap_address` must not fall inside them. Instruction fetching
+    /// does not compare against the return trap, so an address inside the instructions would stop
+    /// execution when jumped to but not when reached by falling through.
     #[inline(always)]
     pub(super) unsafe fn new(
         instructions: &[u8],
@@ -308,10 +358,11 @@ impl EagerInstructionFetcher {
             ));
         }
 
+        let instructions = decoded_instructions.into_boxed_slice();
         Self {
             decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
                 * size_of::<CoremarkInstruction>(),
-            instructions: decoded_instructions.into_boxed_slice(),
+            instructions,
             base_addr,
             return_trap_address,
         }

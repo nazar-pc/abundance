@@ -6,11 +6,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZkndInstruction<Reg> where
@@ -47,42 +46,45 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Aes64Ds { rd, rs1: _, rs2: _ } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknd_helpers::aes64ds(v1, v2),
-                )))
+                    value: rv64_zknd_helpers::aes64ds(v1, v2),
+                }
             }
             Self::Aes64Dsm { rd, rs1: _, rs2: _ } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknd_helpers::aes64dsm(v1, v2),
-                )))
+                    value: rv64_zknd_helpers::aes64dsm(v1, v2),
+                }
             }
             Self::Aes64Im { rd, rs1: _ } => {
                 let v1 = rs1_value;
-                Ok(ControlFlow::Continue((rd, rv64_zknd_helpers::aes64im(v1))))
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zknd_helpers::aes64im(v1),
+                }
             }
             Self::Aes64Ks1i { rd, rs1: _, rnum } => {
                 let v1 = rs1_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknd_helpers::aes64ks1i(v1, rnum),
-                )))
+                    value: rv64_zknd_helpers::aes64ks1i(v1, rnum),
+                }
             }
             Self::Aes64Ks2 { rd, rs1: _, rs2: _ } => {
                 let v1 = rs1_value;
                 let v2 = rs2_value;
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknd_helpers::aes64ks2(v1, v2),
-                )))
+                    value: rv64_zknd_helpers::aes64ks2(v1, v2),
+                }
             }
         }
     }

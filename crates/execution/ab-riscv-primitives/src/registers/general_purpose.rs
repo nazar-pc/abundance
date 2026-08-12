@@ -16,33 +16,33 @@ use core::{fmt, ptr};
 /// `u32` for RV32 and `u64` for RV64.
 pub const trait RegType
 where
-    Self: [const] Default
-        + [const] Destruct
-        + [const] From<bool>
-        + [const] From<u8>
-        + [const] From<u16>
-        + [const] From<u32>
-        + [const] Eq
-        + [const] Ord
-        + [const] Add<Output = Self>
-        + [const] AddAssign
-        + [const] Sub<Output = Self>
-        + [const] SubAssign
-        + [const] BitAnd<Output = Self>
-        + [const] BitAndAssign
-        + [const] BitOr<Output = Self>
-        + [const] BitOrAssign
-        + [const] BitXor<Output = Self>
-        + [const] BitXorAssign
-        + [const] Not<Output = Self>
-        + [const] Shl<u8, Output = Self>
-        + [const] Shl<u16, Output = Self>
-        + [const] Shl<u32, Output = Self>
-        + [const] Shl<i32, Output = Self>
-        + [const] Shr<u8, Output = Self>
-        + [const] Shr<u16, Output = Self>
-        + [const] Shr<u32, Output = Self>
-        + [const] Shr<i32, Output = Self>
+    Self: const Default
+        + const Destruct
+        + const From<bool>
+        + const From<u8>
+        + const From<u16>
+        + const From<u32>
+        + const Eq
+        + const Ord
+        + const Add<Output = Self>
+        + const AddAssign
+        + const Sub<Output = Self>
+        + const SubAssign
+        + const BitAnd<Output = Self>
+        + const BitAndAssign
+        + const BitOr<Output = Self>
+        + const BitOrAssign
+        + const BitXor<Output = Self>
+        + const BitXorAssign
+        + const Not<Output = Self>
+        + const Shl<u8, Output = Self>
+        + const Shl<u16, Output = Self>
+        + const Shl<u32, Output = Self>
+        + const Shl<i32, Output = Self>
+        + const Shr<u8, Output = Self>
+        + const Shr<u16, Output = Self>
+        + const Shr<u32, Output = Self>
+        + const Shr<i32, Output = Self>
         + fmt::Display
         + fmt::LowerHex
         + fmt::UpperHex
@@ -61,6 +61,9 @@ where
 
     /// Convert to `i64` (sign-extended)
     fn as_i64(&self) -> i64;
+
+    /// Wrapping addition of a signed byte offset, as used for PC-relative control flow
+    fn wrapping_add_signed(&self, offset: i32) -> Self;
 }
 
 const impl RegType for u32 {
@@ -74,6 +77,11 @@ const impl RegType for u32 {
     #[inline(always)]
     fn as_i64(&self) -> i64 {
         i64::from(self.cast_signed())
+    }
+
+    #[inline(always)]
+    fn wrapping_add_signed(&self, offset: i32) -> Self {
+        u32::wrapping_add_signed(*self, offset)
     }
 }
 
@@ -89,15 +97,20 @@ const impl RegType for u64 {
     fn as_i64(&self) -> i64 {
         self.cast_signed()
     }
+
+    #[inline(always)]
+    fn wrapping_add_signed(&self, offset: i32) -> Self {
+        u64::wrapping_add_signed(*self, i64::from(offset))
+    }
 }
 
 /// GPR (General Purpose Register)
 pub const trait Register:
     fmt::Display
     + fmt::Debug
-    + [const] Default
-    + [const] Eq
-    + [const] Destruct
+    + const Default
+    + const Eq
+    + const Destruct
     + Copy
     + Send
     + Sync
@@ -120,7 +133,7 @@ pub const trait Register:
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
-    type Type: [const] RegType;
+    type Type: const RegType;
 
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;

@@ -5,11 +5,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZaamoInstruction<Reg> where
@@ -47,7 +46,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Amoswap {
                 rd,
@@ -58,7 +57,7 @@ where
             } => {
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amoadd {
                 rd,
@@ -69,7 +68,7 @@ where
             } => {
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), old.wrapping_add(rs2_value))?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amoxor {
                 rd,
@@ -80,7 +79,7 @@ where
             } => {
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), old ^ rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amoand {
                 rd,
@@ -91,7 +90,7 @@ where
             } => {
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), old & rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amoor {
                 rd,
@@ -102,7 +101,7 @@ where
             } => {
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 memory.write(u64::from(rs1_value), old | rs2_value)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amomin {
                 rd,
@@ -118,7 +117,7 @@ where
                     rs2_value
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amomax {
                 rd,
@@ -134,7 +133,7 @@ where
                     rs2_value
                 };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amominu {
                 rd,
@@ -146,7 +145,7 @@ where
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 let new = if old < rs2_value { old } else { rs2_value };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
             Self::Amomaxu {
                 rd,
@@ -158,7 +157,7 @@ where
                 let old = memory.read::<u32>(u64::from(rs1_value))?;
                 let new = if old > rs2_value { old } else { rs2_value };
                 memory.write(u64::from(rs1_value), new)?;
-                Ok(ControlFlow::Continue((rd, old)))
+                ExecutionResult::Continue { rd, value: old }
             }
         }
     }

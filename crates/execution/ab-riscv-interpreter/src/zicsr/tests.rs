@@ -2,12 +2,11 @@ use crate::rv64::test_utils::{ExtState, execute, initialize_state};
 use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction, ExecutableInstructionCsr,
-    ExecutableInstructionOperands, ExecutableInstructionResult, ExecutionError, RegisterFile,
+    ExecutableInstructionOperands, ExecutionError, ExecutionResult, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 use core::{assert_matches, fmt};
 
 /// Lets [`TestZicsr`] forward to the closures configured via
@@ -137,8 +136,8 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
-        Ok(ControlFlow::Continue(Default::default()))
+    ) -> ExecutionResult<Self::Reg, CustomError> {
+        ExecutionResult::CONTINUE_ZERO
     }
 }
 
@@ -1568,9 +1567,9 @@ fn test_reserved_privilege_csr() {
 
     assert_matches!(
         execute(&mut state),
-        Err(ExecutionError::CsrError(CsrError::IllegalRead {
+        Err(ExecutionError::CsrIllegalRead {
             csr_index: RESERVED_PRIV_CSR
-        }))
+        })
     );
 }
 

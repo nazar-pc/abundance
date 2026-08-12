@@ -3,7 +3,7 @@
 use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter};
+use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
@@ -28,7 +28,7 @@ where
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -62,7 +62,7 @@ where
     if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     // The wide destination (group_regs) may overlap the narrow source (src_group_regs) only in the
@@ -70,7 +70,7 @@ where
     if widen_src_overlap_illegal(vd.to_bits(), group_regs, vs2_idx, src_group_regs) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -109,13 +109,13 @@ where
     if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.to_bits(), group_regs) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     if let Some(vs_b) = vs_b_opt
@@ -123,7 +123,7 @@ where
     {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -167,7 +167,7 @@ where
     if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -195,7 +195,7 @@ where
     if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())

@@ -5,7 +5,7 @@ pub use crate::v::zvexx::arith::zvexx_arith_helpers::check_vreg_group_alignment;
 use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter};
+use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
@@ -36,7 +36,7 @@ where
     if a_start < b_start + count && b_start < a_start + count {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -70,7 +70,7 @@ where
     if a_start < b_start + b_count && b_start < a_start + a_count {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())

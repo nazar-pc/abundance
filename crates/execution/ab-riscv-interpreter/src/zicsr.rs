@@ -5,13 +5,12 @@ mod tests;
 pub mod zicsr_helpers;
 
 use crate::{
-    CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, ExecutionError, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
+    ExecutionError, ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 use core::marker::Destruct;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZicsrInstruction<Reg> where Reg: Register {}
@@ -47,7 +46,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             // Atomic read/write CSR.
             //
@@ -61,7 +60,7 @@ where
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if csr_is_read_only {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
+                    return ExecutionResult::Err(ExecutionError::CsrReadOnly { csr_index });
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
@@ -76,7 +75,7 @@ where
                         Ok(read_value) => read_value,
                         Err(err) => {
                             ::core::hint::cold_path();
-                            return Err(ExecutionError::CsrError(err));
+                            return ExecutionResult::Err(ExecutionError::from(err));
                         }
                     };
                     zicsr_helpers::process_csr_read::<Reg, ExtState, Self, CustomError>(
@@ -91,10 +90,13 @@ where
                     CustomError,
                 >(ext_state, csr_index, write_value)?;
                 match ext_state.write_csr(csr_index, write_output) {
-                    Ok(()) => Ok(ControlFlow::Continue((rd, read_output))),
+                    Ok(()) => ExecutionResult::Continue {
+                        rd,
+                        value: read_output,
+                    },
                     Err(err) => {
                         ::core::hint::cold_path();
-                        Err(ExecutionError::CsrError(err))
+                        ExecutionResult::Err(ExecutionError::from(err))
                     }
                 }
             }
@@ -107,7 +109,7 @@ where
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if rs1 != Reg::ZERO && csr_is_read_only {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
+                    return ExecutionResult::Err(ExecutionError::CsrReadOnly { csr_index });
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
@@ -115,7 +117,7 @@ where
                     Ok(read_value) => read_value,
                     Err(error) => {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
                 let read_output =
@@ -138,10 +140,13 @@ where
                     >(ext_state, csr_index, write_value)?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 }
-                Ok(ControlFlow::Continue((rd, read_output)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: read_output,
+                }
             }
 
             // Atomic read and clear bits in CSR.
@@ -152,7 +157,7 @@ where
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if rs1 != Reg::ZERO && csr_is_read_only {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
+                    return ExecutionResult::Err(ExecutionError::CsrReadOnly { csr_index });
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
@@ -160,7 +165,7 @@ where
                     Ok(read_value) => read_value,
                     Err(error) => {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
                 let read_output =
@@ -183,11 +188,14 @@ where
                     >(ext_state, csr_index, write_value)?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 }
 
-                Ok(ControlFlow::Continue((rd, read_output)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: read_output,
+                }
             }
 
             // Atomic read/write CSR immediate.
@@ -201,7 +209,7 @@ where
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if csr_is_read_only {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
+                    return ExecutionResult::Err(ExecutionError::CsrReadOnly { csr_index });
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
@@ -213,7 +221,7 @@ where
                         Ok(read_value) => read_value,
                         Err(error) => {
                             ::core::hint::cold_path();
-                            return Err(ExecutionError::CsrError(error));
+                            return ExecutionResult::Err(ExecutionError::from(error));
                         }
                     };
                     zicsr_helpers::process_csr_read::<Reg, ExtState, Self, CustomError>(
@@ -228,10 +236,13 @@ where
                     CustomError,
                 >(ext_state, csr_index, zimm.into())?;
                 match ext_state.write_csr(csr_index, write_output) {
-                    Ok(()) => Ok(ControlFlow::Continue((rd, read_output))),
+                    Ok(()) => ExecutionResult::Continue {
+                        rd,
+                        value: read_output,
+                    },
                     Err(error) => {
                         ::core::hint::cold_path();
-                        Err(ExecutionError::CsrError(error))
+                        ExecutionResult::Err(ExecutionError::from(error))
                     }
                 }
             }
@@ -248,7 +259,7 @@ where
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if zimm != 0 && csr_is_read_only {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
+                    return ExecutionResult::Err(ExecutionError::CsrReadOnly { csr_index });
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
@@ -256,7 +267,7 @@ where
                     Ok(read_value) => read_value,
                     Err(error) => {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
                 let read_output = zicsr_helpers::process_csr_read::<
@@ -278,11 +289,14 @@ where
                     >(ext_state, csr_index, write_value)?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 }
 
-                Ok(ControlFlow::Continue((rd, read_output)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: read_output,
+                }
             }
 
             // Atomic read and clear bits in CSR immediate.
@@ -297,7 +311,7 @@ where
                 let csr_is_read_only = (csr_index >> 10) == 0b11;
                 if zimm != 0 && csr_is_read_only {
                     ::core::hint::cold_path();
-                    return Err(ExecutionError::CsrError(CsrError::ReadOnly { csr_index }));
+                    return ExecutionResult::Err(ExecutionError::CsrReadOnly { csr_index });
                 }
                 zicsr_helpers::check_csr_privilege_level(ext_state, csr_index)?;
 
@@ -305,7 +319,7 @@ where
                     Ok(read_value) => read_value,
                     Err(error) => {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
                 let read_output = zicsr_helpers::process_csr_read::<
@@ -327,11 +341,14 @@ where
                     >(ext_state, csr_index, write_value)?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
-                        return Err(ExecutionError::CsrError(error));
+                        return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 }
 
-                Ok(ControlFlow::Continue((rd, read_output)))
+                ExecutionResult::Continue {
+                    rd,
+                    value: read_output,
+                }
             }
         }
     }

@@ -6,11 +6,10 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZknhInstruction<Reg> where
@@ -47,79 +46,79 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
+    ) -> ExecutionResult<Self::Reg, CustomError> {
         match self {
             Self::Sha256Sig0 { rd, rs1: _ } => {
                 let x = rs1_value as u32;
 
                 let res32 = rv64_zknh_helpers::sha256sig0(x);
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    i64::from(res32.cast_signed()).cast_unsigned(),
-                )))
+                    value: i64::from(res32.cast_signed()).cast_unsigned(),
+                }
             }
             Self::Sha256Sig1 { rd, rs1: _ } => {
                 let x = rs1_value as u32;
 
                 let res32 = rv64_zknh_helpers::sha256sig1(x);
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    i64::from(res32.cast_signed()).cast_unsigned(),
-                )))
+                    value: i64::from(res32.cast_signed()).cast_unsigned(),
+                }
             }
             Self::Sha256Sum0 { rd, rs1: _ } => {
                 let x = rs1_value as u32;
 
                 let res32 = rv64_zknh_helpers::sha256sum0(x);
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    i64::from(res32.cast_signed()).cast_unsigned(),
-                )))
+                    value: i64::from(res32.cast_signed()).cast_unsigned(),
+                }
             }
             Self::Sha256Sum1 { rd, rs1: _ } => {
                 let x = rs1_value as u32;
 
                 let res32 = rv64_zknh_helpers::sha256sum1(x);
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    i64::from(res32.cast_signed()).cast_unsigned(),
-                )))
+                    value: i64::from(res32.cast_signed()).cast_unsigned(),
+                }
             }
             Self::Sha512Sig0 { rd, rs1: _ } => {
                 let x = rs1_value;
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknh_helpers::sha512sig0(x),
-                )))
+                    value: rv64_zknh_helpers::sha512sig0(x),
+                }
             }
             Self::Sha512Sig1 { rd, rs1: _ } => {
                 let x = rs1_value;
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknh_helpers::sha512sig1(x),
-                )))
+                    value: rv64_zknh_helpers::sha512sig1(x),
+                }
             }
             Self::Sha512Sum0 { rd, rs1: _ } => {
                 let x = rs1_value;
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknh_helpers::sha512sum0(x),
-                )))
+                    value: rv64_zknh_helpers::sha512sum0(x),
+                }
             }
             Self::Sha512Sum1 { rd, rs1: _ } => {
                 let x = rs1_value;
 
-                Ok(ControlFlow::Continue((
+                ExecutionResult::Continue {
                     rd,
-                    rv64_zknh_helpers::sha512sum1(x),
-                )))
+                    value: rv64_zknh_helpers::sha512sum1(x),
+                }
             }
         }
     }

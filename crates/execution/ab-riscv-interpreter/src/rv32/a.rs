@@ -5,11 +5,10 @@ pub mod zalrsc;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutableInstructionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 /// Reservation set used to implement `Zalrsc` extension's `lr`/`sc` instruction pairs.
 ///
@@ -67,7 +66,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutableInstructionResult<(), Self, CustomError> {
-        Ok(ControlFlow::Continue(Default::default()))
+    ) -> ExecutionResult<Self::Reg, CustomError> {
+        ExecutionResult::CONTINUE_ZERO
     }
 }

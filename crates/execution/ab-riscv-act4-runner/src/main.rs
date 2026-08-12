@@ -117,7 +117,9 @@ where
         for segment in elf.segments() {
             let data = match segment.data() {
                 Ok(d) if !d.is_empty() => d,
-                _ => continue,
+                _ => {
+                    continue;
+                }
             };
             let vaddr = segment.address();
             if vaddr < RAM_BASE {
@@ -178,31 +180,40 @@ where
 }
 
 #[derive(Debug)]
-enum TestError<RegType> {
+enum TestError<Address>
+where
+    Address: Copy,
+{
     HtifFail {
         exit_code: u64,
         detail: String,
     },
     SignatureMismatch {
         word: usize,
-        actual: RegType,
-        expected: RegType,
+        actual: Address,
+        expected: Address,
     },
     LengthMismatch {
         actual_bytes: usize,
         expected_bytes: usize,
     },
-    Execution(ExecutionError<RegType>),
+    Execution(ExecutionError<Address>),
     Test(anyhow::Error),
 }
 
-impl<RegType> From<ExecutionError<RegType>> for TestError<RegType> {
-    fn from(error: ExecutionError<RegType>) -> Self {
+impl<Address> From<ExecutionError<Address>> for TestError<Address>
+where
+    Address: Copy,
+{
+    fn from(error: ExecutionError<Address>) -> Self {
         Self::Execution(error)
     }
 }
 
-impl<RegType> From<anyhow::Error> for TestError<RegType> {
+impl<Address> From<anyhow::Error> for TestError<Address>
+where
+    Address: Copy,
+{
     fn from(error: anyhow::Error) -> Self {
         Self::Test(error)
     }
@@ -344,12 +355,17 @@ fn run_rv32i_max_test(
 
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
-            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => break,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => continue,
+            FetchInstructionResult::Instruction(instruction) => instruction,
+            FetchInstructionResult::Break => {
+                break;
+            }
+            FetchInstructionResult::Continue => {
+                continue;
+            }
             // TODO: This custom handling is temporary until interpreter has abstractions and
             //  support for privileged instructions
-            Err(ExecutionError::IllegalInstruction { address }) => {
+            FetchInstructionResult::Err(ExecutionError::IllegalInstruction { address }) => {
+                let address = address.get();
                 // Check for mret before treating as a trap - mret is a privileged instruction the
                 // interpreter doesn't implement, so it arrives here as an illegal instruction
                 let raw_instruction = state
@@ -361,11 +377,7 @@ fn run_rv32i_max_test(
                         .ext_state
                         .read_csr(MCsr::Mepc as u16)
                         .map_err(ExecutionError::from)?;
-                    match state
-                        .instruction_fetcher
-                        .set_pc(&state.memory, mepc)
-                        .map_err(ExecutionError::from)?
-                    {
+                    match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
                         ControlFlow::Continue(()) => {
                             continue;
                         }
@@ -383,12 +395,10 @@ fn run_rv32i_max_test(
                         address,
                         raw_instruction,
                     )
-                    .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(address),
+                    })?;
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }
@@ -397,7 +407,7 @@ fn run_rv32i_max_test(
                     }
                 }
             }
-            Err(error) => {
+            FetchInstructionResult::Err(error) => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
@@ -427,8 +437,8 @@ fn run_rv32i_max_test(
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         ) {
-            Ok(ControlFlow::Continue((rd, rd_value))) => {
-                state.regs.write(rd, rd_value);
+            ExecutionResult::Continue { rd, value } => {
+                state.regs.write(rd, value);
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
@@ -437,7 +447,27 @@ fn run_rv32i_max_test(
                     break;
                 }
             }
-            Ok(ControlFlow::Break(())) => {
+            ExecutionResult::Branch { offset } => {
+                match state.instruction_fetcher.set_pc_relative(
+                    &state.memory,
+                    instruction.size(),
+                    offset,
+                )? {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
+            ExecutionResult::Jump { target } => {
+                match state.instruction_fetcher.set_pc(&state.memory, target)? {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
+            ExecutionResult::Break => {
                 break;
             }
             // TODO: This custom handling is temporary until interpreter has abstractions and
@@ -453,11 +483,16 @@ fn run_rv32i_max_test(
             //   illegal, currently only `ecall` (IllegalEcallSystemInstructionHandler always
             //   rejects it - the interpreter has no other way to support it yet). Unlike the
             //   decode-time case, this one already carries the correct address.
-            Err(
-                error @ (ExecutionError::CsrError(_) | ExecutionError::IllegalInstruction { .. }),
+            ExecutionResult::Err(
+                error @ (ExecutionError::CsrReadOnly { .. }
+                | ExecutionError::CsrIllegalRead { .. }
+                | ExecutionError::CsrIllegalWrite { .. }
+                | ExecutionError::CsrUnknown { .. }
+                | ExecutionError::CsrInsufficientPrivilege { .. }
+                | ExecutionError::IllegalInstruction { .. }),
             ) => {
                 let address = match error {
-                    ExecutionError::IllegalInstruction { address } => address,
+                    ExecutionError::IllegalInstruction { address } => address.get(),
                     _ => ProgramCounter::<u32, BasicMemory<RAM_BASE, RAM_SIZE>>::old_pc(
                         &state.instruction_fetcher,
                         instruction.size(),
@@ -474,19 +509,17 @@ fn run_rv32i_max_test(
                         address,
                         raw_instruction,
                     )
-                    .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(address),
+                    })?;
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;
                     }
                 }
             }
-            Err(error) => {
+            ExecutionResult::Err(error) => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
@@ -527,12 +560,17 @@ fn run_rv64i_max_test(
 
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
-            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => break,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => continue,
+            FetchInstructionResult::Instruction(instruction) => instruction,
+            FetchInstructionResult::Break => {
+                break;
+            }
+            FetchInstructionResult::Continue => {
+                continue;
+            }
             // TODO: This custom handling is temporary until interpreter has abstractions and
             //  support for privileged instructions
-            Err(ExecutionError::IllegalInstruction { address }) => {
+            FetchInstructionResult::Err(ExecutionError::IllegalInstruction { address }) => {
+                let address = address.get();
                 // Check for mret before treating as a trap - mret is a privileged instruction the
                 // interpreter doesn't implement, so it arrives here as an illegal instruction
                 let raw_instruction = state
@@ -544,11 +582,7 @@ fn run_rv64i_max_test(
                         .ext_state
                         .read_csr(MCsr::Mepc as u16)
                         .map_err(ExecutionError::from)?;
-                    match state
-                        .instruction_fetcher
-                        .set_pc(&state.memory, mepc)
-                        .map_err(ExecutionError::from)?
-                    {
+                    match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
                         ControlFlow::Continue(()) => {
                             continue;
                         }
@@ -566,12 +600,10 @@ fn run_rv64i_max_test(
                         address,
                         u64::from(raw_instruction),
                     )
-                    .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(address),
+                    })?;
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }
@@ -580,7 +612,7 @@ fn run_rv64i_max_test(
                     }
                 }
             }
-            Err(error) => {
+            FetchInstructionResult::Err(error) => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
@@ -610,8 +642,8 @@ fn run_rv64i_max_test(
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
         ) {
-            Ok(ControlFlow::Continue((rd, rd_value))) => {
-                state.regs.write(rd, rd_value);
+            ExecutionResult::Continue { rd, value } => {
+                state.regs.write(rd, value);
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
@@ -620,7 +652,27 @@ fn run_rv64i_max_test(
                     break;
                 }
             }
-            Ok(ControlFlow::Break(())) => {
+            ExecutionResult::Branch { offset } => {
+                match state.instruction_fetcher.set_pc_relative(
+                    &state.memory,
+                    instruction.size(),
+                    offset,
+                )? {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
+            ExecutionResult::Jump { target } => {
+                match state.instruction_fetcher.set_pc(&state.memory, target)? {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
+            ExecutionResult::Break => {
                 break;
             }
             // TODO: This custom handling is temporary until interpreter has abstractions and
@@ -636,11 +688,16 @@ fn run_rv64i_max_test(
             //   illegal, currently only `ecall` (IllegalEcallSystemInstructionHandler always
             //   rejects it - the interpreter has no other way to support it yet). Unlike the
             //   decode-time case, this one already carries the correct address.
-            Err(
-                error @ (ExecutionError::CsrError(_) | ExecutionError::IllegalInstruction { .. }),
+            ExecutionResult::Err(
+                error @ (ExecutionError::CsrReadOnly { .. }
+                | ExecutionError::CsrIllegalRead { .. }
+                | ExecutionError::CsrIllegalWrite { .. }
+                | ExecutionError::CsrUnknown { .. }
+                | ExecutionError::CsrInsufficientPrivilege { .. }
+                | ExecutionError::IllegalInstruction { .. }),
             ) => {
                 let address = match error {
-                    ExecutionError::IllegalInstruction { address } => address,
+                    ExecutionError::IllegalInstruction { address } => address.get(),
                     _ => ProgramCounter::<u64, BasicMemory<RAM_BASE, RAM_SIZE>>::old_pc(
                         &state.instruction_fetcher,
                         instruction.size(),
@@ -657,19 +714,17 @@ fn run_rv64i_max_test(
                         address,
                         u64::from(raw_instruction),
                     )
-                    .ok_or(ExecutionError::IllegalInstruction { address })?;
-                match state
-                    .instruction_fetcher
-                    .set_pc(&state.memory, trap_pc)
-                    .map_err(ExecutionError::from)?
-                {
+                    .ok_or(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(address),
+                    })?;
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;
                     }
                 }
             }
-            Err(error) => {
+            ExecutionResult::Err(error) => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?

@@ -4,9 +4,10 @@ use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::rv32::a::ReservationSet;
 use crate::zawrs::WrsHandler;
 use crate::{
-    Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
-    InstructionFetcher, ProgramCounter, ProgramCounterError, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
+    FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
@@ -159,11 +160,22 @@ where
         self.pc
     }
 
+    #[inline(always)]
+    fn set_pc_relative(
+        &mut self,
+        memory: &TestMemory,
+        instruction_size: u8,
+        offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
+        let old_pc = self.old_pc(instruction_size);
+        self.set_pc(memory, old_pc.wrapping_add_signed(offset))
+    }
+
     fn set_pc(
         &mut self,
         _memory: &TestMemory,
         pc: u32,
-    ) -> Result<ControlFlow<()>, ProgramCounterError<u32>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
         self.pc = pc;
 
         Ok(ControlFlow::Continue(()))
@@ -175,27 +187,26 @@ where
     I: Instruction<Reg = Reg<u32>>,
 {
     #[inline]
-    fn fetch_instruction(
-        &mut self,
-        _memory: &TestMemory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>>> {
+    fn fetch_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+            return FetchInstructionResult::Break;
         }
 
         let Some(&maybe_instruction) = self
             .instructions
             .get((self.pc - self.base_address) as usize / size_of::<u16>())
         else {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+            return FetchInstructionResult::Break;
         };
 
         let Some(instruction) = maybe_instruction else {
-            return Err(ExecutionError::IllegalInstruction { address: self.pc });
+            return FetchInstructionResult::Err(ExecutionError::IllegalInstruction {
+                address: PackedAddress::new(self.pc),
+            });
         };
         self.pc += u32::from(instruction.size());
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 
@@ -252,12 +263,14 @@ where
         program_counter: &mut TestInstructionFetcher<I>,
     ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
         Err(ExecutionError::EcallUnsupported {
-            address: program_counter.old_pc(
-                Rv32Instruction::<Reg<u32>>::Ecall {
-                    rs1: Reg::Zero,
-                    rs2: Reg::Zero,
-                }
-                .size(),
+            address: crate::PackedAddress::new(
+                program_counter.old_pc(
+                    Rv32Instruction::<Reg<u32>>::Ecall {
+                        rs1: Reg::Zero,
+                        rs2: Reg::Zero,
+                    }
+                    .size(),
+                ),
             ),
         })
     }
@@ -330,13 +343,16 @@ where
         >,
 {
     loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
             FetchInstructionResult::Instruction(instruction) => instruction,
-            FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
+            FetchInstructionResult::Continue => {
                 continue;
             }
-            FetchInstructionResult::ControlFlow(ControlFlow::Break(())) => {
+            FetchInstructionResult::Break => {
                 break;
+            }
+            FetchInstructionResult::Err(error) => {
+                return Err(error);
             }
         };
 
@@ -353,12 +369,34 @@ where
             &mut state.memory,
             &mut state.instruction_fetcher,
             &mut state.system_instruction_handler,
-        )? {
-            ControlFlow::Continue((rd, rd_value)) => {
-                state.regs.write(rd, rd_value);
+        ) {
+            ExecutionResult::Continue { rd, value } => {
+                state.regs.write(rd, value);
             }
-            ControlFlow::Break(()) => {
+            ExecutionResult::Branch { offset } => {
+                let control_flow = state.instruction_fetcher.set_pc_relative(
+                    &state.memory,
+                    instruction.size(),
+                    offset,
+                )?;
+                if control_flow.is_break() {
+                    break;
+                }
+            }
+            ExecutionResult::Jump { target } => {
+                if state
+                    .instruction_fetcher
+                    .set_pc(&state.memory, target)?
+                    .is_break()
+                {
+                    break;
+                }
+            }
+            ExecutionResult::Break => {
                 break;
+            }
+            ExecutionResult::Err(error) => {
+                return Err(error);
             }
         }
     }

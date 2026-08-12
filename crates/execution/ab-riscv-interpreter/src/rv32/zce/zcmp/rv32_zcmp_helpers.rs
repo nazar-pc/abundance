@@ -1,20 +1,18 @@
 //! Opaque helpers for Zcmp extension
 
-use crate::{ExecutionError, RegisterFile, VirtualMemory};
+use crate::{ExecutionError, ExecutionResult, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 /// Execute CM.PUSH: store registers below sp, then decrement sp
 #[inline]
 #[doc(hidden)]
-#[expect(clippy::type_complexity, reason = "Internal helper")]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn do_push<Reg, Regs, Memory, CustomError>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
     stack_adj: u8,
-) -> Result<ControlFlow<(), (Reg, u32)>, ExecutionError<Reg::Type, CustomError>>
+) -> ExecutionResult<Reg, CustomError>
 where
     Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,
@@ -27,10 +25,10 @@ where
         memory.write(store_addr, regs.read(reg))?;
         store_addr = store_addr.wrapping_sub(size_of::<Reg::Type>() as u64);
     }
-    Ok(ControlFlow::Continue((
-        Reg::SP,
-        sp.wrapping_sub(u32::from(stack_adj)),
-    )))
+    ExecutionResult::Continue {
+        rd: Reg::SP,
+        value: sp.wrapping_sub(u32::from(stack_adj)),
+    }
 }
 
 /// Execute CM.POP and variants: restore registers and increment sp.

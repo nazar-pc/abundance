@@ -273,9 +273,9 @@ fn csrrs_pure_read_of_seed_is_rejected_end_to_end() {
     let error = execute(&mut state).unwrap_err();
     assert_matches!(
         error,
-        ExecutionError::CsrError(CsrError::IllegalRead {
+        ExecutionError::CsrIllegalRead {
             csr_index: SEED_CSR_INDEX
-        })
+        }
     );
 }
 
@@ -316,9 +316,9 @@ fn csrrc_pure_read_of_seed_is_rejected_end_to_end() {
     let error = execute(&mut state).unwrap_err();
     assert_matches!(
         error,
-        ExecutionError::CsrError(CsrError::IllegalRead {
+        ExecutionError::CsrIllegalRead {
             csr_index: SEED_CSR_INDEX
-        })
+        }
     );
 }
 
@@ -337,9 +337,9 @@ fn csrrsi_pure_read_of_seed_is_rejected_end_to_end() {
     let error = execute(&mut state).unwrap_err();
     assert_matches!(
         error,
-        ExecutionError::CsrError(CsrError::IllegalRead {
+        ExecutionError::CsrIllegalRead {
             csr_index: SEED_CSR_INDEX
-        })
+        }
     );
 }
 

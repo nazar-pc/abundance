@@ -2,7 +2,7 @@
 
 use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter, VirtualMemory, VirtualMemoryError};
+use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::hint::cold_path;
@@ -142,7 +142,7 @@ where
     if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -173,7 +173,7 @@ where
     if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     // When masked, no field group may contain v0 (index 0). Since groups are laid out
@@ -182,7 +182,7 @@ where
     if !vm && vd_idx == 0 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
-            address: program_counter.old_pc(INSTRUCTION_SIZE),
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
     Ok(())
@@ -377,7 +377,7 @@ where
                         // vstart records the faulting element for restartability.
                         ext_state.set_vstart(Vstart::from(i));
                     }
-                    return Err(ExecutionError::MemoryAccess(mem_err));
+                    return Err(ExecutionError::from(mem_err));
                 }
             }
         }
@@ -476,7 +476,7 @@ where
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(Vstart::from(i));
                     }
-                    return Err(ExecutionError::MemoryAccess(mem_err));
+                    return Err(ExecutionError::from(mem_err));
                 }
             };
             // SAFETY: Guaranteed by function contract
@@ -580,7 +580,7 @@ where
                         ext_state.mark_vs_dirty();
                         ext_state.set_vstart(Vstart::from(i));
                     }
-                    return Err(ExecutionError::MemoryAccess(mem_err));
+                    return Err(ExecutionError::from(mem_err));
                 }
             };
             // SAFETY: Guaranteed by function contract

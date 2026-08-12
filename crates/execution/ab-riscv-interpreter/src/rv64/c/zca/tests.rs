@@ -572,7 +572,10 @@ fn test_clw_out_of_bounds() {
     }]);
     state.regs.write(Reg::A0, 0);
     let result = execute(&mut state);
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsRead { .. })
+    ));
 }
 
 #[test]
@@ -584,7 +587,10 @@ fn test_csd_out_of_bounds() {
     }]);
     state.regs.write(Reg::A0, 0);
     let result = execute(&mut state);
-    assert!(matches!(result, Err(ExecutionError::MemoryAccess(_))));
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
 }
 
 #[test]

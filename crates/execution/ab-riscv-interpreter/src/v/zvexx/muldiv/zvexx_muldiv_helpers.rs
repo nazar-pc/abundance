@@ -8,7 +8,7 @@ use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, write_elemen
 use crate::v::zvexx::fixed_point::zvexx_fixed_point_helpers::read_wide_element_u64;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, ProgramCounter};
+use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 use core::num::NonZeroU8;
@@ -116,7 +116,7 @@ where
 
     cold_path();
     Err(ExecutionError::IllegalInstruction {
-        address: program_counter.old_pc(INSTRUCTION_SIZE),
+        address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
     })
 }
 
