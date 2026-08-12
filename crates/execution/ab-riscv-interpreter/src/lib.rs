@@ -85,6 +85,27 @@
 //! * Zve64x extension instructions are purposefully restricted to what it is required to be capable
 //!   of, although it would be cheaper to support the fuller feature set only required by V
 //!   extension
+//!
+//! ### Instruction implementations are assembled, not compiled in place
+//!
+//! Instruction implementations are not compiled where they are written. `build.rs` calls
+//! `ab_riscv_macros::process_instruction_macros()`, which parses the sources marked with the
+//! `#[instruction]` and `#[instruction_execution]` attribute macros and writes a generated
+//! execution implementation per instruction set into `OUT_DIR`.
+//!
+//! Macros have documentation about how they work, but the important thing is that `match`
+//! expressions are parsed and re-assembled as needed instead of being compiled in place.
+//!
+//! Two things follow from this, and both constrain how instruction implementations must be written:
+//! * the same arm is expanded into more than one crate, so a `crate::`-relative path inside an arm
+//!   resolves against whichever crate it landed in and is avoided. Shared code is reached through
+//!   helper modules re-exported from [`prelude`] - like `rv64_zbb_helpers` and similar - so that an
+//!   arm can name them unqualified wherever it ends up
+//! * because each arm is kept separately and names exactly the operands its instruction uses, the
+//!   same arms can be emitted as something other than one large `match`. Emitting them as
+//!   standalone per-instruction functions, dispatched by tail call, is what allows an interpreter
+//!   to avoid decoding operands that the instruction about to run does not use, and to stop paying
+//!   for extensions that are compiled in but never executed
 
 #![expect(incomplete_features, reason = "generic_const_*, explicit_tail_calls")]
 #![feature(

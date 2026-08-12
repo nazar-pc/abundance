@@ -120,7 +120,7 @@ fn rust_files_in(dir: PathBuf) -> Box<dyn Iterator<Item = io::Result<PathBuf>>> 
 
 fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow::Result<()> {
     let mut file_contents = fs::read_to_string(source).context("Failed to read Rust file")?;
-    if !file_contents.contains("#[instruction") {
+    if !file_contents.contains("\n#[instruction") {
         // Quickly skip files without instruction macro calls. This helps to ignore the files that
         // may use Rust nightly syntax features not supported by `syn`, which is limited to stable
         // Rust.
