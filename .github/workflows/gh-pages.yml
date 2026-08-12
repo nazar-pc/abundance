@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gh-pages:
+  gh-pages-build:
     runs-on: ubuntu-26.04
 
     steps:
@@ -40,7 +40,7 @@ jobs:
           RUSTDOCFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page
 
       - name: Install Hugo
-        uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 #v3.2.1
+        uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 # 3.2.1
         with:
           hugo-version: 0.164.0
 
@@ -57,10 +57,30 @@ jobs:
           echo "abundance.build" > gh-pages/CNAME
         if: ${{ github.repository_owner == 'nazar-pc' }}
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
+        with:
+          name: gh-pages
+          path: gh-pages
+          retention-days: 1
+
+  gh-pages-deploy:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-slim
+    needs: gh-pages-build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 8.0.1
+        with:
+          name: gh-pages
+          path: gh-pages
+
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # 4.8.0
         with:
           branch: gh-pages
           single-commit: true
           folder: gh-pages
-        if: ${{ github.event_name == 'push' }}
