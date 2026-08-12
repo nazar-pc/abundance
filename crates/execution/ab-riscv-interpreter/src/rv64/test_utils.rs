@@ -192,29 +192,26 @@ where
     I: Instruction<Reg = Reg<u64>>,
 {
     #[inline]
-    fn fetch_instruction(
-        &mut self,
-        _memory: &TestMemory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>>> {
+    fn fetch_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+            return FetchInstructionResult::Break;
         }
 
         let Some(&maybe_instruction) = self
             .instructions
             .get((self.pc - self.base_address) as usize / size_of::<u16>())
         else {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+            return FetchInstructionResult::Break;
         };
 
         let Some(instruction) = maybe_instruction else {
-            return Err(ExecutionError::IllegalInstruction {
+            return FetchInstructionResult::Err(ExecutionError::IllegalInstruction {
                 address: PackedAddress::new(self.pc),
             });
         };
         self.pc += u64::from(instruction.size());
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 
@@ -539,13 +536,16 @@ where
         >,
 {
     loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory)? {
+        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
             FetchInstructionResult::Instruction(instruction) => instruction,
-            FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
+            FetchInstructionResult::Continue => {
                 continue;
             }
-            FetchInstructionResult::ControlFlow(ControlFlow::Break(())) => {
+            FetchInstructionResult::Break => {
                 break;
+            }
+            FetchInstructionResult::Err(error) => {
+                return Err(error);
             }
         };
 

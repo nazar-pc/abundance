@@ -329,7 +329,7 @@ where
     fn fetch_instruction(
         &mut self,
         memory: &Memory,
-    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64>> {
+    ) -> FetchInstructionResult<ContractInstruction> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -340,7 +340,7 @@ where
 
         self.pc += u64::from(instruction.size());
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 
@@ -480,7 +480,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &Memory,
-    ) -> Result<FetchInstructionResult<ContractInstruction>, ExecutionError<u64>> {
+    ) -> FetchInstructionResult<ContractInstruction> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -495,7 +495,7 @@ where
         self.decoded_instruction_byte_offset +=
             usize::from(instruction.size()) / size_of::<u16>() * size_of::<ContractInstruction>();
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 

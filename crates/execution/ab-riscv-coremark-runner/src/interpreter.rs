@@ -249,7 +249,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &Memory,
-    ) -> Result<FetchInstructionResult<CoremarkInstruction>, ExecutionError<u64>> {
+    ) -> FetchInstructionResult<CoremarkInstruction> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -264,7 +264,7 @@ where
         self.decoded_instruction_byte_offset +=
             usize::from(instruction.size()) / size_of::<u16>() * size_of::<CoremarkInstruction>();
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 

@@ -155,16 +155,16 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
             |mut instruction_fetcher| {
                 loop {
                     let instruction = match instruction_fetcher.fetch_instruction(&self.memory) {
-                        Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-                        Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+                        FetchInstructionResult::Instruction(instruction) => instruction,
+                        FetchInstructionResult::Continue => {
                             cold_path();
                             continue;
                         }
-                        Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+                        FetchInstructionResult::Break => {
                             cold_path();
                             break;
                         }
-                        Err(error) => {
+                        FetchInstructionResult::Err(error) => {
                             cold_path();
                             return (Err(error), instruction_fetcher);
                         }
@@ -494,10 +494,7 @@ where
 {
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn fetch_instruction(
-        &mut self,
-        memory: &Memory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>> {
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError> {
         let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
@@ -511,19 +508,19 @@ where
             Ok(instruction) => instruction,
             Err(error) => {
                 cold_path();
-                return Err(ExecutionError::from(error));
+                return FetchInstructionResult::Err(ExecutionError::from(error));
             }
         };
 
         let Some(instruction) = I::try_decode(instruction) else {
             cold_path();
-            return Err(ExecutionError::IllegalInstruction {
+            return FetchInstructionResult::Err(ExecutionError::IllegalInstruction {
                 address: PackedAddress::new(self.pc),
             });
         };
         self.pc += instruction.size().into();
 
-        Ok(FetchInstructionResult::Instruction(instruction))
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 

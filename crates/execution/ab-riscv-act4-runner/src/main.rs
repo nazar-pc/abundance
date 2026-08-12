@@ -355,16 +355,16 @@ fn run_rv32i_max_test(
 
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
-            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+            FetchInstructionResult::Instruction(instruction) => instruction,
+            FetchInstructionResult::Break => {
                 break;
             }
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+            FetchInstructionResult::Continue => {
                 continue;
             }
             // TODO: This custom handling is temporary until interpreter has abstractions and
             //  support for privileged instructions
-            Err(ExecutionError::IllegalInstruction { address }) => {
+            FetchInstructionResult::Err(ExecutionError::IllegalInstruction { address }) => {
                 let address = address.get();
                 // Check for mret before treating as a trap - mret is a privileged instruction the
                 // interpreter doesn't implement, so it arrives here as an illegal instruction
@@ -407,7 +407,7 @@ fn run_rv32i_max_test(
                     }
                 }
             }
-            Err(error) => {
+            FetchInstructionResult::Err(error) => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
@@ -560,16 +560,16 @@ fn run_rv64i_max_test(
 
     loop {
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
-            Ok(FetchInstructionResult::Instruction(instruction)) => instruction,
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(()))) => {
+            FetchInstructionResult::Instruction(instruction) => instruction,
+            FetchInstructionResult::Break => {
                 break;
             }
-            Ok(FetchInstructionResult::ControlFlow(ControlFlow::Continue(()))) => {
+            FetchInstructionResult::Continue => {
                 continue;
             }
             // TODO: This custom handling is temporary until interpreter has abstractions and
             //  support for privileged instructions
-            Err(ExecutionError::IllegalInstruction { address }) => {
+            FetchInstructionResult::Err(ExecutionError::IllegalInstruction { address }) => {
                 let address = address.get();
                 // Check for mret before treating as a trap - mret is a privileged instruction the
                 // interpreter doesn't implement, so it arrives here as an illegal instruction
@@ -612,7 +612,7 @@ fn run_rv64i_max_test(
                     }
                 }
             }
-            Err(error) => {
+            FetchInstructionResult::Err(error) => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?

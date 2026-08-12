@@ -695,12 +695,19 @@ where
 }
 
 /// Result of [`InstructionFetcher::fetch_instruction()`] call
-#[derive(Debug, Copy, Clone)]
-pub enum FetchInstructionResult<Instruction> {
-    /// Instruction fetched successfully
-    Instruction(Instruction),
-    /// Control flow instruction encountered
-    ControlFlow(ControlFlow<()>),
+#[derive(Debug)]
+pub enum FetchInstructionResult<I, CustomError = CustomErrorPlaceholder>
+where
+    I: Instruction,
+{
+    /// Instruction to execute
+    Instruction(I),
+    /// Nothing to execute here, carry on from wherever the program counter now points
+    Continue,
+    /// Stop execution
+    Break,
+    /// Fetching failed
+    Err(ExecutionError<Address<I>, CustomError>),
 }
 
 /// Generic instruction fetcher
@@ -711,10 +718,7 @@ where
 {
     /// Fetch a single instruction at a specified address and advance the program counter on
     /// successful fetch
-    fn fetch_instruction(
-        &mut self,
-        memory: &Memory,
-    ) -> Result<FetchInstructionResult<I>, ExecutionError<Address<I>, CustomError>>;
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError>;
 }
 
 /// CSR error
