@@ -125,6 +125,7 @@
     explicit_tail_calls,
     generic_const_args,
     generic_const_items,
+    impl_restriction,
     inherent_associated_types,
     integer_widen_truncate,
     macroless_generic_const_args,
@@ -182,7 +183,6 @@
 
 pub mod basic;
 pub mod prelude;
-mod private;
 pub mod rv32;
 pub mod rv64;
 #[cfg(test)]
@@ -198,7 +198,6 @@ pub mod zvbc;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use crate::private::BasicIntSealed;
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -241,16 +240,7 @@ pub enum VirtualMemoryError {
 }
 
 /// Basic integer types that can be read and written to/from memory freely
-pub trait BasicInt: Sized + Copy + BasicIntSealed + 'static {}
-
-impl BasicIntSealed for u8 {}
-impl BasicIntSealed for u16 {}
-impl BasicIntSealed for u32 {}
-impl BasicIntSealed for u64 {}
-impl BasicIntSealed for i8 {}
-impl BasicIntSealed for i16 {}
-impl BasicIntSealed for i32 {}
-impl BasicIntSealed for i64 {}
+pub impl(self) trait BasicInt: Sized + Copy + 'static {}
 
 impl BasicInt for u8 {}
 impl BasicInt for u16 {}
