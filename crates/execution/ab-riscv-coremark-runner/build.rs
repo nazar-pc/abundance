@@ -30,6 +30,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         coremark_dir.join("core_state.c"),
         coremark_dir.join("core_util.c"),
         coremark_dir.join("core_main.c"),
+        // Double-to-decimal conversion for `ee_printf`'s `%f`, needed by `HAS_FLOAT`
+        coremark_dir.join("barebones/cvt.c"),
     ];
 
     let maybe_status = Command::new(&cc)
@@ -39,8 +41,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         .arg(format!("-I{}", coremark_dir.display()))
         .arg("-Isrc/coremark_port")
         .arg("-DPERFORMANCE_RUN=1")
-        // 0 means "autodetect"
-        .arg("-DITERATIONS=0")
+        // Without this Coremark's `secs_ret` is an integer, so `Iterations/Sec` is
+        // `iterations / whole_seconds` and the reported score is quantized to 5-10% steps. The
+        // float code only runs while reporting, so the measured instruction mix is unaffected.
+        .arg("-DHAS_FLOAT=1")
+        // 0 means "autodetect", which makes the amount of work performed depend on how fast the
+        // interpreter is. Set `COREMARK_ITERATIONS` to a fixed number to make every run do the
+        // exact same amount of work for an easier comparison.
+        .arg(format!(
+            "-DITERATIONS={}",
+            env::var("COREMARK_ITERATIONS").unwrap_or_else(|_| "0".to_string())
+        ))
         .args([
             "-ffreestanding",
             "-nostdlib",
@@ -54,6 +65,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         // with #error is removed; that function is defined in core_portme.c.
         .arg("src/coremark_port/ee_printf.c")
         .arg("src/coremark_port/core_portme.c")
+        // Soft-float support routines, since the guest ISA has no FPU
+        .arg("-lgcc")
         .arg("-o")
         .arg(&elf_path)
         .status();
@@ -85,6 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("cargo::rerun-if-changed=src");
     println!("cargo::rerun-if-env-changed=RISCV_CC");
+    println!("cargo::rerun-if-env-changed=COREMARK_ITERATIONS");
 
     Ok(())
 }
