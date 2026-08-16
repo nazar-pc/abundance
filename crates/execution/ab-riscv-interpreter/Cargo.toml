@@ -34,9 +34,6 @@ ab-riscv-macros = { workspace = true, features = ["build"] }
 [features]
 alloc = []
 # TODO: no-panic coverage is limited very slightly:
-#  * Some `::execute()` methods do not have `no_panic_const::no_panic` macro applied due to unreasonable inlining limits
-#    required, but all helpers and other APIs used are guaranteed to not panic, and the rest of the code is trivially
-#    panic-free as well (this can be worked around by extracting each execution branch into a non-panicking closure)
 #  * `BasicInterpreterState::execute` method does not have `no_panic_const::no_panic` macro applied due to being used
 #    with lots of extensions, many of which are too large, but is also trivially panic-free and only calls panic-free
 #    methods
