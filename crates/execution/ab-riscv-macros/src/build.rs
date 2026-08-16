@@ -13,8 +13,9 @@ use crate::build::enum_impl::{
     process_pending_enum_impls,
 };
 use crate::build::execution_impl::{
-    collect_enum_csr_impls_from_dependencies, collect_enum_execution_impls_from_dependencies,
-    process_execution_impl, process_pending_enum_execution_impls,
+    collect_enum_csr_impls_from_dependencies,
+    collect_original_enum_execution_impls_from_dependencies, process_execution_impl,
+    process_pending_enum_execution_impls,
 };
 use crate::build::state::State;
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
@@ -65,9 +66,9 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
         let (item_impl, source) = maybe_enum_csr_impl?;
         state.insert_known_enum_csr_impl(item_impl, source)?;
     }
-    for maybe_enum_execution_impl in collect_enum_execution_impls_from_dependencies() {
+    for maybe_enum_execution_impl in collect_original_enum_execution_impls_from_dependencies() {
         let (item_impl, source) = maybe_enum_execution_impl?;
-        state.insert_known_enum_execution_impl(item_impl, source)?;
+        state.insert_known_original_enum_execution_impl(item_impl, source)?;
     }
 
     for maybe_rust_file in rust_files_in(Path::new(&manifest_dir).join("src")) {

@@ -11,7 +11,8 @@
                 target_feature = "aes"
             ),
             all(target_arch = "x86_64", target_feature = "pclmulqdq")
-        )
+        ),
+        not(feature = "no-panic")
     ),
     expect(
         clippy::items_after_statements,

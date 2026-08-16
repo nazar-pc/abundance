@@ -54,14 +54,14 @@ pub(super) struct PendingEnumCsrImpl {
 }
 
 #[derive(Debug)]
-pub(super) struct KnownEnumExecutionImpl {
+pub(super) struct KnownOriginalEnumExecutionImpl {
     pub(super) item_impl: ItemImpl,
     pub(super) source: Rc<Path>,
 }
 
 #[derive(Debug)]
 pub(super) struct PendingEnumExecutionImpl {
-    pub(super) item_impl: ItemImpl,
+    pub(super) original_item_impl: ItemImpl,
 }
 
 pub(super) struct State {
@@ -73,7 +73,7 @@ pub(super) struct State {
     pending_enum_operands_impls: Vec<PendingEnumOperandsImpl>,
     known_enum_csr_impls: HashMap<Ident, KnownEnumCsrImpl>,
     pending_enum_csr_impls: Vec<PendingEnumCsrImpl>,
-    known_enum_execution_impls: HashMap<Ident, KnownEnumExecutionImpl>,
+    known_original_enum_execution_impls: HashMap<Ident, KnownOriginalEnumExecutionImpl>,
     pending_enum_execution_impls: Vec<PendingEnumExecutionImpl>,
 }
 
@@ -88,7 +88,7 @@ impl State {
             pending_enum_operands_impls: Vec::new(),
             known_enum_csr_impls: HashMap::new(),
             pending_enum_csr_impls: Vec::new(),
-            known_enum_execution_impls: HashMap::new(),
+            known_original_enum_execution_impls: HashMap::new(),
             pending_enum_execution_impls: Vec::new(),
         }
     }
@@ -111,11 +111,11 @@ impl State {
         self.known_enum_csr_impls.get(enum_name)
     }
 
-    pub(super) fn get_known_enum_execution_impl(
+    pub(super) fn get_known_original_enum_execution_impl(
         &self,
         enum_name: &Ident,
-    ) -> Option<&KnownEnumExecutionImpl> {
-        self.known_enum_execution_impls.get(enum_name)
+    ) -> Option<&KnownOriginalEnumExecutionImpl> {
+        self.known_original_enum_execution_impls.get(enum_name)
     }
 
     pub(super) fn insert_known_enum_definition(
@@ -224,7 +224,7 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn insert_known_enum_execution_impl(
+    pub(super) fn insert_known_original_enum_execution_impl(
         &mut self,
         item_impl: ItemImpl,
         source: Rc<Path>,
@@ -236,9 +236,9 @@ impl State {
             key: enum_name,
             value,
             ..
-        }) = self.known_enum_execution_impls.try_insert(
+        }) = self.known_original_enum_execution_impls.try_insert(
             enum_name,
-            KnownEnumExecutionImpl {
+            KnownOriginalEnumExecutionImpl {
                 item_impl,
                 source: Rc::clone(&source),
             },

@@ -174,6 +174,21 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     inherited
 /// * `ExecutionResult::CONTINUE_ZERO` expression.
 ///
+/// The composed `execute()` body is not kept as one large `match`. Instead, each `match` arm
+/// (both own and inherited) is turned into its own `#[inline(always)]` free function, generated
+/// right next to `execute()`, and `execute()` itself is reduced to a lean `match` that dispatches
+/// to those functions (with the impl's generic parameters specified explicitly via turbofish,
+/// since a free function has no `Self` for them to be inferred from). This is purely an
+/// implementation detail; those functions are not meant to be used or referred to directly.
+///
+/// If `execute()` carries `#[cfg_attr(feature = "no-panic", no_panic_const::no_panic(..))]`, it
+/// is stripped from `execute()` itself (which becomes a plain dispatcher, so the attribute would
+/// no longer serve its purpose there) and placed on every one of those generated functions
+/// instead, so each variant's execution logic is checked for panics individually. Since this
+/// depends on `execute()` in the implementation currently being processed specifically carrying
+/// this attribute, an implementation that inherits from a lower-level one that has it, but does
+/// not itself repeat it, will not get it applied to its own generated functions either.
+///
 /// Also requires `process_instruction_macros()` in `build.rs` to function, see `#[instruction]`
 /// macro documentation.
 ///

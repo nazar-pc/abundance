@@ -69,7 +69,7 @@ where
                         ),
                     });
                 }
-                if vd.to_bits() % nreg != 0 {
+                if !vd.to_bits().is_multiple_of(nreg) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

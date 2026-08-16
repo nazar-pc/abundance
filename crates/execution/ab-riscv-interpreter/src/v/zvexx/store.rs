@@ -68,7 +68,7 @@ where
                         ),
                     });
                 }
-                if vs3.to_bits() % nreg != 0 {
+                if !vs3.to_bits().is_multiple_of(nreg) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
