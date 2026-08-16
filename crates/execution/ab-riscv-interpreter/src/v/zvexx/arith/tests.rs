@@ -48,6 +48,7 @@ fn exec(
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
         }
+        ExecutionResult::ContinueNoWrite => {}
         ExecutionResult::Err(error) => {
             return Err(error);
         }

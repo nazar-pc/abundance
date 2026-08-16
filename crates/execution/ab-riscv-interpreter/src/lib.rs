@@ -535,15 +535,15 @@ pub enum ExecutionResult<Reg, CustomError = CustomErrorPlaceholder>
 where
     Reg: Register,
 {
-    /// Write the register and continue with the instruction that follows this one.
-    ///
-    /// `rd` being the zero register writes nothing, see [`Self::CONTINUE_ZERO`].
+    /// Write the register and continue with the instruction that follows this one
     Continue {
         /// Register to write
         rd: Reg,
         /// Value to write into it
         value: Reg::Type,
     },
+    /// Continue with the instruction that follows this one without writing to `rd` register
+    ContinueNoWrite,
     /// Continue `offset` bytes away from the address of *this* instruction.
     ///
     /// Keeping it relative rather than resolving it against the program counter here means a
@@ -568,20 +568,6 @@ const {
     // Ensure result type retains its size
     assert!(size_of::<ExecutionResult<Reg<u64>>>() <= 16);
     assert!(size_of::<ExecutionResult<Reg<u32>>>() <= 16);
-}
-
-impl<Reg, CustomError> ExecutionResult<Reg, CustomError>
-where
-    Reg: Register,
-{
-    /// Continue with the instruction that follows this one without writing a register.
-    ///
-    /// The zero register discards whatever is written to it, so this is what an instruction whose
-    /// only effect is elsewhere returns.
-    pub const CONTINUE_ZERO: Self = Self::Continue {
-        rd: Reg::ZERO,
-        value: Reg::Type::from(0u8),
-    };
 }
 
 const impl<Reg, CustomError> From<ExecutionError<Reg::Type, CustomError>>
@@ -962,9 +948,8 @@ pub const trait ExecutableInstruction<
     ///
     /// On success `ExecutionResult::Continue { rd: rd, value: rd_value }` is returned, which will
     /// be written into the register file. In most cases this is the only register that needs to
-    /// be written. If no value needs to be written,
-    /// `ExecutionResult::CONTINUE_ZERO` should be returned, which corresponds
-    /// to `Ok(ControlFlow::Continue(Reg::ZERO, 0))` and is no-op.
+    /// be written. If no value needs to be written, `ExecutionResult::ContinueNoWrite` should be
+    /// returned, which skips the register file write entirely.
     fn execute(
         self,
         rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,

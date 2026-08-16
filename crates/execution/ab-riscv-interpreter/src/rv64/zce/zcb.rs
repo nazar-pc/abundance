@@ -46,7 +46,7 @@ where
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg, CustomError> {
-        ExecutionResult::CONTINUE_ZERO
+        ExecutionResult::ContinueNoWrite
     }
 }
 
@@ -121,7 +121,7 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(u64::from(uimm));
                 memory.write(addr, rs2_value as u8)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CSh {
                 rs1: _,
@@ -131,7 +131,7 @@ where
                 let addr = rs1_value.wrapping_add(u64::from(uimm));
                 memory.write(addr, rs2_value as u16)?;
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CZextB { rd } => {
                 let value = regs.read(rd) & 0xff;

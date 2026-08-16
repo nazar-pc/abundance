@@ -137,7 +137,7 @@ where
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg, CustomError> {
-        ExecutionResult::CONTINUE_ZERO
+        ExecutionResult::ContinueNoWrite
     }
 }
 

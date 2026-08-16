@@ -216,7 +216,7 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 memory.write(u64::from(addr), rs2_value as u8)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Sh {
                 rs2: _,
@@ -225,7 +225,7 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 memory.write(u64::from(addr), rs2_value as u16)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Sw {
                 rs2: _,
@@ -234,7 +234,7 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(i32::from(imm).cast_unsigned());
                 memory.write(u64::from(addr), rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             Self::Beq {
@@ -248,7 +248,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Bne {
                 rs1: _,
@@ -261,7 +261,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Blt {
                 rs1: _,
@@ -274,7 +274,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Bge {
                 rs1: _,
@@ -287,7 +287,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Bltu {
                 rs1: _,
@@ -300,7 +300,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::Bgeu {
                 rs1: _,
@@ -313,7 +313,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             Self::Lui { rd, imm } => ExecutionResult::Continue {
@@ -340,22 +340,22 @@ where
 
             Self::Fence { pred, succ } => {
                 system_instruction_handler.handle_fence(pred, succ);
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::FenceTso => {
                 system_instruction_handler.handle_fence_tso();
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             Self::Ecall => {
                 match system_instruction_handler.handle_ecall(regs, memory, program_counter)? {
-                    ControlFlow::Continue(()) => ExecutionResult::CONTINUE_ZERO,
+                    ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
                     ControlFlow::Break(()) => ExecutionResult::Break,
                 }
             }
             Self::Ebreak => {
                 system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             Self::Unimp => {
