@@ -34,7 +34,7 @@ where
     CustomError: [const] Destruct,
 {
     #[inline(always)]
-    // TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {

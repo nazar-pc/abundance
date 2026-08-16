@@ -790,6 +790,7 @@ dependencies = [
  "ab-riscv-macros-common",
  "ab-riscv-macros-impl",
  "anyhow",
+ "heck 0.5.0",
  "prettyplease",
  "quote",
  "syn 3.0.3",

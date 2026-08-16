@@ -39,7 +39,7 @@ where
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
 {
     #[inline(always)]
-    // TODO: #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -68,7 +68,7 @@ where
                         ),
                     });
                 }
-                if vs3.to_bits() % nreg != 0 {
+                if !vs3.to_bits().is_multiple_of(nreg) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
