@@ -1,5 +1,6 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
+    adt_const_params,
     const_cmp,
     const_trait_impl,
     const_try,
@@ -17,13 +18,13 @@
 mod abundance_rv32i_max;
 mod abundance_rv64i_max;
 mod instruction;
+mod interpreter;
 
-use crate::abundance_rv32i_max::instruction::AbundanceRv32IMaxInstruction;
-use crate::abundance_rv32i_max::interpreter::AbundanceRv32IMaxExtState;
-use crate::abundance_rv64i_max::instruction::AbundanceRv64IMaxInstruction;
-use crate::abundance_rv64i_max::interpreter::AbundanceRv64IMaxExtState;
+use crate::abundance_rv32i_max::AbundanceRv32IMaxInstruction;
+use crate::abundance_rv64i_max::AbundanceRv64IMaxInstruction;
+use crate::interpreter::TestExtState;
 use ab_riscv_interpreter::basic::{
-    BasicInstructionFetcher, BasicInterpreterState, BasicMemory, BasicRegisters,
+    BasicInstructionFetcher, BasicInterpreterState, BasicMemory, BasicRegister, BasicRegisters,
     IllegalEcallSystemInstructionHandler,
 };
 use ab_riscv_interpreter::prelude::*;
@@ -330,11 +331,21 @@ where
     ))
 }
 
-// TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
-fn run_rv32i_max_test(
+fn run_test<I, const ELEN: Elen, const VLEN: Vlen>(
     elf_path: &Path,
-) -> Result<(), TestError<RegisterType<AbundanceRv32IMaxInstruction>>> {
-    let elf = ParsedElf::<<AbundanceRv32IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
+) -> Result<(), TestError<RegisterType<I>>>
+where
+    I: ExecutableInstruction<
+            BasicRegisters<<I as Instruction>::Reg>,
+            TestExtState<<I as Instruction>::Reg, ELEN, VLEN>,
+            Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
+            BasicInstructionFetcher<I>,
+            IllegalEcallSystemInstructionHandler,
+            Reg: BasicRegister<Type: BasicInt>,
+        >,
+    TestExtState<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
+{
+    let elf = ParsedElf::<I::Reg>::from_path(elf_path)?;
 
     let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::new_boxed();
     for (vaddr, data) in &elf.segments {
@@ -343,12 +354,13 @@ fn run_rv32i_max_test(
     }
 
     let mut state = BasicInterpreterState {
-        regs: BasicRegisters::default(),
-        ext_state: AbundanceRv32IMaxExtState::new(),
+        regs: BasicRegisters::<I::Reg>::default(),
+        ext_state: TestExtState::new(),
         memory: ram,
-        instruction_fetcher: BasicInstructionFetcher::<AbundanceRv32IMaxInstruction>::new(
+        instruction_fetcher: BasicInstructionFetcher::<I>::new(
             // Not used, setting to something that is unlikely to be used
-            0, elf.entry,
+            RegisterType::<I>::default(),
+            elf.entry,
         ),
         system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
@@ -370,7 +382,7 @@ fn run_rv32i_max_test(
                 // interpreter doesn't implement, so it arrives here as an illegal instruction
                 let raw_instruction = state
                     .memory
-                    .read::<u32>(u64::from(address))
+                    .read::<u32>(address.as_u64())
                     .map_err(ExecutionError::from)?;
                 if raw_instruction == MRET_INSTRUCTION {
                     let mepc = state
@@ -393,7 +405,7 @@ fn run_rv32i_max_test(
                     .take_trap(
                         MCauseException::IllegalInstruction,
                         address,
-                        raw_instruction,
+                        RegisterType::<I>::from(raw_instruction),
                     )
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(address),
@@ -410,7 +422,7 @@ fn run_rv32i_max_test(
             FetchInstructionResult::Err(error) => {
                 if state
                     .memory
-                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
                     .is_some()
                 {
                     break;
@@ -441,7 +453,7 @@ fn run_rv32i_max_test(
                 state.regs.write(rd, value);
                 if state
                     .memory
-                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
                     .is_some()
                 {
                     break;
@@ -450,7 +462,7 @@ fn run_rv32i_max_test(
             ExecutionResult::ContinueNoWrite => {
                 if state
                     .memory
-                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
                     .is_some()
                 {
                     break;
@@ -502,21 +514,23 @@ fn run_rv32i_max_test(
             ) => {
                 let address = match error {
                     ExecutionError::IllegalInstruction { address } => address.get(),
-                    _ => ProgramCounter::<u32, BasicMemory<RAM_BASE, RAM_SIZE>>::old_pc(
-                        &state.instruction_fetcher,
-                        instruction.size(),
+                    _ => ProgramCounter::<
+                        RegisterType<I>,
+                        Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
+                    >::old_pc(
+                        &state.instruction_fetcher, instruction.size()
                     ),
                 };
                 let raw_instruction = state
                     .memory
-                    .read::<u32>(u64::from(address))
+                    .read::<u32>(address.as_u64())
                     .map_err(ExecutionError::from)?;
                 let trap_pc = state
                     .ext_state
                     .take_trap(
                         MCauseException::IllegalInstruction,
                         address,
-                        raw_instruction,
+                        RegisterType::<I>::from(raw_instruction),
                     )
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(address),
@@ -531,221 +545,7 @@ fn run_rv32i_max_test(
             ExecutionResult::Err(error) => {
                 if state
                     .memory
-                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
-                    .is_some()
-                {
-                    break;
-                }
-                return Err(error.into());
-            }
-        }
-    }
-
-    check_signature(&elf, &state.memory)
-}
-
-// TODO: It doesn't seem to be possible to make this generic over the instruction type at the moment
-fn run_rv64i_max_test(
-    elf_path: &Path,
-) -> Result<(), TestError<RegisterType<AbundanceRv64IMaxInstruction>>> {
-    let elf = ParsedElf::<<AbundanceRv64IMaxInstruction as Instruction>::Reg>::from_path(elf_path)?;
-
-    let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::new_boxed();
-    for (vaddr, data) in &elf.segments {
-        ram.write_slice(*vaddr, data)
-            .map_err(ExecutionError::from)?;
-    }
-
-    let mut state = BasicInterpreterState {
-        regs: BasicRegisters::default(),
-        ext_state: AbundanceRv64IMaxExtState::new(),
-        memory: ram,
-        instruction_fetcher: BasicInstructionFetcher::<AbundanceRv64IMaxInstruction>::new(
-            // Not used, setting to something that is unlikely to be used
-            0, elf.entry,
-        ),
-        system_instruction_handler: IllegalEcallSystemInstructionHandler,
-    };
-
-    loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
-            FetchInstructionResult::Instruction(instruction) => instruction,
-            FetchInstructionResult::Break => {
-                break;
-            }
-            FetchInstructionResult::Continue => {
-                continue;
-            }
-            // TODO: This custom handling is temporary until interpreter has abstractions and
-            //  support for privileged instructions
-            FetchInstructionResult::Err(ExecutionError::IllegalInstruction { address }) => {
-                let address = address.get();
-                // Check for mret before treating as a trap - mret is a privileged instruction the
-                // interpreter doesn't implement, so it arrives here as an illegal instruction
-                let raw_instruction = state
-                    .memory
-                    .read::<u32>(address)
-                    .map_err(ExecutionError::from)?;
-                if raw_instruction == MRET_INSTRUCTION {
-                    let mepc = state
-                        .ext_state
-                        .read_csr(MCsr::Mepc as u16)
-                        .map_err(ExecutionError::from)?;
-                    match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
-                        ControlFlow::Continue(()) => {
-                            continue;
-                        }
-                        ControlFlow::Break(()) => {
-                            break;
-                        }
-                    }
-                }
-
-                // All other illegal instructions dispatch through the trap handler
-                let trap_pc = state
-                    .ext_state
-                    .take_trap(
-                        MCauseException::IllegalInstruction,
-                        address,
-                        u64::from(raw_instruction),
-                    )
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(address),
-                    })?;
-                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
-                    ControlFlow::Continue(()) => {
-                        continue;
-                    }
-                    ControlFlow::Break(()) => {
-                        break;
-                    }
-                }
-            }
-            FetchInstructionResult::Err(error) => {
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
-                    .is_some()
-                {
-                    break;
-                }
-                return Err(error.into());
-            }
-        };
-
-        let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
-        let rs1rs2_values = Rs1Rs2OperandValues {
-            rs1_value: state.regs.read(rs1),
-            rs2_value: state.regs.read(rs2),
-        };
-
-        #[expect(
-            clippy::rest_pattern_accessible_field,
-            reason = "Do not need other fields"
-        )]
-        match instruction.execute(
-            rs1rs2_values,
-            &mut state.regs,
-            &mut state.ext_state,
-            &mut state.memory,
-            &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
-        ) {
-            ExecutionResult::Continue { rd, value } => {
-                state.regs.write(rd, value);
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
-                    .is_some()
-                {
-                    break;
-                }
-            }
-            ExecutionResult::ContinueNoWrite => {
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
-                    .is_some()
-                {
-                    break;
-                }
-            }
-            ExecutionResult::Branch { offset } => {
-                match state.instruction_fetcher.set_pc_relative(
-                    &state.memory,
-                    instruction.size(),
-                    offset,
-                )? {
-                    ControlFlow::Continue(()) => {}
-                    ControlFlow::Break(()) => {
-                        break;
-                    }
-                }
-            }
-            ExecutionResult::Jump { target } => {
-                match state.instruction_fetcher.set_pc(&state.memory, target)? {
-                    ControlFlow::Continue(()) => {}
-                    ControlFlow::Break(()) => {
-                        break;
-                    }
-                }
-            }
-            ExecutionResult::Break => {
-                break;
-            }
-            // TODO: This custom handling is temporary until interpreter has abstractions and
-            //  support for privileged instructions
-            //
-            // Two distinct error shapes land here and both dispatch through the trap handler
-            // exactly like the decode-time illegal-instruction case above:
-            // - CsrError: illegal/unauthorized CSR access (e.g. Zkr's `seed` pure-read restriction)
-            //   is an illegal-instruction exception per the privileged spec - there is no dedicated
-            //   CSR-error trap cause. It carries no address, so it is recovered from the fetcher's
-            //   old PC.
-            // - IllegalInstruction: a successfully *decoded* instruction whose execution is
-            //   illegal, currently only `ecall` (IllegalEcallSystemInstructionHandler always
-            //   rejects it - the interpreter has no other way to support it yet). Unlike the
-            //   decode-time case, this one already carries the correct address.
-            ExecutionResult::Err(
-                error @ (ExecutionError::CsrReadOnly { .. }
-                | ExecutionError::CsrIllegalRead { .. }
-                | ExecutionError::CsrIllegalWrite { .. }
-                | ExecutionError::CsrUnknown { .. }
-                | ExecutionError::CsrInsufficientPrivilege { .. }
-                | ExecutionError::IllegalInstruction { .. }),
-            ) => {
-                let address = match error {
-                    ExecutionError::IllegalInstruction { address } => address.get(),
-                    _ => ProgramCounter::<u64, BasicMemory<RAM_BASE, RAM_SIZE>>::old_pc(
-                        &state.instruction_fetcher,
-                        instruction.size(),
-                    ),
-                };
-                let raw_instruction = state
-                    .memory
-                    .read::<u32>(address)
-                    .map_err(ExecutionError::from)?;
-                let trap_pc = state
-                    .ext_state
-                    .take_trap(
-                        MCauseException::IllegalInstruction,
-                        address,
-                        u64::from(raw_instruction),
-                    )
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(address),
-                    })?;
-                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
-                    ControlFlow::Continue(()) => {}
-                    ControlFlow::Break(()) => {
-                        break;
-                    }
-                }
-            }
-            ExecutionResult::Err(error) => {
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
+                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
                     .is_some()
                 {
                     break;
@@ -906,6 +706,39 @@ fn process_error<RT>(
     }
 }
 
+/// Run a single test and print its outcome, returning whether the test passed
+fn run_and_report<I, const ELEN: Elen, const VLEN: Vlen>(
+    elf_path: &Path,
+    stem: &str,
+    passed: &mut usize,
+    failed: &mut usize,
+    errors: &mut usize,
+) -> bool
+where
+    I: ExecutableInstruction<
+            BasicRegisters<<I as Instruction>::Reg>,
+            TestExtState<<I as Instruction>::Reg, ELEN, VLEN>,
+            Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
+            BasicInstructionFetcher<I>,
+            IllegalEcallSystemInstructionHandler,
+            Reg: BasicRegister<Type: BasicInt>,
+        >,
+    TestExtState<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
+{
+    let Err(error) = run_test::<I, ELEN, VLEN>(elf_path) else {
+        println!("{} {stem}", "PASS".green());
+        *passed += 1;
+        return true;
+    };
+
+    // 2 hex digits per byte
+    let hex_width = size_of::<RegisterType<I>>() * 2;
+
+    process_error(error, hex_width, stem, failed, errors);
+
+    false
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -931,34 +764,20 @@ fn main() {
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
 
-        match cli.isa {
-            Isa::Rv32 => {
-                let Err(error) = run_rv32i_max_test(elf_path) else {
-                    println!("{} {stem}", "PASS".green());
-                    passed += 1;
-                    continue;
-                };
+        let test_passed = match cli.isa {
+            Isa::Rv32 => run_and_report::<
+                AbundanceRv32IMaxInstruction,
+                { Elen::L64 },
+                { Vlen::L1024 },
+            >(elf_path, stem, &mut passed, &mut failed, &mut errors),
+            Isa::Rv64 => run_and_report::<
+                AbundanceRv64IMaxInstruction,
+                { Elen::L64 },
+                { Vlen::L1024 },
+            >(elf_path, stem, &mut passed, &mut failed, &mut errors),
+        };
 
-                // 2 hex digits per byte
-                let hex_width = size_of::<RegisterType<AbundanceRv32IMaxInstruction>>() * 2;
-
-                process_error(error, hex_width, stem, &mut failed, &mut errors);
-            }
-            Isa::Rv64 => {
-                let Err(error) = run_rv64i_max_test(elf_path) else {
-                    println!("{} {stem}", "PASS".green());
-                    passed += 1;
-                    continue;
-                };
-
-                // 2 hex digits per byte
-                let hex_width = size_of::<RegisterType<AbundanceRv64IMaxInstruction>>() * 2;
-
-                process_error(error, hex_width, stem, &mut failed, &mut errors);
-            }
-        }
-
-        if cli.fail_fast {
+        if !test_passed && cli.fail_fast {
             break;
         }
     }
