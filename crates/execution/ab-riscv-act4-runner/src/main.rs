@@ -447,6 +447,15 @@ fn run_rv32i_max_test(
                     break;
                 }
             }
+            ExecutionResult::ContinueNoWrite => {
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv32IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
+                    break;
+                }
+            }
             ExecutionResult::Branch { offset } => {
                 match state.instruction_fetcher.set_pc_relative(
                     &state.memory,
@@ -644,6 +653,15 @@ fn run_rv64i_max_test(
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);
+                if state
+                    .memory
+                    .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?
+                    .is_some()
+                {
+                    break;
+                }
+            }
+            ExecutionResult::ContinueNoWrite => {
                 if state
                     .memory
                     .tohost_value::<RegisterType<AbundanceRv64IMaxInstruction>>(elf.tohost_addr)?

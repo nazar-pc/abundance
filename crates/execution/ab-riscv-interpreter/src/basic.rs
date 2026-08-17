@@ -191,6 +191,9 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
                                 self.regs.write(rd, value);
                                 continue;
                             }
+                            ExecutionResult::ContinueNoWrite => {
+                                continue;
+                            }
                             ExecutionResult::Branch { offset } => instruction_fetcher
                                 .set_pc_relative(&self.memory, instruction.size(), offset),
                             ExecutionResult::Jump { target } => {

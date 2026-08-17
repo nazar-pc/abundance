@@ -81,7 +81,7 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(u64::from(uimm));
                 memory.write(addr, rs2_value as u32)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CSd {
                 rs1: _,
@@ -90,7 +90,7 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(u64::from(uimm));
                 memory.write(addr, rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             // Quadrant 01
@@ -175,7 +175,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CBnez { rs1: _, imm } => {
                 if rs1_value != 0 {
@@ -184,7 +184,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             // Quadrant 10
@@ -215,7 +215,7 @@ where
             },
             Self::CEbreak => {
                 system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CJalr { rs1: _ } => {
                 let target = rs1_value & !1;
@@ -230,12 +230,12 @@ where
             Self::CSwsp { rs2: _, uimm } => {
                 let addr = regs.read(Reg::SP).wrapping_add(u64::from(uimm));
                 memory.write(addr, rs2_value as u32)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CSdsp { rs2: _, uimm } => {
                 let addr = regs.read(Reg::SP).wrapping_add(u64::from(uimm));
                 memory.write(addr, rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CUnimp => {
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);

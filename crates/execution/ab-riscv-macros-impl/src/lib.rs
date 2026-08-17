@@ -172,7 +172,7 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// * matching in the following style: `match self { Self::Variant { .. } }`
 ///   * note that `Self` must be used instead of the explicit type name, such that it works when
 ///     inherited
-/// * `ExecutionResult::CONTINUE_ZERO` expression.
+/// * `ExecutionResult::ContinueNoWrite` expression.
 ///
 /// The composed `execute()` body is not kept as one large `match`. Instead, each `match` arm
 /// (both own and inherited) is turned into its own `#[inline(always)]` free function, generated

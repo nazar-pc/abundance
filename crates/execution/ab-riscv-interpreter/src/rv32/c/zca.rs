@@ -73,11 +73,11 @@ where
             } => {
                 let addr = rs1_value.wrapping_add(u32::from(uimm));
                 memory.write(u64::from(addr), rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             // Quadrant 01
-            Self::CNop => ExecutionResult::CONTINUE_ZERO,
+            Self::CNop => ExecutionResult::ContinueNoWrite,
             Self::CAddi { rd, nzimm } => {
                 let value = regs.read(rd).wrapping_add(i32::from(nzimm).cast_unsigned());
                 ExecutionResult::Continue { rd, value }
@@ -144,7 +144,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CBnez { rs1: _, imm } => {
                 if rs1_value != 0 {
@@ -153,7 +153,7 @@ where
                     };
                 }
 
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
 
             // Quadrant 10
@@ -176,7 +176,7 @@ where
             },
             Self::CEbreak => {
                 system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CJalr { rs1: _ } => {
                 let target = rs1_value & !1;
@@ -191,7 +191,7 @@ where
             Self::CSwsp { rs2: _, uimm } => {
                 let addr = regs.read(Reg::SP).wrapping_add(u32::from(uimm));
                 memory.write(u64::from(addr), rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CUnimp => {
                 let old_pc = program_counter.old_pc(size_of::<u16>() as u8);

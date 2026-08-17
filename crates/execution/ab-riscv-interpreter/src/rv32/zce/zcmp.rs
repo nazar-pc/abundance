@@ -48,7 +48,7 @@ where
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg, CustomError> {
-        ExecutionResult::CONTINUE_ZERO
+        ExecutionResult::ContinueNoWrite
     }
 }
 
@@ -97,7 +97,7 @@ where
             }
             Self::CmPop { urlist, stack_adj } => {
                 rv32_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::CmPopretz { urlist, stack_adj } => {
                 let ra_val = rv32_zcmp_helpers::do_pop(regs, memory, urlist, stack_adj)?;

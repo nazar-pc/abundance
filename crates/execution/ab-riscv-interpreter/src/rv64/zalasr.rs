@@ -79,7 +79,7 @@ where
                 aq: _,
             } => {
                 memory.write(rs1_value, rs2_value as u8)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::ShRl {
                 rs1: _,
@@ -87,7 +87,7 @@ where
                 aq: _,
             } => {
                 memory.write(rs1_value, rs2_value as u16)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::SwRl {
                 rs1: _,
@@ -95,7 +95,7 @@ where
                 aq: _,
             } => {
                 memory.write(rs1_value, rs2_value as u32)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::SdRl {
                 rs1: _,
@@ -103,7 +103,7 @@ where
                 aq: _,
             } => {
                 memory.write(rs1_value, rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
         }
     }

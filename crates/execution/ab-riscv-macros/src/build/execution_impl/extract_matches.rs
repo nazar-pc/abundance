@@ -7,7 +7,7 @@ use syn::{
 };
 
 fn is_exact_ok(expr: &Expr) -> bool {
-    let expected = quote! {ExecutionResult::CONTINUE_ZERO};
+    let expected = quote! {ExecutionResult::ContinueNoWrite};
     let actual = expr.to_token_stream();
     actual.to_string() == expected.to_string()
 }
@@ -102,7 +102,7 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
             block,
         }) = arm.body.as_mut()
         {
-            let continue_expr = parse_quote! { ExecutionResult::CONTINUE_ZERO };
+            let continue_expr = parse_quote! { ExecutionResult::ContinueNoWrite };
             if let Some(last_statement) = block.stmts.last_mut() {
                 // Has at least one statement
                 if let Stmt::Expr(expr, maybe_semicolon) = last_statement {
@@ -118,7 +118,7 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 // Replace `return T` with `T`
                                 inner_expr.as_ref().clone()
                             } else {
-                                // Replace `return` with `ExecutionResult::CONTINUE_ZERO`
+                                // Replace `return` with `ExecutionResult::ContinueNoWrite`
                                 continue_expr
                             }
                         }
@@ -127,7 +127,7 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                                 // Ensure that the last statement ends with `;` even if it returns a
                                 // unit value already
                                 maybe_semicolon.replace(Semi::default());
-                                // Insert `ExecutionResult::CONTINUE_ZERO` at
+                                // Insert `ExecutionResult::ContinueNoWrite` at
                                 // the end of the block
                                 block.stmts.push(Stmt::Expr(continue_expr, None));
                             }
@@ -135,7 +135,7 @@ fn get_variant_ident_and_block(arm: &Arm, add_ok: bool) -> anyhow::Result<(Ident
                     }
                 }
             } else {
-                // No statements, insert `ExecutionResult::CONTINUE_ZERO` at the end of the block
+                // No statements, insert `ExecutionResult::ContinueNoWrite` at the end of the block
                 block.stmts.push(Stmt::Expr(continue_expr, None));
             }
         }
@@ -187,14 +187,14 @@ pub(super) fn extract_variant_arms(
 
         let Stmt::Expr(ok_expr, None) = second_stmt else {
             return Err(anyhow::anyhow!(
-                "Second statement must be exactly `ExecutionResult::CONTINUE_ZERO`: {}",
+                "Second statement must be exactly `ExecutionResult::ContinueNoWrite`: {}",
                 second_stmt.to_token_stream()
             ));
         };
 
         if !is_exact_ok(ok_expr) {
             return Err(anyhow::anyhow!(
-                "Second statement must be exactly `ExecutionResult::CONTINUE_ZERO`: {}",
+                "Second statement must be exactly `ExecutionResult::ContinueNoWrite`: {}",
                 second_stmt.to_token_stream()
             ));
         }
@@ -214,7 +214,7 @@ pub(super) fn extract_variant_arms(
         } else {
             Err(anyhow::anyhow!(
                 "Single tail expression must be either `match` on `self` or \
-                `ExecutionResult::CONTINUE_ZERO`: {}",
+                `ExecutionResult::ContinueNoWrite`: {}",
                 expr.to_token_stream()
             ))
         }

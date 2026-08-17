@@ -64,11 +64,11 @@ where
         match self {
             Self::WrsNto => {
                 system_instruction_handler.handle_wrs_nto();
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::WrsSto => {
                 system_instruction_handler.handle_wrs_sto();
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
         }
     }

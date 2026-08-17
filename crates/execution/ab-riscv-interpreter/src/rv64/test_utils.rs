@@ -566,6 +566,7 @@ where
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);
             }
+            ExecutionResult::ContinueNoWrite => {}
             ExecutionResult::Branch { offset } => {
                 let control_flow = state.instruction_fetcher.set_pc_relative(
                     &state.memory,

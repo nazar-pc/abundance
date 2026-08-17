@@ -786,6 +786,6 @@ where
             }
         }
 
-        ExecutionResult::CONTINUE_ZERO
+        ExecutionResult::ContinueNoWrite
     }
 }

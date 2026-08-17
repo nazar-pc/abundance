@@ -76,7 +76,7 @@ where
             } => {
                 let addr = u64::from(rs1_value);
                 memory.write(addr, rs2_value as u8)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::ShRl {
                 rs1: _,
@@ -85,7 +85,7 @@ where
             } => {
                 let addr = u64::from(rs1_value);
                 memory.write(addr, rs2_value as u16)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
             Self::SwRl {
                 rs1: _,
@@ -94,7 +94,7 @@ where
             } => {
                 let addr = u64::from(rs1_value);
                 memory.write(addr, rs2_value)?;
-                ExecutionResult::CONTINUE_ZERO
+                ExecutionResult::ContinueNoWrite
             }
         }
     }
