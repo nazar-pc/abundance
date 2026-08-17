@@ -38,18 +38,6 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     }
 }
 
-/// Base for [`VectorRegisters`].
-///
-/// This is primarily a workaround for type system cycles.
-pub const trait VectorRegistersBase {
-    /// Maximum vector element width `ELEN` in bits
-    const ELEN: Elen;
-    /// Vector register width `VLEN` in bits
-    const VLEN: Vlen;
-}
-
-// TODO: Figure out a way to make `VectorRegisters + VectorRegistersExt` trait bounds work without
-//  type system cycles
 /// Vector register state.
 ///
 /// This trait contains only methods that implementations genuinely need to provide. Derived
@@ -62,13 +50,12 @@ pub const trait VectorRegistersBase {
 /// update semantics: `vtype` must maintain a cached decoded form and handle the XLEN-dependent vill
 /// bit, and `vl` is read-only via CSR instructions but writable by `vsetvl{i}` and fault-only-first
 /// loads.
-///
-/// `ELEN` is the maximum element width in bits.
-pub const trait VectorRegisters<CustomError = CustomErrorPlaceholder>
-where
-    Self: [const] VectorRegistersBase,
-    [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
-{
+pub const trait VectorRegisters<CustomError = CustomErrorPlaceholder> {
+    /// Maximum vector element width `ELEN` in bits
+    const ELEN: Elen;
+    /// Vector register width `VLEN` in bits
+    const VLEN: Vlen;
+
     /// Read the vector register file
     fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }>;
 
@@ -101,7 +88,10 @@ where
     /// Compute `VLMAX` for a given vtype
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl {
+    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl
+    where
+        [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
+    {
         vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
     }
 }

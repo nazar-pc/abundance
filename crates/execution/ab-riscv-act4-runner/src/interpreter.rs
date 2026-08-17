@@ -134,20 +134,16 @@ where
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> VectorRegistersBase for TestExtState<Reg, ELEN, VLEN>
-where
-    Reg: Register,
-{
-    const ELEN: Elen = ELEN;
-    const VLEN: Vlen = VLEN;
-}
-
-// TODO: The compiler does not normalize `<Self as VectorRegistersBase>::VLEN` (as used in the
-//  signatures of the methods below) to `VLEN` while `Self` is generic, so this impl has to be
-//  instantiated for concrete parameters instead of being generic like the rest of them
+// TODO: The compiler does not normalize `<Self as VectorRegisters>::VLEN` (as used in the
+//  signatures of the methods below) to the `VLEN` const generic while `Self` is generic, so this
+//  impl has to be instantiated for concrete parameters instead of being generic like the rest of
+//  them
 macro_rules! impl_vector_registers {
     ($reg:ty, $elen:expr, $vlen:expr) => {
         impl VectorRegisters for TestExtState<$reg, { $elen }, { $vlen }> {
+            const ELEN: Elen = $elen;
+            const VLEN: Vlen = $vlen;
+
             fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
                 &self.vregs
             }
