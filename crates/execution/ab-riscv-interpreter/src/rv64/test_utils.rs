@@ -2,9 +2,7 @@ extern crate alloc;
 
 use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::rv32::a::ReservationSet;
-use crate::v::vector_registers::{
-    VectorRegisterFile, VectorRegisters, VectorRegistersBase, VectorRegistersExt,
-};
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
 use crate::zawrs::WrsHandler;
 use crate::zkr::{ZkrSeedPoll, ZkrSeedSource};
 use crate::{
@@ -389,15 +387,13 @@ impl Csrs<Reg<u64>> for ExtState {
     }
 }
 
-const impl VectorRegistersBase for ExtState {
-    const ELEN: Elen = Elen::L64;
-    const VLEN: Vlen = Vlen::L256;
-}
-
 const impl VectorRegisters for ExtState
 where
     Self: Csrs<Reg<u64>>,
 {
+    const ELEN: Elen = Elen::L64;
+    const VLEN: Vlen = Vlen::L256;
+
     fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
         &self.vector.vregs
     }

@@ -1,4 +1,4 @@
-use crate::prelude::{VLENB_USIZE, VectorRegistersBase};
+use crate::prelude::VLENB_USIZE;
 use crate::rv64::test_utils::{ExtState, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{
@@ -20,7 +20,7 @@ use core::num::NonZeroU8;
 //   E16/M2 -> VLMAX=32, 2 regs
 //   E32/M2 -> VLMAX=16, 2 regs (vd for widening E16 uses 2 regs)
 //   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
-const TEST_VLENB: usize = VLENB_USIZE::<{ <ExtState as VectorRegistersBase>::VLEN }>;
+const TEST_VLENB: usize = VLENB_USIZE::<{ <ExtState as VectorRegisters>::VLEN }>;
 const {
     assert!(TEST_VLENB == 32);
 }
