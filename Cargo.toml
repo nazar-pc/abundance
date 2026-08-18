@@ -66,13 +66,13 @@ async-nats = { version = "0.50.0", default-features = false, features = ["ring"]
 async-trait = "0.1.92"
 backon = { version = "1.6.0", default-features = false }
 bech32 = { version = "0.12.0", default-features = false }
-blake3 = { version = "1.8.5", default-features = false }
+blake3 = { version = "1.8.6", default-features = false }
 bytes = { version = "1.12.1", default-features = false }
-bytesize = { version = "2.6.0", default-features = false }
-cargo-gpu-install = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "99abecb20ab5d343bc661c8934daa44a8492ca93" }
+bytesize = { version = "2.7.0", default-features = false }
+cargo-gpu-install = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "eb73c07837c31b4eca701237e04ef1a46432e57b" }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.1", default-features = false }
-clap = { version = "4.6.5", features = ["derive"] }
+clap = { version = "4.6.6", features = ["derive"] }
 colored = { version = "3.1.1" }
 const_format = "0.2.36"
 core_affinity = "0.8.3"
@@ -87,7 +87,7 @@ event-listener = "5.4.2"
 event-listener-primitives = "2.0.2"
 fdlimit = "0.3.0"
 fs4 = "1.1.0"
-futures = { version = "0.3.33", default-features = false, features = ["async-await"] }
+futures = { version = "0.3.34", default-features = false, features = ["async-await"] }
 futures-timer = "3.0.4"
 gdt-cpus = "0.2606.1"
 halfbrown = "0.4.0"
@@ -128,7 +128,7 @@ serde_json = "1.0.151"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0", default-features = false }
 smallvec = { version = "1.15.2", features = ["union"] }
-spirv-std = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "99abecb20ab5d343bc661c8934daa44a8492ca93" }
+spirv-std = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "eb73c07837c31b4eca701237e04ef1a46432e57b" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "3.0.3"
