@@ -4,8 +4,9 @@ pub mod zaamo;
 pub mod zalrsc;
 
 use crate::{
-    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -27,6 +28,28 @@ where
 
     /// Clear any currently held reservation
     fn clear_reservation(&mut self);
+}
+
+// Convenience for threaded execution
+const impl<Reg, T> ReservationSet<Reg> for &mut T
+where
+    Reg: [const] Register,
+    T: [const] ReservationSet<Reg>,
+{
+    #[inline(always)]
+    fn reservation(&self) -> Option<Reg::Type> {
+        T::reservation(self)
+    }
+
+    #[inline(always)]
+    fn set_reservation(&mut self, address: Reg::Type) {
+        T::set_reservation(self, address);
+    }
+
+    #[inline(always)]
+    fn clear_reservation(&mut self) {
+        T::clear_reservation(self);
+    }
 }
 
 #[instruction_execution]

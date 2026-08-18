@@ -8,6 +8,8 @@ pub mod m;
 pub(crate) mod test_utils;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod threaded_tests;
 pub mod zabha;
 pub mod zacas;
 pub mod zalasr;
@@ -16,8 +18,9 @@ pub mod zk;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
-    ExecutionResult, PackedAddress, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler,
+    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;

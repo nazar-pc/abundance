@@ -10,8 +10,9 @@ use crate::rv64::zk::zkn::zknd::rv64_zknd_helpers;
 use crate::rv64::zk::zkn::zkne::rv64_zkne_helpers;
 use crate::rv64::zk::zkn::zknh::rv64_zknh_helpers;
 use crate::{
-    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;

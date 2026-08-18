@@ -181,13 +181,19 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// since a free function has no `Self` for them to be inferred from). This is purely an
 /// implementation detail; those functions are not meant to be used or referred to directly.
 ///
+/// Alongside `execute()`, an implementation of `ThreadedExecutableInstruction` is generated for the
+/// same enum, out of the very same arms. It is done in a somewhat opaque way here with the hopes
+/// that it would become possible to move the `ThreadedExecutableInstruction::execute_threaded()`
+/// method into `ExecutableInstruction` trait at some point. Right now it is not possible to mix
+/// const and non-const methods in the same trait.
+///
 /// If `execute()` carries `#[cfg_attr(feature = "no-panic", no_panic_const::no_panic(..))]`, it
 /// is stripped from `execute()` itself (which becomes a plain dispatcher, so the attribute would
 /// no longer serve its purpose there) and placed on every one of those generated functions
 /// instead, so each variant's execution logic is checked for panics individually. Since this
 /// depends on `execute()` in the implementation currently being processed specifically carrying
 /// this attribute, an implementation that inherits from a lower-level one that has it, but does
-/// not itself repeat it, will not get it applied to its own generated functions either.
+/// not itself repeat it will not get it applied to its own generated functions either.
 ///
 /// Also requires `process_instruction_macros()` in `build.rs` to function, see `#[instruction]`
 /// macro documentation.

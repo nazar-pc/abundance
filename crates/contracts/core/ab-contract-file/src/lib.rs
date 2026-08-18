@@ -27,6 +27,7 @@
 //! `ab-contracts-tooling` crate exists that can build and convert contracts to this format both
 //! programmatically and using CLI interface.
 
+#![expect(incomplete_features, reason = "explicit_tail_calls")]
 #![feature(
     const_block_items,
     const_cmp,
@@ -37,6 +38,7 @@
     const_try,
     const_try_residual,
     derive_const,
+    explicit_tail_calls,
     maybe_uninit_fill,
     signed_bigint_helpers,
     trusted_len,

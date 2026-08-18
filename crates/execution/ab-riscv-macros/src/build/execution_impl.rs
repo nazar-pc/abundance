@@ -1,12 +1,14 @@
 mod extract_matches;
 mod forbidden_checker;
+mod generate_threaded_fns;
 mod generate_variant_fns;
 
 use crate::build::enum_impl::enum_name_from_impl;
 use crate::build::execution_impl::extract_matches::extract_variant_arms;
 use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_syntax;
+use crate::build::execution_impl::generate_threaded_fns::generate_threaded_fns;
 use crate::build::execution_impl::generate_variant_fns::generate_variant_fns;
-use crate::build::shared::collect_all_dependencies;
+use crate::build::shared::{collect_all_dependencies, strip_const_where_predicates};
 use crate::build::state::{
     PendingEnumCsrImpl, PendingEnumExecutionImpl, PendingEnumOperandsImpl, State,
 };
@@ -19,8 +21,8 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter};
 use syn::{
-    Ident, ImplItem, ImplItemFn, ItemFn, ItemImpl, Token, WherePredicate, parse_file, parse_quote,
-    parse_str,
+    FnArg, Ident, ImplItem, ImplItemFn, Item, ItemFn, ItemImpl, Member, Pat, PatType, Token,
+    parse_file, parse_quote, parse_str,
 };
 
 const ORIGINAL_ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str =
@@ -222,12 +224,13 @@ fn output_processed_enum_execution_impl(
     original_item_impl: ItemImpl,
     item_impl: ItemImpl,
     variant_fns: Vec<ItemFn>,
+    threaded_items: Vec<Item>,
     out_dir: &Path,
     state: &mut State,
 ) -> anyhow::Result<()> {
     {
         let enum_file_path = out_dir.join(format!("{enum_name}_execution_impl.rs"));
-        let code = quote! { #( #variant_fns )* #item_impl }.to_string();
+        let code = quote! { #( #variant_fns )* #item_impl #( #threaded_items )* }.to_string();
         // Format
         let mut code = unparse(&parse_file(&code).expect("Generated code is valid; qed"));
         post_process_rust_code(&mut code);
@@ -466,6 +469,8 @@ pub(super) fn process_enum_csr_impl(
         }
     }
 
+    let is_const = item_impl.attrs.last() == Some(&parse_quote! { #[cst] });
+
     {
         let where_clause = item_impl
             .generics
@@ -484,37 +489,9 @@ pub(super) fn process_enum_csr_impl(
             where_clause.predicates.push(predicate);
         }
 
-        // TODO: This is a massive hack for implementations that strips `[const]` for non-const
-        //  instructions that inherit const instructions. `Destruct` is a special case here that is
-        //  avoided altogether for non-const implementations to improve downstream user experience.
-        if item_impl.attrs.last() != Some(&parse_quote! { #[cst] }) {
-            where_clause.predicates = where_clause
-                .predicates
-                .clone()
-                .into_iter()
-                .filter_map(|mut predicate| match &mut predicate {
-                    WherePredicate::Type(predicate_type) => {
-                        // TODO: Remove `Destruct` hack once stabilized:
-                        //  https://github.com/rust-lang/rust/issues/133214
-                        if predicate_type.bounds.to_token_stream().to_string()
-                            == "BRCONST + Destruct"
-                        {
-                            return None;
-                        }
-
-                        // TODO: `BRCONST` is a hack that allows `syn` to parse unstable Rust syntax
-                        //  around const traits and such. It will change to a proper modifier once
-                        //  stabilized
-                        if predicate_type.bounds.first() == Some(&parse_quote! { BRCONST }) {
-                            predicate_type.bounds =
-                                predicate_type.bounds.clone().into_iter().skip(1).collect();
-                        }
-
-                        Some(predicate)
-                    }
-                    _ => Some(predicate),
-                })
-                .collect();
+        // Non-const implementations that inherit arms from const ones must not keep `[const]`
+        if !is_const {
+            where_clause.predicates = strip_const_where_predicates(where_clause.predicates.clone());
         }
     }
 
@@ -631,6 +608,44 @@ pub(super) fn process_enum_execution_impl(
         ));
     };
 
+    // Every argument is normalized to not start with `_` in the name, so the later code can rely on
+    // canonical names
+    for input in &mut execute_fn.sig.inputs {
+        let FnArg::Typed(PatType {
+            pat,
+            attrs: _,
+            colon_token: _,
+            ty: _,
+        }) = input
+        else {
+            continue;
+        };
+
+        match pat.as_mut() {
+            Pat::Ident(pat_ident) => {
+                let ident = pat_ident.ident.to_string();
+                let Some(name) = ident.strip_prefix('_') else {
+                    continue;
+                };
+
+                pat_ident.ident = Ident::new(name, pat_ident.ident.span());
+            }
+            Pat::Struct(pat_struct) => {
+                for field in &mut pat_struct.fields {
+                    let Member::Named(member) = &field.member else {
+                        continue;
+                    };
+
+                    *field.pat = parse_quote! { #member };
+                    // The binding and the field are now spelled the same, so the field name is
+                    // redundant
+                    field.colon_token = None;
+                }
+            }
+            _ => {}
+        }
+    }
+
     // Support for `no_panic` macro, which is moved from the method to each extracted instruction
     // execution function
     let no_panic_attr_index = execute_fn.attrs.iter().position(|attr| {
@@ -685,6 +700,8 @@ pub(super) fn process_enum_execution_impl(
         }
     }
 
+    let is_const = item_impl.attrs.last() == Some(&parse_quote! { #[cst] });
+
     if let Some(where_clause) = &mut item_impl.generics.where_clause {
         let mut already_inserted = where_clause
             .predicates
@@ -699,37 +716,9 @@ pub(super) fn process_enum_execution_impl(
             where_clause.predicates.push(predicate);
         }
 
-        // TODO: This is a massive hack for implementations that strips `[const]` for non-const
-        //  instructions that inherit const instructions. `Destruct` is a special case here that is
-        //  avoided altogether for non-const implementations to improve downstream user experience.
-        if item_impl.attrs.last() != Some(&parse_quote! { #[cst] }) {
-            where_clause.predicates = where_clause
-                .predicates
-                .clone()
-                .into_iter()
-                .filter_map(|mut predicate| match &mut predicate {
-                    WherePredicate::Type(predicate_type) => {
-                        // TODO: Remove `Destruct` hack once stabilized:
-                        //  https://github.com/rust-lang/rust/issues/133214
-                        if predicate_type.bounds.to_token_stream().to_string()
-                            == "BRCONST + Destruct"
-                        {
-                            return None;
-                        }
-
-                        // TODO: `BRCONST` is a hack that allows `syn` to parse unstable Rust syntax
-                        //  around const traits and such. It will change to a proper modifier once
-                        //  stabilized
-                        if predicate_type.bounds.first() == Some(&parse_quote! { BRCONST }) {
-                            predicate_type.bounds =
-                                predicate_type.bounds.clone().into_iter().skip(1).collect();
-                        }
-
-                        Some(predicate)
-                    }
-                    _ => Some(predicate),
-                })
-                .collect();
+        // Non-const implementations that inherit arms from const ones must not keep `[const]`
+        if !is_const {
+            where_clause.predicates = strip_const_where_predicates(where_clause.predicates.clone());
         }
     } else {
         return Err(anyhow::anyhow!(
@@ -763,8 +752,6 @@ pub(super) fn process_enum_execution_impl(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let is_const = item_impl.attrs.last() == Some(&parse_quote! { #[cst] });
-
     let variant_fns = generate_variant_fns(
         &enum_name,
         &item_impl.self_ty,
@@ -774,6 +761,16 @@ pub(super) fn process_enum_execution_impl(
         &execute_fn.sig,
         &enum_definition.instructions,
         &mut match_arms,
+    )?;
+
+    // The tail-call-threaded implementation is generated from the very same arms, alongside the
+    // `match`-based `execute()` rather than instead of it
+    let threaded_items = generate_threaded_fns(
+        &enum_name,
+        &item_impl.self_ty,
+        &item_impl.generics,
+        &enum_definition.instructions,
+        &match_arms,
     )?;
 
     execute_fn.block = parse_quote! {{
@@ -787,6 +784,7 @@ pub(super) fn process_enum_execution_impl(
         original_item_impl,
         item_impl,
         variant_fns,
+        threaded_items,
         out_dir,
         state,
     )

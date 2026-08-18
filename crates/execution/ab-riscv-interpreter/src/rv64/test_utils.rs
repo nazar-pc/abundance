@@ -8,8 +8,8 @@ use crate::zkr::{ZkrSeedPoll, ZkrSeedSource};
 use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
+    VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -413,6 +413,8 @@ where
 
 impl VectorRegistersExt<Reg<u64>> for ExtState {}
 
+impl_vector_registers_for_mut_ref!(ExtState, Reg<u64>);
+
 impl ExtState {
     pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
         self.csr.privilege_level = privilege_level;
@@ -592,4 +594,21 @@ where
     }
 
     Ok(())
+}
+
+/// Same as [`execute()`], but driven by tail-call-threaded dispatch instead of an explicit loop
+pub(crate) fn execute_threaded<I>(
+    state: &mut TestInterpreterState<I>,
+) -> Result<(), ExecutionError<Address<I>>>
+where
+    I: Instruction<Reg = Reg<u64>>
+        + for<'a> ThreadedExecutableInstruction<
+            BasicRegisters<Reg<u64>>,
+            &'a mut ExtState,
+            TestMemory,
+            TestInstructionFetcher<I>,
+            &'a mut TestInstructionHandler,
+        >,
+{
+    state.execute_threaded::<I>()
 }
