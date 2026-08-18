@@ -1,10 +1,11 @@
-#![expect(incomplete_features, reason = "generic_const_*")]
+#![expect(incomplete_features, reason = "generic_const_*, explicit_tail_calls")]
 #![feature(
     adt_const_params,
     const_cmp,
     const_trait_impl,
     const_try,
     const_try_residual,
+    explicit_tail_calls,
     generic_const_args,
     generic_const_items,
     inherent_associated_types,

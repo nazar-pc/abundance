@@ -86,7 +86,7 @@
 //!   of, although it would be cheaper to support the fuller feature set only required by V
 //!   extension
 
-#![expect(incomplete_features, reason = "generic_const_*")]
+#![expect(incomplete_features, reason = "generic_const_*, explicit_tail_calls")]
 #![feature(
     adt_const_params,
     const_block_items,
@@ -101,6 +101,7 @@
     const_result_trait_fn,
     const_trait_impl,
     const_try,
+    explicit_tail_calls,
     generic_const_args,
     generic_const_items,
     inherent_associated_types,
@@ -771,6 +772,29 @@ where
     fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>>;
 }
 
+// Convenience for threaded execution
+const impl<Reg, CustomError, T> Csrs<Reg, CustomError> for &mut T
+where
+    Reg: [const] Register,
+    CustomError: [const] Destruct,
+    T: [const] Csrs<Reg, CustomError>,
+{
+    #[inline(always)]
+    fn privilege_level(&self) -> PrivilegeLevel {
+        T::privilege_level(self)
+    }
+
+    #[inline(always)]
+    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>> {
+        T::read_csr(self, csr_index)
+    }
+
+    #[inline(always)]
+    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>> {
+        T::write_csr(self, csr_index, value)
+    }
+}
+
 /// Custom handler for system instructions `ecall` and `ebreak`
 pub const trait SystemInstructionHandler<
     Reg,
@@ -816,6 +840,39 @@ pub const trait SystemInstructionHandler<
         let _: &mut Memory = memory;
         let _: Reg::Type = pc;
         // NOP by default
+    }
+}
+
+// Convenience for threaded execution
+const impl<Reg, Regs, Memory, PC, CustomError, T>
+    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError> for &mut T
+where
+    Reg: [const] Register,
+    T: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+{
+    #[inline(always)]
+    fn handle_fence(&mut self, pred: u8, succ: u8) {
+        T::handle_fence(self, pred, succ);
+    }
+
+    #[inline(always)]
+    fn handle_fence_tso(&mut self) {
+        T::handle_fence_tso(self);
+    }
+
+    #[inline(always)]
+    fn handle_ecall(
+        &mut self,
+        regs: &mut Regs,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+        T::handle_ecall(self, regs, memory, program_counter)
+    }
+
+    #[inline(always)]
+    fn handle_ebreak(&mut self, regs: &mut Regs, memory: &mut Memory, pc: Reg::Type) {
+        T::handle_ebreak(self, regs, memory, pc);
     }
 }
 
@@ -959,4 +1016,99 @@ pub const trait ExecutableInstruction<
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg, CustomError>;
+}
+
+/// Outcome of [`ThreadedExecutableInstruction::execute_threaded()`].
+///
+/// Unlike [`ExecutionResult`], this is produced exactly once, by the handler that stops the chain
+/// and is not on the per-instruction path.
+///
+/// The instruction fetcher travels through the chain by value and comes back here to remain
+/// available, exactly as it would be after [`ExecutableInstruction::execute()`].
+#[derive(Debug)]
+pub struct ThreadedExecutionResult<IF, I, CustomError = CustomErrorPlaceholder>
+where
+    I: Instruction,
+{
+    /// Instruction fetcher as of the moment execution stopped
+    pub instruction_fetcher: IF,
+    /// Why execution stopped
+    pub outcome: Result<(), ExecutionError<Address<I>, CustomError>>,
+}
+
+impl<IF, I, CustomError> ThreadedExecutionResult<IF, I, CustomError>
+where
+    I: Instruction,
+{
+    /// Execution stopped gracefully
+    #[inline(always)]
+    pub const fn stopped(instruction_fetcher: IF) -> Self {
+        Self {
+            instruction_fetcher,
+            outcome: Ok(()),
+        }
+    }
+
+    /// Execution failed
+    #[inline(always)]
+    pub const fn failed(
+        instruction_fetcher: IF,
+        error: ExecutionError<Address<I>, CustomError>,
+    ) -> Self {
+        cold_path();
+        Self {
+            instruction_fetcher,
+            outcome: Err(error),
+        }
+    }
+}
+
+/// Tail-call-threaded counterpart of [`ExecutableInstruction`].
+///
+/// [`ExecutableInstruction::execute()`] describes what a single instruction does and leaves both
+/// fetching and control flow to a driver loop. This trait instead runs the whole program: it is
+/// generated as one handler function per instruction variant, each of which executes its own
+/// instruction and then tail-calls (`become`) the handler of the next one, so there is no loop and
+/// no return until execution stops. Each handler touches only the operands its own instruction
+/// names, which is what the shared loop cannot do.
+///
+/// Instruction implementations are unaffected: the handlers are assembled from the very same
+/// `match` arms that [`ExecutableInstruction::execute()`] are assembled from, so both paths execute
+/// identical logic and a caller picks between them purely on the trade between code size
+/// (`execute`) and throughput (`execute_threaded`).
+///
+/// This trait is deliberately not `const`, unlike [`ExecutableInstruction`]: dispatch goes through
+/// a table of function pointers, and calls through a function pointer are not allowed in
+/// `const fn`.
+pub trait ThreadedExecutableInstruction<
+    Regs,
+    ExtState,
+    Memory,
+    PC,
+    InstructionHandler,
+    CustomError = CustomErrorPlaceholder,
+> where
+    Self: ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
+    PC: InstructionFetcher<Self, Memory, CustomError>,
+{
+    /// Execute instructions starting at the instruction fetcher's current position and continue
+    /// until execution stops or fails.
+    ///
+    /// The instruction fetcher is taken by value rather than behind a reference so that it stays in
+    /// registers across the whole handler chain and is returned in [`ThreadedExecutionResult`].
+    ///
+    /// `ext_state` and `system_instruction_handler` are taken by value for the same reason and one
+    /// more: an owned value can be a zero-sized type, which occupies no argument register at all,
+    /// whereas a `&mut` occupies one whether there is anything behind it or not. Most
+    /// configurations have no extension state and a stateless system instruction handler, so both
+    /// vanish, allowing more registers for other arguments. A configuration that does have a state
+    /// passes a `&mut` to it (which is an owned value too and for which there are blanket
+    /// implementations for convenience).
+    fn execute_threaded(
+        instruction_fetcher: PC,
+        regs: &mut Regs,
+        ext_state: ExtState,
+        memory: &mut Memory,
+        system_instruction_handler: InstructionHandler,
+    ) -> ThreadedExecutionResult<PC, Self, CustomError>;
 }

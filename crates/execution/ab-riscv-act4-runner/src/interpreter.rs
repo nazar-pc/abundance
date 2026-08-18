@@ -137,7 +137,7 @@ where
 // TODO: The compiler does not normalize `<Self as VectorRegisters>::VLEN` (as used in the
 //  signatures of the methods below) to the `VLEN` const generic while `Self` is generic, so this
 //  impl has to be instantiated for concrete parameters instead of being generic like the rest of
-//  them
+//  them: https://github.com/rust-lang/rust/issues/161264
 macro_rules! impl_vector_registers {
     ($reg:ty, $elen:expr, $vlen:expr) => {
         impl VectorRegisters for TestExtState<$reg, { $elen }, { $vlen }> {

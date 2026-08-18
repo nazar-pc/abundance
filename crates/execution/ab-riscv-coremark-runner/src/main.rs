@@ -1,8 +1,10 @@
+#![expect(incomplete_features, reason = "explicit_tail_calls")]
 #![feature(
     const_cmp,
     const_trait_impl,
     const_try,
     const_try_residual,
+    explicit_tail_calls,
     signed_bigint_helpers,
     try_blocks
 )]

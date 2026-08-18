@@ -2,8 +2,9 @@ use crate::rv64::test_utils::{ExtState, execute, initialize_state};
 use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction, ExecutableInstructionCsr,
-    ExecutableInstructionOperands, ExecutionError, ExecutionResult, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstructionOperands, ExecutionError, ExecutionResult, FetchInstructionResult,
+    InstructionFetcher, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;

@@ -7,7 +7,8 @@ pub mod zkr_helpers;
 use crate::zicsr::zicsr_helpers;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionError, ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -42,6 +43,17 @@ pub enum ZkrSeedPoll {
 pub const trait ZkrSeedSource {
     /// Poll the entropy source once, advancing its internal state as necessary
     fn poll_seed(&mut self) -> ZkrSeedPoll;
+}
+
+// Convenience for threaded execution
+const impl<T> ZkrSeedSource for &mut T
+where
+    T: [const] ZkrSeedSource,
+{
+    #[inline(always)]
+    fn poll_seed(&mut self) -> ZkrSeedPoll {
+        T::poll_seed(self)
+    }
 }
 
 #[instruction_execution]

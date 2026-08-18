@@ -4,8 +4,9 @@
 mod tests;
 
 use crate::{
-    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionResult, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -25,6 +26,22 @@ pub const trait WrsHandler {
     #[inline(always)]
     fn handle_wrs_sto(&mut self) {
         // NOP by default
+    }
+}
+
+// Convenience for threaded execution
+const impl<T> WrsHandler for &mut T
+where
+    T: [const] WrsHandler,
+{
+    #[inline(always)]
+    fn handle_wrs_nto(&mut self) {
+        T::handle_wrs_nto(self);
+    }
+
+    #[inline(always)]
+    fn handle_wrs_sto(&mut self) {
+        T::handle_wrs_sto(self);
     }
 }
 

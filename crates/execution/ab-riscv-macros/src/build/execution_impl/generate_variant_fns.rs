@@ -19,6 +19,17 @@ struct Param<'a> {
     ty: Type,
 }
 
+/// Name of the function generated for a single instruction variant's execution logic.
+///
+/// Shared with the threaded emitter, which calls those functions rather than generating its own.
+pub(super) fn variant_fn_name(enum_name: &Ident, variant: &Ident) -> Ident {
+    format_ident!(
+        "execute_{}_{}",
+        enum_name.to_string().to_snake_case(),
+        variant.to_string().to_snake_case(),
+    )
+}
+
 /// This rewrites every `Self` into a fully qualified concrete instruction enum type instead.
 ///
 /// `execute()`'s own body is written against `Self`, but the functions generated here are
@@ -124,10 +135,7 @@ fn extract_single_generic_type(ty: &Type) -> anyhow::Result<&Type> {
 }
 
 /// Extracts parameters shared by all generated per-variant functions from `execute()`'s own
-/// signature (excluding `self`).
-///
-/// Arguments (or destructured fields of a struct argument) whose identifier starts with `_` are
-/// considered unused and skipped.
+/// signature (excluding `self`)
 fn extract_shared_params(sig: &Signature) -> anyhow::Result<Vec<Param<'_>>> {
     let mut shared_params = Vec::new();
 
@@ -151,12 +159,10 @@ fn extract_shared_params(sig: &Signature) -> anyhow::Result<Vec<Param<'_>>> {
                 mutability: _,
                 subpat: _,
             }) => {
-                if !ident.to_string().starts_with('_') {
-                    shared_params.push(Param {
-                        ident,
-                        ty: ty.as_ref().clone(),
-                    });
-                }
+                shared_params.push(Param {
+                    ident,
+                    ty: ty.as_ref().clone(),
+                });
             }
             Pat::Struct(pat_struct) => {
                 let field_ty = extract_single_generic_type(ty)?;
@@ -169,15 +175,16 @@ fn extract_shared_params(sig: &Signature) -> anyhow::Result<Vec<Param<'_>>> {
                         subpat: _,
                     }) = field.pat.as_ref()
                     else {
-                        // `_` or another unsupported nested pattern, treated as unused
-                        continue;
+                        return Err(anyhow::anyhow!(
+                            "Destructured `execute()` argument field `{}` must be bound to an \
+                            identifier",
+                            field.to_token_stream()
+                        ));
                     };
-                    if !ident.to_string().starts_with('_') {
-                        shared_params.push(Param {
-                            ident,
-                            ty: field_ty.clone(),
-                        });
-                    }
+                    shared_params.push(Param {
+                        ident,
+                        ty: field_ty.clone(),
+                    });
                 }
             }
             _ => {
@@ -298,11 +305,7 @@ pub(super) fn generate_variant_fns(
             self_rewriter.visit_type_mut(&mut param.ty);
         }
 
-        let fn_name = format_ident!(
-            "execute_{}_{}",
-            enum_name.to_string().to_snake_case(),
-            variant.ident.to_string().to_snake_case(),
-        );
+        let fn_name = variant_fn_name(enum_name, &variant.ident);
 
         let call_args = variant_params
             .iter()

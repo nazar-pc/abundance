@@ -36,9 +36,9 @@ build = [
     "dep:ab-riscv-macros-common",
     "dep:anyhow",
     "dep:heck",
-    "dep:prettyplease",
     "dep:quote",
     "dep:syn",
+    "prettyplease/verbatim",
 ]
 # Enable proc macro re-export
 proc-macro = [
