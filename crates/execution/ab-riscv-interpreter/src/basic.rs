@@ -5,16 +5,15 @@ mod tests;
 
 use crate::zawrs::WrsHandler;
 use crate::{
-    Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
-    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler,
-    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
+    FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
+    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::hint::cold_path;
-use core::marker::PhantomData;
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
@@ -482,17 +481,15 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
 /// Note that it loads instructions from anywhere in memory. This works, but it is likely that you
 /// want to restrict this to a specific executable region of memory.
 #[derive(Debug, Copy, Clone)]
-pub struct BasicInstructionFetcher<I, CustomError = CustomErrorPlaceholder>
+pub struct BasicInstructionFetcher<I>
 where
     I: Instruction,
 {
     return_trap_address: Address<I>,
     pc: Address<I>,
-    _phantom: PhantomData<CustomError>,
 }
 
-const impl<I, Memory, CustomError> ProgramCounter<Address<I>, Memory, CustomError>
-    for BasicInstructionFetcher<I, CustomError>
+const impl<I, Memory> ProgramCounter<Address<I>, Memory> for BasicInstructionFetcher<I>
 where
     I: [const] Instruction,
     Memory: [const] VirtualMemory,
@@ -508,8 +505,8 @@ where
         memory: &Memory,
         instruction_size: u8,
         offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
-        let old_pc = <Self as ProgramCounter<_, Memory, _>>::old_pc(self, instruction_size);
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
+        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
         self.set_pc(memory, old_pc.wrapping_add_signed(offset))
     }
 
@@ -519,7 +516,7 @@ where
         &mut self,
         _memory: &Memory,
         pc: Address<I>,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -538,15 +535,14 @@ where
     }
 }
 
-const impl<I, Memory, CustomError> InstructionFetcher<I, Memory, CustomError>
-    for BasicInstructionFetcher<I, CustomError>
+const impl<I, Memory> InstructionFetcher<I, Memory> for BasicInstructionFetcher<I>
 where
     I: [const] Instruction,
     Memory: [const] VirtualMemory,
 {
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError> {
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
         let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
@@ -576,7 +572,7 @@ where
     }
 }
 
-impl<I, CustomError> BasicInstructionFetcher<I, CustomError>
+impl<I> BasicInstructionFetcher<I>
 where
     I: Instruction,
 {
@@ -589,7 +585,6 @@ where
         Self {
             return_trap_address,
             pc,
-            _phantom: PhantomData,
         }
     }
 }
@@ -599,12 +594,11 @@ where
 #[derive(Debug, Default, Clone, Copy)]
 pub struct IllegalEcallSystemInstructionHandler;
 
-const impl<Reg, Regs, Memory, PC, CustomError>
-    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>
+const impl<Reg, Regs, Memory, PC> SystemInstructionHandler<Reg, Regs, Memory, PC>
     for IllegalEcallSystemInstructionHandler
 where
     Reg: [const] Register,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn handle_ecall(
@@ -612,7 +606,7 @@ where
         _regs: &mut Regs,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
         Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })

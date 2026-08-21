@@ -19,24 +19,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxMaskInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxMaskInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxMaskInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxMaskInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,7 +49,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // Mask-register logical instructions (§16.1).
             // These compute the body elements [vstart, vl); prestart bits [0, vstart) are

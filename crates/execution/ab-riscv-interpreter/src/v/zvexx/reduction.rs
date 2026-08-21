@@ -20,24 +20,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxReductionInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxReductionInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxReductionInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxReductionInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -52,7 +50,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {
                 if !ext_state.vector_instructions_allowed() {
@@ -81,7 +79,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -129,7 +127,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -176,7 +174,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -223,7 +221,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -270,7 +268,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -320,7 +318,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -375,7 +373,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -425,7 +423,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -489,7 +487,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -499,7 +497,7 @@ where
                 // SAFETY: `vs2` alignment checked; widening SEW constraint checked above;
                 // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
                 unsafe {
-                    zvexx_reduction_helpers::execute_widening_reduce_op::<false, _, _, _, _>(
+                    zvexx_reduction_helpers::execute_widening_reduce_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -546,7 +544,7 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -555,7 +553,7 @@ where
                 let vl = ext_state.vl();
                 // SAFETY: see `Vwredsumu`
                 unsafe {
-                    zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _, _>(
+                    zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,

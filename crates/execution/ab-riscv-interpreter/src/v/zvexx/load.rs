@@ -19,24 +19,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxLoadInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxLoadInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxLoadInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxLoadInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,7 +49,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // Whole-register load: loads `nreg` consecutive registers starting at `vd` directly
             // from memory. `vd` must be aligned to `nreg`. Ignores vtype, vl, vstart, masking.
@@ -167,7 +165,7 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -196,7 +194,7 @@ where
                 //   VLMAX that bounds `vl`
                 // - mask overlap: checked above via `groups_overlap`
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
                         ext_state,
                         memory,
                         vd,
@@ -240,7 +238,7 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -262,7 +260,7 @@ where
                 }
                 // SAFETY: preconditions identical to `Vle`; see that arm for the full argument.
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _>(
                         ext_state,
                         memory,
                         vd,
@@ -307,7 +305,7 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -385,12 +383,12 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     data_group_regs,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,
@@ -491,12 +489,12 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     data_group_regs,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,
@@ -585,7 +583,7 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
+                zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
                     vm,
@@ -601,7 +599,7 @@ where
                 // - mask overlap with v0: `validate_segment_registers` checked `vd.to_bits() != 0`
                 //   when `vm=false`, ensuring no field group contains v0
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
                         ext_state,
                         memory,
                         vd,
@@ -647,7 +645,7 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
+                zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
                     vm,
@@ -656,7 +654,7 @@ where
                 )?;
                 // SAFETY: preconditions identical to `Vlseg`; see that arm for the full argument.
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _>(
                         ext_state,
                         memory,
                         vd,
@@ -703,7 +701,7 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
+                zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
                     vm,
@@ -771,14 +769,14 @@ where
                 // `validate_segment_registers` is called before the per-field overlap loop so
                 // that `vd.to_bits() + f * data_group_regs < 32` is established for all `f < nf`,
                 // which is required by the `VReg::from_bits` call inside the loop.
-                zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
+                zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
                     vm,
                     data_group_regs,
                     nf,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,
@@ -870,14 +868,14 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::validate_segment_registers::<Reg, _, _, _>(
+                zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
                     vm,
                     data_group_regs,
                     nf,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,

@@ -18,7 +18,7 @@ use core::hint::cold_path;
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_reduce_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -29,7 +29,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -74,13 +74,7 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, CustomError, F>(
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widening_reduce_op<
-    const SIGN_EXTEND_SRC: bool,
-    Reg,
-    ExtState,
-    CustomError,
-    F,
->(
+pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -91,7 +85,7 @@ pub unsafe fn execute_widening_reduce_op<
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {

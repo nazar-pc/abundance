@@ -34,23 +34,19 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZveXxInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for ZveXxInstruction<Reg>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZveXxInstruction<Reg>
 where
     Reg: Register,
 {
@@ -67,7 +63,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

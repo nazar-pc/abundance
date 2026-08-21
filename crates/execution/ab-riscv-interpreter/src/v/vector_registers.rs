@@ -1,8 +1,7 @@
 //! Vector registers
 
-use crate::{Csrs, CustomErrorPlaceholder};
+use crate::Csrs;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
 
@@ -50,7 +49,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
 /// update semantics: `vtype` must maintain a cached decoded form and handle the XLEN-dependent vill
 /// bit, and `vl` is read-only via CSR instructions but writable by `vsetvl{i}` and fault-only-first
 /// loads.
-pub const trait VectorRegisters<CustomError = CustomErrorPlaceholder> {
+pub const trait VectorRegisters {
     /// Maximum vector element width `ELEN` in bits
     const ELEN: Elen;
     /// Vector register width `VLEN` in bits
@@ -105,12 +104,11 @@ pub const trait VectorRegisters<CustomError = CustomErrorPlaceholder> {
 /// higher-performance implementations are often possible by overriding them and, for example,
 /// caching various CSRs as separate pre-decoded values rather than going through a generic code
 /// path with XLEN-sized raw CSR values during reads.
-pub const trait VectorRegistersExt<Reg, CustomError = CustomErrorPlaceholder>
+pub const trait VectorRegistersExt<Reg>
 where
-    Self: [const] Csrs<Reg, CustomError> + [const] VectorRegisters<CustomError>,
+    Self: [const] Csrs<Reg> + [const] VectorRegisters,
     [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
     Reg: [const] Register,
-    CustomError: [const] Destruct,
 {
     /// Initialize the vector state to the recommended default configuration.
     ///

@@ -24,7 +24,6 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
@@ -34,24 +33,20 @@ const impl<Reg> ExecutableInstructionOperands for Rv64Instruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64Instruction<Reg>
-where
-    Reg: Register<Type = u64>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64Instruction<Reg> where
+    Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for Rv64Instruction<Reg>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for Rv64Instruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
-    CustomError: [const] Destruct,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
+    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -66,7 +61,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Add { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value.wrapping_add(rs2_value);

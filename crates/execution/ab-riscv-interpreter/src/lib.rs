@@ -329,18 +329,8 @@ where
     }
 }
 
-/// Placeholder for custom errors in [`ExecutionError`]
-#[derive(Debug, Copy, Clone)]
-pub struct CustomErrorPlaceholder;
-
-impl fmt::Display for CustomErrorPlaceholder {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
-    }
-}
-
 /// Generic program counter
-pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder>
+pub const trait ProgramCounter<Address, Memory>
 where
     Address: Copy,
 {
@@ -375,14 +365,14 @@ where
         memory: &Memory,
         instruction_size: u8,
         offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Address>>;
 
     /// Set the current value of the program counter
     fn set_pc(
         &mut self,
         memory: &Memory,
         pc: Address,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Address>>;
 }
 
 /// Address wrapper for [`ExecutionError`] with an alignment of 4 rather than its natural one.
@@ -457,10 +447,8 @@ where
 /// bytes; flattened it is 16, which is what lets `Result<_, ExecutionError>` be returned in
 /// registers instead of through a hidden out-pointer. `From` implementations for all three are
 /// provided, so `?` on them keeps working unchanged.
-///
-/// Note that a large `CustomError` will grow this type past that threshold again.
 #[derive(Debug, thiserror::Error)]
-pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder>
+pub enum ExecutionError<Address>
 where
     Address: Copy,
 {
@@ -532,8 +520,8 @@ where
         current: PrivilegeLevel,
     },
     /// Custom error
-    #[error("Custom error: {0}")]
-    Custom(CustomError),
+    #[error("Custom error: {0:?}")]
+    Custom([u8; 8]),
 }
 
 /// Where execution continues after an instruction, or why it could not.
@@ -543,7 +531,7 @@ where
 /// how the program counter is represented, which is what allows the same bodies to drive both an
 /// interpreter loop that owns a program counter and one that carries it in a register.
 #[derive(Debug)]
-pub enum ExecutionResult<Reg, CustomError = CustomErrorPlaceholder>
+pub enum ExecutionResult<Reg>
 where
     Reg: Register,
 {
@@ -573,7 +561,7 @@ where
     /// Stop execution
     Break,
     /// Execution failed
-    Err(ExecutionError<Reg::Type, CustomError>),
+    Err(ExecutionError<Reg::Type>),
 }
 
 const {
@@ -582,27 +570,23 @@ const {
     assert!(size_of::<ExecutionResult<Reg<u32>>>() <= 16);
 }
 
-const impl<Reg, CustomError> From<ExecutionError<Reg::Type, CustomError>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> From<ExecutionError<Reg::Type>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
     #[inline(always)]
-    fn from(error: ExecutionError<Reg::Type, CustomError>) -> Self {
+    fn from(error: ExecutionError<Reg::Type>) -> Self {
         cold_path();
         Self::Err(error)
     }
 }
 
-const impl<Reg, CustomError>
-    FromResidual<Result<Infallible, ExecutionError<Reg::Type, CustomError>>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> FromResidual<Result<Infallible, ExecutionError<Reg::Type>>> for ExecutionResult<Reg>
 where
     Reg: Register,
-    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, ExecutionError<Reg::Type, CustomError>>) -> Self {
+    fn from_residual(residual: Result<Infallible, ExecutionError<Reg::Type>>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
@@ -613,8 +597,7 @@ where
     }
 }
 
-const impl<Reg, CustomError> FromResidual<Result<Infallible, VirtualMemoryError>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> FromResidual<Result<Infallible, VirtualMemoryError>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
@@ -630,14 +613,12 @@ where
     }
 }
 
-const impl<Reg, CustomError> FromResidual<Result<Infallible, CsrError<CustomError>>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> FromResidual<Result<Infallible, CsrError>> for ExecutionResult<Reg>
 where
     Reg: Register,
-    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, CsrError<CustomError>>) -> Self {
+    fn from_residual(residual: Result<Infallible, CsrError>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
@@ -648,7 +629,7 @@ where
     }
 }
 
-const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Address, CustomError>
+const impl<Address> From<VirtualMemoryError> for ExecutionError<Address>
 where
     Address: Copy,
 {
@@ -665,14 +646,12 @@ where
     }
 }
 
-const impl<Address, CustomError> From<CsrError<CustomError>>
-    for ExecutionError<Address, CustomError>
+const impl<Address> From<CsrError> for ExecutionError<Address>
 where
     Address: Copy,
-    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    fn from(value: CsrError<CustomError>) -> Self {
+    fn from(value: CsrError) -> Self {
         match value {
             CsrError::ReadOnly { csr_index } => Self::CsrReadOnly { csr_index },
             CsrError::IllegalRead { csr_index } => Self::CsrIllegalRead { csr_index },
@@ -694,7 +673,7 @@ where
 
 /// Result of [`InstructionFetcher::fetch_instruction()`] call
 #[derive(Debug)]
-pub enum FetchInstructionResult<I, CustomError = CustomErrorPlaceholder>
+pub enum FetchInstructionResult<I>
 where
     I: Instruction,
 {
@@ -705,23 +684,23 @@ where
     /// Stop execution
     Break,
     /// Fetching failed
-    Err(ExecutionError<Address<I>, CustomError>),
+    Err(ExecutionError<Address<I>>),
 }
 
 /// Generic instruction fetcher
-pub const trait InstructionFetcher<I, Memory, CustomError = CustomErrorPlaceholder>
+pub const trait InstructionFetcher<I, Memory>
 where
-    Self: ProgramCounter<Address<I>, Memory, CustomError>,
+    Self: ProgramCounter<Address<I>, Memory>,
     I: Instruction,
 {
     /// Fetch a single instruction at a specified address and advance the program counter on
     /// successful fetch
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError>;
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
 }
 
 /// CSR error
 #[derive(Debug, thiserror::Error)]
-pub enum CsrError<CustomError = CustomErrorPlaceholder> {
+pub enum CsrError {
     /// Read only CSR
     #[error("Read only CSR {csr_index:#x}")]
     ReadOnly {
@@ -760,15 +739,14 @@ pub enum CsrError<CustomError = CustomErrorPlaceholder> {
         current: PrivilegeLevel,
     },
     /// Custom error
-    #[error("Custom error: {0}")]
-    Custom(CustomError),
+    #[error("Custom error: {0:?}")]
+    Custom([u8; 8]),
 }
 
 /// CSRs (Control and Status Registers)
-pub const trait Csrs<Reg, CustomError = CustomErrorPlaceholder>
+pub const trait Csrs<Reg>
 where
     Reg: [const] Register,
-    CustomError: [const] Destruct,
 {
     /// Current privilege level
     #[inline(always)]
@@ -777,18 +755,17 @@ where
     }
 
     /// Reads register value
-    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>>;
+    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError>;
 
     /// Writes register value
-    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>>;
+    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError>;
 }
 
 // Convenience for threaded execution
-const impl<Reg, CustomError, T> Csrs<Reg, CustomError> for &mut T
+const impl<Reg, T> Csrs<Reg> for &mut T
 where
     Reg: [const] Register,
-    CustomError: [const] Destruct,
-    T: [const] Csrs<Reg, CustomError>,
+    T: [const] Csrs<Reg>,
 {
     #[inline(always)]
     fn privilege_level(&self) -> PrivilegeLevel {
@@ -796,24 +773,19 @@ where
     }
 
     #[inline(always)]
-    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>> {
+    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError> {
         T::read_csr(self, csr_index)
     }
 
     #[inline(always)]
-    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>> {
+    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError> {
         T::write_csr(self, csr_index, value)
     }
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
-pub const trait SystemInstructionHandler<
-    Reg,
-    Regs,
-    Memory,
-    PC,
-    CustomError = CustomErrorPlaceholder,
-> where
+pub const trait SystemInstructionHandler<Reg, Regs, Memory, PC>
+where
     Reg: Register,
 {
     // TODO: Figure out the correct API for this method
@@ -838,7 +810,7 @@ pub const trait SystemInstructionHandler<
         regs: &mut Regs,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>>;
 
     /// Handle an `ebreak` instruction.
     ///
@@ -855,11 +827,10 @@ pub const trait SystemInstructionHandler<
 }
 
 // Convenience for threaded execution
-const impl<Reg, Regs, Memory, PC, CustomError, T>
-    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError> for &mut T
+const impl<Reg, Regs, Memory, PC, T> SystemInstructionHandler<Reg, Regs, Memory, PC> for &mut T
 where
     Reg: [const] Register,
-    T: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    T: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     fn handle_fence(&mut self, pred: u8, succ: u8) {
@@ -877,7 +848,7 @@ where
         regs: &mut Regs,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
         T::handle_ecall(self, regs, memory, program_counter)
     }
 
@@ -925,7 +896,7 @@ where
     fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
 }
 
-pub const trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
+pub const trait ExecutableInstructionCsr<ExtState>
 where
     Self: Instruction,
 {
@@ -956,7 +927,7 @@ where
         will_write: bool,
         raw_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &ExtState = ext_state;
         let _: u16 = csr_index;
@@ -986,7 +957,7 @@ where
         csr_index: u16,
         write_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &mut ExtState = ext_state;
         let _: u16 = csr_index;
@@ -998,15 +969,9 @@ where
 }
 
 /// Trait for executable instructions
-pub const trait ExecutableInstruction<
-    Regs,
-    ExtState,
-    Memory,
-    PC,
-    InstructionHandler,
-    CustomError = CustomErrorPlaceholder,
-> where
-    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<ExtState, CustomError>,
+pub const trait ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+where
+    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<ExtState>,
 {
     /// Execute instruction.
     ///
@@ -1026,7 +991,7 @@ pub const trait ExecutableInstruction<
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError>;
+    ) -> ExecutionResult<Self::Reg>;
 }
 
 /// Outcome of [`ThreadedExecutableInstruction::execute_threaded()`].
@@ -1037,17 +1002,17 @@ pub const trait ExecutableInstruction<
 /// The instruction fetcher travels through the chain by value and comes back here to remain
 /// available, exactly as it would be after [`ExecutableInstruction::execute()`].
 #[derive(Debug)]
-pub struct ThreadedExecutionResult<IF, I, CustomError = CustomErrorPlaceholder>
+pub struct ThreadedExecutionResult<IF, I>
 where
     I: Instruction,
 {
     /// Instruction fetcher as of the moment execution stopped
     pub instruction_fetcher: IF,
     /// Why execution stopped
-    pub outcome: Result<(), ExecutionError<Address<I>, CustomError>>,
+    pub outcome: Result<(), ExecutionError<Address<I>>>,
 }
 
-impl<IF, I, CustomError> ThreadedExecutionResult<IF, I, CustomError>
+impl<IF, I> ThreadedExecutionResult<IF, I>
 where
     I: Instruction,
 {
@@ -1062,10 +1027,7 @@ where
 
     /// Execution failed
     #[inline(always)]
-    pub const fn failed(
-        instruction_fetcher: IF,
-        error: ExecutionError<Address<I>, CustomError>,
-    ) -> Self {
+    pub const fn failed(instruction_fetcher: IF, error: ExecutionError<Address<I>>) -> Self {
         cold_path();
         Self {
             instruction_fetcher,
@@ -1091,16 +1053,10 @@ where
 /// This trait is deliberately not `const`, unlike [`ExecutableInstruction`]: dispatch goes through
 /// a table of function pointers, and calls through a function pointer are not allowed in
 /// `const fn`.
-pub trait ThreadedExecutableInstruction<
-    Regs,
-    ExtState,
-    Memory,
-    PC,
-    InstructionHandler,
-    CustomError = CustomErrorPlaceholder,
-> where
-    Self: ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-    PC: InstructionFetcher<Self, Memory, CustomError>,
+pub trait ThreadedExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+where
+    Self: ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>,
+    PC: InstructionFetcher<Self, Memory>,
 {
     /// Execute instructions starting at the instruction fetcher's current position and continue
     /// until execution stops or fails.
@@ -1121,5 +1077,5 @@ pub trait ThreadedExecutableInstruction<
         ext_state: ExtState,
         memory: &mut Memory,
         system_instruction_handler: InstructionHandler,
-    ) -> ThreadedExecutionResult<PC, Self, CustomError>;
+    ) -> ThreadedExecutionResult<PC, Self>;
 }

@@ -12,7 +12,6 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 /// Result of polling the entropy source behind the `Zkr` extension's `seed` CSR, corresponding to
 /// one of the specification's `OPST` states
@@ -60,12 +59,10 @@ where
 const impl<Reg> ExecutableInstructionOperands for ZkrInstruction<Reg> where Reg: [const] Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZkrInstruction<Reg>
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZkrInstruction<Reg>
 where
     Reg: [const] Register,
     ExtState: [const] ZkrSeedSource,
-    CustomError: [const] Destruct,
 {
     /// Reads of `seed` are pass-through: the raw stored value already reflects the outcome of the
     /// most recent poll (see [`Self::prepare_csr_write()`]).
@@ -80,7 +77,7 @@ where
         will_write: bool,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         if csr_index == SEED_CSR_INDEX {
             if will_write {
                 *output_value = raw_value;
@@ -103,7 +100,7 @@ where
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         // Necessary to avoid unused variable depending on instructions composition
         let _: Reg::Type = write_value;
 
@@ -117,9 +114,8 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for ZkrInstruction<Reg>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZkrInstruction<Reg>
 where
     Reg: Register,
     ExtState: [const] ZkrSeedSource,
@@ -137,7 +133,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

@@ -3,7 +3,6 @@
 use crate::{CsrError, Csrs, ExecutableInstructionCsr};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::marker::Destruct;
 
 /// CSR privilege level check helper.
 ///
@@ -13,14 +12,10 @@ use core::marker::Destruct;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub const fn check_csr_privilege_level<Reg, C, CustomError>(
-    csrs: &C,
-    csr_index: u16,
-) -> Result<(), CsrError<CustomError>>
+pub const fn check_csr_privilege_level<Reg, C>(csrs: &C, csr_index: u16) -> Result<(), CsrError>
 where
     Reg: [const] Register,
-    C: [const] Csrs<Reg, CustomError>,
-    CustomError: [const] Destruct,
+    C: [const] Csrs<Reg>,
 {
     let current = csrs.privilege_level();
     let required_bits = ((csr_index >> 8u8) & 0b11) as u8;
@@ -50,16 +45,15 @@ where
 /// see [`ExecutableInstructionCsr::prepare_csr_read()`] for details.
 #[inline(always)]
 #[doc(hidden)]
-pub const fn process_csr_read<Reg, ExtState, I, CustomError>(
+pub const fn process_csr_read<Reg, ExtState, I>(
     ext_state: &ExtState,
     csr_index: u16,
     will_write: bool,
     raw_value: Reg::Type,
-) -> Result<Reg::Type, CsrError<CustomError>>
+) -> Result<Reg::Type, CsrError>
 where
     Reg: [const] Register,
-    I: [const] ExecutableInstructionCsr<ExtState, CustomError, Reg = Reg>,
-    CustomError: [const] Destruct,
+    I: [const] ExecutableInstructionCsr<ExtState, Reg = Reg>,
 {
     let mut out = Reg::Type::default();
     match I::prepare_csr_read(ext_state, csr_index, will_write, raw_value, &mut out) {
@@ -79,15 +73,14 @@ where
 /// instruction `I` and returning the output value on success.
 #[inline(always)]
 #[doc(hidden)]
-pub const fn process_csr_write<Reg, ExtState, I, CustomError>(
+pub const fn process_csr_write<Reg, ExtState, I>(
     ext_state: &mut ExtState,
     csr_index: u16,
     write_value: Reg::Type,
-) -> Result<Reg::Type, CsrError<CustomError>>
+) -> Result<Reg::Type, CsrError>
 where
     Reg: [const] Register,
-    I: [const] ExecutableInstructionCsr<ExtState, CustomError, Reg = Reg>,
-    CustomError: [const] Destruct,
+    I: [const] ExecutableInstructionCsr<ExtState, Reg = Reg>,
 {
     let mut out = Reg::Type::default();
     match I::prepare_csr_write(ext_state, csr_index, write_value, &mut out) {

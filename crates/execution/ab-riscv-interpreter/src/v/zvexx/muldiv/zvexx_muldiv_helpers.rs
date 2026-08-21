@@ -86,16 +86,16 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<NonZeroU8> {
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_no_widening_overlap<Reg, Memory, PC, CustomError>(
+pub fn check_no_widening_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     vs: VReg,
     dest_group_regs: NonZeroU8,
     src_group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let dest_group_regs = dest_group_regs.get();
     let src_group_regs = src_group_regs.get();
@@ -166,7 +166,7 @@ unsafe fn write_wide_element_u64<const VLEN: Vlen>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_arith_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -176,7 +176,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -222,7 +222,7 @@ pub unsafe fn execute_arith_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widening_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -232,7 +232,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
@@ -277,7 +277,7 @@ pub unsafe fn execute_widening_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_muladd_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     a_reg: VReg,
@@ -287,7 +287,7 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
@@ -329,7 +329,7 @@ pub unsafe fn execute_muladd_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     scalar: u64,
@@ -339,7 +339,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
@@ -386,7 +386,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widening_muladd_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     a_reg: VReg,
@@ -396,7 +396,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
@@ -440,7 +440,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     scalar: u64,
@@ -450,7 +450,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {

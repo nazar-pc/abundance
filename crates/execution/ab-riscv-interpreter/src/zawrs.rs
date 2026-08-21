@@ -49,17 +49,14 @@ where
 const impl<Reg> ExecutableInstructionOperands for ZawrsInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZawrsInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZawrsInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for ZawrsInstruction<Reg>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZawrsInstruction<Reg>
 where
     Reg: [const] Register,
     InstructionHandler: [const] WrsHandler,
@@ -77,7 +74,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::WrsNto => {
                 system_instruction_handler.handle_wrs_nto();

@@ -13,18 +13,15 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZveXxConfigInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxConfigInstruction<Reg>
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxConfigInstruction<Reg>
 where
     Reg: [const] Register,
-    ExtState: [const] Csrs<Reg, CustomError>,
-    CustomError: [const] Destruct,
+    ExtState: [const] Csrs<Reg>,
 {
     /// Validate reads to vector CSRs from Zicsr instructions.
     ///
@@ -38,7 +35,7 @@ where
         _will_write: bool,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         if VectorCsr::from_csr_index(csr_index).is_some() {
             *output_value = raw_value;
             Ok(true)
@@ -63,7 +60,7 @@ where
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         if let Some(vcsr) = VectorCsr::from_csr_index(csr_index) {
             // WARL: mask to valid bits, zero upper bits
             *output_value = match vcsr {
@@ -112,16 +109,15 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxConfigInstruction<Reg>
 where
     Reg: [const] Register,
     Regs: [const] RegisterFile<Reg>,
-    ExtState: [const] VectorRegistersExt<Reg, CustomError>,
+    ExtState: [const] VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: [const] Destruct,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -136,7 +132,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
                 let rd_value = zvexx_config_helpers::apply_vsetvl(

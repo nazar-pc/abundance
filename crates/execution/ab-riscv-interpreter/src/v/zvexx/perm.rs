@@ -19,24 +19,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxPermInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxPermInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxPermInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxPermInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,7 +49,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vmv.x.s rd, vs2
             // Copies sign-extended element 0 of vs2 (at current SEW) to GPR rd.
@@ -158,18 +156,18 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
                 // vd must not overlap vs2
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -210,17 +208,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -267,12 +265,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -315,12 +313,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -370,17 +368,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -428,12 +426,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -474,28 +472,28 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -542,17 +540,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -596,17 +594,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -652,12 +650,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -674,12 +672,12 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     index_group_regs,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -687,7 +685,7 @@ where
                 )?;
                 // vd and vs1 have different group sizes (group_regs vs index_group_regs),
                 // so the symmetric helper would use the wrong size for one of the intervals.
-                zvexx_perm_helpers::check_no_overlap_asymmetric::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap_asymmetric::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -743,24 +741,24 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
                 if !vm {
                     // vmerge: vs2 is read, vd must not overlap v0
-                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                         program_counter,
                         vs2,
                         group_regs,
                     )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                         program_counter,
                         vd,
                         VReg::V0,
@@ -799,18 +797,18 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
                 if !vm {
-                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                         program_counter,
                         vs2,
                         group_regs,
                     )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                         program_counter,
                         vd,
                         VReg::V0,
@@ -845,18 +843,18 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
                 if !vm {
-                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                         program_counter,
                         vs2,
                         group_regs,
                     )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                         program_counter,
                         vd,
                         VReg::V0,
@@ -902,25 +900,25 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
                 // vs1 is always a single mask register (no LMUL grouping)
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
                 // vs1 is a mask register; check it doesn't overlap vd
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _, _>(
+                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,

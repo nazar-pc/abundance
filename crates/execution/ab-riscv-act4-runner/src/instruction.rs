@@ -54,8 +54,7 @@ where
 impl<Reg> ExecutableInstructionOperands for MachineModePlaceholder<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for MachineModePlaceholder<Reg>
+impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for MachineModePlaceholder<Reg>
 where
     Reg: Register,
 {
@@ -65,7 +64,7 @@ where
         _will_write: bool,
         raw_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         if matches!(
             MCsr::from_index(csr_index),
             Some(
@@ -95,7 +94,7 @@ where
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         match MCsr::from_index(csr_index) {
             Some(
                 MCsr::Mstatus
@@ -134,8 +133,8 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for MachineModePlaceholder<Reg>
 where
     Reg: Register,
@@ -151,7 +150,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

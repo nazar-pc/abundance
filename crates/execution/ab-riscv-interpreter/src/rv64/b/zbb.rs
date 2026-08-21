@@ -19,16 +19,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZbbInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64ZbbInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZbbInstruction<Reg> where
+    Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv64ZbbInstruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -47,7 +45,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Andn { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value & !rs2_value;

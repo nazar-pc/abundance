@@ -22,24 +22,22 @@ const impl<Reg> ExecutableInstructionOperands for ZveXxWidenNarrowInstruction<Re
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxWidenNarrowInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxWidenNarrowInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxWidenNarrowInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -54,7 +52,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
             Self::VwadduVv { vd, vs2, vs1, vm } => {
@@ -105,7 +103,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -113,12 +111,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -133,7 +131,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -197,7 +195,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -205,7 +203,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -222,7 +220,7 @@ where
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -281,7 +279,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -289,12 +287,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -309,7 +307,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -373,7 +371,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -381,7 +379,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -402,7 +400,7 @@ where
                 .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -461,7 +459,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -469,12 +467,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -489,7 +487,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -553,7 +551,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -561,7 +559,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -577,7 +575,7 @@ where
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -636,7 +634,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -644,12 +642,12 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -664,7 +662,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -728,7 +726,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -736,7 +734,7 @@ where
                     group_regs,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -756,7 +754,7 @@ where
                 .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -816,17 +814,17 @@ where
                     },
                 )?;
                 // vs2 is the wide source; vs1 is narrow
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -844,7 +842,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -908,12 +906,12 @@ where
                     },
                 )?;
                 // For .wx scalar variants vd may alias vs2 (same wide group); no narrow vs1
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
                     program_counter,
                     vd,
                     wide_group_regs,
@@ -929,7 +927,7 @@ where
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -988,17 +986,17 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -1016,7 +1014,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1079,12 +1077,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
                     program_counter,
                     vd,
                     wide_group_regs,
@@ -1104,7 +1102,7 @@ where
                 .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1163,17 +1161,17 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -1191,7 +1189,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1254,12 +1252,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
                     program_counter,
                     vd,
                     wide_group_regs,
@@ -1275,7 +1273,7 @@ where
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1334,17 +1332,17 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -1362,7 +1360,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1425,12 +1423,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
                     program_counter,
                     vd,
                     wide_group_regs,
@@ -1450,7 +1448,7 @@ where
                 .cast_unsigned();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1510,17 +1508,17 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1535,7 +1533,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1598,12 +1596,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
@@ -1619,7 +1617,7 @@ where
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1677,12 +1675,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
@@ -1697,7 +1695,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1755,17 +1753,17 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1780,7 +1778,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1843,12 +1841,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
@@ -1864,7 +1862,7 @@ where
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1922,12 +1920,12 @@ where
                         ),
                     },
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     wide_group_regs,
@@ -1942,7 +1940,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -1984,14 +1982,14 @@ where
                 // EMUL for source = LMUL / 2; src_group = max(1, group_regs / 2)
                 let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(2) / 2)
                     .expect("Not zero; qed");
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     src_group,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -2006,7 +2004,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -2047,14 +2045,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(4) / 4)
                     .expect("Not zero; qed");
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     src_group,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -2069,7 +2067,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -2110,14 +2108,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(8) / 8)
                     .expect("Not zero; qed");
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     src_group,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -2132,7 +2130,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -2172,14 +2170,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(2) / 2)
                     .expect("Not zero; qed");
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     src_group,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -2194,7 +2192,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -2234,14 +2232,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(4) / 4)
                     .expect("Not zero; qed");
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     src_group,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -2256,7 +2254,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -2296,14 +2294,14 @@ where
                 let group_regs = vtype.vlmul().register_count();
                 let src_group = ::core::num::NonZeroU8::new(group_regs.get().max(8) / 8)
                     .expect("Not zero; qed");
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     src_group,
                     vd,
                     group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
@@ -2318,7 +2316,7 @@ where
                 }
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _, _>(
+                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
                         ext_state,
                         vd,
                         vs2,

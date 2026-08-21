@@ -19,24 +19,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxCarryInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxCarryInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxCarryInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxCarryInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,7 +49,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vadc: add with carry-in from v0, data result
             Self::VadcVvm { vd, vs2, vs1 } => {
@@ -72,17 +70,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -99,7 +97,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -127,12 +125,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -149,7 +147,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -177,12 +175,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -199,7 +197,7 @@ where
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -228,23 +226,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -253,7 +251,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -281,12 +279,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -296,7 +294,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -324,12 +322,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -339,7 +337,7 @@ where
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -367,23 +365,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -392,7 +390,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -420,12 +418,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -435,7 +433,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -463,12 +461,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -478,7 +476,7 @@ where
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -507,17 +505,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -533,7 +531,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_sub::<Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -561,12 +559,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -583,7 +581,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_sub::<Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -612,23 +610,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -637,7 +635,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -665,12 +663,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -680,7 +678,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -708,23 +706,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -733,7 +731,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -761,12 +759,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -776,7 +774,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _, _>(
+                    zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
                         ext_state,
                         vd,
                         vs2,

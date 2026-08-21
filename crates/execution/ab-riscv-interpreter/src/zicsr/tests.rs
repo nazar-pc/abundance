@@ -1,10 +1,9 @@
 use crate::rv64::test_utils::{ExtState, execute, initialize_state};
 use crate::zicsr::zicsr_helpers;
 use crate::{
-    CsrError, Csrs, CustomErrorPlaceholder, ExecutableInstruction, ExecutableInstructionCsr,
-    ExecutableInstructionOperands, ExecutionError, ExecutionResult, FetchInstructionResult,
-    InstructionFetcher, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
-    ThreadedExecutableInstruction, ThreadedExecutionResult,
+    CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
+    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
@@ -12,21 +11,14 @@ use core::{assert_matches, fmt};
 
 /// Lets [`TestZicsr`] forward to the closures configured via
 /// [`ExtState::set_prepare_csr_read_write()`]
-trait CsrMock<CustomError> {
-    fn mock_prepare_csr_read(
-        &self,
-        csr_index: u16,
-        raw_value: u64,
-    ) -> Result<u64, CsrError<CustomError>>;
+trait CsrMock {
+    fn mock_prepare_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError>;
 
-    fn mock_prepare_csr_write(
-        &mut self,
-        csr_index: u16,
-        write_value: u64,
-    ) -> Result<u64, CsrError<CustomError>>;
+    fn mock_prepare_csr_write(&mut self, csr_index: u16, write_value: u64)
+    -> Result<u64, CsrError>;
 }
 
-impl CsrMock<CustomErrorPlaceholder> for ExtState {
+impl CsrMock for ExtState {
     fn mock_prepare_csr_read(&self, csr_index: u16, raw_value: u64) -> Result<u64, CsrError> {
         self.prepare_csr_read(csr_index, raw_value)
     }
@@ -88,10 +80,10 @@ where
 impl<Reg> ExecutableInstructionOperands for TestZicsr<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError> for TestZicsr<Reg>
+impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for TestZicsr<Reg>
 where
     Reg: Register<Type = u64>,
-    ExtState: CsrMock<CustomError>,
+    ExtState: CsrMock,
 {
     #[inline(always)]
     fn prepare_csr_read(
@@ -100,7 +92,7 @@ where
         _will_write: bool,
         raw_value: u64,
         output_value: &mut u64,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         *output_value = ext_state.mock_prepare_csr_read(csr_index, raw_value)?;
         Ok(true)
     }
@@ -111,19 +103,18 @@ where
         csr_index: u16,
         write_value: u64,
         output_value: &mut u64,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         *output_value = ext_state.mock_prepare_csr_write(csr_index, write_value)?;
         Ok(true)
     }
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for TestZicsr<Reg>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for TestZicsr<Reg>
 where
     Reg: Register<Type = u64>,
-    ExtState: Csrs<Reg, CustomError> + CsrMock<CustomError>,
+    ExtState: Csrs<Reg> + CsrMock,
 {
     #[inline(always)]
     fn execute(
@@ -137,7 +128,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

@@ -5,7 +5,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::marker::Destruct;
 
 /// Apply `vsetvli` / `vsetvl` logic.
 ///
@@ -16,20 +15,19 @@ use core::marker::Destruct;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub const fn apply_vsetvl<Reg, ExtState, Memory, PC, CustomError>(
+pub const fn apply_vsetvl<Reg, ExtState, Memory, PC>(
     ext_state: &mut ExtState,
     program_counter: &PC,
     rd: Reg,
     rs1: Reg,
     rs1_value: Reg::Type,
     vtype_raw: Reg::Type,
-) -> Result<Reg::Type, ExecutionError<Reg::Type, CustomError>>
+) -> Result<Reg::Type, ExecutionError<Reg::Type>>
 where
     Reg: [const] Register,
-    ExtState: [const] VectorRegistersExt<Reg, CustomError>,
+    ExtState: [const] VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: [const] Destruct,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     // Check whether vector instructions are enabled
     if !ext_state.vector_instructions_allowed() {
@@ -100,18 +98,17 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub const fn apply_vsetivli<Reg, ExtState, Memory, PC, CustomError>(
+pub const fn apply_vsetivli<Reg, ExtState, Memory, PC>(
     ext_state: &mut ExtState,
     program_counter: &PC,
     uimm: u8,
     vtypei: u16,
-) -> Result<Reg::Type, ExecutionError<Reg::Type, CustomError>>
+) -> Result<Reg::Type, ExecutionError<Reg::Type>>
 where
     Reg: [const] Register,
-    ExtState: [const] VectorRegistersExt<Reg, CustomError>,
+    ExtState: [const] VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: [const] Destruct,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     // Check whether vector instructions are enabled
     if !ext_state.vector_instructions_allowed() {

@@ -26,30 +26,26 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZvbcInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZvbcInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZvbcInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for ZvbcInstruction<Reg>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZvbcInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -64,7 +60,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vclmul: vd[i] = lower SEW bits of clmul(vs2[i], vs1[i])
             Self::VclmulVv { vd, vs2, vs1, vm } => {
@@ -93,17 +89,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -111,7 +107,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbc_helpers::execute_vclmul::<Reg, _, _>(
+                    zvbc_helpers::execute_vclmul::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -152,12 +148,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -166,7 +162,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbc_helpers::execute_vclmul::<Reg, _, _>(
+                    zvbc_helpers::execute_vclmul::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -203,17 +199,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -221,7 +217,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbc_helpers::execute_vclmulh::<Reg, _, _>(
+                    zvbc_helpers::execute_vclmulh::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -262,12 +258,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvbc_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -276,7 +272,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbc_helpers::execute_vclmulh::<Reg, _, _>(
+                    zvbc_helpers::execute_vclmulh::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,

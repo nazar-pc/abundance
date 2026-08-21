@@ -11,28 +11,23 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZicsrInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZicsrInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZicsrInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for ZicsrInstruction<Reg>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZicsrInstruction<Reg>
 where
     Reg: [const] Register,
     Regs: [const] RegisterFile<Reg>,
-    ExtState: [const] Csrs<Reg, CustomError>,
-    CustomError: [const] Destruct,
+    ExtState: [const] Csrs<Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -47,7 +42,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // Atomic read/write CSR.
             //
@@ -79,17 +74,16 @@ where
                             return ExecutionResult::Err(ExecutionError::from(err));
                         }
                     };
-                    zicsr_helpers::process_csr_read::<Reg, ExtState, Self, CustomError>(
+                    zicsr_helpers::process_csr_read::<Reg, ExtState, Self>(
                         ext_state, csr_index, true, read_value,
                     )?
                 };
 
-                let write_output = zicsr_helpers::process_csr_write::<
-                    Reg,
-                    ExtState,
-                    Self,
-                    CustomError,
-                >(ext_state, csr_index, write_value)?;
+                let write_output = zicsr_helpers::process_csr_write::<Reg, ExtState, Self>(
+                    ext_state,
+                    csr_index,
+                    write_value,
+                )?;
                 match ext_state.write_csr(csr_index, write_output) {
                     Ok(()) => ExecutionResult::Continue {
                         rd,
@@ -121,24 +115,22 @@ where
                         return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
-                let read_output =
-                    zicsr_helpers::process_csr_read::<Reg, ExtState, Self, CustomError>(
-                        ext_state,
-                        csr_index,
-                        rs1 != Reg::ZERO,
-                        read_value,
-                    )?;
+                let read_output = zicsr_helpers::process_csr_read::<Reg, ExtState, Self>(
+                    ext_state,
+                    csr_index,
+                    rs1 != Reg::ZERO,
+                    read_value,
+                )?;
 
                 if rs1 == Reg::ZERO {
                     ::core::hint::cold_path();
                 } else {
                     let write_value = read_value | rs1_value;
-                    let write_output = zicsr_helpers::process_csr_write::<
-                        Reg,
-                        ExtState,
-                        Self,
-                        CustomError,
-                    >(ext_state, csr_index, write_value)?;
+                    let write_output = zicsr_helpers::process_csr_write::<Reg, ExtState, Self>(
+                        ext_state,
+                        csr_index,
+                        write_value,
+                    )?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
                         return ExecutionResult::Err(ExecutionError::from(error));
@@ -169,24 +161,22 @@ where
                         return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
-                let read_output =
-                    zicsr_helpers::process_csr_read::<Reg, ExtState, Self, CustomError>(
-                        ext_state,
-                        csr_index,
-                        rs1 != Reg::ZERO,
-                        read_value,
-                    )?;
+                let read_output = zicsr_helpers::process_csr_read::<Reg, ExtState, Self>(
+                    ext_state,
+                    csr_index,
+                    rs1 != Reg::ZERO,
+                    read_value,
+                )?;
 
                 if rs1 == Reg::ZERO {
                     ::core::hint::cold_path();
                 } else {
                     let write_value = read_value & !rs1_value;
-                    let write_output = zicsr_helpers::process_csr_write::<
-                        Reg,
-                        ExtState,
-                        Self,
-                        CustomError,
-                    >(ext_state, csr_index, write_value)?;
+                    let write_output = zicsr_helpers::process_csr_write::<Reg, ExtState, Self>(
+                        ext_state,
+                        csr_index,
+                        write_value,
+                    )?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
                         return ExecutionResult::Err(ExecutionError::from(error));
@@ -225,17 +215,16 @@ where
                             return ExecutionResult::Err(ExecutionError::from(error));
                         }
                     };
-                    zicsr_helpers::process_csr_read::<Reg, ExtState, Self, CustomError>(
+                    zicsr_helpers::process_csr_read::<Reg, ExtState, Self>(
                         ext_state, csr_index, true, read_value,
                     )?
                 };
 
-                let write_output = zicsr_helpers::process_csr_write::<
-                    Reg,
-                    ExtState,
-                    Self,
-                    CustomError,
-                >(ext_state, csr_index, zimm.into())?;
+                let write_output = zicsr_helpers::process_csr_write::<Reg, ExtState, Self>(
+                    ext_state,
+                    csr_index,
+                    zimm.into(),
+                )?;
                 match ext_state.write_csr(csr_index, write_output) {
                     Ok(()) => ExecutionResult::Continue {
                         rd,
@@ -271,23 +260,22 @@ where
                         return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
-                let read_output = zicsr_helpers::process_csr_read::<
-                    Reg,
-                    ExtState,
-                    Self,
-                    CustomError,
-                >(ext_state, csr_index, zimm != 0, read_value)?;
+                let read_output = zicsr_helpers::process_csr_read::<Reg, ExtState, Self>(
+                    ext_state,
+                    csr_index,
+                    zimm != 0,
+                    read_value,
+                )?;
 
                 if zimm == 0 {
                     ::core::hint::cold_path();
                 } else {
                     let write_value = read_value | Reg::Type::from(zimm);
-                    let write_output = zicsr_helpers::process_csr_write::<
-                        Reg,
-                        ExtState,
-                        Self,
-                        CustomError,
-                    >(ext_state, csr_index, write_value)?;
+                    let write_output = zicsr_helpers::process_csr_write::<Reg, ExtState, Self>(
+                        ext_state,
+                        csr_index,
+                        write_value,
+                    )?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
                         return ExecutionResult::Err(ExecutionError::from(error));
@@ -323,23 +311,22 @@ where
                         return ExecutionResult::Err(ExecutionError::from(error));
                     }
                 };
-                let read_output = zicsr_helpers::process_csr_read::<
-                    Reg,
-                    ExtState,
-                    Self,
-                    CustomError,
-                >(ext_state, csr_index, zimm != 0, read_value)?;
+                let read_output = zicsr_helpers::process_csr_read::<Reg, ExtState, Self>(
+                    ext_state,
+                    csr_index,
+                    zimm != 0,
+                    read_value,
+                )?;
 
                 if zimm == 0 {
                     ::core::hint::cold_path();
                 } else {
                     let write_value = read_value & !Reg::Type::from(zimm);
-                    let write_output = zicsr_helpers::process_csr_write::<
-                        Reg,
-                        ExtState,
-                        Self,
-                        CustomError,
-                    >(ext_state, csr_index, write_value)?;
+                    let write_output = zicsr_helpers::process_csr_write::<Reg, ExtState, Self>(
+                        ext_state,
+                        csr_index,
+                        write_value,
+                    )?;
                     if let Err(error) = ext_state.write_csr(csr_index, write_output) {
                         ::core::hint::cold_path();
                         return ExecutionResult::Err(ExecutionError::from(error));

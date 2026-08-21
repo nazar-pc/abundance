@@ -59,7 +59,7 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vclmul<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -68,7 +68,7 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -112,7 +112,7 @@ pub unsafe fn execute_vclmul<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vclmulh<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -121,7 +121,7 @@ pub unsafe fn execute_vclmulh<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();

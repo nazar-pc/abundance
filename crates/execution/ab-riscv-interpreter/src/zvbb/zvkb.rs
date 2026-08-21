@@ -26,30 +26,26 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for ZvkbInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZvkbInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZvkbInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for ZvkbInstruction<Reg>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZvkbInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -64,7 +60,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vandn: vd[i] = ~vs1[i] & vs2[i]  (or ~rs1 & vs2[i])
             Self::VandnVv { vd, vs2, vs1, vm } => {
@@ -93,17 +89,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -111,7 +107,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vandn::<Reg, _, _>(
+                    zvkb_helpers::execute_vandn::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -152,12 +148,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -166,7 +162,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vandn::<Reg, _, _>(
+                    zvkb_helpers::execute_vandn::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -203,12 +199,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -216,7 +212,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vbrev8::<Reg, _, _>(ext_state, vd, vs2, sew, vm);
+                    zvkb_helpers::execute_vbrev8::<Reg, _>(ext_state, vd, vs2, sew, vm);
                 }
             }
             // vrev8: reverse bytes within each element
@@ -246,12 +242,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -259,7 +255,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vrev8::<Reg, _, _>(ext_state, vd, vs2, sew, vm);
+                    zvkb_helpers::execute_vrev8::<Reg, _>(ext_state, vd, vs2, sew, vm);
                 }
             }
             // vrol: vd[i] = rotate_left(vs2[i], src[i] % SEW)
@@ -289,17 +285,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -307,7 +303,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vrol::<Reg, _, _>(
+                    zvkb_helpers::execute_vrol::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -348,12 +344,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -362,7 +358,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vrol::<Reg, _, _>(
+                    zvkb_helpers::execute_vrol::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -399,17 +395,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -417,7 +413,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vror::<Reg, _, _>(
+                    zvkb_helpers::execute_vror::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -458,12 +454,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -472,7 +468,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vror::<Reg, _, _>(
+                    zvkb_helpers::execute_vror::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,
@@ -509,12 +505,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -522,7 +518,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vror::<Reg, _, _>(
+                    zvkb_helpers::execute_vror::<Reg, _>(
                         ext_state,
                         vd,
                         vs2,

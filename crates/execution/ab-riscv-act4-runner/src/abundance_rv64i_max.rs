@@ -70,14 +70,14 @@ where
 impl<Reg> ExecutableInstructionOperands for AbundanceRv64IMaxInstructionPrototype<Reg> {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+impl<Reg, ExtState> ExecutableInstructionCsr<ExtState>
     for AbundanceRv64IMaxInstructionPrototype<Reg>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for AbundanceRv64IMaxInstructionPrototype<Reg>
 where
     Reg: Register,
@@ -93,7 +93,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

@@ -128,14 +128,14 @@ pub fn indexed_load_overlap_allowed(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_register_group_alignment<Reg, Memory, PC, CustomError>(
+pub fn check_register_group_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let group_regs = group_regs.get();
     let vd = vd.to_bits();
@@ -156,16 +156,16 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn validate_segment_registers<Reg, Memory, PC, CustomError>(
+pub fn validate_segment_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     vm: bool,
     group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let group_regs = u32::from(group_regs.get());
     let nf = u32::from(nf.fields_per_segment());
@@ -302,13 +302,7 @@ fn read_mem_element(
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_unit_stride_load<
-    const FAULT_ONLY_FIRST: bool,
-    Reg,
-    ExtState,
-    Memory,
-    CustomError,
->(
+pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, ExtState, Memory>(
     ext_state: &mut ExtState,
     memory: &Memory,
     vd: VReg,
@@ -317,10 +311,10 @@ pub unsafe fn execute_unit_stride_load<
     eew: Eew,
     group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
 {
@@ -434,7 +428,7 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
+pub unsafe fn execute_strided_load<Reg, ExtState, Memory>(
     ext_state: &mut ExtState,
     memory: &Memory,
     vd: VReg,
@@ -444,10 +438,10 @@ pub unsafe fn execute_strided_load<Reg, ExtState, Memory, CustomError>(
     eew: Eew,
     group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
 {
@@ -525,7 +519,7 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
+pub unsafe fn execute_indexed_load<Reg, ExtState, Memory>(
     ext_state: &mut ExtState,
     memory: &Memory,
     vd: VReg,
@@ -536,10 +530,10 @@ pub unsafe fn execute_indexed_load<Reg, ExtState, Memory, CustomError>(
     index_eew: Eew,
     data_group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
 {

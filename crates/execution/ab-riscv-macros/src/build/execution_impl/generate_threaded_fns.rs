@@ -5,7 +5,7 @@ use heck::ToSnakeCase;
 use quote::{ToTokens, format_ident, quote};
 use std::env;
 use std::rc::Rc;
-use syn::{Abi, Arm, Generics, Ident, Item, Pat, Token, Type, Variant, WhereClause, parse_quote};
+use syn::{Abi, Arm, Generics, Ident, Item, Pat, Type, Variant, WhereClause, parse_quote};
 
 /// Calling convention used for functions involved in threaded execution.
 ///
@@ -34,25 +34,22 @@ fn handler_abi() -> anyhow::Result<Option<Abi>> {
 /// are for a non-`const` execution implementation, and the fetching half of the program counter is
 /// required on top of what `execute()` needs.
 fn threaded_where_clause(generics: &Generics, self_ty: &Type) -> anyhow::Result<WhereClause> {
-    let Some(where_clause) = &generics.where_clause else {
+    let Some(mut where_clause) = generics.where_clause.clone() else {
         return Err(anyhow::anyhow!("Missing where clause"));
     };
 
-    let mut predicates = strip_const_where_predicates(where_clause.predicates.clone());
+    strip_const_where_predicates(&mut where_clause.predicates);
 
-    predicates.push(parse_quote! {
-        PC: InstructionFetcher<#self_ty, Memory, CustomError>
+    where_clause.predicates.push(parse_quote! {
+        PC: InstructionFetcher<#self_ty, Memory>
     });
     // Applying an `ExecutionResult` is the executor's job rather than the instruction's, so the
     // handlers need the register file even for an extension whose own instructions never touch it
-    predicates.push(parse_quote! {
+    where_clause.predicates.push(parse_quote! {
         Regs: RegisterFile<Reg>
     });
 
-    Ok(WhereClause {
-        where_token: <Token![where]>::default(),
-        predicates,
-    })
+    Ok(where_clause)
 }
 
 /// Generates tail-call-threaded execution alongside the `match`-based `execute()`.
@@ -76,7 +73,7 @@ pub(super) fn generate_threaded_fns(
     let dispatch_fn_name = format_ident!("dispatch_{}", enum_name.to_string().to_snake_case());
     let dispatch_result_name = format_ident!("{enum_name}ThreadedDispatchResult");
     let result_ty: Type = parse_quote! {
-        ThreadedExecutionResult<PC, #self_ty, CustomError>
+        ThreadedExecutionResult<PC, #self_ty>
     };
 
     let mut generated_items = Vec::with_capacity(variants.len() + 3);
@@ -86,13 +83,13 @@ pub(super) fn generate_threaded_fns(
     // without the `Continue` variant, which dispatch resolves while fetching rather than passing
     // on. It never escapes the dispatch step it is created in, so it never materializes.
     generated_items.push(parse_quote! {
-        enum #dispatch_result_name<I, Handler, CustomError>
+        enum #dispatch_result_name<I, Handler>
         where
             I: Instruction,
         {
             Next { instruction: I, handler: Handler },
             Break,
-            Err(ExecutionError<<I::Reg as Register>::Type, CustomError>),
+            Err(ExecutionError<<I::Reg as Register>::Type>),
         }
     });
 
@@ -278,7 +275,6 @@ pub(super) fn generate_threaded_fns(
                 &mut Memory,
                 InstructionHandler,
             ) -> #result_ty,
-            CustomError,
         >
             #where_clause
         {
@@ -320,7 +316,6 @@ pub(super) fn generate_threaded_fns(
             Memory,
             PC,
             InstructionHandler,
-            CustomError,
         > for #self_ty
             #where_clause
         {

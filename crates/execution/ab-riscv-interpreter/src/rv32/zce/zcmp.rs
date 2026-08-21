@@ -21,16 +21,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv32ZcmpInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv32ZcmpInstruction<Reg>
-where
-    Reg: ZcmpRegister<Type = u32>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32ZcmpInstruction<Reg> where
+    Reg: ZcmpRegister<Type = u32>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv32ZcmpInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u32>,
@@ -48,7 +46,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }
@@ -60,23 +58,21 @@ const impl<Reg> ExecutableInstructionOperands for Rv32ZcmpOnlyInstruction<Reg> w
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv32ZcmpOnlyInstruction<Reg>
-where
-    Reg: ZcmpRegister<Type = u32>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32ZcmpOnlyInstruction<Reg> where
+    Reg: ZcmpRegister<Type = u32>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv32ZcmpOnlyInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
+    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -91,7 +87,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::CmPush { urlist, stack_adj } => {
                 rv32_zcmp_helpers::do_push(regs, memory, urlist, stack_adj)

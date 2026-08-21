@@ -74,14 +74,14 @@ impl<Reg> ExecutableInstructionOperands for AbundanceRv32IMaxInstructionPrototyp
     clippy::useless_conversion,
     reason = "https://github.com/rust-lang/rust-clippy/issues/17083"
 )]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
+impl<Reg, ExtState> ExecutableInstructionCsr<ExtState>
     for AbundanceRv32IMaxInstructionPrototype<Reg>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for AbundanceRv32IMaxInstructionPrototype<Reg>
 where
     Reg: Register,
@@ -97,7 +97,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

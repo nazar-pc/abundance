@@ -17,15 +17,15 @@ use core::num::NonZeroU8;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_no_overlap<Reg, Memory, PC, CustomError>(
+pub fn check_no_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     a: VReg,
     b: VReg,
     count: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let a_start = u16::from(a.to_bits());
     let b_start = u16::from(b.to_bits());
@@ -50,16 +50,16 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_no_overlap_asymmetric<Reg, Memory, PC, CustomError>(
+pub fn check_no_overlap_asymmetric<Reg, Memory, PC>(
     program_counter: &PC,
     a: VReg,
     a_count: NonZeroU8,
     b: VReg,
     b_count: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let a_start = u16::from(a.to_bits());
     let b_start = u16::from(b.to_bits());
@@ -169,7 +169,7 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
+pub unsafe fn execute_slideup<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -178,7 +178,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
     offset: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -217,7 +217,7 @@ pub unsafe fn execute_slideup<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
+pub unsafe fn execute_slidedown<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -227,7 +227,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
     offset: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -270,7 +270,7 @@ pub unsafe fn execute_slidedown<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
+pub unsafe fn execute_slide1up<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -279,7 +279,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
     scalar: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -322,7 +322,7 @@ pub unsafe fn execute_slide1up<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
+pub unsafe fn execute_slide1down<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -331,7 +331,7 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
     scalar: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -367,7 +367,7 @@ pub unsafe fn execute_slide1down<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
+pub unsafe fn execute_rgather_vv<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -377,7 +377,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
     vlmax: Vl,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -414,7 +414,7 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
+pub unsafe fn execute_rgather_scalar<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -424,7 +424,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
     index: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -466,7 +466,7 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState, CustomError>(
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
+pub unsafe fn execute_rgatherei16<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -477,7 +477,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
     index_group_regs: NonZeroU8,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let index_group_regs = index_group_regs.get();
@@ -530,7 +530,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
+pub unsafe fn execute_merge_vv<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -539,7 +539,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -579,7 +579,7 @@ pub unsafe fn execute_merge_vv<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
+pub unsafe fn execute_merge_scalar<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -588,7 +588,7 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
     scalar: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -625,7 +625,7 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
+pub unsafe fn execute_compress<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -634,7 +634,7 @@ pub unsafe fn execute_compress<Reg, ExtState, CustomError>(
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let mask_bytes = usize::from(vl.bytes());

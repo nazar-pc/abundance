@@ -19,24 +19,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxArithInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxArithInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxArithInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxArithInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,7 +49,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vadd
             Self::VaddVv { vd, vs2, vs1, vm } => {
@@ -72,17 +70,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -133,12 +131,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -184,12 +182,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -237,17 +235,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -297,12 +295,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -353,12 +351,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -405,12 +403,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -457,17 +455,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -517,12 +515,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -568,12 +566,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -620,17 +618,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -680,12 +678,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -731,12 +729,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -783,17 +781,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -843,12 +841,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -894,12 +892,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -946,17 +944,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1007,12 +1005,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1058,12 +1056,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1111,17 +1109,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1176,12 +1174,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1231,12 +1229,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1283,17 +1281,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1347,12 +1345,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1402,12 +1400,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1457,17 +1455,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1520,12 +1518,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1574,17 +1572,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1642,12 +1640,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1702,17 +1700,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1765,12 +1763,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1819,17 +1817,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1887,12 +1885,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1947,23 +1945,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2011,12 +2009,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2058,12 +2056,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2106,23 +2104,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2168,12 +2166,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2215,12 +2213,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2263,23 +2261,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2325,12 +2323,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2373,23 +2371,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2435,12 +2433,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2483,23 +2481,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2545,12 +2543,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2592,12 +2590,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2647,23 +2645,23 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2709,12 +2707,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2756,12 +2754,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2809,12 +2807,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2856,12 +2854,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2909,12 +2907,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2956,12 +2954,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,

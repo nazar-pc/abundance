@@ -248,14 +248,11 @@ where
 const impl<Reg> ExecutableInstructionOperands for ContractInstruction<Reg> {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ContractInstruction<Reg>
-{
-}
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ContractInstruction<Reg> {}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ContractInstruction<Reg>
 where
     Reg: Register,
@@ -272,7 +269,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

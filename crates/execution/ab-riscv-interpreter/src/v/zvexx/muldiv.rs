@@ -19,24 +19,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxMulDivInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxMulDivInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxMulDivInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxMulDivInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,7 +49,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vmul.vv / vmul.vx - signed multiply, low half
             Self::VmulVv { vd, vs2, vs1, vm } => {
@@ -72,17 +70,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -132,12 +130,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -195,17 +193,17 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -266,12 +264,12 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -329,17 +327,17 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -400,12 +398,12 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -463,17 +461,17 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -535,12 +533,12 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -589,17 +587,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -655,12 +653,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -712,17 +710,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -772,12 +770,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -824,17 +822,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -894,12 +892,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -955,17 +953,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1015,12 +1013,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1086,17 +1084,17 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1110,14 +1108,14 @@ where
                     });
                 }
                 // vd and vs2/vs1 must not overlap
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     dest_group_regs,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -1182,12 +1180,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1200,7 +1198,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -1262,17 +1260,17 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1285,14 +1283,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     dest_group_regs,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -1359,12 +1357,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1377,7 +1375,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -1441,17 +1439,17 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1464,14 +1462,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     dest_group_regs,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -1538,12 +1536,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1556,7 +1554,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -1602,17 +1600,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1663,12 +1661,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1715,17 +1713,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1776,12 +1774,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1828,17 +1826,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1889,12 +1887,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1942,17 +1940,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -2003,12 +2001,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -2075,17 +2073,17 @@ where
                     ),
                 })?;
                 // vd holds the 2*SEW accumulator
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -2098,14 +2096,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     dest_group_regs,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2171,12 +2169,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -2189,7 +2187,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2251,17 +2249,17 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -2274,14 +2272,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     dest_group_regs,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2348,12 +2346,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -2366,7 +2364,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2429,17 +2427,17 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -2452,14 +2450,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
                     dest_group_regs,
                     group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs1,
@@ -2526,12 +2524,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -2544,7 +2542,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,
@@ -2616,12 +2614,12 @@ where
                         program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                     ),
                 })?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     dest_group_regs,
                 )?;
-                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -2634,7 +2632,7 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _, _>(
+                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
                     program_counter,
                     vd,
                     vs2,

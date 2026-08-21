@@ -16,16 +16,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv32ZbkcInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv32ZbkcInstruction<Reg>
-where
-    Reg: Register<Type = u32>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32ZbkcInstruction<Reg> where
+    Reg: Register<Type = u32>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv32ZbkcInstruction<Reg>
 where
     Reg: Register<Type = u32>,
@@ -43,7 +41,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

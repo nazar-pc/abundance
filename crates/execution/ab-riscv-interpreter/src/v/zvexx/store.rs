@@ -20,24 +20,22 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxStoreInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxStoreInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxStoreInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxStoreInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -52,7 +50,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // Whole-register store: stores `nreg` consecutive registers starting at `vs3` directly
             // to memory as a flat byte array of `EVL = nreg * VLEN.bytes()` bytes. `vs3` must be
@@ -168,7 +166,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
                     group_regs,
@@ -225,7 +223,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
                     group_regs,
@@ -280,12 +278,12 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
                     data_group_regs,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,
@@ -350,12 +348,12 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
                     data_group_regs,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,
@@ -408,7 +406,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _, _>(
+                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
                     group_regs,
@@ -465,7 +463,7 @@ where
                         ),
                     },
                 )?;
-                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _, _>(
+                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
                     group_regs,
@@ -523,13 +521,13 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _, _>(
+                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
                     data_group_regs,
                     nf,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,
@@ -591,13 +589,13 @@ where
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     })?;
-                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _, _>(
+                zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
                     data_group_regs,
                     nf,
                 )?;
-                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _, _>(
+                zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     index_group_regs,

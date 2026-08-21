@@ -21,7 +21,7 @@ use ab_riscv_primitives::prelude::*;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vandn<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -30,7 +30,7 @@ pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -77,7 +77,7 @@ pub unsafe fn execute_vandn<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vbrev8<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -85,7 +85,7 @@ pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -125,7 +125,7 @@ pub unsafe fn execute_vbrev8<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vrev8<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -133,7 +133,7 @@ pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -170,7 +170,7 @@ pub unsafe fn execute_vrev8<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vrol<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -179,7 +179,7 @@ pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -228,7 +228,7 @@ pub unsafe fn execute_vrol<Reg, ExtState, CustomError>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vror<Reg, ExtState, CustomError>(
+pub unsafe fn execute_vror<Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -237,7 +237,7 @@ pub unsafe fn execute_vror<Reg, ExtState, CustomError>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();

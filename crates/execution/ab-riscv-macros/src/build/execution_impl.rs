@@ -491,7 +491,7 @@ pub(super) fn process_enum_csr_impl(
 
         // Non-const implementations that inherit arms from const ones must not keep `[const]`
         if !is_const {
-            where_clause.predicates = strip_const_where_predicates(where_clause.predicates.clone());
+            strip_const_where_predicates(&mut where_clause.predicates);
         }
     }
 
@@ -718,7 +718,7 @@ pub(super) fn process_enum_execution_impl(
 
         // Non-const implementations that inherit arms from const ones must not keep `[const]`
         if !is_const {
-            where_clause.predicates = strip_const_where_predicates(where_clause.predicates.clone());
+            strip_const_where_predicates(&mut where_clause.predicates);
         }
     } else {
         return Err(anyhow::anyhow!(

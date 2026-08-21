@@ -19,16 +19,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZalrscInstruction<Reg> whe
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64ZalrscInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZalrscInstruction<Reg> where
+    Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv64ZalrscInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
@@ -49,7 +47,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Lr {
                 rd,

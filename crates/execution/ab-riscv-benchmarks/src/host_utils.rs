@@ -309,7 +309,7 @@ where
         instruction_size: u8,
         offset: i32,
     ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        let old_pc = <Self as ProgramCounter<_, Memory, _>>::old_pc(self, instruction_size);
+        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
         self.set_pc(memory, old_pc.wrapping_add_signed(i64::from(offset)))
     }
 

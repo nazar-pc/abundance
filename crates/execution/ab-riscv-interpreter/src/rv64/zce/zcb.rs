@@ -19,16 +19,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZcbInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64ZcbInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZcbInstruction<Reg> where
+    Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv64ZcbInstruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -46,7 +44,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }
@@ -58,23 +56,21 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZcbOnlyInstruction<Reg> wh
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64ZcbOnlyInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZcbOnlyInstruction<Reg> where
+    Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv64ZcbOnlyInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
+    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -89,7 +85,7 @@ where
         memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::CLbu { rd, rs1: _, uimm } => {
                 let addr = rs1_value.wrapping_add(u64::from(uimm));

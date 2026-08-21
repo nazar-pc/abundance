@@ -20,24 +20,22 @@ const impl<Reg> ExecutableInstructionOperands for ZveXxFixedPointInstruction<Reg
 {}
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for ZveXxFixedPointInstruction<Reg>
-where
-    Reg: Register,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxFixedPointInstruction<Reg> where
+    Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for ZveXxFixedPointInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -52,7 +50,7 @@ where
         _memory: &mut Memory,
         program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
             Self::VsadduVv { vd, vs2, vs1, vm } => {
@@ -73,17 +71,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -135,12 +133,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -188,12 +186,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -244,17 +242,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -306,12 +304,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -359,12 +357,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -414,17 +412,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -476,12 +474,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -530,17 +528,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -592,12 +590,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -646,17 +644,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -708,12 +706,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -762,17 +760,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -824,12 +822,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -878,17 +876,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -940,12 +938,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -994,17 +992,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1056,12 +1054,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1119,17 +1117,17 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1190,12 +1188,12 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1244,17 +1242,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1310,12 +1308,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1366,12 +1364,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1424,17 +1422,17 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1488,12 +1486,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1543,12 +1541,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
@@ -1600,25 +1598,22 @@ where
                 };
                 // Destination SEW must be <= 32 so that 2*SEW fits in 64 bits
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
-                    program_counter,
-                    sew,
-                )?;
+                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
                 // vs2 holds 2*SEW elements; its register group is double-width
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     vtype.vlmul(),
                     sew,
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1669,17 +1664,14 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
-                    program_counter,
-                    sew,
-                )?;
+                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     vtype.vlmul(),
@@ -1727,17 +1719,14 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
-                    program_counter,
-                    sew,
-                )?;
+                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     vtype.vlmul(),
@@ -1786,23 +1775,20 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
-                    program_counter,
-                    sew,
-                )?;
+                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     vtype.vlmul(),
                     sew,
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
@@ -1853,17 +1839,14 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
-                    program_counter,
-                    sew,
-                )?;
+                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     vtype.vlmul(),
@@ -1911,17 +1894,14 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _, _>(
-                    program_counter,
-                    sew,
-                )?;
+                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
                 let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _, _>(
+                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     vtype.vlmul(),
