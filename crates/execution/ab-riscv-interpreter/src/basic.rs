@@ -7,8 +7,8 @@ use crate::zawrs::WrsHandler;
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
@@ -222,55 +222,6 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
                 }
 
                 (Ok(()), instruction_fetcher)
-            },
-        )
-    }
-
-    /// Execute the program with a given basic interpreter state using tail-call-threaded dispatch.
-    ///
-    /// This is [`Self::execute()`] with the central `match` replaced by one handler function per
-    /// instruction variant, chained with guaranteed tail calls. It executes exactly the same
-    /// instruction implementations and produces the same results, trading a larger amount of
-    /// generated code for higher throughput, so which one to call is a property of the workload
-    /// rather than of the program being interpreted.
-    pub fn execute_threaded<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
-    where
-        Regs: RegisterFile<<I as Instruction>::Reg>,
-        I: for<'a> ThreadedExecutableInstruction<
-                Regs,
-                &'a mut ExtState,
-                Memory,
-                IF,
-                &'a mut InstructionHandler,
-            >,
-        Memory: VirtualMemory,
-        IF: InstructionFetcher<I, Memory>,
-    {
-        // This interpreter state owns both, so what is passed on by value is a borrow of each. A
-        // caller whose extension state and system instruction handler are zero-sized can call
-        // `I::execute_threaded()` with them directly instead and save two argument registers across
-        // the whole chain.
-        let ext_state = &mut self.ext_state;
-        let system_instruction_handler = &mut self.system_instruction_handler;
-        let regs = &mut self.regs;
-        let memory = &mut self.memory;
-
-        replace_with_or_abort_and_return(
-            &mut self.instruction_fetcher,
-            #[inline(always)]
-            |instruction_fetcher| {
-                let ThreadedExecutionResult {
-                    instruction_fetcher,
-                    outcome,
-                } = I::execute_threaded(
-                    instruction_fetcher,
-                    regs,
-                    ext_state,
-                    memory,
-                    system_instruction_handler,
-                );
-
-                (outcome, instruction_fetcher)
             },
         )
     }

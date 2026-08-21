@@ -9,9 +9,9 @@ use crate::v::zvexx::load::zvexx_load_helpers;
 use crate::v::zvexx::zvexx_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
-    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
+    PackedAddress, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;

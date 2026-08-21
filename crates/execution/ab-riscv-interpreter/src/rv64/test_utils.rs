@@ -9,7 +9,7 @@ use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
-    VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
+    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -147,6 +147,7 @@ impl VirtualMemory for TestMemory {
 }
 
 /// Custom instruction handler for tests that returns instructions from a sequence
+#[derive(Clone)]
 pub(crate) struct TestInstructionFetcher<I> {
     instructions: Vec<Option<I>>,
     return_trap_address: u64,
@@ -596,10 +597,12 @@ where
     Ok(())
 }
 
-/// Same as [`execute()`], but driven by tail-call-threaded dispatch instead of an explicit loop
-pub(crate) fn execute_threaded<I>(
-    state: &mut TestInterpreterState<I>,
-) -> Result<(), ExecutionError<Address<I>>>
+/// Same as [`execute()`], but driven by tail-call-threaded dispatch instead of an explicit loop.
+///
+/// The fetcher is moved into the handler chain and dropped there, so this hands over a clone of
+/// the state's one and leaves the state itself intact for the test to inspect. Where [`execute()`]
+/// advances the state's fetcher, the program counter comes back as part of the result here.
+pub(crate) fn execute_threaded<I>(state: &mut TestInterpreterState<I>) -> ThreadedExecutionResult<I>
 where
     I: Instruction<Reg = Reg<u64>>
         + for<'a> ThreadedExecutableInstruction<
@@ -610,5 +613,11 @@ where
             &'a mut TestInstructionHandler,
         >,
 {
-    state.execute_threaded::<I>()
+    I::execute_threaded(
+        state.instruction_fetcher.clone(),
+        &mut state.regs,
+        &mut state.ext_state,
+        &mut state.memory,
+        &mut state.system_instruction_handler,
+    )
 }

@@ -10,12 +10,39 @@ use crate::rv64::test_utils::{
     execute_threaded, initialize_state,
 };
 use crate::{
-    ExecutableInstruction, ExecutionError, ProgramCounter, RegisterFile,
-    ThreadedExecutableInstruction, VirtualMemory,
+    ExecutableInstruction, ExecutionError, OpaqueThreadedExecutionResult, ProgramCounter,
+    RegisterFile, ThreadedExecutableInstruction, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
 use alloc::vec::Vec;
+
+/// Whether threaded dispatch can run here at all.
+///
+/// It cannot on an x86-64 CPU without AVX, see
+/// [`OpaqueThreadedExecutionResult::platform_supported()`]. Miri emulates exactly such a CPU, but
+/// the lanes fall back to a plain array there, so this is only ever `false` on real pre-2011
+/// hardware; the tests below check the reported reason in that case rather than skipping silently.
+fn threaded_dispatch_available<I>() -> bool
+where
+    I: Instruction,
+{
+    if OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return true;
+    }
+
+    let mut state = initialize_state(vec![]);
+
+    assert!(
+        matches!(
+            execute_threaded::<Rv64Instruction<Reg<u64>>>(&mut state).outcome,
+            Err(ExecutionError::UnsupportedPlatform)
+        ),
+        "Threaded dispatch must say why it did not run"
+    );
+
+    false
+}
 
 /// Runs `instructions` twice, once through each dispatch path, and asserts that the two agree on
 /// the error (if any), on every general purpose register and on the final program counter
@@ -39,6 +66,10 @@ fn assert_paths_agree<I, Instructions>(
         >,
     Instructions: IntoIterator<Item = I> + Clone,
 {
+    if !threaded_dispatch_available::<I>() {
+        return;
+    }
+
     let mut looped_state = initialize_state(instructions.clone());
     setup(&mut looped_state.regs);
     let looped_result = execute(&mut looped_state);
@@ -49,7 +80,7 @@ fn assert_paths_agree<I, Instructions>(
 
     assert_eq!(
         alloc::format!("{looped_result:?}"),
-        alloc::format!("{threaded_result:?}"),
+        alloc::format!("{:?}", threaded_result.outcome),
         "Dispatch paths disagree on the outcome"
     );
 
@@ -62,9 +93,11 @@ fn assert_paths_agree<I, Instructions>(
         );
     }
 
+    // The threaded path is handed a clone of the fetcher and hands back only where it stopped, so
+    // the state's own fetcher stays where it was and this compares against what came back
     assert_eq!(
         ProgramCounter::<u64, TestMemory>::get_pc(&looped_state.instruction_fetcher),
-        ProgramCounter::<u64, TestMemory>::get_pc(&threaded_state.instruction_fetcher),
+        threaded_result.program_counter,
         "Dispatch paths disagree on the program counter"
     );
 }
@@ -246,6 +279,10 @@ fn threaded_matches_looped_failure() {
 
 #[test]
 fn threaded_reports_the_error_it_stopped_on() {
+    if !threaded_dispatch_available::<Rv64Instruction<Reg<u64>>>() {
+        return;
+    }
+
     let mut state = initialize_state(vec![Rv64Instruction::Ld {
         rd: Reg::A3,
         rs1: Reg::A0,
@@ -255,13 +292,17 @@ fn threaded_reports_the_error_it_stopped_on() {
     state.regs.write(Reg::A0, 0xdead_0000);
 
     assert!(matches!(
-        execute_threaded(&mut state),
+        execute_threaded(&mut state).outcome,
         Err(ExecutionError::OutOfBoundsRead { .. })
     ));
 }
 
 #[test]
 fn threaded_runs_a_loop_to_completion() {
+    if !threaded_dispatch_available::<Rv64Instruction<Reg<u64>>>() {
+        return;
+    }
+
     // Counts down from 1000, which is more iterations than any stack could hold if the handler
     // chain were not made of real tail calls
     let instructions = vec![
@@ -281,13 +322,17 @@ fn threaded_runs_a_loop_to_completion() {
     let mut state = initialize_state(instructions);
     state.regs.write(Reg::A0, 1000);
 
-    execute_threaded(&mut state).unwrap();
+    execute_threaded(&mut state).outcome.unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
 #[test]
 fn threaded_leaves_memory_in_the_same_state() {
+    if !threaded_dispatch_available::<Rv64Instruction<Reg<u64>>>() {
+        return;
+    }
+
     let instructions: Vec<_> = (0..8)
         .map(|index| Rv64Instruction::Sd {
             rs1: Reg::A0,
@@ -304,7 +349,7 @@ fn threaded_leaves_memory_in_the_same_state() {
     let mut threaded_state = initialize_state(instructions);
     threaded_state.regs.write(Reg::A0, TEST_BASE_ADDR);
     threaded_state.regs.write(Reg::A1, 0xabcd);
-    execute_threaded(&mut threaded_state).unwrap();
+    execute_threaded(&mut threaded_state).outcome.unwrap();
 
     for index in 0..8 {
         let address = TEST_BASE_ADDR + index * 8;

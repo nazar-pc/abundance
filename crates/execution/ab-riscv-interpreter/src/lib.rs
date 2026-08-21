@@ -204,7 +204,9 @@ use alloc::boxed::Box;
 use core::convert::Infallible;
 use core::fmt;
 use core::hint::cold_path;
-use core::marker::Destruct;
+use core::marker::{Destruct, PhantomData};
+#[cfg(all(target_arch = "x86_64", any(not(miri), target_feature = "avx")))]
+use core::mem;
 use core::ops::{ControlFlow, FromResidual, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
@@ -522,6 +524,12 @@ where
     /// Custom error
     #[error("Custom error: {0:?}")]
     Custom([u8; 8]),
+    /// Threaded execution is not supported on this platform.
+    ///
+    /// See [`OpaqueThreadedExecutionResult::platform_supported()`] for what makes a platform
+    /// unsupported and why the answer is a run-time one.
+    #[error("Threaded execution is not supported on this platform")]
+    UnsupportedPlatform,
 }
 
 /// Where execution continues after an instruction, or why it could not.
@@ -999,40 +1007,272 @@ where
 /// Unlike [`ExecutionResult`], this is produced exactly once, by the handler that stops the chain
 /// and is not on the per-instruction path.
 ///
-/// The instruction fetcher travels through the chain by value and comes back here to remain
-/// available, exactly as it would be after [`ExecutableInstruction::execute()`].
+/// For performance reasons everything inside has to fit into what the platform returns in
+/// registers, in the shape of [`OpaqueThreadedExecutionResult`]. A caller that needs its fetcher
+/// after execution keeps its own copy and sets the program counter to the correct value after
+/// execution manually.
 #[derive(Debug)]
-pub struct ThreadedExecutionResult<IF, I>
+pub struct ThreadedExecutionResult<I>
 where
     I: Instruction,
 {
-    /// Instruction fetcher as of the moment execution stopped
-    pub instruction_fetcher: IF,
+    /// Program counter as of the moment execution stopped
+    pub program_counter: Address<I>,
     /// Why execution stopped
     pub outcome: Result<(), ExecutionError<Address<I>>>,
 }
 
-impl<IF, I> ThreadedExecutionResult<IF, I>
+impl<I> ThreadedExecutionResult<I>
 where
     I: Instruction,
 {
     /// Execution stopped gracefully
     #[inline(always)]
-    pub const fn stopped(instruction_fetcher: IF) -> Self {
+    pub const fn stopped(program_counter: Address<I>) -> Self {
         Self {
-            instruction_fetcher,
+            program_counter,
             outcome: Ok(()),
         }
     }
 
     /// Execution failed
     #[inline(always)]
-    pub const fn failed(instruction_fetcher: IF, error: ExecutionError<Address<I>>) -> Self {
+    pub const fn failed(program_counter: Address<I>, error: ExecutionError<Address<I>>) -> Self {
         cold_path();
         Self {
-            instruction_fetcher,
+            program_counter,
             outcome: Err(error),
         }
+    }
+}
+
+cfg_select! {
+    all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
+        /// x86-64 System V only returns an aggregate larger than two eightbytes in registers when
+        /// it is a single vector, hence a 256-bit one (a pair of 128-bit vectors classifies as
+        /// memory). Moving one of those needs AVX, which is what makes this the only shape here
+        /// with a run-time platform requirement.
+        type OpaqueLanes = core::arch::x86_64::__m256i;
+    }
+    all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
+        /// AArch64 returns an aggregate larger than 16 bytes in registers only as a homogeneous
+        /// aggregate of up to four members, hence three `u64`.
+        // TODO: `[f64; 3]` is used temporarily due to compiler bug:
+        //  https://github.com/rust-lang/rust/issues/161382
+        type OpaqueLanes = [f64; 3];
+    }
+    _ => {
+        type OpaqueLanes = [u64; 3];
+    }
+}
+
+/// [`ThreadedExecutionResult`] in the shape tail-called handlers return it in.
+///
+/// Threaded handler internally returns this rather than [`ThreadedExecutionResult`] so that the
+/// outcome travels in registers instead of through a hidden out-pointer where possible for
+/// performance reasons (primarily on x86-64 due to a limited number of usable GPRs in the ABI).
+///
+/// On x86-64 the lanes are a 256-bit vector, so producing one of these executes AVX instructions -
+/// see [`Self::platform_supported()`] and [`Self::new()`].
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct OpaqueThreadedExecutionResult<I> {
+    lanes: OpaqueLanes,
+    phantom: PhantomData<I>,
+}
+
+impl<I> OpaqueThreadedExecutionResult<I>
+where
+    I: Instruction,
+{
+    const TAG_STOPPED: u64 = 0;
+    const TAG_UNALIGNED_INSTRUCTION: u64 = 1;
+    const TAG_OUT_OF_BOUNDS_READ: u64 = 2;
+    const TAG_OUT_OF_BOUNDS_WRITE: u64 = 3;
+    const TAG_ECALL_UNSUPPORTED: u64 = 4;
+    const TAG_ILLEGAL_INSTRUCTION: u64 = 5;
+    const TAG_CSR_READ_ONLY: u64 = 6;
+    const TAG_CSR_ILLEGAL_READ: u64 = 7;
+    const TAG_CSR_ILLEGAL_WRITE: u64 = 8;
+    const TAG_CSR_UNKNOWN: u64 = 9;
+    const TAG_CSR_INSUFFICIENT_PRIVILEGE: u64 = 10;
+    const TAG_CUSTOM: u64 = 11;
+    const TAG_UNSUPPORTED_PLATFORM: u64 = 12;
+
+    /// Whether this platform can carry an outcome the way [`Self::new()`] does.
+    ///
+    /// It cannot on an x86-64 CPU without AVX, where the lanes are a 256-bit vector: Rust targets
+    /// x86-64-v1 by default, so a runtime check is necessary.
+    ///
+    /// This is called once within [`ThreadedExecutableInstruction::execute_threaded()`].
+    #[cfg_attr(
+        all(target_arch = "x86_64", not(target_feature = "avx")),
+        expect(
+            deprecated,
+            reason = "`cpufeatures` uses a deprecated associated function internally"
+        )
+    )]
+    #[inline(always)]
+    #[must_use]
+    pub fn platform_supported() -> bool {
+        cfg_select! {
+            all(target_arch = "x86_64", not(target_feature = "avx")) => {
+                cpufeatures::new!(cpuid_avx, "avx");
+
+                cpuid_avx::get()
+            }
+            _ => true,
+        }
+    }
+
+    /// Serialize an outcome into the shape handlers return.
+    ///
+    /// # Safety
+    /// [`Self::platform_supported()`] must return `true`.
+    #[inline(always)]
+    pub unsafe fn new(result: ThreadedExecutionResult<I>) -> Self {
+        let program_counter = result.program_counter.as_u64();
+
+        let (tag, payload) = match result.outcome {
+            Ok(()) => (Self::TAG_STOPPED, 0),
+            Err(error) => match error {
+                ExecutionError::UnalignedInstruction { address } => {
+                    (Self::TAG_UNALIGNED_INSTRUCTION, address.get().as_u64())
+                }
+                ExecutionError::OutOfBoundsRead { address } => {
+                    (Self::TAG_OUT_OF_BOUNDS_READ, address.get())
+                }
+                ExecutionError::OutOfBoundsWrite { address } => {
+                    (Self::TAG_OUT_OF_BOUNDS_WRITE, address.get())
+                }
+                ExecutionError::EcallUnsupported { address } => {
+                    (Self::TAG_ECALL_UNSUPPORTED, address.get().as_u64())
+                }
+                ExecutionError::IllegalInstruction { address } => {
+                    (Self::TAG_ILLEGAL_INSTRUCTION, address.get().as_u64())
+                }
+                ExecutionError::CsrReadOnly { csr_index } => {
+                    (Self::TAG_CSR_READ_ONLY, u64::from(csr_index))
+                }
+                ExecutionError::CsrIllegalRead { csr_index } => {
+                    (Self::TAG_CSR_ILLEGAL_READ, u64::from(csr_index))
+                }
+                ExecutionError::CsrIllegalWrite { csr_index } => {
+                    (Self::TAG_CSR_ILLEGAL_WRITE, u64::from(csr_index))
+                }
+                ExecutionError::CsrUnknown { csr_index } => {
+                    (Self::TAG_CSR_UNKNOWN, u64::from(csr_index))
+                }
+                ExecutionError::CsrInsufficientPrivilege {
+                    csr_index,
+                    required,
+                    current,
+                } => (
+                    Self::TAG_CSR_INSUFFICIENT_PRIVILEGE,
+                    u64::from(csr_index)
+                        | (u64::from(required.to_bits()) << 16)
+                        | (u64::from(current.to_bits()) << 24),
+                ),
+                ExecutionError::Custom(error) => (Self::TAG_CUSTOM, u64::from_le_bytes(error)),
+                ExecutionError::UnsupportedPlatform => (Self::TAG_UNSUPPORTED_PLATFORM, 0),
+            },
+        };
+
+        Self {
+            lanes: cfg_select! {
+                all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
+                    // SAFETY: Method contract guarantees that `Self::platform_supported()` was
+                    // called, which ensures that AVX is supported
+                    unsafe {
+                        core::arch::x86_64::_mm256_setr_epi64x(
+                            program_counter.cast_signed(),
+                            tag.cast_signed(),
+                            payload.cast_signed(),
+                            0,
+                        )
+                    }
+                }
+                all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
+                    [program_counter, tag, payload].map(f64::from_bits)
+                }
+                _ => [program_counter, tag, payload],
+            },
+            phantom: PhantomData,
+        }
+    }
+
+    /// Deserialize what [`Self::new()`] produced.
+    ///
+    /// The lanes only ever come from there, in this very crate, which is what makes the
+    /// unknown-tag arm unreachable.
+    #[inline(always)]
+    pub fn into_result(self) -> ThreadedExecutionResult<I> {
+        let [program_counter, tag, payload] =
+            cfg_select! {
+                all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
+                    {
+                        // SAFETY: Same size, alignment is larger than necessary
+                        let [program_counter, tag, payload, _] = unsafe {
+                            mem::transmute::<core::arch::x86_64::__m256i, [u64; 4]>(self.lanes)
+                        };
+
+                        [program_counter, tag, payload]
+                    }
+                }
+                all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
+                    self.lanes.map(f64::to_bits)
+                }
+                _ => self.lanes,
+            };
+
+        let program_counter = Address::<I>::truncate_from_u64(program_counter);
+        let csr_index = payload as u16;
+
+        let error = match tag {
+            Self::TAG_STOPPED => {
+                return ThreadedExecutionResult::stopped(program_counter);
+            }
+            Self::TAG_UNALIGNED_INSTRUCTION => ExecutionError::UnalignedInstruction {
+                address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
+            },
+            Self::TAG_OUT_OF_BOUNDS_READ => ExecutionError::OutOfBoundsRead {
+                address: PackedAddress::new(payload),
+            },
+            Self::TAG_OUT_OF_BOUNDS_WRITE => ExecutionError::OutOfBoundsWrite {
+                address: PackedAddress::new(payload),
+            },
+            Self::TAG_ECALL_UNSUPPORTED => ExecutionError::EcallUnsupported {
+                address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
+            },
+            Self::TAG_ILLEGAL_INSTRUCTION => ExecutionError::IllegalInstruction {
+                address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
+            },
+            Self::TAG_CSR_READ_ONLY => ExecutionError::CsrReadOnly { csr_index },
+            Self::TAG_CSR_ILLEGAL_READ => ExecutionError::CsrIllegalRead { csr_index },
+            Self::TAG_CSR_ILLEGAL_WRITE => ExecutionError::CsrIllegalWrite { csr_index },
+            Self::TAG_CSR_UNKNOWN => ExecutionError::CsrUnknown { csr_index },
+            Self::TAG_CSR_INSUFFICIENT_PRIVILEGE => {
+                // SAFETY: `::new()` constructor created this value with `to_bits()`
+                let required =
+                    unsafe { PrivilegeLevel::from_bits((payload >> 16) as u8).unwrap_unchecked() };
+                // SAFETY: `::new()` constructor created this value with `to_bits()`
+                let current =
+                    unsafe { PrivilegeLevel::from_bits((payload >> 24) as u8).unwrap_unchecked() };
+
+                ExecutionError::CsrInsufficientPrivilege {
+                    csr_index,
+                    required,
+                    current,
+                }
+            }
+            Self::TAG_CUSTOM => ExecutionError::Custom(payload.to_le_bytes()),
+            Self::TAG_UNSUPPORTED_PLATFORM => ExecutionError::UnsupportedPlatform,
+            _ => {
+                unreachable!("Lanes are only ever produced by `new()`; qed");
+            }
+        };
+
+        ThreadedExecutionResult::failed(program_counter, error)
     }
 }
 
@@ -1062,7 +1302,7 @@ where
     /// until execution stops or fails.
     ///
     /// The instruction fetcher is taken by value rather than behind a reference so that it stays in
-    /// registers across the whole handler chain and is returned in [`ThreadedExecutionResult`].
+    /// registers across the whole handler chain.
     ///
     /// `ext_state` and `system_instruction_handler` are taken by value for the same reason and one
     /// more: an owned value can be a zero-sized type, which occupies no argument register at all,
@@ -1077,5 +1317,5 @@ where
         ext_state: ExtState,
         memory: &mut Memory,
         system_instruction_handler: InstructionHandler,
-    ) -> ThreadedExecutionResult<PC, Self>;
+    ) -> ThreadedExecutionResult<Self>;
 }

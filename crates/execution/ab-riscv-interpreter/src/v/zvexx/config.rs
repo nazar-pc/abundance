@@ -7,9 +7,9 @@ pub mod zvexx_config_helpers;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::{
     CsrError, Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
-    ThreadedExecutionResult,
+    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher,
+    OpaqueThreadedExecutionResult, ProgramCounter, RegisterFile, Rs1Rs2OperandValues,
+    Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;

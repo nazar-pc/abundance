@@ -59,6 +59,9 @@ where
     /// Convert to `u64`
     fn as_u64(&self) -> u64;
 
+    /// Convert from `u64`, truncating to this type's width
+    fn truncate_from_u64(value: u64) -> Self;
+
     /// Convert to `i64` (sign-extended)
     fn as_i64(&self) -> i64;
 
@@ -72,6 +75,11 @@ const impl RegType for u32 {
     #[inline(always)]
     fn as_u64(&self) -> u64 {
         u64::from(*self)
+    }
+
+    #[inline(always)]
+    fn truncate_from_u64(value: u64) -> Self {
+        value as Self
     }
 
     #[inline(always)]
@@ -91,6 +99,11 @@ const impl RegType for u64 {
     #[inline(always)]
     fn as_u64(&self) -> u64 {
         *self
+    }
+
+    #[inline(always)]
+    fn truncate_from_u64(value: u64) -> Self {
+        value
     }
 
     #[inline(always)]

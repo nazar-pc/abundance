@@ -31,4 +31,9 @@ impl PrivilegeLevel {
             _ => None,
         }
     }
+
+    /// Encode to a 2-bit field value
+    pub const fn to_bits(self) -> u8 {
+        self as u8
+    }
 }

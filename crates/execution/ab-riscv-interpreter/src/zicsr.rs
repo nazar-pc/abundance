@@ -6,8 +6,9 @@ pub mod zicsr_helpers;
 
 use crate::{
     Csrs, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
-    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
+    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher,
+    OpaqueThreadedExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ThreadedExecutableInstruction, ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
