@@ -3,16 +3,20 @@ use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 
-/// Registers used by contracts
+/// Registers used by contracts.
+///
+/// `ZEROSTORE` generic determines whether to zero `x0` register on write instead of checking
+/// register index on read. `match` loop usually performs better with branching, while threaded
+/// execution benefits from zeroing.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ContractRegisters {
+pub struct ContractRegisters<const ZEROSTORE: bool> {
     regs: [u64; 32],
 }
 
-const impl RegisterFile<ContractRegister> for ContractRegisters {
+const impl<const ZEROSTORE: bool> RegisterFile<ContractRegister> for ContractRegisters<ZEROSTORE> {
     #[inline(always)]
     fn read(&self, reg: ContractRegister) -> u64 {
-        if reg == ContractRegister::Zero {
+        if reg == ContractRegister::Zero && !ZEROSTORE {
             // Always zero
             return 0;
         }
@@ -25,6 +29,11 @@ const impl RegisterFile<ContractRegister> for ContractRegisters {
     fn write(&mut self, reg: ContractRegister, value: u64) {
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(usize::from(reg as u8)) } = value;
+
+        if ZEROSTORE {
+            // SAFETY: The register file always has at least one slot
+            *unsafe { self.regs.get_unchecked_mut(0) } = 0;
+        }
     }
 }
 

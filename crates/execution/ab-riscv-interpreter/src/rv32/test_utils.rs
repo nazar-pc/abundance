@@ -301,7 +301,7 @@ impl ReservationSet<Reg<u32>> for ExtState {
 }
 
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
-    BasicRegisters<Reg<u32>>,
+    BasicRegisters<Reg<u32>, false>,
     ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
@@ -335,7 +335,7 @@ pub(crate) fn execute<I>(
 where
     I: Instruction<Reg = Reg<u32>>
         + ExecutableInstruction<
-            BasicRegisters<Reg<u32>>,
+            BasicRegisters<Reg<u32>, false>,
             ExtState,
             TestMemory,
             TestInstructionFetcher<I>,

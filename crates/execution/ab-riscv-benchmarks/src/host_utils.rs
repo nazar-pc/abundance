@@ -6,11 +6,15 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::bool::Bool;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
-use alloc::boxed::Box;
+use alloc::alloc::{alloc, dealloc, handle_alloc_error};
 use alloc::vec::Vec;
+use core::alloc::Layout;
+use core::cell::Cell;
+use core::fmt;
 use core::hint::cold_path;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
+use core::ptr::NonNull;
 
 /// Contract file bytes
 pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
@@ -384,16 +388,102 @@ impl LazyInstructionFetcher {
     }
 }
 
-/// Eager instruction handler eagerly decodes all instructions upfront
-#[derive(Debug, Clone)]
-#[repr(C, align(16))]
-pub struct EagerTestInstructionFetcher {
-    decoded_instruction_byte_offset: usize,
-    // A simple raw pointer separate field helps LLVM with SROA and aliasing analysis, so it can
-    // retain this pointer in the native register
-    instructions: Box<[ContractInstruction]>,
+/// Everything [`EagerTestInstructionFetcher`] needs besides its position within the decoded
+/// instruction stream.
+///
+/// This lives in a single heap allocation whose tail holds the decoded instructions themselves,
+/// starting [`EagerTestInstructionFetcher::INSTRUCTIONS_OFFSET`] bytes from the beginning of it.
+/// That is what keeps the fetcher itself down to two pointers, so it fits into two argument
+/// registers when threaded through tail-called instruction handlers by value.
+#[derive(Debug)]
+#[repr(C)]
+struct EagerTestInstructionFetcherState {
+    /// Number of fetchers sharing this state.
+    ///
+    /// Threaded execution moves the fetcher into the handler chain and only hands the program
+    /// counter back, so a caller that runs the same program more than once hands over a clone
+    /// each time. Cloning the decoded instructions with it would be the dominant cost of a short
+    /// benchmark run, hence the reference count: a clone is an increment and two pointer copies.
+    strong_count: Cell<usize>,
+    /// Number of decoded instructions stored right after this header
+    instructions_len: usize,
+    /// Guest address that corresponds to the first decoded instruction
     base_addr: u64,
+    /// Guest address at which execution stops gracefully
     return_trap_address: u64,
+}
+
+/// Eager instruction handler eagerly decodes all instructions upfront
+#[repr(C)]
+pub struct EagerTestInstructionFetcher {
+    /// The instruction to be returned by the next [`InstructionFetcher::fetch_instruction()`]
+    /// call.
+    ///
+    /// A pointer rather than an offset helps LLVM with SROA and aliasing analysis, so it can
+    /// retain this in a native register instead of recomputing it from an offset on every
+    /// fetch.
+    next_instruction: NonNull<ContractInstruction>,
+    /// Everything else the fetcher needs, together with the decoded instructions themselves, in a
+    /// single heap allocation.
+    ///
+    /// This is a raw pointer rather than a `Box` on purpose: `next_instruction` points into the
+    /// same allocation, and going through a `Box` would assert unique access to that allocation on
+    /// every use, invalidating a pointer that must survive across all of them.
+    state: NonNull<EagerTestInstructionFetcherState>,
+}
+
+const {
+    // When fetcher is used with threaded dispatch, it must fit into two argument registers to be
+    // passed used registers through tail calls
+    assert!(size_of::<EagerTestInstructionFetcher>() == 16);
+}
+
+impl fmt::Debug for EagerTestInstructionFetcher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EagerTestInstructionFetcher")
+            .field("next_instruction", &self.next_instruction)
+            .field("instructions_len", &self.instructions_len())
+            .field("base_addr", &self.base_addr())
+            .field("return_trap_address", &self.return_trap_address())
+            .finish_non_exhaustive()
+    }
+}
+
+impl Drop for EagerTestInstructionFetcher {
+    fn drop(&mut self) {
+        let strong_count = self.strong_count();
+        let remaining = strong_count.get() - 1;
+        strong_count.set(remaining);
+
+        if remaining > 0 {
+            return;
+        }
+
+        let layout = Self::allocation_layout(self.instructions_len());
+
+        // SAFETY: Allocated with the global allocator using exactly this layout, and this was the
+        // last fetcher sharing it
+        unsafe {
+            dealloc(self.state.as_ptr().cast::<u8>(), layout);
+        }
+    }
+}
+
+impl Clone for EagerTestInstructionFetcher {
+    fn clone(&self) -> Self {
+        let strong_count = self.strong_count();
+        strong_count.set(
+            strong_count
+                .get()
+                .checked_add(1)
+                .expect("Number of clones can't overflow `usize`; qed"),
+        );
+
+        Self {
+            next_instruction: self.next_instruction,
+            state: self.state,
+        }
+    }
 }
 
 impl<Memory> ProgramCounter<u64, Memory> for EagerTestInstructionFetcher
@@ -402,8 +492,14 @@ where
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
-        self.base_addr
-            + self.decoded_instruction_byte_offset as u64 * size_of::<u16>() as u64
+        let decoded_instruction_byte_offset = self
+            .next_instruction
+            .as_ptr()
+            .addr()
+            .wrapping_sub(self.instructions().as_ptr().addr());
+
+        self.base_addr()
+            + decoded_instruction_byte_offset as u64 * size_of::<u16>() as u64
                 / size_of::<ContractInstruction>() as u64
     }
 
@@ -425,13 +521,21 @@ where
         // Byte offset from the instruction being executed to the branch target. The program counter
         // is advanced during instruction fetching, so that instruction starts `instruction_size`
         // bytes back.
-        let offset = offset as isize - isize::from(instruction_size);
+        let offset = (offset as isize).wrapping_sub(isize::from(instruction_size));
         // Every `size_of::<u16>()` of guest code owns one decoded instruction, so the target is
         // reached by moving within the decoded stream
-        let decoded_instruction_byte_offset =
-            self.decoded_instruction_byte_offset.wrapping_add_signed(
-                offset * (size_of::<ContractInstruction>() / size_of::<u16>()).cast_signed(),
-            );
+        let byte_delta =
+            offset * (size_of::<ContractInstruction>() / size_of::<u16>()).cast_signed();
+        // This may land outside the decoded stream (including before its start), which is fine:
+        // `wrapping_byte_offset()` only computes an address, it never dereferences the pointer, and
+        // the bounds check below rejects such a target before it is ever used
+        let new_next_instruction = self
+            .next_instruction
+            .as_ptr()
+            .wrapping_byte_offset(byte_delta);
+        let decoded_instruction_byte_offset = new_next_instruction
+            .addr()
+            .wrapping_sub(self.instructions().as_ptr().addr());
 
         // A target that does not land on a decoded instruction sits between two guest
         // instructions, which makes it an unaligned instruction rather than something to round to
@@ -440,7 +544,7 @@ where
         // the end of the decoded stream, which a backwards branch that ran off its start wraps
         // around into.
         if decoded_instruction_byte_offset
-            >= self.instructions.len() * size_of::<ContractInstruction>()
+            >= self.instructions_len() * size_of::<ContractInstruction>()
             || !decoded_instruction_byte_offset.is_multiple_of(size_of::<ContractInstruction>())
         {
             cold_path();
@@ -448,7 +552,9 @@ where
             return self.set_pc(memory, pc.wrapping_add_signed(offset as i64));
         }
 
-        self.decoded_instruction_byte_offset = decoded_instruction_byte_offset;
+        // SAFETY: Just checked that `new_next_instruction` lands exactly on a decoded instruction
+        // within the bounds of the (non-empty) decoded stream
+        self.next_instruction = unsafe { NonNull::new_unchecked(new_next_instruction) };
 
         Ok(ControlFlow::Continue(()))
     }
@@ -461,7 +567,7 @@ where
     ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
         let address = pc;
 
-        if address == self.return_trap_address {
+        if address == self.return_trap_address() {
             cold_path();
             return Ok(ControlFlow::Break(()));
         }
@@ -473,7 +579,7 @@ where
             });
         }
 
-        let Some(offset) = address.checked_sub(self.base_addr) else {
+        let Some(offset) = address.checked_sub(self.base_addr()) else {
             cold_path();
             return Err(ExecutionError::OutOfBoundsRead {
                 address: PackedAddress::new(address),
@@ -482,13 +588,13 @@ where
         let offset = offset as usize;
         let instruction_offset = offset / size_of::<u16>();
 
-        if instruction_offset >= self.instructions.len() {
+        if instruction_offset >= self.instructions_len() {
             cold_path();
             return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
         }
 
-        self.decoded_instruction_byte_offset =
-            instruction_offset * size_of::<ContractInstruction>();
+        // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded stream
+        self.next_instruction = unsafe { self.instructions().add(instruction_offset) };
 
         Ok(ControlFlow::Continue(()))
     }
@@ -506,29 +612,122 @@ where
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
         // one instruction can't result in out-of-bounds access.
-        let instruction = unsafe {
-            // Reading through byte offset rather than index to avoid extra computation (converting
-            // an index to a byte offset) on each fetch
-            self.instructions
-                .as_ptr()
-                .byte_add(self.decoded_instruction_byte_offset)
-                .read()
-        };
-        self.decoded_instruction_byte_offset +=
+        let instruction = unsafe { self.next_instruction.read() };
+        let byte_advance =
             usize::from(instruction.size()) / size_of::<u16>() * size_of::<ContractInstruction>();
+        // SAFETY: Same as above: advancing by one instruction from a valid position can't go out of
+        // bounds
+        self.next_instruction = unsafe { self.next_instruction.byte_add(byte_advance) };
 
         FetchInstructionResult::Instruction(instruction)
     }
 }
 
 impl EagerTestInstructionFetcher {
-    /// Create a new instance with the specified instructions and base address.
+    /// Byte offset of the decoded instructions from the start of the allocation that
+    /// [`Self::state`] points at
+    const INSTRUCTIONS_OFFSET: usize = size_of::<EagerTestInstructionFetcherState>()
+        .next_multiple_of(align_of::<ContractInstruction>());
+
+    /// Layout of the allocation holding [`EagerTestInstructionFetcherState`] followed by
+    /// `instructions_len` decoded instructions
+    fn allocation_layout(instructions_len: usize) -> Layout {
+        let (layout, instructions_offset) = Layout::new::<EagerTestInstructionFetcherState>()
+            .extend(
+                Layout::array::<ContractInstruction>(instructions_len)
+                    .expect("Decoded instructions fit into memory, they were just allocated; qed"),
+            )
+            .expect("Decoded instructions fit into memory, they were just allocated; qed");
+
+        debug_assert_eq!(instructions_offset, Self::INSTRUCTIONS_OFFSET);
+
+        layout.pad_to_align()
+    }
+
+    fn instantiate(
+        instructions: &[ContractInstruction],
+        base_addr: u64,
+        return_trap_address: u64,
+    ) -> Self {
+        let instructions_len = instructions.len();
+        let layout = Self::allocation_layout(instructions_len);
+        // SAFETY: The state itself is always there, so the layout has non-zero size
+        let state = unsafe { alloc(layout) }.cast::<EagerTestInstructionFetcherState>();
+        let Some(state) = NonNull::new(state) else {
+            handle_alloc_error(layout);
+        };
+
+        // SAFETY: Freshly allocated for exactly this type, correctly aligned
+        unsafe {
+            state.write(EagerTestInstructionFetcherState {
+                strong_count: Cell::new(1),
+                instructions_len,
+                base_addr,
+                return_trap_address,
+            });
+        }
+
+        let instance = Self {
+            // SAFETY: Decoded instructions are stored at this offset of the same allocation as the
+            // state, and the position starts at the first of them
+            next_instruction: unsafe { state.byte_add(Self::INSTRUCTIONS_OFFSET) }
+                .cast::<ContractInstruction>(),
+            state,
+        };
+
+        // SAFETY: The allocation was made for exactly this many instructions and is distinct from
+        // the ones being copied in
+        unsafe {
+            instance.instructions().copy_from_nonoverlapping(
+                NonNull::from(instructions).cast::<ContractInstruction>(),
+                instructions_len,
+            );
+        }
+
+        instance
+    }
+
+    /// Pointer to the first decoded instruction
+    #[inline(always)]
+    fn instructions(&self) -> NonNull<ContractInstruction> {
+        // SAFETY: Decoded instructions are stored at this offset of the same allocation as the
+        // state
+        unsafe { self.state.byte_add(Self::INSTRUCTIONS_OFFSET) }.cast::<ContractInstruction>()
+    }
+
+    /// Number of fetchers sharing the state
+    #[inline(always)]
+    fn strong_count(&self) -> &Cell<usize> {
+        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
+        unsafe { &(*self.state.as_ptr()).strong_count }
+    }
+
+    /// Number of decoded instructions
+    #[inline(always)]
+    fn instructions_len(&self) -> usize {
+        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
+        unsafe { (*self.state.as_ptr()).instructions_len }
+    }
+
+    /// Guest address that corresponds to the first decoded instruction
+    #[inline(always)]
+    fn base_addr(&self) -> u64 {
+        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
+        unsafe { (*self.state.as_ptr()).base_addr }
+    }
+
+    /// Guest address at which execution stops gracefully
+    #[inline(always)]
+    fn return_trap_address(&self) -> u64 {
+        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
+        unsafe { (*self.state.as_ptr()).return_trap_address }
+    }
+
+    /// Decode `instructions` and create a new instance holding the result, with the position at
+    /// the instruction `pc` points at.
     ///
-    /// Instructions are decoded during instantiation of the instruction fetcher, and the base
-    /// address corresponds to the first instruction.
-    ///
-    /// `return_trap_address` is the address at which the interpreter will stop execution
-    /// (gracefully).
+    /// `base_addr` is the guest address of the first instruction, and `return_trap_address` is the
+    /// address at which the interpreter will stop execution (gracefully).
     ///
     /// # Safety
     /// The program counter must be valid and aligned, the instructions processed must end with a
@@ -542,7 +741,8 @@ impl EagerTestInstructionFetcher {
         base_addr: u64,
         pc: u64,
     ) -> Self {
-        let mut decoded_instructions = Vec::with_capacity(instructions.len() / size_of::<u16>());
+        let mut decoded_instructions: Vec<ContractInstruction> =
+            Vec::with_capacity(instructions.len() / size_of::<u16>());
 
         let mut offset = 0;
         while let Some(instruction_bytes) = instructions.get(offset..offset + size_of::<u32>()) {
@@ -614,13 +814,13 @@ impl EagerTestInstructionFetcher {
             ));
         }
 
-        let instructions = decoded_instructions.into_boxed_slice();
-        Self {
-            decoded_instruction_byte_offset: (pc - base_addr) as usize / size_of::<u16>()
-                * size_of::<ContractInstruction>(),
-            instructions,
-            base_addr,
-            return_trap_address,
-        }
+        let mut instance = Self::instantiate(&decoded_instructions, base_addr, return_trap_address);
+
+        let instruction_offset = (pc - base_addr) as usize / size_of::<u16>();
+        // SAFETY: Constructor's contract guarantees `pc` is valid, meaning `instruction_offset` is
+        // within bounds of the decoded stream
+        instance.next_instruction = unsafe { instance.instructions().add(instruction_offset) };
+
+        instance
     }
 }

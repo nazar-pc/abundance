@@ -1,5 +1,6 @@
 #![expect(incomplete_features, reason = "explicit_tail_calls")]
 #![feature(
+    const_block_items,
     const_cmp,
     const_trait_impl,
     const_try,
@@ -15,11 +16,10 @@ mod interpreter;
 mod time_csr;
 
 use crate::elf::{LoadedElf, load_elf};
+use crate::instruction::CoremarkInstruction;
 use crate::interpreter::{EagerInstructionFetcher, GuestMemory};
 use crate::time_csr::TimeCsrState;
-use ab_riscv_interpreter::basic::{
-    BasicInterpreterState, BasicRegisters, IllegalEcallSystemInstructionHandler,
-};
+use ab_riscv_interpreter::basic::{BasicRegisters, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -59,6 +59,7 @@ fn main() -> anyhow::Result<()> {
             feature to make ELF building required"
         ));
     }
+
     let mut memory = GuestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
     let LoadedElf {
         entry_point,
@@ -81,7 +82,7 @@ fn main() -> anyhow::Result<()> {
 
     let host_start = std::time::Instant::now();
 
-    let mut regs = BasicRegisters::default();
+    let mut regs = BasicRegisters::<_, true>::default();
     regs.write(Reg::Ra, TRAP_ADDRESS);
     regs.write(Reg::Sp, stack_pointer);
     regs.write(Reg::Gp, global_pointer);
@@ -92,19 +93,22 @@ fn main() -> anyhow::Result<()> {
     let instruction_fetcher =
         unsafe { EagerInstructionFetcher::new(text_data, TRAP_ADDRESS, text_addr, entry_point) };
 
-    let mut state = BasicInterpreterState {
-        regs,
-        ext_state: TimeCsrState::default(),
-        memory,
+    let ThreadedExecutionResult {
+        outcome,
+        program_counter: _,
+    } = CoremarkInstruction::execute_threaded(
         instruction_fetcher,
-        system_instruction_handler: IllegalEcallSystemInstructionHandler,
-    };
+        &mut regs,
+        &mut TimeCsrState::default(),
+        &mut memory,
+        IllegalEcallSystemInstructionHandler,
+    );
 
-    state.execute().context("Coremark execution failed")?;
+    outcome.context("Coremark execution failed")?;
 
     let host_elapsed = host_start.elapsed();
 
-    let output = read_output(&state.memory, output_buf_addr, output_buf_size)
+    let output = read_output(&memory, output_buf_addr, output_buf_size)
         .context("Coremark output not found in guest memory")?;
     print!("{output}");
 

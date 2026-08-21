@@ -493,7 +493,7 @@ impl ExtState {
 }
 
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
-    BasicRegisters<Reg<u64>>,
+    BasicRegisters<Reg<u64>, false>,
     ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
@@ -527,7 +527,7 @@ pub(crate) fn execute<I>(
 where
     I: Instruction<Reg = Reg<u64>>
         + ExecutableInstruction<
-            BasicRegisters<Reg<u64>>,
+            BasicRegisters<Reg<u64>, false>,
             ExtState,
             TestMemory,
             TestInstructionFetcher<I>,
@@ -606,7 +606,7 @@ pub(crate) fn execute_threaded<I>(state: &mut TestInterpreterState<I>) -> Thread
 where
     I: Instruction<Reg = Reg<u64>>
         + for<'a> ThreadedExecutableInstruction<
-            BasicRegisters<Reg<u64>>,
+            BasicRegisters<Reg<u64>, false>,
             &'a mut ExtState,
             TestMemory,
             TestInstructionFetcher<I>,

@@ -63,17 +63,21 @@ where
     }
 }
 
-/// A basic set of RISC-V GPRs (General Purpose Registers)
+/// A basic set of RISC-V GPRs (General Purpose Registers).
+///
+/// `ZEROSTORE` generic determines whether to zero `x0` register on write instead of checking
+/// register index on read. `match` loop usually performs better with branching, while threaded
+/// execution benefits from zeroing.
 #[derive(Debug, Clone, Copy)]
 #[repr(align(16))]
-pub struct BasicRegisters<Reg>
+pub struct BasicRegisters<Reg, const ZEROSTORE: bool = false>
 where
     Reg: BasicRegister,
 {
     regs: [Reg::Type; Reg::N],
 }
 
-impl<Reg> Default for BasicRegisters<Reg>
+impl<Reg, const ZEROSTORE: bool> Default for BasicRegisters<Reg, ZEROSTORE>
 where
     Reg: BasicRegister,
 {
@@ -85,14 +89,14 @@ where
     }
 }
 
-const impl<Reg> RegisterFile<Reg> for BasicRegisters<Reg>
+const impl<Reg, const ZEROSTORE: bool> RegisterFile<Reg> for BasicRegisters<Reg, ZEROSTORE>
 where
     Reg: [const] BasicRegister,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read(&self, reg: Reg) -> Reg::Type {
-        if reg == Reg::ZERO {
+        if reg == Reg::ZERO && !ZEROSTORE {
             // Always zero
             return Reg::Type::default();
         }
@@ -106,6 +110,10 @@ where
     fn write(&mut self, reg: Reg, value: Reg::Type) {
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
+        if ZEROSTORE {
+            // SAFETY: The register file always has at least one slot
+            *unsafe { self.regs.get_unchecked_mut(0) } = Reg::Type::default();
+        }
     }
 }
 
