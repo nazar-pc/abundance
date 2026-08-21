@@ -187,7 +187,7 @@ where
     I: Instruction<Reg = Reg<u32>>,
 {
     #[inline]
-    fn fetch_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
+    fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {
             return FetchInstructionResult::Break;
         }
@@ -204,9 +204,27 @@ where
                 address: PackedAddress::new(self.pc),
             });
         };
-        self.pc += u32::from(instruction.size());
-
         FetchInstructionResult::Instruction(instruction)
+    }
+
+    #[inline]
+    unsafe fn advance(&mut self, instruction_size: u8) {
+        self.pc = self.pc.wrapping_add(u32::from(instruction_size));
+    }
+
+    #[inline]
+    fn fetch_instruction(&mut self, memory: &TestMemory) -> FetchInstructionResult<I> {
+        let result = self.peek_instruction(memory);
+
+        if let FetchInstructionResult::Instruction(instruction) = result {
+            // SAFETY: The instruction was just peeked successfully, and this is the only place that
+            // moves past it
+            unsafe {
+                self.advance(instruction.size());
+            }
+        }
+
+        result
     }
 }
 

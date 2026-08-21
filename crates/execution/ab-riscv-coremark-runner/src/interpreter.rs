@@ -344,21 +344,55 @@ where
     Memory: VirtualMemory,
 {
     #[inline(always)]
-    fn fetch_instruction(
+    fn peek_instruction(
         &mut self,
         _memory: &Memory,
     ) -> FetchInstructionResult<CoremarkInstruction> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
-        // through `Self::set_pc()` method does the necessary bounds check and advancing forward by
-        // one instruction can't result in out-of-bounds access.
+        // through `Self::set_pc()` method does the necessary bounds check, so the position always
+        // points at a decoded instruction.
         let instruction = unsafe { self.next_instruction.read() };
-        let byte_advance =
-            usize::from(instruction.size()) / size_of::<u16>() * size_of::<CoremarkInstruction>();
-        // SAFETY: Same as above: advancing by one instruction from a valid position can't go out of
-        // bounds
-        self.next_instruction = unsafe { self.next_instruction.byte_add(byte_advance) };
 
         FetchInstructionResult::Instruction(instruction)
+    }
+
+    #[inline(always)]
+    unsafe fn advance(&mut self, instruction_size: u8) {
+        let byte_advance =
+            usize::from(instruction_size) / size_of::<u16>() * size_of::<CoremarkInstruction>();
+        // Wrapping because nothing here dereferences the pointer: the contract of this method is
+        // what makes the resulting position a decoded instruction, and the bounds check that
+        // matters lives in `set_pc()`
+        // SAFETY: A wrapped pointer is never null, and nothing here dereferences it
+        self.next_instruction = unsafe {
+            NonNull::new_unchecked(
+                self.next_instruction
+                    .as_ptr()
+                    .wrapping_byte_add(byte_advance),
+            )
+        };
+    }
+
+    #[inline(always)]
+    fn fetch_instruction(
+        &mut self,
+        memory: &Memory,
+    ) -> FetchInstructionResult<CoremarkInstruction> {
+        let result =
+            InstructionFetcher::<CoremarkInstruction, Memory>::peek_instruction(self, memory);
+
+        if let FetchInstructionResult::Instruction(instruction) = result {
+            // SAFETY: The instruction was just peeked successfully, and this is the only place that
+            // moves past it
+            unsafe {
+                InstructionFetcher::<CoremarkInstruction, Memory>::advance(
+                    self,
+                    instruction.size(),
+                );
+            }
+        }
+
+        result
     }
 }
 

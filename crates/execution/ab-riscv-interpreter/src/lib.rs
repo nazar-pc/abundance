@@ -701,8 +701,31 @@ where
     Self: ProgramCounter<Address<I>, Memory>,
     I: Instruction,
 {
+    /// Read the instruction at the current position, leaving the program counter on it.
+    ///
+    /// [`Self::advance()`] is what moves past it, and the two are separate because of what deriving
+    /// the size from the instruction is costly for threaded dispatch: it makes the address of the
+    /// *next* instruction depend on decoding the current one. In threaded dispatch caller already
+    /// knows which variant it is holding and advances by a constant instead, allowing the next load
+    /// to be issued immediately.
+    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
+
+    /// Move the program counter past an instruction of `instruction_size` bytes that
+    /// [`Self::peek_instruction()`] has just returned.
+    ///
+    /// # Safety
+    /// Must be called exactly once after a successful [`Self::peek_instruction()`], with the size
+    /// of the instruction that call returned. Implementations are free to rely on that and skip
+    /// checks accordingly: one over a pre-decoded stream that is known to end with a jump, for
+    /// instance, treats the resulting position as valid without bounds-checking it.
+    unsafe fn advance(&mut self, instruction_size: u8);
+
     /// Fetch a single instruction at a specified address and advance the program counter on
-    /// successful fetch
+    /// successful fetch.
+    ///
+    /// This is [`Self::peek_instruction()`] followed by [`Self::advance()`] and exists for callers
+    /// that do not know what they are about to fetch, which is every caller that dispatches
+    /// through a `match` rather than through per-variant handlers.
     fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
 }
 

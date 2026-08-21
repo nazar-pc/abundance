@@ -501,7 +501,7 @@ where
 {
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
+    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
         let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
@@ -525,9 +525,29 @@ where
                 address: PackedAddress::new(self.pc),
             });
         };
-        self.pc += instruction.size().into();
-
         FetchInstructionResult::Instruction(instruction)
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    unsafe fn advance(&mut self, instruction_size: u8) {
+        self.pc = self.pc.wrapping_add_signed(i32::from(instruction_size));
+    }
+
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
+        let result = InstructionFetcher::<I, Memory>::peek_instruction(self, memory);
+
+        if let FetchInstructionResult::Instruction(instruction) = result {
+            // SAFETY: The instruction was just peeked successfully, and this is the only place
+            // that moves past it
+            unsafe {
+                InstructionFetcher::<I, Memory>::advance(self, instruction.size());
+            }
+        }
+
+        result
     }
 }
 

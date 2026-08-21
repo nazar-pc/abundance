@@ -175,6 +175,18 @@ pub(super) fn generate_threaded_fns(
                     }
                 };
 
+                // Dispatch leaves the program counter on the instruction it read, and this is what
+                // moves it past it - by a size the compiler folds to a constant, since the variant
+                // is known here. Doing it during the fetch instead makes the address of the next
+                // instruction depend on decoding the current one, which is a load-to-load
+                // dependency in the middle of every dispatch step.
+                //
+                // SAFETY: Dispatch has just peeked this instruction successfully, and this is the
+                // only place that moves past it
+                unsafe {
+                    instruction_fetcher.advance(Instruction::size(&instruction));
+                }
+
                 let execution_result = #variant_fn_name::<#generic_params>(
                     #( #variant_call_args, )*
                     rs1_value,
@@ -332,7 +344,7 @@ pub(super) fn generate_threaded_fns(
             #where_clause
         {
             let instruction = loop {
-                match instruction_fetcher.fetch_instruction(memory) {
+                match instruction_fetcher.peek_instruction(memory) {
                     FetchInstructionResult::Instruction(instruction) => {
                         break instruction;
                     }
