@@ -120,6 +120,17 @@ jobs:
           - *checkout-step
           - *cache-restore-step
 
+          # TODO: Switch to taiki-e/install-action once supported: https://github.com/taiki-e/install-action/issues/1976
+          #  The reason is that this action doesn't pin binary releases, unless https://github.com/kunobi-ninja/kache-action/issues/14 is resolved
+          - &install-kache-step
+            name: Install kache
+            uses: kunobi-ninja/kache-action@a257c055543c2840700a9bbca8f9c3094a421b1b # No release with Windows support yet
+            with:
+              # TODO: Enable for C++ too once https://github.com/kunobi-ninja/kache-action/issues/13 is implemented
+              cache-executables: 'true'
+              github-cache: 'false'
+              pr-comment: 'false'
+
           - name: RISC-V support
             run: |
               echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
@@ -771,6 +782,7 @@ jobs:
     steps:
       - *checkout-step
       - *cache-restore-step
+      - *install-kache-step
 
       # TODO: Run clippy and `no-panic` on custom target for contracts too
       - name: Ensure contracts compile for a custom target
