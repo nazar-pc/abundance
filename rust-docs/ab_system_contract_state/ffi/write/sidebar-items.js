@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["state_write"],"struct":["InternalArgs","StateWriteArgs"]};

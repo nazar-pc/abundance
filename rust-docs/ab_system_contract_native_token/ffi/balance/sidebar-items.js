@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["native_token_balance"],"struct":["InternalArgs","NativeTokenBalanceArgs"]};
