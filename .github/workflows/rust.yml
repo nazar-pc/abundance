@@ -17,13 +17,9 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
   # Build smaller artifacts to avoid running out of space in CI and make it a bit faster.
-  # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
-  #  needed for some crates due to `-Znext-solver=globally`
-  RUSTFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -C strip=symbols
+  RUSTFLAGS: -C strip=symbols
   # Needed for things like file system access
-  # TODO: `-Znext-solver=globally` is a requirement for `generic_const_args`, `-Zmin-recursion-limit=256` is in turn
-  #  needed for some crates due to `-Znext-solver=globally`
-  MIRIFLAGS: -Znext-solver=globally -Zmin-recursion-limit=256 -Zmiri-disable-isolation
+  MIRIFLAGS: -Zmiri-disable-isolation
   RUST_BACKTRACE: full
   # TODO: Short-term workaround for https://github.com/rust-lang/miri/issues/5234
   __CARGO_TEMPORARY_BUILD_DIR_NEW_LAYOUT_OPT_OUT: 1
@@ -94,11 +90,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
-      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         cargo -Zgitoxide -Zgit clippy
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
-        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -326,11 +320,9 @@ jobs:
     env:
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
-      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
-        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
 
     steps: &test-steps
       - name: Install cargo-nextest
@@ -628,11 +620,9 @@ jobs:
     env:
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
-      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
-        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
 
     steps: *test-steps
 
@@ -668,11 +658,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
-      # TODO: `-Ztarget-applies-to-host` and the rest of arguments here are for `-Znext-solver=globally`
       command: >-
         cargo -Zgitoxide -Zgit build
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
-        -Ztarget-applies-to-host -Zhost-config --config 'host.rustflags=["-Znext-solver=globally"]'
 
     steps:
       - *rust-gpu-cache
