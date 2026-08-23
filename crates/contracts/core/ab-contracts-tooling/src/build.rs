@@ -42,12 +42,10 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
         // and they really don't like using normal features for it.
         // `-Zthreads=4` takes advantage of the parallel frontend
-        // `-Znext-solver=globally` is needed for `generic_const_args` in various crates.
         .env(
             "RUSTFLAGS",
             r#"--cfg sha2_backend="riscv-zknh" --cfg sha2_backend_riscv_zknh="compact"
-            -Zthreads=4
-            -Znext-solver=globally"#,
+            -Zthreads=4"#,
         )
         .args([
             "rustc",
@@ -59,14 +57,6 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
             target_specification_path
                 .to_str()
                 .context("Path to target specification file is not valid UTF-8")?,
-        ])
-        // `-Znext-solver=globally` is needed for `generic_const_args` in various crates, it is not
-        // propagated to the target's build script by default, hence such hacks
-        .args([
-            "-Ztarget-applies-to-host",
-            "-Zhost-config",
-            "--config",
-            r#"host.rustflags=["-Znext-solver=globally"]"#,
         ]);
 
     if env::var("MIRI_SYSROOT").is_ok() {
