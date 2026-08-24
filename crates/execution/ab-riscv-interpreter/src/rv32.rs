@@ -240,7 +240,7 @@ where
             } => {
                 if rs1_value == rs2_value {
                     return ExecutionResult::Branch {
-                        offset: imm.to_i32(),
+                        offset: i32::from(imm),
                     };
                 }
 
@@ -253,7 +253,7 @@ where
             } => {
                 if rs1_value != rs2_value {
                     return ExecutionResult::Branch {
-                        offset: imm.to_i32(),
+                        offset: i32::from(imm),
                     };
                 }
 
@@ -266,7 +266,7 @@ where
             } => {
                 if rs1_value.cast_signed() < rs2_value.cast_signed() {
                     return ExecutionResult::Branch {
-                        offset: imm.to_i32(),
+                        offset: i32::from(imm),
                     };
                 }
 
@@ -279,7 +279,7 @@ where
             } => {
                 if rs1_value.cast_signed() >= rs2_value.cast_signed() {
                     return ExecutionResult::Branch {
-                        offset: imm.to_i32(),
+                        offset: i32::from(imm),
                     };
                 }
 
@@ -292,7 +292,7 @@ where
             } => {
                 if rs1_value < rs2_value {
                     return ExecutionResult::Branch {
-                        offset: imm.to_i32(),
+                        offset: i32::from(imm),
                     };
                 }
 
@@ -305,7 +305,7 @@ where
             } => {
                 if rs1_value >= rs2_value {
                     return ExecutionResult::Branch {
-                        offset: imm.to_i32(),
+                        offset: i32::from(imm),
                     };
                 }
 

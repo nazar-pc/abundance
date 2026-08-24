@@ -687,6 +687,25 @@ fn test_no_sd() {
 // B-type
 
 #[test]
+fn test_beq_immediate_range() {
+    // A B-type offset is thirteen bits signed with an implicit zero low bit, so it spans
+    // -4096..=4094 in steps of two, and that is what has to survive being stored in an `i16`
+    for imm in [4094, 4092, 2, -2, -4094, -4096] {
+        let inst = make_b_type(0b110_0011, 0b000, 1, 2, imm);
+        let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
+        assert_eq!(
+            decoded,
+            Rv32Instruction::Beq {
+                rs1: Reg::Ra,
+                rs2: Reg::Sp,
+                imm: imm as i16
+            },
+            "offset {imm} did not round-trip"
+        );
+    }
+}
+
+#[test]
 fn test_beq() {
     {
         // Positive offset
@@ -697,7 +716,7 @@ fn test_beq() {
             Rv32Instruction::Beq {
                 rs1: Reg::Ra,
                 rs2: Reg::Sp,
-                imm: I24::from_i32(0x100)
+                imm: 0x100
             }
         );
     }
@@ -711,7 +730,7 @@ fn test_beq() {
             Rv32Instruction::Beq {
                 rs1: Reg::Ra,
                 rs2: Reg::Sp,
-                imm: I24::from_i32(-8)
+                imm: -8
             }
         );
     }
@@ -726,7 +745,7 @@ fn test_bne() {
         Rv32Instruction::Bne {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: I24::from_i32(0x100)
+            imm: 0x100
         }
     );
 }
@@ -740,7 +759,7 @@ fn test_blt() {
         Rv32Instruction::Blt {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: I24::from_i32(0x100)
+            imm: 0x100
         }
     );
 }
@@ -754,7 +773,7 @@ fn test_bge() {
         Rv32Instruction::Bge {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: I24::from_i32(0x100)
+            imm: 0x100
         }
     );
 }
@@ -768,7 +787,7 @@ fn test_bltu() {
         Rv32Instruction::Bltu {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: I24::from_i32(0x100)
+            imm: 0x100
         }
     );
 }
@@ -782,7 +801,7 @@ fn test_bgeu() {
         Rv32Instruction::Bgeu {
             rs1: Reg::Ra,
             rs2: Reg::Sp,
-            imm: I24::from_i32(0x100)
+            imm: 0x100
         }
     );
 }

@@ -576,7 +576,7 @@ fn test_beq_taken() {
     let mut state = initialize_state([Rv32Instruction::Beq {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: I24::from_i32(8),
+        imm: 8,
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -597,7 +597,7 @@ fn test_beq_not_taken() {
         Rv32Instruction::Beq {
             rs1: Reg::A0,
             rs2: Reg::A1,
-            imm: I24::from_i32(8),
+            imm: 8,
         },
         Rv32Instruction::Addi {
             rd: Reg::A2,
@@ -622,7 +622,7 @@ fn test_bne_taken() {
     let mut state = initialize_state([Rv32Instruction::Bne {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: I24::from_i32(8),
+        imm: 8,
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -642,7 +642,7 @@ fn test_blt_taken() {
     let mut state = initialize_state([Rv32Instruction::Blt {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: I24::from_i32(12),
+        imm: 12,
     }]);
 
     state.regs.write(Reg::A0, (-10i32).cast_unsigned());
@@ -662,7 +662,7 @@ fn test_bge_taken() {
     let mut state = initialize_state([Rv32Instruction::Bge {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: I24::from_i32(16),
+        imm: 16,
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -682,7 +682,7 @@ fn test_bltu_taken() {
     let mut state = initialize_state([Rv32Instruction::Bltu {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: I24::from_i32(20),
+        imm: 20,
     }]);
 
     state.regs.write(Reg::A0, 10);
@@ -702,7 +702,7 @@ fn test_bgeu_taken() {
     let mut state = initialize_state([Rv32Instruction::Bgeu {
         rs1: Reg::A0,
         rs2: Reg::A1,
-        imm: I24::from_i32(24),
+        imm: 24,
     }]);
 
     state.regs.write(Reg::A0, 20);

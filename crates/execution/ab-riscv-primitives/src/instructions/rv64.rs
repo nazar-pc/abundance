@@ -78,12 +78,12 @@ pub enum Rv64Instruction<Reg> {
     Sd { rs2: Reg, rs1: Reg, imm: i16 },
 
     // B-type
-    Beq { rs1: Reg, rs2: Reg, imm: I24 },
-    Bne { rs1: Reg, rs2: Reg, imm: I24 },
-    Blt { rs1: Reg, rs2: Reg, imm: I24 },
-    Bge { rs1: Reg, rs2: Reg, imm: I24 },
-    Bltu { rs1: Reg, rs2: Reg, imm: I24 },
-    Bgeu { rs1: Reg, rs2: Reg, imm: I24 },
+    Beq { rs1: Reg, rs2: Reg, imm: i16 },
+    Bne { rs1: Reg, rs2: Reg, imm: i16 },
+    Blt { rs1: Reg, rs2: Reg, imm: i16 },
+    Bge { rs1: Reg, rs2: Reg, imm: i16 },
+    Bltu { rs1: Reg, rs2: Reg, imm: i16 },
+    Bgeu { rs1: Reg, rs2: Reg, imm: i16 },
 
     // Lui (U-type)
     Lui { rd: Reg, imm: I24WithZeroedBits<12> },
@@ -268,7 +268,7 @@ where
                 let imm11 = ((instruction >> 7) & 1).cast_signed();
                 let imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
                 // Sign extend
-                let imm = I24::from_i32((imm << 19) >> 19);
+                let imm = ((imm << 19) >> 19) as i16;
                 match funct3 {
                     0b000 => Some(Self::Beq { rs1, rs2, imm }),
                     0b001 => Some(Self::Bne { rs1, rs2, imm }),
