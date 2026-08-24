@@ -17,7 +17,7 @@ mod time_csr;
 
 use crate::elf::{LoadedElf, load_elf};
 use crate::instruction::CoremarkInstruction;
-use crate::interpreter::{EagerInstructionFetcher, GuestMemory};
+use crate::interpreter::{EagerInstructions, GuestMemory};
 use crate::time_csr::TimeCsrState;
 use ab_riscv_interpreter::basic::{BasicRegisters, IllegalEcallSystemInstructionHandler};
 use ab_riscv_interpreter::prelude::*;
@@ -89,9 +89,10 @@ fn main() -> anyhow::Result<()> {
     regs.write(Reg::A0, 1);
     regs.write(Reg::A1, argv_addr);
 
-    // SAFETY: entry_point is valid and aligned; ELF was produced by a trusted compiler
-    let instruction_fetcher =
-        unsafe { EagerInstructionFetcher::new(text_data, TRAP_ADDRESS, text_addr, entry_point) };
+    // SAFETY: ELF was produced by a trusted compiler
+    let instructions = unsafe { EagerInstructions::decode(text_data, TRAP_ADDRESS, text_addr) };
+    // SAFETY: `entry_point` is valid and aligned
+    let instruction_fetcher = unsafe { instructions.fetcher(entry_point) };
 
     let ThreadedExecutionResult {
         outcome,

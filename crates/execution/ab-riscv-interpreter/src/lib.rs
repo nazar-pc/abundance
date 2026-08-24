@@ -695,7 +695,15 @@ where
     Err(ExecutionError<Address<I>>),
 }
 
-/// Generic instruction fetcher
+/// Generic instruction fetcher.
+///
+/// # Performance considerations
+/// In threaded dispatch, the instruction fetcher is moved through the handler chain by value, so it
+/// should have 16 bytes size (next instruction pointer + pointer to extra state) and no drop glue.
+/// A fetcher that owns something is dropped by whichever handler ends execution. Every handler that
+/// can fail is a candidate for that, which forces a stack frame, callee-saved register spills, and
+/// a reload into the hot path of every load, store, branch and jump. A fetcher that only borrows
+/// what it walks (`Copy`, or at least `!needs_drop`) keeps them all frameless and fast.
 pub const trait InstructionFetcher<I, Memory>
 where
     Self: ProgramCounter<Address<I>, Memory>,

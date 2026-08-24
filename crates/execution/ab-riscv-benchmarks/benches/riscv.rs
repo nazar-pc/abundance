@@ -4,7 +4,7 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
+    Blake3HashChunkInternalArgs, EagerTestInstructions, Ed25519VerifyInternalArgs,
     LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
 };
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
@@ -78,17 +78,16 @@ fn criterion_benchmark(c: &mut Criterion) {
         // internally (+ memory allocation)
         group.bench_function("decode-instructions", |b| {
             b.iter(|| {
-                // SAFETY: Program counter is set later to the correct address
-                let instruction_fetcher = unsafe {
-                    EagerTestInstructionFetcher::new(
+                // SAFETY: All instructions are valid and contract ends with a jump
+                let instructions = unsafe {
+                    EagerTestInstructions::decode(
                         code,
                         TRAP_ADDRESS,
                         MEMORY_BASE_ADDRESS
                             + u64::from(contract_file.header().read_only_section_memory_size),
-                        benchmarks_blake3_hash_chunk_addr,
                     )
                 };
-                black_box(instruction_fetcher);
+                black_box(instructions);
             });
         });
     }
@@ -128,20 +127,21 @@ fn criterion_benchmark(c: &mut Criterion) {
         system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
+    // SAFETY: All instructions are valid and contract ends with a jump
+    let instructions = unsafe {
+        EagerTestInstructions::decode(
+            contract_file.get_code(),
+            TRAP_ADDRESS,
+            MEMORY_BASE_ADDRESS + u64::from(contract_file.header().read_only_section_memory_size),
+        )
+    };
+
     let mut eager_state = BasicInterpreterState {
         regs: ContractRegisters::<false>::default(),
         ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address
-        instruction_fetcher: unsafe {
-            EagerTestInstructionFetcher::new(
-                contract_file.get_code(),
-                TRAP_ADDRESS,
-                MEMORY_BASE_ADDRESS
-                    + u64::from(contract_file.header().read_only_section_memory_size),
-                benchmarks_blake3_hash_chunk_addr,
-            )
-        },
+        instruction_fetcher: unsafe { instructions.fetcher(benchmarks_blake3_hash_chunk_addr) },
         system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
@@ -150,15 +150,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         ext_state: (),
         memory,
         // SAFETY: Program counter is set later to the correct address
-        instruction_fetcher: unsafe {
-            EagerTestInstructionFetcher::new(
-                contract_file.get_code(),
-                TRAP_ADDRESS,
-                MEMORY_BASE_ADDRESS
-                    + u64::from(contract_file.header().read_only_section_memory_size),
-                benchmarks_blake3_hash_chunk_addr,
-            )
-        },
+        instruction_fetcher: unsafe { instructions.fetcher(benchmarks_blake3_hash_chunk_addr) },
         system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
@@ -254,7 +246,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
                 let state = black_box(&mut eager_state_zerostore);
                 ContractInstruction::execute_threaded(
-                    state.instruction_fetcher.clone(),
+                    state.instruction_fetcher,
                     &mut state.regs,
                     (),
                     &mut state.memory,
@@ -365,7 +357,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
                 let state = black_box(&mut eager_state_zerostore);
                 ContractInstruction::execute_threaded(
-                    state.instruction_fetcher.clone(),
+                    state.instruction_fetcher,
                     &mut state.regs,
                     (),
                     &mut state.memory,

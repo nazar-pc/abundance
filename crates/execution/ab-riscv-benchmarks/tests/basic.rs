@@ -4,7 +4,7 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
+    Blake3HashChunkInternalArgs, EagerTestInstructions, Ed25519VerifyInternalArgs,
     LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
 };
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
@@ -103,16 +103,17 @@ where
             state.memory
         }
         RunType::Eager => {
-            // SAFETY: Program counter is trusted
-            let instruction_fetcher = unsafe {
-                EagerTestInstructionFetcher::new(
+            // SAFETY: Contract code is trusted
+            let instructions = unsafe {
+                EagerTestInstructions::decode(
                     contract_file.get_code(),
                     TRAP_ADDRESS,
                     MEMORY_BASE_ADDRESS
                         + u64::from(contract_file.header().read_only_section_memory_size),
-                    pc,
                 )
             };
+            // SAFETY: Program counter is trusted
+            let instruction_fetcher = unsafe { instructions.fetcher(pc) };
 
             let mut state = BasicInterpreterState {
                 regs,
@@ -126,16 +127,17 @@ where
             state.memory
         }
         RunType::EagerThreaded => {
-            // SAFETY: Program counter is trusted
-            let instruction_fetcher = unsafe {
-                EagerTestInstructionFetcher::new(
+            // SAFETY: Contract code is trusted
+            let instructions = unsafe {
+                EagerTestInstructions::decode(
                     contract_file.get_code(),
                     TRAP_ADDRESS,
                     MEMORY_BASE_ADDRESS
                         + u64::from(contract_file.header().read_only_section_memory_size),
-                    pc,
                 )
             };
+            // SAFETY: Program counter is trusted
+            let instruction_fetcher = unsafe { instructions.fetcher(pc) };
 
             ContractInstruction::execute_threaded(
                 instruction_fetcher,
