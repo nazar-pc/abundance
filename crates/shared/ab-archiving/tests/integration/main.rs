@@ -1,4 +1,5 @@
-#![feature(const_convert, const_default, const_trait_impl)]
+#![feature(const_trait_impl)]
+#![cfg_attr(not(miri), feature(const_convert, const_default))]
 
 #[cfg(not(miri))]
 mod archiver;
