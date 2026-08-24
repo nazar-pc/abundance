@@ -118,12 +118,15 @@ jobs:
           #  The reason is that this action doesn't pin binary releases, unless https://github.com/kunobi-ninja/kache-action/issues/14 is resolved
           - &install-kache-step
             name: Install kache
-            uses: kunobi-ninja/kache-action@a257c055543c2840700a9bbca8f9c3094a421b1b # No release with Windows support yet
+            uses: kunobi-ninja/kache-action@eeafa81c39bb1b268304fd144523de074e0f793b # v1 is a moving target
             with:
-              version: v0.15.0-rc.3
-              # TODO: Enable for C++ too once https://github.com/kunobi-ninja/kache-action/issues/13 is implemented
+              version: v0.15.1
+              # TODO: Can't use C/C++ yet: https://github.com/kunobi-ninja/kache/issues/823
+              cache-c-cpp: 'false'
+              cache-dir: ${{ runner.temp }}/kache
               cache-executables: 'true'
               github-cache: 'false'
+              job-summary: 'false'
               pr-comment: 'false'
 
           - name: RISC-V support
