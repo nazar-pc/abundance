@@ -358,15 +358,65 @@ where
     /// Apply [`ExecutionResult::Branch`], continuing `offset` bytes from the instruction being
     /// executed.
     ///
-    /// A simple implementation can resolve the offset against the program counter and call
-    /// [`Self::set_pc()`]. Implementation that keeps the program counter as a position in an
-    /// already decoded instruction stream can move within that stream directly, which avoids
-    /// converting an address back into a position.
+    /// This is [`Self::try_set_pc_relative()`] followed, if it refused the target, by
+    /// [`Self::failed_branch()`], and exists for callers that have nothing better to do with a
+    /// refused target than ask what was wrong with it right there.
+    #[inline(always)]
     fn set_pc_relative(
         &mut self,
         memory: &Memory,
         instruction_size: u8,
         offset: i32,
+    ) -> Result<ControlFlow<()>, ExecutionError<Address>>
+    where
+        Self: [const] ProgramCounter<Address, Memory>,
+    {
+        // SAFETY: A refused target is handed straight to `failed_branch()` below, before anything
+        // else can observe the program counter
+        if unsafe { self.try_set_pc_relative(instruction_size, offset) } {
+            return Ok(ControlFlow::Continue(()));
+        }
+
+        cold_path();
+
+        // SAFETY: `try_set_pc_relative()` has just refused the target
+        unsafe { self.failed_branch(memory) }
+    }
+
+    /// Move `offset` bytes from the instruction being executed for targets this can resolve.
+    ///
+    /// A simple implementation can resolve the offset against the program counter and validate it
+    /// the way [`Self::set_pc()`] does. Implementation that keeps the program counter as a position
+    /// in an already decoded instruction stream can move within that stream directly, which avoids
+    /// converting an address back into a position.
+    ///
+    /// Returns `true` when the program counter now points at the target, and `false` when the
+    /// target is not somewhere it may point at.
+    ///
+    /// Separate from [`Self::failed_branch()`] for the sake of threaded dispatch, where working out
+    /// what exactly is wrong with a target is code that no branch or jump ever runs, and inlining
+    /// it into the handler of every one of them puts it between the parts of the interpreter that
+    /// do run frequently. Split this way, a handler can hand a refused target to a cold
+    /// continuation with a tail call, which is the one call that costs it nothing, since nothing it
+    /// holds has to survive one.
+    ///
+    /// # Safety
+    /// When this returns `false`, the program counter is left holding the refused target, which is
+    /// not a position to fetch from - it is what [`Self::failed_branch()`] reads to say what was
+    /// wrong with it. That call must come next before anything else observes the program counter.
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool;
+
+    /// Say what is wrong with the target [`Self::try_set_pc_relative()`] refused.
+    ///
+    /// Implementations are expected to be `#[cold]` and `#[inline(never)]`: this is the half of
+    /// [`Self::set_pc_relative()`] that a program only reaches on its way out.
+    ///
+    /// # Safety
+    /// Must be called right after [`Self::try_set_pc_relative()`] returned `false`, with nothing in
+    /// between having observed the program counter.
+    unsafe fn failed_branch(
+        &mut self,
+        memory: &Memory,
     ) -> Result<ControlFlow<()>, ExecutionError<Address>>;
 
     /// Set the current value of the program counter

@@ -459,14 +459,27 @@ where
     }
 
     #[inline(always)]
-    fn set_pc_relative(
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
+        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
+        let pc = old_pc.wrapping_add_signed(offset);
+        // Stored either way: on the way out it is what `failed_branch()` reports on, and until then
+        // nothing else is allowed to look at it
+        self.pc = pc;
+
+        pc != self.return_trap_address && pc.as_u64().is_multiple_of(u64::from(I::alignment()))
+    }
+
+    #[cold]
+    #[inline(never)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    unsafe fn failed_branch(
         &mut self,
         memory: &Memory,
-        instruction_size: u8,
-        offset: i32,
     ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
-        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
-        self.set_pc(memory, old_pc.wrapping_add_signed(offset))
+        // The program counter holds the refused target, and `set_pc()` is what says what is wrong
+        // with it
+        self.set_pc(memory, self.pc)
     }
 
     #[inline]

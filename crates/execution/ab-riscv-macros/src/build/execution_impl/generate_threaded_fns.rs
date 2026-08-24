@@ -95,6 +95,7 @@ pub(super) fn generate_threaded_fns(
     let dispatch_fn_name = format_ident!("dispatch_{enum_snake_case}");
     let entry_fn_name = format_ident!("execute_{enum_snake_case}_threaded");
     let dispatch_result_name = format_ident!("{enum_name}ThreadedDispatchResult");
+    let branch_failed_fn_name = format_ident!("{enum_snake_case}_threaded_branch_failed");
     // What handlers return: the outcome serialized into a shape the target returns in registers
     let handler_result_ty: Type = parse_quote! {
         OpaqueThreadedExecutionResult<#self_ty>
@@ -118,6 +119,104 @@ pub(super) fn generate_threaded_fns(
             Next { instruction: I, handler: Handler },
             Break,
             Err(ExecutionError<<I::Reg as Register>::Type>),
+        }
+    });
+
+    // Where a branch whose target `try_set_pc_relative()` refused goes. Kept out of the handlers
+    // and reached with a tail call: none of them is coming back at that point, so nothing they
+    // hold has to survive the call and none of them needs a frame for it. It takes everything a
+    // handler takes, unused arguments included, because `become` requires the two signatures to
+    // match exactly.
+    generated_items.push(parse_quote! {
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Comments will be stripped, this will suppress some of the lints that are \
+            caused by it"
+        )]
+        #[expect(clippy::allow_attributes, reason = "Attribute below")]
+        #[allow(
+            improper_ctypes_definitions,
+            reason = "Handlers only ever call each other, within this crate"
+        )]
+        #[cold]
+        #[inline(never)]
+        #target_feature
+        unsafe #abi fn #branch_failed_fn_name<#generic_params>(
+            _instruction: #self_ty,
+            mut instruction_fetcher: PC,
+            regs: &mut Regs,
+            ext_state: ExtState,
+            memory: &mut Memory,
+            system_instruction_handler: InstructionHandler,
+        ) -> #handler_result_ty
+            #where_clause
+        {
+            // SAFETY: Only reached from a handler whose `try_set_pc_relative()` returned `false`,
+            // with nothing in between having observed the program counter
+            match unsafe { instruction_fetcher.failed_branch(memory) } {
+                Ok(::core::ops::ControlFlow::Continue(())) => {}
+                Ok(::core::ops::ControlFlow::Break(())) => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        )
+                    };
+                }
+                Err(error) => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        )
+                    };
+                }
+            }
+
+            let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
+                &mut instruction_fetcher,
+                memory,
+            ) {
+                #dispatch_result_name::Next {
+                    instruction,
+                    handler,
+                } => (instruction, handler),
+                #dispatch_result_name::Break => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        )
+                    };
+                }
+                #dispatch_result_name::Err(error) => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        )
+                    };
+                }
+            };
+
+            // SAFETY: Every handler carries the same target features this one does, which is what
+            // makes them unsafe to call in the first place
+            unsafe {
+                become handler(
+                    instruction,
+                    instruction_fetcher,
+                    regs,
+                    ext_state,
+                    memory,
+                    system_instruction_handler,
+                )
+            }
         }
     });
 
@@ -207,11 +306,30 @@ pub(super) fn generate_threaded_fns(
                         Ok(::core::ops::ControlFlow::Continue(()))
                     }
                     ExecutionResult::Branch { offset } => {
-                        instruction_fetcher.set_pc_relative(
-                            memory,
-                            Instruction::size(&instruction),
-                            offset,
-                        )
+                        // SAFETY: A refused target goes straight to the continuation below, which
+                        // is what calls `failed_branch()` on it
+                        if unsafe {
+                            instruction_fetcher.try_set_pc_relative(
+                                Instruction::size(&instruction),
+                                offset,
+                            )
+                        } {
+                            Ok(::core::ops::ControlFlow::Continue(()))
+                        } else {
+                            // SAFETY: The continuation carries the same target features this
+                            // handler does, which is what makes it unsafe to call in the first
+                            // place
+                            unsafe {
+                                become #branch_failed_fn_name::<#generic_params>(
+                                    instruction,
+                                    instruction_fetcher,
+                                    regs,
+                                    ext_state,
+                                    memory,
+                                    system_instruction_handler,
+                                )
+                            }
+                        }
                     }
                     ExecutionResult::Jump { target } => {
                         instruction_fetcher.set_pc(memory, target)

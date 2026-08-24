@@ -307,14 +307,28 @@ where
     }
 
     #[inline(always)]
-    fn set_pc_relative(
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
+        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
+        let pc = old_pc.wrapping_add_signed(i64::from(offset));
+        // Stored either way: on the way out it is what `failed_branch()` reports on, and until then
+        // nothing else is allowed to look at it
+        self.pc = pc;
+
+        pc != self.return_trap_address
+            && pc.is_multiple_of(u64::from(
+                ContractInstruction::<ContractRegister>::alignment(),
+            ))
+    }
+
+    #[cold]
+    #[inline(never)]
+    unsafe fn failed_branch(
         &mut self,
         memory: &Memory,
-        instruction_size: u8,
-        offset: i32,
     ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
-        self.set_pc(memory, old_pc.wrapping_add_signed(i64::from(offset)))
+        // The program counter holds the refused target, and `set_pc()` is what says what is wrong
+        // with it
+        self.set_pc(memory, self.pc)
     }
 
     #[inline]
@@ -718,18 +732,13 @@ where
     /// Moves within the decoded stream instead of resolving an address and converting it back,
     /// which is what going through [`Self::set_pc()`] would do.
     ///
-    /// One comparison and one test are all this needs to hand every case it does not handle itself
-    /// over to [`Self::set_pc()`]: a target past the end of the decoded stream, a backwards branch
-    /// that ran off its start, and an unaligned target. The return trap sits outside the decoded
-    /// stream, so a branch to it fails the bounds check here and is stopped by [`Self::set_pc()`]
-    /// like any other jump to it.
+    /// One comparison and one test are all this needs to recognize every target it cannot resolve:
+    /// one past the end of the decoded stream, a backwards branch that ran off its start, and an
+    /// unaligned one. The return trap sits outside the decoded stream, so a branch to it fails the
+    /// bounds check here too and is answered by [`Self::failed_branch()`] like any other target
+    /// this refuses.
     #[inline(always)]
-    fn set_pc_relative(
-        &mut self,
-        memory: &Memory,
-        instruction_size: u8,
-        offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
         // Byte offset from the instruction being executed to the branch target. The program counter
         // is advanced during instruction fetching, so that instruction starts `instruction_size`
         // bytes back.
@@ -745,6 +754,11 @@ where
             .next_instruction
             .as_ptr()
             .wrapping_byte_offset(byte_delta);
+        // Stored either way: on the way out it is the target `failed_branch()` reports on, and
+        // until then nothing else is allowed to look at it
+        // SAFETY: A wrapped pointer is never null, and nothing here dereferences it
+        self.next_instruction = unsafe { NonNull::new_unchecked(new_next_instruction) };
+
         let decoded_instruction_byte_offset = new_next_instruction
             .addr()
             .wrapping_sub(self.instructions().as_ptr().addr());
@@ -752,23 +766,37 @@ where
         // A target that does not land on a decoded instruction sits between two guest
         // instructions, which makes it an unaligned instruction rather than something to round to
         // the start of one. That rule lives in `set_pc()`, so rather than restating it here, where
-        // it could drift, such a target simply fails to qualify for the fast path, as does one past
-        // the end of the decoded stream, which a backwards branch that ran off its start wraps
-        // around into.
-        if decoded_instruction_byte_offset
-            >= self.instructions_len() * size_of::<ContractInstruction>()
-            || !decoded_instruction_byte_offset.is_multiple_of(size_of::<ContractInstruction>())
-        {
-            cold_path();
-            let pc = <Self as ProgramCounter<_, Memory>>::get_pc(self);
-            return self.set_pc(memory, pc.wrapping_add_signed(offset as i64));
-        }
+        // it could drift, such a target simply fails to qualify, as does one past the end of the
+        // decoded stream, which a backwards branch that ran off its start wraps around into.
+        decoded_instruction_byte_offset < self.instructions_len() * size_of::<ContractInstruction>()
+            && decoded_instruction_byte_offset.is_multiple_of(size_of::<ContractInstruction>())
+    }
 
-        // SAFETY: Just checked that `new_next_instruction` lands exactly on a decoded instruction
-        // within the bounds of the (non-empty) decoded stream
-        self.next_instruction = unsafe { NonNull::new_unchecked(new_next_instruction) };
+    /// Turns the refused target back into an address and hands it to [`Self::set_pc()`], which is
+    /// where the rules about what is and is not an instruction address live.
+    #[cold]
+    #[inline(never)]
+    unsafe fn failed_branch(
+        &mut self,
+        memory: &Memory,
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+        // Signed, because a backwards branch that ran off the start of the decoded stream is
+        // exactly one of the targets that gets here
+        let decoded_instruction_byte_offset = self
+            .next_instruction
+            .as_ptr()
+            .addr()
+            .wrapping_sub(self.instructions().as_ptr().addr())
+            .cast_signed();
+        // Every `size_of::<u16>()` of guest code owns one decoded instruction, and the position is
+        // always that many bytes from the start of the stream, so this is exact
+        let address = self.base_addr().wrapping_add_signed(
+            (decoded_instruction_byte_offset
+                / (size_of::<ContractInstruction>() / size_of::<u16>()).cast_signed())
+                as i64,
+        );
 
-        Ok(ControlFlow::Continue(()))
+        self.set_pc(memory, address)
     }
 
     #[inline]

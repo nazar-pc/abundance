@@ -165,14 +165,21 @@ where
     }
 
     #[inline(always)]
-    fn set_pc_relative(
-        &mut self,
-        memory: &TestMemory,
-        instruction_size: u8,
-        offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
         let old_pc = self.old_pc(instruction_size);
-        self.set_pc(memory, old_pc.wrapping_add_signed(i64::from(offset)))
+        self.pc = old_pc.wrapping_add_signed(i64::from(offset));
+
+        true
+    }
+
+    #[cold]
+    #[inline(never)]
+    unsafe fn failed_branch(
+        &mut self,
+        _memory: &TestMemory,
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+        // Every target is accepted above, so there is never one to report on
+        unreachable!("`try_set_pc_relative()` never refuses a target")
     }
 
     fn set_pc(
