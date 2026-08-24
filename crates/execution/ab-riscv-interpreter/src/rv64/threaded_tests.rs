@@ -162,7 +162,7 @@ fn threaded_matches_looped_taken_branch() {
             Rv64Instruction::Beq {
                 rs1: Reg::A0,
                 rs2: Reg::A1,
-                imm: I24::from_i32(8),
+                imm: 8,
             },
             Rv64Instruction::Addi {
                 rd: Reg::A2,
@@ -191,7 +191,7 @@ fn threaded_matches_looped_untaken_branch() {
             Rv64Instruction::Beq {
                 rs1: Reg::A0,
                 rs2: Reg::A1,
-                imm: I24::from_i32(8),
+                imm: 8,
             },
             Rv64Instruction::Addi {
                 rd: Reg::A2,
@@ -309,7 +309,7 @@ fn threaded_runs_a_loop_to_completion() {
         Rv64Instruction::Bne {
             rs1: Reg::A0,
             rs2: Reg::Zero,
-            imm: I24::from_i32(-4),
+            imm: -4,
         },
     ];
 
