@@ -49,18 +49,18 @@ fn write_mem_element(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn validate_segment_store_registers<Reg, Memory, PC, CustomError>(
+pub fn validate_segment_store_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vs3: VReg,
     group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     if let Err(error) =
-        check_register_group_alignment::<Reg, _, _, _>(program_counter, vs3, group_regs)
+        check_register_group_alignment::<Reg, _, _>(program_counter, vs3, group_regs)
     {
         cold_path();
         return Err(error);
@@ -93,7 +93,7 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
+pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory>(
     ext_state: &mut ExtState,
     memory: &mut Memory,
     vs3: VReg,
@@ -102,10 +102,10 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory, CustomError>(
     eew: Eew,
     group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
 {
@@ -171,7 +171,7 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
+pub unsafe fn execute_strided_store<Reg, ExtState, Memory>(
     ext_state: &mut ExtState,
     memory: &mut Memory,
     vs3: VReg,
@@ -181,10 +181,10 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory, CustomError>(
     eew: Eew,
     group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
 {
@@ -244,7 +244,7 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
+pub unsafe fn execute_indexed_store<Reg, ExtState, Memory>(
     ext_state: &mut ExtState,
     memory: &mut Memory,
     vs3: VReg,
@@ -255,10 +255,10 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory, CustomError>(
     index_eew: Eew,
     data_group_regs: NonZeroU8,
     nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     Memory: VirtualMemory,
 {

@@ -13,7 +13,11 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![cfg_attr(
     all(test, not(target_arch = "spirv")),
-    feature(const_convert, const_trait_impl, maybe_uninit_fill)
+    feature(const_convert, const_trait_impl)
+)]
+#![cfg_attr(
+    all(test, not(any(miri, target_arch = "spirv"))),
+    feature(maybe_uninit_fill)
 )]
 // TODO: Remove once https://github.com/gfx-rs/wgpu/pull/9953 is released
 #![recursion_limit = "256"]

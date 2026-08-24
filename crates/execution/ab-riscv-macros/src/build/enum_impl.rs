@@ -5,7 +5,7 @@ mod ignored_variants_remover;
 use crate::build::enum_impl::add_missing_fields::add_missing_rs_fields;
 use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
-use crate::build::shared::collect_all_dependencies;
+use crate::build::shared::{collect_all_dependencies, strip_const_where_predicates};
 use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
@@ -17,7 +17,7 @@ use std::rc::Rc;
 use std::{env, fs, iter};
 use syn::{
     Block, Expr, FieldPat, Fields, FnArg, Ident, ImplItem, ItemImpl, Member, Pat, PatWild, Stmt,
-    Token, Type, WherePredicate, parse_file, parse_quote, parse_str,
+    Token, Type, parse_file, parse_quote, parse_str,
 };
 
 const ORIGINAL_ENUM_DECODING_IMPL_ENV_VAR_SUFFIX: &str = "__INSTRUCTION_ENUM_ORIGINAL_IMPL_PATH";
@@ -342,6 +342,8 @@ pub(super) fn process_enum_decoding_impl(
         }
     }
 
+    let is_const = item_impl.attrs.last() == Some(&parse_quote! { #[cst] });
+
     if !all_where_predicates.is_empty() {
         let where_clause = item_impl
             .generics
@@ -361,36 +363,9 @@ pub(super) fn process_enum_decoding_impl(
         }
 
         // TODO: This is a massive hack for implementations that strips `[const]` for non-const
-        //  instructions that inherit const instructions. `Destruct` is a special case here that is
-        //  avoided altogether for non-const implementations to improve downstream user experience.
-        if item_impl.attrs.last() != Some(&parse_quote! { #[cst] }) {
-            where_clause.predicates = where_clause
-                .predicates
-                .clone()
-                .into_iter()
-                .filter_map(|mut predicate| match &mut predicate {
-                    WherePredicate::Type(predicate_type) => {
-                        // TODO: Remove `Destruct` hack once stabilized:
-                        //  https://github.com/rust-lang/rust/issues/133214
-                        if predicate_type.bounds.to_token_stream().to_string()
-                            == "BRCONST + Destruct"
-                        {
-                            return None;
-                        }
-
-                        // TODO: `BRCONST` is a hack that allows `syn` to parse unstable Rust syntax
-                        //  around const traits and such. It will change to a proper modifier once
-                        //  stabilized
-                        if predicate_type.bounds.first() == Some(&parse_quote! { BRCONST }) {
-                            predicate_type.bounds =
-                                predicate_type.bounds.clone().into_iter().skip(1).collect();
-                        }
-
-                        Some(predicate)
-                    }
-                    _ => Some(predicate),
-                })
-                .collect();
+        //  instructions that inherit const instructions
+        if !is_const {
+            strip_const_where_predicates(&mut where_clause.predicates);
         }
     }
 

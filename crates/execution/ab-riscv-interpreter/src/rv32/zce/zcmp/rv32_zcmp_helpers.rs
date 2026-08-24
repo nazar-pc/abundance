@@ -7,12 +7,12 @@ use ab_riscv_primitives::prelude::*;
 #[inline]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn do_push<Reg, Regs, Memory, CustomError>(
+pub fn do_push<Reg, Regs, Memory>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
     stack_adj: u8,
-) -> ExecutionResult<Reg, CustomError>
+) -> ExecutionResult<Reg>
 where
     Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,
@@ -36,12 +36,12 @@ where
 #[inline]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn do_pop<Reg, Regs, Memory, CustomError>(
+pub fn do_pop<Reg, Regs, Memory>(
     regs: &mut Regs,
     memory: &mut Memory,
     urlist: ZcmpUrlist<Reg>,
     stack_adj: u8,
-) -> Result<u32, ExecutionError<Reg::Type, CustomError>>
+) -> Result<u32, ExecutionError<Reg::Type>>
 where
     Reg: ZcmpRegister<Type = u32>,
     Regs: RegisterFile<Reg>,

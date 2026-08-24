@@ -28,6 +28,9 @@ no-panic-const = { workspace = true, optional = true }
 replace_with = { workspace = true }
 thiserror = { workspace = true }
 
+[target.'cfg(all(target_arch = "x86_64", not(target_feature = "avx")))'.dependencies]
+cpufeatures = { workspace = true }
+
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }
 

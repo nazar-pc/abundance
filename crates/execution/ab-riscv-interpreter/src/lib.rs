@@ -123,6 +123,7 @@
     const_trait_impl,
     const_try,
     explicit_tail_calls,
+    fn_align,
     generic_const_args,
     generic_const_items,
     impl_restriction,
@@ -204,7 +205,9 @@ use alloc::boxed::Box;
 use core::convert::Infallible;
 use core::fmt;
 use core::hint::cold_path;
-use core::marker::Destruct;
+use core::marker::{Destruct, PhantomData};
+#[cfg(all(target_arch = "x86_64", any(not(miri), target_feature = "avx")))]
+use core::mem;
 use core::ops::{ControlFlow, FromResidual, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
@@ -329,18 +332,8 @@ where
     }
 }
 
-/// Placeholder for custom errors in [`ExecutionError`]
-#[derive(Debug, Copy, Clone)]
-pub struct CustomErrorPlaceholder;
-
-impl fmt::Display for CustomErrorPlaceholder {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
-    }
-}
-
 /// Generic program counter
-pub const trait ProgramCounter<Address, Memory, CustomError = CustomErrorPlaceholder>
+pub const trait ProgramCounter<Address, Memory>
 where
     Address: Copy,
 {
@@ -366,23 +359,73 @@ where
     /// Apply [`ExecutionResult::Branch`], continuing `offset` bytes from the instruction being
     /// executed.
     ///
-    /// A simple implementation can resolve the offset against the program counter and call
-    /// [`Self::set_pc()`]. Implementation that keeps the program counter as a position in an
-    /// already decoded instruction stream can move within that stream directly, which avoids
-    /// converting an address back into a position.
+    /// This is [`Self::try_set_pc_relative()`] followed, if it refused the target, by
+    /// [`Self::failed_branch()`], and exists for callers that have nothing better to do with a
+    /// refused target than ask what was wrong with it right there.
+    #[inline(always)]
     fn set_pc_relative(
         &mut self,
         memory: &Memory,
         instruction_size: u8,
         offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Address>>
+    where
+        Self: [const] ProgramCounter<Address, Memory>,
+    {
+        // SAFETY: A refused target is handed straight to `failed_branch()` below, before anything
+        // else can observe the program counter
+        if unsafe { self.try_set_pc_relative(instruction_size, offset) } {
+            return Ok(ControlFlow::Continue(()));
+        }
+
+        cold_path();
+
+        // SAFETY: `try_set_pc_relative()` has just refused the target
+        unsafe { self.failed_branch(memory) }
+    }
+
+    /// Move `offset` bytes from the instruction being executed for targets this can resolve.
+    ///
+    /// A simple implementation can resolve the offset against the program counter and validate it
+    /// the way [`Self::set_pc()`] does. Implementation that keeps the program counter as a position
+    /// in an already decoded instruction stream can move within that stream directly, which avoids
+    /// converting an address back into a position.
+    ///
+    /// Returns `true` when the program counter now points at the target, and `false` when the
+    /// target is not somewhere it may point at.
+    ///
+    /// Separate from [`Self::failed_branch()`] for the sake of threaded dispatch, where working out
+    /// what exactly is wrong with a target is code that no branch or jump ever runs, and inlining
+    /// it into the handler of every one of them puts it between the parts of the interpreter that
+    /// do run frequently. Split this way, a handler can hand a refused target to a cold
+    /// continuation with a tail call, which is the one call that costs it nothing, since nothing it
+    /// holds has to survive one.
+    ///
+    /// # Safety
+    /// When this returns `false`, the program counter is left holding the refused target, which is
+    /// not a position to fetch from - it is what [`Self::failed_branch()`] reads to say what was
+    /// wrong with it. That call must come next before anything else observes the program counter.
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool;
+
+    /// Say what is wrong with the target [`Self::try_set_pc_relative()`] refused.
+    ///
+    /// Implementations are expected to be `#[cold]` and `#[inline(never)]`: this is the half of
+    /// [`Self::set_pc_relative()`] that a program only reaches on its way out.
+    ///
+    /// # Safety
+    /// Must be called right after [`Self::try_set_pc_relative()`] returned `false`, with nothing in
+    /// between having observed the program counter.
+    unsafe fn failed_branch(
+        &mut self,
+        memory: &Memory,
+    ) -> Result<ControlFlow<()>, ExecutionError<Address>>;
 
     /// Set the current value of the program counter
     fn set_pc(
         &mut self,
         memory: &Memory,
         pc: Address,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Address>>;
 }
 
 /// Address wrapper for [`ExecutionError`] with an alignment of 4 rather than its natural one.
@@ -457,10 +500,8 @@ where
 /// bytes; flattened it is 16, which is what lets `Result<_, ExecutionError>` be returned in
 /// registers instead of through a hidden out-pointer. `From` implementations for all three are
 /// provided, so `?` on them keeps working unchanged.
-///
-/// Note that a large `CustomError` will grow this type past that threshold again.
 #[derive(Debug, thiserror::Error)]
-pub enum ExecutionError<Address, CustomError = CustomErrorPlaceholder>
+pub enum ExecutionError<Address>
 where
     Address: Copy,
 {
@@ -532,8 +573,14 @@ where
         current: PrivilegeLevel,
     },
     /// Custom error
-    #[error("Custom error: {0}")]
-    Custom(CustomError),
+    #[error("Custom error: {0:?}")]
+    Custom([u8; 8]),
+    /// Threaded execution is not supported on this platform.
+    ///
+    /// See [`OpaqueThreadedExecutionResult::platform_supported()`] for what makes a platform
+    /// unsupported and why the answer is a run-time one.
+    #[error("Threaded execution is not supported on this platform")]
+    UnsupportedPlatform,
 }
 
 /// Where execution continues after an instruction, or why it could not.
@@ -543,7 +590,7 @@ where
 /// how the program counter is represented, which is what allows the same bodies to drive both an
 /// interpreter loop that owns a program counter and one that carries it in a register.
 #[derive(Debug)]
-pub enum ExecutionResult<Reg, CustomError = CustomErrorPlaceholder>
+pub enum ExecutionResult<Reg>
 where
     Reg: Register,
 {
@@ -573,7 +620,7 @@ where
     /// Stop execution
     Break,
     /// Execution failed
-    Err(ExecutionError<Reg::Type, CustomError>),
+    Err(ExecutionError<Reg::Type>),
 }
 
 const {
@@ -582,27 +629,23 @@ const {
     assert!(size_of::<ExecutionResult<Reg<u32>>>() <= 16);
 }
 
-const impl<Reg, CustomError> From<ExecutionError<Reg::Type, CustomError>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> From<ExecutionError<Reg::Type>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
     #[inline(always)]
-    fn from(error: ExecutionError<Reg::Type, CustomError>) -> Self {
+    fn from(error: ExecutionError<Reg::Type>) -> Self {
         cold_path();
         Self::Err(error)
     }
 }
 
-const impl<Reg, CustomError>
-    FromResidual<Result<Infallible, ExecutionError<Reg::Type, CustomError>>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> FromResidual<Result<Infallible, ExecutionError<Reg::Type>>> for ExecutionResult<Reg>
 where
     Reg: Register,
-    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, ExecutionError<Reg::Type, CustomError>>) -> Self {
+    fn from_residual(residual: Result<Infallible, ExecutionError<Reg::Type>>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
@@ -613,8 +656,7 @@ where
     }
 }
 
-const impl<Reg, CustomError> FromResidual<Result<Infallible, VirtualMemoryError>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> FromResidual<Result<Infallible, VirtualMemoryError>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
@@ -630,14 +672,12 @@ where
     }
 }
 
-const impl<Reg, CustomError> FromResidual<Result<Infallible, CsrError<CustomError>>>
-    for ExecutionResult<Reg, CustomError>
+const impl<Reg> FromResidual<Result<Infallible, CsrError>> for ExecutionResult<Reg>
 where
     Reg: Register,
-    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, CsrError<CustomError>>) -> Self {
+    fn from_residual(residual: Result<Infallible, CsrError>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
@@ -648,7 +688,7 @@ where
     }
 }
 
-const impl<Address, CustomError> From<VirtualMemoryError> for ExecutionError<Address, CustomError>
+const impl<Address> From<VirtualMemoryError> for ExecutionError<Address>
 where
     Address: Copy,
 {
@@ -665,14 +705,12 @@ where
     }
 }
 
-const impl<Address, CustomError> From<CsrError<CustomError>>
-    for ExecutionError<Address, CustomError>
+const impl<Address> From<CsrError> for ExecutionError<Address>
 where
     Address: Copy,
-    CustomError: [const] Destruct,
 {
     #[inline(always)]
-    fn from(value: CsrError<CustomError>) -> Self {
+    fn from(value: CsrError) -> Self {
         match value {
             CsrError::ReadOnly { csr_index } => Self::CsrReadOnly { csr_index },
             CsrError::IllegalRead { csr_index } => Self::CsrIllegalRead { csr_index },
@@ -694,7 +732,7 @@ where
 
 /// Result of [`InstructionFetcher::fetch_instruction()`] call
 #[derive(Debug)]
-pub enum FetchInstructionResult<I, CustomError = CustomErrorPlaceholder>
+pub enum FetchInstructionResult<I>
 where
     I: Instruction,
 {
@@ -705,23 +743,54 @@ where
     /// Stop execution
     Break,
     /// Fetching failed
-    Err(ExecutionError<Address<I>, CustomError>),
+    Err(ExecutionError<Address<I>>),
 }
 
-/// Generic instruction fetcher
-pub const trait InstructionFetcher<I, Memory, CustomError = CustomErrorPlaceholder>
+/// Generic instruction fetcher.
+///
+/// # Performance considerations
+/// In threaded dispatch, the instruction fetcher is moved through the handler chain by value, so it
+/// should have 16 bytes size (next instruction pointer + pointer to extra state) and no drop glue.
+/// A fetcher that owns something is dropped by whichever handler ends execution. Every handler that
+/// can fail is a candidate for that, which forces a stack frame, callee-saved register spills, and
+/// a reload into the hot path of every load, store, branch and jump. A fetcher that only borrows
+/// what it walks (`Copy`, or at least `!needs_drop`) keeps them all frameless and fast.
+pub const trait InstructionFetcher<I, Memory>
 where
-    Self: ProgramCounter<Address<I>, Memory, CustomError>,
+    Self: ProgramCounter<Address<I>, Memory>,
     I: Instruction,
 {
+    /// Read the instruction at the current position, leaving the program counter on it.
+    ///
+    /// [`Self::advance()`] is what moves past it, and the two are separate because of what deriving
+    /// the size from the instruction is costly for threaded dispatch: it makes the address of the
+    /// *next* instruction depend on decoding the current one. In threaded dispatch caller already
+    /// knows which variant it is holding and advances by a constant instead, allowing the next load
+    /// to be issued immediately.
+    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
+
+    /// Move the program counter past an instruction of `instruction_size` bytes that
+    /// [`Self::peek_instruction()`] has just returned.
+    ///
+    /// # Safety
+    /// Must be called exactly once after a successful [`Self::peek_instruction()`], with the size
+    /// of the instruction that call returned. Implementations are free to rely on that and skip
+    /// checks accordingly: one over a pre-decoded stream that is known to end with a jump, for
+    /// instance, treats the resulting position as valid without bounds-checking it.
+    unsafe fn advance(&mut self, instruction_size: u8);
+
     /// Fetch a single instruction at a specified address and advance the program counter on
-    /// successful fetch
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError>;
+    /// successful fetch.
+    ///
+    /// This is [`Self::peek_instruction()`] followed by [`Self::advance()`] and exists for callers
+    /// that do not know what they are about to fetch, which is every caller that dispatches
+    /// through a `match` rather than through per-variant handlers.
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
 }
 
 /// CSR error
 #[derive(Debug, thiserror::Error)]
-pub enum CsrError<CustomError = CustomErrorPlaceholder> {
+pub enum CsrError {
     /// Read only CSR
     #[error("Read only CSR {csr_index:#x}")]
     ReadOnly {
@@ -760,15 +829,14 @@ pub enum CsrError<CustomError = CustomErrorPlaceholder> {
         current: PrivilegeLevel,
     },
     /// Custom error
-    #[error("Custom error: {0}")]
-    Custom(CustomError),
+    #[error("Custom error: {0:?}")]
+    Custom([u8; 8]),
 }
 
 /// CSRs (Control and Status Registers)
-pub const trait Csrs<Reg, CustomError = CustomErrorPlaceholder>
+pub const trait Csrs<Reg>
 where
     Reg: [const] Register,
-    CustomError: [const] Destruct,
 {
     /// Current privilege level
     #[inline(always)]
@@ -777,18 +845,17 @@ where
     }
 
     /// Reads register value
-    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>>;
+    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError>;
 
     /// Writes register value
-    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>>;
+    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError>;
 }
 
 // Convenience for threaded execution
-const impl<Reg, CustomError, T> Csrs<Reg, CustomError> for &mut T
+const impl<Reg, T> Csrs<Reg> for &mut T
 where
     Reg: [const] Register,
-    CustomError: [const] Destruct,
-    T: [const] Csrs<Reg, CustomError>,
+    T: [const] Csrs<Reg>,
 {
     #[inline(always)]
     fn privilege_level(&self) -> PrivilegeLevel {
@@ -796,24 +863,19 @@ where
     }
 
     #[inline(always)]
-    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError<CustomError>> {
+    fn read_csr(&self, csr_index: u16) -> Result<Reg::Type, CsrError> {
         T::read_csr(self, csr_index)
     }
 
     #[inline(always)]
-    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError<CustomError>> {
+    fn write_csr(&mut self, csr_index: u16, value: Reg::Type) -> Result<(), CsrError> {
         T::write_csr(self, csr_index, value)
     }
 }
 
 /// Custom handler for system instructions `ecall` and `ebreak`
-pub const trait SystemInstructionHandler<
-    Reg,
-    Regs,
-    Memory,
-    PC,
-    CustomError = CustomErrorPlaceholder,
-> where
+pub const trait SystemInstructionHandler<Reg, Regs, Memory, PC>
+where
     Reg: Register,
 {
     // TODO: Figure out the correct API for this method
@@ -838,7 +900,7 @@ pub const trait SystemInstructionHandler<
         regs: &mut Regs,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>>;
 
     /// Handle an `ebreak` instruction.
     ///
@@ -855,11 +917,10 @@ pub const trait SystemInstructionHandler<
 }
 
 // Convenience for threaded execution
-const impl<Reg, Regs, Memory, PC, CustomError, T>
-    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError> for &mut T
+const impl<Reg, Regs, Memory, PC, T> SystemInstructionHandler<Reg, Regs, Memory, PC> for &mut T
 where
     Reg: [const] Register,
-    T: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
+    T: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     fn handle_fence(&mut self, pred: u8, succ: u8) {
@@ -877,7 +938,7 @@ where
         regs: &mut Regs,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
         T::handle_ecall(self, regs, memory, program_counter)
     }
 
@@ -925,7 +986,7 @@ where
     fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
 }
 
-pub const trait ExecutableInstructionCsr<ExtState, CustomError = CustomErrorPlaceholder>
+pub const trait ExecutableInstructionCsr<ExtState>
 where
     Self: Instruction,
 {
@@ -956,7 +1017,7 @@ where
         will_write: bool,
         raw_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &ExtState = ext_state;
         let _: u16 = csr_index;
@@ -986,7 +1047,7 @@ where
         csr_index: u16,
         write_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &mut ExtState = ext_state;
         let _: u16 = csr_index;
@@ -998,15 +1059,9 @@ where
 }
 
 /// Trait for executable instructions
-pub const trait ExecutableInstruction<
-    Regs,
-    ExtState,
-    Memory,
-    PC,
-    InstructionHandler,
-    CustomError = CustomErrorPlaceholder,
-> where
-    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<ExtState, CustomError>,
+pub const trait ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+where
+    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<ExtState>,
 {
     /// Execute instruction.
     ///
@@ -1026,7 +1081,7 @@ pub const trait ExecutableInstruction<
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError>;
+    ) -> ExecutionResult<Self::Reg>;
 }
 
 /// Outcome of [`ThreadedExecutableInstruction::execute_threaded()`].
@@ -1034,43 +1089,272 @@ pub const trait ExecutableInstruction<
 /// Unlike [`ExecutionResult`], this is produced exactly once, by the handler that stops the chain
 /// and is not on the per-instruction path.
 ///
-/// The instruction fetcher travels through the chain by value and comes back here to remain
-/// available, exactly as it would be after [`ExecutableInstruction::execute()`].
+/// For performance reasons everything inside has to fit into what the platform returns in
+/// registers, in the shape of [`OpaqueThreadedExecutionResult`]. A caller that needs its fetcher
+/// after execution keeps its own copy and sets the program counter to the correct value after
+/// execution manually.
 #[derive(Debug)]
-pub struct ThreadedExecutionResult<IF, I, CustomError = CustomErrorPlaceholder>
+pub struct ThreadedExecutionResult<I>
 where
     I: Instruction,
 {
-    /// Instruction fetcher as of the moment execution stopped
-    pub instruction_fetcher: IF,
+    /// Program counter as of the moment execution stopped
+    pub program_counter: Address<I>,
     /// Why execution stopped
-    pub outcome: Result<(), ExecutionError<Address<I>, CustomError>>,
+    pub outcome: Result<(), ExecutionError<Address<I>>>,
 }
 
-impl<IF, I, CustomError> ThreadedExecutionResult<IF, I, CustomError>
+impl<I> ThreadedExecutionResult<I>
 where
     I: Instruction,
 {
     /// Execution stopped gracefully
     #[inline(always)]
-    pub const fn stopped(instruction_fetcher: IF) -> Self {
+    pub const fn stopped(program_counter: Address<I>) -> Self {
         Self {
-            instruction_fetcher,
+            program_counter,
             outcome: Ok(()),
         }
     }
 
     /// Execution failed
     #[inline(always)]
-    pub const fn failed(
-        instruction_fetcher: IF,
-        error: ExecutionError<Address<I>, CustomError>,
-    ) -> Self {
+    pub const fn failed(program_counter: Address<I>, error: ExecutionError<Address<I>>) -> Self {
         cold_path();
         Self {
-            instruction_fetcher,
+            program_counter,
             outcome: Err(error),
         }
+    }
+}
+
+cfg_select! {
+    all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
+        /// x86-64 System V only returns an aggregate larger than two eightbytes in registers when
+        /// it is a single vector, hence a 256-bit one (a pair of 128-bit vectors classifies as
+        /// memory). Moving one of those needs AVX, which is what makes this the only shape here
+        /// with a run-time platform requirement.
+        type OpaqueLanes = core::arch::x86_64::__m256i;
+    }
+    all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
+        /// AArch64 returns an aggregate larger than 16 bytes in registers only as a homogeneous
+        /// aggregate of up to four members, hence three `u64`.
+        // TODO: `[f64; 3]` is used temporarily due to compiler bug:
+        //  https://github.com/rust-lang/rust/issues/161382
+        type OpaqueLanes = [f64; 3];
+    }
+    _ => {
+        type OpaqueLanes = [u64; 3];
+    }
+}
+
+/// [`ThreadedExecutionResult`] in the shape tail-called handlers return it in.
+///
+/// Threaded handler internally returns this rather than [`ThreadedExecutionResult`] so that the
+/// outcome travels in registers instead of through a hidden out-pointer where possible for
+/// performance reasons (primarily on x86-64 due to a limited number of usable GPRs in the ABI).
+///
+/// On x86-64 the lanes are a 256-bit vector, so producing one of these executes AVX instructions -
+/// see [`Self::platform_supported()`] and [`Self::new()`].
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct OpaqueThreadedExecutionResult<I> {
+    lanes: OpaqueLanes,
+    phantom: PhantomData<I>,
+}
+
+impl<I> OpaqueThreadedExecutionResult<I>
+where
+    I: Instruction,
+{
+    const TAG_STOPPED: u64 = 0;
+    const TAG_UNALIGNED_INSTRUCTION: u64 = 1;
+    const TAG_OUT_OF_BOUNDS_READ: u64 = 2;
+    const TAG_OUT_OF_BOUNDS_WRITE: u64 = 3;
+    const TAG_ECALL_UNSUPPORTED: u64 = 4;
+    const TAG_ILLEGAL_INSTRUCTION: u64 = 5;
+    const TAG_CSR_READ_ONLY: u64 = 6;
+    const TAG_CSR_ILLEGAL_READ: u64 = 7;
+    const TAG_CSR_ILLEGAL_WRITE: u64 = 8;
+    const TAG_CSR_UNKNOWN: u64 = 9;
+    const TAG_CSR_INSUFFICIENT_PRIVILEGE: u64 = 10;
+    const TAG_CUSTOM: u64 = 11;
+    const TAG_UNSUPPORTED_PLATFORM: u64 = 12;
+
+    /// Whether this platform can carry an outcome the way [`Self::new()`] does.
+    ///
+    /// It cannot on an x86-64 CPU without AVX, where the lanes are a 256-bit vector: Rust targets
+    /// x86-64-v1 by default, so a runtime check is necessary.
+    ///
+    /// This is called once within [`ThreadedExecutableInstruction::execute_threaded()`].
+    #[cfg_attr(
+        all(target_arch = "x86_64", not(target_feature = "avx")),
+        expect(
+            deprecated,
+            reason = "`cpufeatures` uses a deprecated associated function internally"
+        )
+    )]
+    #[inline(always)]
+    #[must_use]
+    pub fn platform_supported() -> bool {
+        cfg_select! {
+            all(target_arch = "x86_64", not(target_feature = "avx")) => {
+                cpufeatures::new!(cpuid_avx, "avx");
+
+                cpuid_avx::get()
+            }
+            _ => true,
+        }
+    }
+
+    /// Serialize an outcome into the shape handlers return.
+    ///
+    /// # Safety
+    /// [`Self::platform_supported()`] must return `true`.
+    #[inline(always)]
+    pub unsafe fn new(result: ThreadedExecutionResult<I>) -> Self {
+        let program_counter = result.program_counter.as_u64();
+
+        let (tag, payload) = match result.outcome {
+            Ok(()) => (Self::TAG_STOPPED, 0),
+            Err(error) => match error {
+                ExecutionError::UnalignedInstruction { address } => {
+                    (Self::TAG_UNALIGNED_INSTRUCTION, address.get().as_u64())
+                }
+                ExecutionError::OutOfBoundsRead { address } => {
+                    (Self::TAG_OUT_OF_BOUNDS_READ, address.get())
+                }
+                ExecutionError::OutOfBoundsWrite { address } => {
+                    (Self::TAG_OUT_OF_BOUNDS_WRITE, address.get())
+                }
+                ExecutionError::EcallUnsupported { address } => {
+                    (Self::TAG_ECALL_UNSUPPORTED, address.get().as_u64())
+                }
+                ExecutionError::IllegalInstruction { address } => {
+                    (Self::TAG_ILLEGAL_INSTRUCTION, address.get().as_u64())
+                }
+                ExecutionError::CsrReadOnly { csr_index } => {
+                    (Self::TAG_CSR_READ_ONLY, u64::from(csr_index))
+                }
+                ExecutionError::CsrIllegalRead { csr_index } => {
+                    (Self::TAG_CSR_ILLEGAL_READ, u64::from(csr_index))
+                }
+                ExecutionError::CsrIllegalWrite { csr_index } => {
+                    (Self::TAG_CSR_ILLEGAL_WRITE, u64::from(csr_index))
+                }
+                ExecutionError::CsrUnknown { csr_index } => {
+                    (Self::TAG_CSR_UNKNOWN, u64::from(csr_index))
+                }
+                ExecutionError::CsrInsufficientPrivilege {
+                    csr_index,
+                    required,
+                    current,
+                } => (
+                    Self::TAG_CSR_INSUFFICIENT_PRIVILEGE,
+                    u64::from(csr_index)
+                        | (u64::from(required.to_bits()) << 16)
+                        | (u64::from(current.to_bits()) << 24),
+                ),
+                ExecutionError::Custom(error) => (Self::TAG_CUSTOM, u64::from_le_bytes(error)),
+                ExecutionError::UnsupportedPlatform => (Self::TAG_UNSUPPORTED_PLATFORM, 0),
+            },
+        };
+
+        Self {
+            lanes: cfg_select! {
+                all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
+                    // SAFETY: Method contract guarantees that `Self::platform_supported()` was
+                    // called, which ensures that AVX is supported
+                    unsafe {
+                        core::arch::x86_64::_mm256_setr_epi64x(
+                            program_counter.cast_signed(),
+                            tag.cast_signed(),
+                            payload.cast_signed(),
+                            0,
+                        )
+                    }
+                }
+                all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
+                    [program_counter, tag, payload].map(f64::from_bits)
+                }
+                _ => [program_counter, tag, payload],
+            },
+            phantom: PhantomData,
+        }
+    }
+
+    /// Deserialize what [`Self::new()`] produced.
+    ///
+    /// The lanes only ever come from there, in this very crate, which is what makes the
+    /// unknown-tag arm unreachable.
+    #[inline(always)]
+    pub fn into_result(self) -> ThreadedExecutionResult<I> {
+        let [program_counter, tag, payload] =
+            cfg_select! {
+                all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
+                    {
+                        // SAFETY: Same size, alignment is larger than necessary
+                        let [program_counter, tag, payload, _] = unsafe {
+                            mem::transmute::<core::arch::x86_64::__m256i, [u64; 4]>(self.lanes)
+                        };
+
+                        [program_counter, tag, payload]
+                    }
+                }
+                all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
+                    self.lanes.map(f64::to_bits)
+                }
+                _ => self.lanes,
+            };
+
+        let program_counter = Address::<I>::truncate_from_u64(program_counter);
+        let csr_index = payload as u16;
+
+        let error = match tag {
+            Self::TAG_STOPPED => {
+                return ThreadedExecutionResult::stopped(program_counter);
+            }
+            Self::TAG_UNALIGNED_INSTRUCTION => ExecutionError::UnalignedInstruction {
+                address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
+            },
+            Self::TAG_OUT_OF_BOUNDS_READ => ExecutionError::OutOfBoundsRead {
+                address: PackedAddress::new(payload),
+            },
+            Self::TAG_OUT_OF_BOUNDS_WRITE => ExecutionError::OutOfBoundsWrite {
+                address: PackedAddress::new(payload),
+            },
+            Self::TAG_ECALL_UNSUPPORTED => ExecutionError::EcallUnsupported {
+                address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
+            },
+            Self::TAG_ILLEGAL_INSTRUCTION => ExecutionError::IllegalInstruction {
+                address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
+            },
+            Self::TAG_CSR_READ_ONLY => ExecutionError::CsrReadOnly { csr_index },
+            Self::TAG_CSR_ILLEGAL_READ => ExecutionError::CsrIllegalRead { csr_index },
+            Self::TAG_CSR_ILLEGAL_WRITE => ExecutionError::CsrIllegalWrite { csr_index },
+            Self::TAG_CSR_UNKNOWN => ExecutionError::CsrUnknown { csr_index },
+            Self::TAG_CSR_INSUFFICIENT_PRIVILEGE => {
+                // SAFETY: `::new()` constructor created this value with `to_bits()`
+                let required =
+                    unsafe { PrivilegeLevel::from_bits((payload >> 16) as u8).unwrap_unchecked() };
+                // SAFETY: `::new()` constructor created this value with `to_bits()`
+                let current =
+                    unsafe { PrivilegeLevel::from_bits((payload >> 24) as u8).unwrap_unchecked() };
+
+                ExecutionError::CsrInsufficientPrivilege {
+                    csr_index,
+                    required,
+                    current,
+                }
+            }
+            Self::TAG_CUSTOM => ExecutionError::Custom(payload.to_le_bytes()),
+            Self::TAG_UNSUPPORTED_PLATFORM => ExecutionError::UnsupportedPlatform,
+            _ => {
+                unreachable!("Lanes are only ever produced by `new()`; qed");
+            }
+        };
+
+        ThreadedExecutionResult::failed(program_counter, error)
     }
 }
 
@@ -1091,22 +1375,16 @@ where
 /// This trait is deliberately not `const`, unlike [`ExecutableInstruction`]: dispatch goes through
 /// a table of function pointers, and calls through a function pointer are not allowed in
 /// `const fn`.
-pub trait ThreadedExecutableInstruction<
-    Regs,
-    ExtState,
-    Memory,
-    PC,
-    InstructionHandler,
-    CustomError = CustomErrorPlaceholder,
-> where
-    Self: ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>,
-    PC: InstructionFetcher<Self, Memory, CustomError>,
+pub trait ThreadedExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+where
+    Self: ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>,
+    PC: InstructionFetcher<Self, Memory>,
 {
     /// Execute instructions starting at the instruction fetcher's current position and continue
     /// until execution stops or fails.
     ///
     /// The instruction fetcher is taken by value rather than behind a reference so that it stays in
-    /// registers across the whole handler chain and is returned in [`ThreadedExecutionResult`].
+    /// registers across the whole handler chain.
     ///
     /// `ext_state` and `system_instruction_handler` are taken by value for the same reason and one
     /// more: an owned value can be a zero-sized type, which occupies no argument register at all,
@@ -1121,5 +1399,5 @@ pub trait ThreadedExecutableInstruction<
         ext_state: ExtState,
         memory: &mut Memory,
         system_instruction_handler: InstructionHandler,
-    ) -> ThreadedExecutionResult<PC, Self, CustomError>;
+    ) -> ThreadedExecutionResult<Self>;
 }

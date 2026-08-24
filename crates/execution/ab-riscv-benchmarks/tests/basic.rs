@@ -1,10 +1,10 @@
 use ab_blake3::OUT_LEN;
 use ab_contract_file::ContractFile;
-use ab_contract_file::instruction::ContractRegisters;
+use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
+    Blake3HashChunkInternalArgs, EagerTestInstructions, Ed25519VerifyInternalArgs,
     LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
 };
 use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
@@ -22,6 +22,7 @@ const MEMORY_SIZE: usize = 128 * 1024;
 enum RunType {
     Lazy,
     Eager,
+    EagerThreaded,
 }
 
 fn call_method<IA, CIA>(method_name: &str, create_internal_args: CIA, run_type: RunType) -> IA
@@ -55,7 +56,10 @@ where
         );
     }
 
-    let mut regs = ContractRegisters::default();
+    let mut regs = ContractRegisters::<false>::default();
+    // The threaded path uses the register file that keeps reads unconditional
+    let mut threaded_regs = ContractRegisters::<true>::default();
+
     // Internal arguments are the end of the memory region
     let internal_args_addr = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64 - size_of::<IA>() as u64;
     // Stack pointer must be 16-byte aligned, according to the psABI
@@ -77,6 +81,9 @@ where
     regs.write(Register::A0, internal_args_addr);
     // Stack is between internal arguments and contract memory
     regs.write(Register::SP, stack_pointer);
+    threaded_regs.write(Register::A0, internal_args_addr);
+    // Stack is between internal arguments and contract memory
+    threaded_regs.write(Register::SP, stack_pointer);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
@@ -96,16 +103,17 @@ where
             state.memory
         }
         RunType::Eager => {
-            // SAFETY: Program counter is trusted
-            let instruction_fetcher = unsafe {
-                EagerTestInstructionFetcher::new(
+            // SAFETY: Contract code is trusted
+            let instructions = unsafe {
+                EagerTestInstructions::decode(
                     contract_file.get_code(),
                     TRAP_ADDRESS,
                     MEMORY_BASE_ADDRESS
                         + u64::from(contract_file.header().read_only_section_memory_size),
-                    pc,
                 )
             };
+            // SAFETY: Program counter is trusted
+            let instruction_fetcher = unsafe { instructions.fetcher(pc) };
 
             let mut state = BasicInterpreterState {
                 regs,
@@ -117,6 +125,31 @@ where
             state.execute().unwrap();
 
             state.memory
+        }
+        RunType::EagerThreaded => {
+            // SAFETY: Contract code is trusted
+            let instructions = unsafe {
+                EagerTestInstructions::decode(
+                    contract_file.get_code(),
+                    TRAP_ADDRESS,
+                    MEMORY_BASE_ADDRESS
+                        + u64::from(contract_file.header().read_only_section_memory_size),
+                )
+            };
+            // SAFETY: Program counter is trusted
+            let instruction_fetcher = unsafe { instructions.fetcher(pc) };
+
+            ContractInstruction::execute_threaded(
+                instruction_fetcher,
+                &mut threaded_regs,
+                (),
+                &mut memory,
+                IllegalEcallSystemInstructionHandler,
+            )
+            .outcome
+            .unwrap();
+
+            memory
         }
     };
 
@@ -248,6 +281,78 @@ fn ed25519_verify_invalid_eager() {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, other_message)
         },
         RunType::Eager,
+    );
+
+    assert!(!internal_args.result.get());
+}
+
+#[cfg_attr(
+    all(target_arch = "x86_64", not(target_feature = "avx")),
+    ignore = "AVX is not the default feature on x86-64"
+)]
+#[test]
+fn blake3_hash_chunk_eager_threaded() {
+    let data_to_hash = [1; _];
+    let expected_hash = Benchmarks::blake3_hash_chunk(&data_to_hash);
+
+    let internal_args = call_method(
+        "benchmarks_blake3_hash_chunk",
+        |internal_args_addr| Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash),
+        RunType::EagerThreaded,
+    );
+    let actual_hash = internal_args.result();
+
+    assert_eq!(expected_hash, actual_hash);
+}
+
+// TODO: Unlock if it becomes fast enough to run in CI
+#[cfg_attr(miri, ignore)]
+#[cfg_attr(
+    all(target_arch = "x86_64", not(target_feature = "avx")),
+    ignore = "AVX is not the default feature on x86-64"
+)]
+#[test]
+fn ed25519_verify_valid_eager_threaded() {
+    let signing_key = SigningKey::from([1; _]);
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
+    let message = [2; OUT_LEN];
+    let signature = Ed25519Signature::from(signing_key.sign(&message));
+
+    assert!(Benchmarks::ed25519_verify(&public_key, &signature, &message).get());
+
+    let internal_args = call_method(
+        "benchmarks_ed25519_verify",
+        |internal_args_addr| {
+            Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message)
+        },
+        RunType::EagerThreaded,
+    );
+
+    assert!(internal_args.result.get());
+}
+
+// TODO: Unlock if it becomes fast enough to run in CI
+#[cfg_attr(miri, ignore)]
+#[cfg_attr(
+    all(target_arch = "x86_64", not(target_feature = "avx")),
+    ignore = "AVX is not the default feature on x86-64"
+)]
+#[test]
+fn ed25519_verify_invalid_eager_threaded() {
+    let signing_key = SigningKey::from([1; _]);
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
+    let message = [2; OUT_LEN];
+    let other_message = [3; OUT_LEN];
+    let signature = Ed25519Signature::from(signing_key.sign(&message));
+
+    assert!(!Benchmarks::ed25519_verify(&public_key, &signature, &other_message).get());
+
+    let internal_args = call_method(
+        "benchmarks_ed25519_verify",
+        |internal_args_addr| {
+            Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, other_message)
+        },
+        RunType::EagerThreaded,
     );
 
     assert!(!internal_args.result.get());

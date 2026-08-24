@@ -6,6 +6,7 @@
     const_try,
     const_try_residual,
     explicit_tail_calls,
+    fn_align,
     generic_const_args,
     generic_const_items,
     inherent_associated_types,

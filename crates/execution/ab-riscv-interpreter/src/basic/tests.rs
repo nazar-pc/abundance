@@ -90,14 +90,14 @@ fn test_registers_all_registers() {
 fn test_eregisters_read_write() {
     {
         // Basic read/write
-        let mut regs = BasicRegisters::default();
+        let mut regs = BasicRegisters::<_, false>::default();
         regs.write(EReg::<u64>::A0, 0xdead_beef);
         assert_eq!(regs.read(EReg::<u64>::A0), 0xdead_beef);
     }
 
     {
         // Write to multiple registers
-        let mut regs = BasicRegisters::default();
+        let mut regs = BasicRegisters::<_, false>::default();
         regs.write(EReg::<u64>::A0, 100);
         regs.write(EReg::<u64>::A1, 200);
         regs.write(EReg::<u64>::T0, 300);
@@ -109,7 +109,7 @@ fn test_eregisters_read_write() {
 
     {
         // Overwrite register
-        let mut regs = BasicRegisters::default();
+        let mut regs = BasicRegisters::<_, false>::default();
         regs.write(EReg::<u64>::A0, 100);
         regs.write(EReg::<u64>::A0, 200);
         assert_eq!(regs.read(EReg::<u64>::A0), 200);
@@ -117,7 +117,7 @@ fn test_eregisters_read_write() {
 
     {
         // Full 64-bit values
-        let mut regs = BasicRegisters::default();
+        let mut regs = BasicRegisters::<_, false>::default();
         regs.write(EReg::<u64>::A0, u64::MAX);
         assert_eq!(regs.read(EReg::<u64>::A0), u64::MAX);
 
@@ -130,20 +130,20 @@ fn test_eregisters_read_write() {
 fn test_eregisters_zero_register() {
     {
         // Zero register always reads 0
-        let regs = BasicRegisters::default();
+        let regs = BasicRegisters::<_, false>::default();
         assert_eq!(regs.read(EReg::<u64>::Zero), 0);
     }
 
     {
         // Writes to zero register are ignored
-        let mut regs = BasicRegisters::default();
+        let mut regs = BasicRegisters::<_, false>::default();
         regs.write(EReg::<u64>::Zero, 0xdead_beef);
         assert_eq!(regs.read(EReg::<u64>::Zero), 0);
     }
 
     {
         // Multiple writes to zero register
-        let mut regs = BasicRegisters::default();
+        let mut regs = BasicRegisters::<_, false>::default();
         regs.write(EReg::<u64>::Zero, 100);
         regs.write(EReg::<u64>::Zero, 200);
         regs.write(EReg::<u64>::Zero, u64::MAX);
@@ -154,7 +154,7 @@ fn test_eregisters_zero_register() {
 #[test]
 fn test_eregisters_all_registers() {
     // Test all 16 registers can be written and read independently
-    let mut regs = BasicRegisters::default();
+    let mut regs = BasicRegisters::<_, false>::default();
 
     for i in 1..16 {
         let reg = EReg::<u64>::from_bits(i).unwrap();

@@ -16,13 +16,13 @@ pub mod zk;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
-    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler,
-    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
+    PackedAddress, ProgramCounter, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    SystemInstructionHandler, ThreadedExecutableInstruction, ThreadedExecutionResult,
+    VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::marker::Destruct;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
@@ -32,24 +32,20 @@ const impl<Reg> ExecutableInstructionOperands for Rv32Instruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv32Instruction<Reg>
-where
-    Reg: Register<Type = u32>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32Instruction<Reg> where
+    Reg: Register<Type = u32>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    for Rv32Instruction<Reg>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for Rv32Instruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>,
-    CustomError: [const] Destruct,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
+    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -64,7 +60,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Add { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value.wrapping_add(rs2_value);

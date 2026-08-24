@@ -9,7 +9,7 @@ use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
-    VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
+    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -147,6 +147,7 @@ impl VirtualMemory for TestMemory {
 }
 
 /// Custom instruction handler for tests that returns instructions from a sequence
+#[derive(Clone)]
 pub(crate) struct TestInstructionFetcher<I> {
     instructions: Vec<Option<I>>,
     return_trap_address: u64,
@@ -164,14 +165,21 @@ where
     }
 
     #[inline(always)]
-    fn set_pc_relative(
-        &mut self,
-        memory: &TestMemory,
-        instruction_size: u8,
-        offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
         let old_pc = self.old_pc(instruction_size);
-        self.set_pc(memory, old_pc.wrapping_add_signed(i64::from(offset)))
+        self.pc = old_pc.wrapping_add_signed(i64::from(offset));
+
+        true
+    }
+
+    #[cold]
+    #[inline(never)]
+    unsafe fn failed_branch(
+        &mut self,
+        _memory: &TestMemory,
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+        // Every target is accepted above, so there is never one to report on
+        unreachable!("`try_set_pc_relative()` never refuses a target")
     }
 
     fn set_pc(
@@ -190,7 +198,7 @@ where
     I: Instruction<Reg = Reg<u64>>,
 {
     #[inline]
-    fn fetch_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
+    fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {
             return FetchInstructionResult::Break;
         }
@@ -207,9 +215,27 @@ where
                 address: PackedAddress::new(self.pc),
             });
         };
-        self.pc += u64::from(instruction.size());
-
         FetchInstructionResult::Instruction(instruction)
+    }
+
+    #[inline]
+    unsafe fn advance(&mut self, instruction_size: u8) {
+        self.pc = self.pc.wrapping_add(u64::from(instruction_size));
+    }
+
+    #[inline]
+    fn fetch_instruction(&mut self, memory: &TestMemory) -> FetchInstructionResult<I> {
+        let result = self.peek_instruction(memory);
+
+        if let FetchInstructionResult::Instruction(instruction) = result {
+            // SAFETY: The instruction was just peeked successfully, and this is the only place that
+            // moves past it
+            unsafe {
+                self.advance(instruction.size());
+            }
+        }
+
+        result
     }
 }
 
@@ -492,7 +518,7 @@ impl ExtState {
 }
 
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
-    BasicRegisters<Reg<u64>>,
+    BasicRegisters<Reg<u64>, false>,
     ExtState,
     TestMemory,
     TestInstructionFetcher<Instruction>,
@@ -526,7 +552,7 @@ pub(crate) fn execute<I>(
 where
     I: Instruction<Reg = Reg<u64>>
         + ExecutableInstruction<
-            BasicRegisters<Reg<u64>>,
+            BasicRegisters<Reg<u64>, false>,
             ExtState,
             TestMemory,
             TestInstructionFetcher<I>,
@@ -596,19 +622,27 @@ where
     Ok(())
 }
 
-/// Same as [`execute()`], but driven by tail-call-threaded dispatch instead of an explicit loop
-pub(crate) fn execute_threaded<I>(
-    state: &mut TestInterpreterState<I>,
-) -> Result<(), ExecutionError<Address<I>>>
+/// Same as [`execute()`], but driven by tail-call-threaded dispatch instead of an explicit loop.
+///
+/// The fetcher is moved into the handler chain and dropped there, so this hands over a clone of
+/// the state's one and leaves the state itself intact for the test to inspect. Where [`execute()`]
+/// advances the state's fetcher, the program counter comes back as part of the result here.
+pub(crate) fn execute_threaded<I>(state: &mut TestInterpreterState<I>) -> ThreadedExecutionResult<I>
 where
     I: Instruction<Reg = Reg<u64>>
         + for<'a> ThreadedExecutableInstruction<
-            BasicRegisters<Reg<u64>>,
+            BasicRegisters<Reg<u64>, false>,
             &'a mut ExtState,
             TestMemory,
             TestInstructionFetcher<I>,
             &'a mut TestInstructionHandler,
         >,
 {
-    state.execute_threaded::<I>()
+    I::execute_threaded(
+        state.instruction_fetcher.clone(),
+        &mut state.regs,
+        &mut state.ext_state,
+        &mut state.memory,
+        &mut state.system_instruction_handler,
+    )
 }

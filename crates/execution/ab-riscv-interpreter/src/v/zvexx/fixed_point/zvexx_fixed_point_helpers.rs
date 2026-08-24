@@ -437,7 +437,7 @@ pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_fixed_point_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -447,7 +447,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
@@ -502,7 +502,7 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -512,7 +512,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
@@ -559,13 +559,13 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, CustomError, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_narrowing_sew<Reg, Memory, PC, CustomError>(
+pub fn check_narrowing_sew<Reg, Memory, PC>(
     program_counter: &PC,
     sew: Vsew,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     if sew.bits_width() > 32 {
         cold_path();
@@ -588,15 +588,15 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vs2_narrowing_alignment<Reg, Memory, PC, CustomError>(
+pub fn check_vs2_narrowing_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs2: VReg,
     vlmul: Vlmul,
     sew: Vsew,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     // Source EEW is double the destination SEW. SEW=64 is rejected earlier by
     // `check_narrowing_sew`.

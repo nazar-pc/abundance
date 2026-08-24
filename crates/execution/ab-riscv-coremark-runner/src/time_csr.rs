@@ -97,8 +97,7 @@ where
 impl<Reg> ExecutableInstructionOperands for TimeCsrInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for TimeCsrInstruction<Reg>
+impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for TimeCsrInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
@@ -109,7 +108,7 @@ where
         _will_write: bool,
         _raw_value: Reg::Type,
         output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         const CSR_TIME: u16 = 0xC01;
 
         if csr_index == CSR_TIME {
@@ -126,7 +125,7 @@ where
         csr_index: u16,
         _write_value: Reg::Type,
         _output_value: &mut Reg::Type,
-    ) -> Result<bool, CsrError<CustomError>> {
+    ) -> Result<bool, CsrError> {
         const CSR_TIME: u16 = 0xC01;
 
         if csr_index == CSR_TIME {
@@ -138,8 +137,8 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for TimeCsrInstruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -156,7 +155,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

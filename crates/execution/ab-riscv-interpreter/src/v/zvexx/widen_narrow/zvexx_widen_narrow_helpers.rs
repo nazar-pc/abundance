@@ -14,14 +14,14 @@ use core::num::NonZeroU8;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vd_widen_no_src_check<Reg, Memory, PC, CustomError>(
+pub fn check_vd_widen_no_src_check<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     wide_group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let wide_group_regs = wide_group_regs.get();
     let vd_idx = vd.to_bits();
@@ -45,16 +45,16 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vs_ext_alignment<Reg, Memory, PC, CustomError>(
+pub fn check_vs_ext_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs2: VReg,
     src_group_regs: NonZeroU8,
     vd: VReg,
     group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let src_group_regs = src_group_regs.get();
     let group_regs = group_regs.get();
@@ -91,17 +91,17 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vd_widen_alignment<Reg, Memory, PC, CustomError>(
+pub fn check_vd_widen_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     vs_a: VReg,
     vs_b_opt: Option<VReg>,
     group_regs: NonZeroU8,
     wide_group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let wide_group_regs = wide_group_regs.get();
     let group_regs = group_regs.get();
@@ -153,14 +153,14 @@ fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vs_wide_alignment<Reg, Memory, PC, CustomError>(
+pub fn check_vs_wide_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs: VReg,
     wide_group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let wide_group_regs = wide_group_regs.get();
     let vs_idx = vs.to_bits();
@@ -181,14 +181,14 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vd_narrow_alignment<Reg, Memory, PC, CustomError>(
+pub fn check_vd_narrow_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     group_regs: NonZeroU8,
-) -> Result<(), ExecutionError<Reg::Type, CustomError>>
+) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory>,
 {
     let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
@@ -382,7 +382,7 @@ fn scalar_signed_for_sew(val: u64, sew: Vsew) -> u64 {
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -392,7 +392,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64) -> u64,
 {
@@ -462,7 +462,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, ExtState, Custom
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, CustomError, F>(
+pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, F>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -472,7 +472,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
     F: Fn(u64, u64) -> u64,
 {
@@ -539,7 +539,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, ExtState, Custo
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, CustomError>(
+pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -548,7 +548,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();
@@ -614,7 +614,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, ExtState, Custom
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
+pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState>(
     ext_state: &mut ExtState,
     vd: VReg,
     vs2: VReg,
@@ -623,7 +623,7 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, ExtState, CustomError>(
     factor: VsewFactor,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg, CustomError>,
+    ExtState: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
 {
     let vl = ext_state.vl();

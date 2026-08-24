@@ -54,14 +54,11 @@ where
 impl<Reg> ExecutableInstructionOperands for CoremarkInstruction<Reg> {}
 
 #[instruction_execution]
-impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for CoremarkInstruction<Reg>
-{
-}
+impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for CoremarkInstruction<Reg> {}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for CoremarkInstruction<Reg>
 where
     Reg: Register,
@@ -78,7 +75,7 @@ where
         memory: &mut Memory,
         program_counter: &mut PC,
         system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

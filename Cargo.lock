@@ -778,6 +778,7 @@ version = "0.0.4"
 dependencies = [
  "ab-riscv-macros",
  "ab-riscv-primitives",
+ "cpufeatures 0.3.0",
  "no-panic-const",
  "replace_with",
  "thiserror 2.0.20",

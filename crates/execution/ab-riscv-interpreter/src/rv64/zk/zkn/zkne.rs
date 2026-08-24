@@ -10,8 +10,9 @@ mod tests;
 use crate::rv64::zk::zkn::zknd::rv64_zknd_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
-    ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
+    ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -23,16 +24,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZkneInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv64ZkneInstruction<Reg>
-where
-    Reg: Register<Type = u64>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZkneInstruction<Reg> where
+    Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv64ZkneInstruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -51,7 +50,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Aes64Es { rd, rs1: _, rs2: _ } => {
                 let v1 = rs1_value;

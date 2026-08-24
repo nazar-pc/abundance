@@ -5,16 +5,15 @@ mod tests;
 
 use crate::zawrs::WrsHandler;
 use crate::{
-    Address, BasicInt, CustomErrorPlaceholder, ExecutableInstruction, ExecutionError,
-    ExecutionResult, FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler,
-    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory, VirtualMemoryError,
+    Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
+    FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::hint::cold_path;
-use core::marker::PhantomData;
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
@@ -64,17 +63,21 @@ where
     }
 }
 
-/// A basic set of RISC-V GPRs (General Purpose Registers)
+/// A basic set of RISC-V GPRs (General Purpose Registers).
+///
+/// `ZEROSTORE` generic determines whether to zero `x0` register on write instead of checking
+/// register index on read. `match` loop usually performs better with branching, while threaded
+/// execution benefits from zeroing.
 #[derive(Debug, Clone, Copy)]
 #[repr(align(16))]
-pub struct BasicRegisters<Reg>
+pub struct BasicRegisters<Reg, const ZEROSTORE: bool = false>
 where
     Reg: BasicRegister,
 {
     regs: [Reg::Type; Reg::N],
 }
 
-impl<Reg> Default for BasicRegisters<Reg>
+impl<Reg, const ZEROSTORE: bool> Default for BasicRegisters<Reg, ZEROSTORE>
 where
     Reg: BasicRegister,
 {
@@ -86,14 +89,14 @@ where
     }
 }
 
-const impl<Reg> RegisterFile<Reg> for BasicRegisters<Reg>
+const impl<Reg, const ZEROSTORE: bool> RegisterFile<Reg> for BasicRegisters<Reg, ZEROSTORE>
 where
     Reg: [const] BasicRegister,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read(&self, reg: Reg) -> Reg::Type {
-        if reg == Reg::ZERO {
+        if reg == Reg::ZERO && !ZEROSTORE {
             // Always zero
             return Reg::Type::default();
         }
@@ -107,6 +110,10 @@ where
     fn write(&mut self, reg: Reg, value: Reg::Type) {
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
+        if ZEROSTORE {
+            // SAFETY: The register file always has at least one slot
+            *unsafe { self.regs.get_unchecked_mut(0) } = Reg::Type::default();
+        }
     }
 }
 
@@ -142,6 +149,9 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
     /// program.
     // TODO: It might be impractical to support `no-panic` here directly in a general case, but it
     //  should be possible to do so for small extensions to verify the workflow
+    //
+    // Make sure each handler starts on a cache line boundary
+    #[rustc_align(64)]
     pub fn execute<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
     where
         Regs: RegisterFile<<I as Instruction>::Reg>,
@@ -223,55 +233,6 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
                 }
 
                 (Ok(()), instruction_fetcher)
-            },
-        )
-    }
-
-    /// Execute the program with a given basic interpreter state using tail-call-threaded dispatch.
-    ///
-    /// This is [`Self::execute()`] with the central `match` replaced by one handler function per
-    /// instruction variant, chained with guaranteed tail calls. It executes exactly the same
-    /// instruction implementations and produces the same results, trading a larger amount of
-    /// generated code for higher throughput, so which one to call is a property of the workload
-    /// rather than of the program being interpreted.
-    pub fn execute_threaded<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
-    where
-        Regs: RegisterFile<<I as Instruction>::Reg>,
-        I: for<'a> ThreadedExecutableInstruction<
-                Regs,
-                &'a mut ExtState,
-                Memory,
-                IF,
-                &'a mut InstructionHandler,
-            >,
-        Memory: VirtualMemory,
-        IF: InstructionFetcher<I, Memory>,
-    {
-        // This interpreter state owns both, so what is passed on by value is a borrow of each. A
-        // caller whose extension state and system instruction handler are zero-sized can call
-        // `I::execute_threaded()` with them directly instead and save two argument registers across
-        // the whole chain.
-        let ext_state = &mut self.ext_state;
-        let system_instruction_handler = &mut self.system_instruction_handler;
-        let regs = &mut self.regs;
-        let memory = &mut self.memory;
-
-        replace_with_or_abort_and_return(
-            &mut self.instruction_fetcher,
-            #[inline(always)]
-            |instruction_fetcher| {
-                let ThreadedExecutionResult {
-                    instruction_fetcher,
-                    outcome,
-                } = I::execute_threaded(
-                    instruction_fetcher,
-                    regs,
-                    ext_state,
-                    memory,
-                    system_instruction_handler,
-                );
-
-                (outcome, instruction_fetcher)
             },
         )
     }
@@ -482,17 +443,15 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
 /// Note that it loads instructions from anywhere in memory. This works, but it is likely that you
 /// want to restrict this to a specific executable region of memory.
 #[derive(Debug, Copy, Clone)]
-pub struct BasicInstructionFetcher<I, CustomError = CustomErrorPlaceholder>
+pub struct BasicInstructionFetcher<I>
 where
     I: Instruction,
 {
     return_trap_address: Address<I>,
     pc: Address<I>,
-    _phantom: PhantomData<CustomError>,
 }
 
-const impl<I, Memory, CustomError> ProgramCounter<Address<I>, Memory, CustomError>
-    for BasicInstructionFetcher<I, CustomError>
+const impl<I, Memory> ProgramCounter<Address<I>, Memory> for BasicInstructionFetcher<I>
 where
     I: [const] Instruction,
     Memory: [const] VirtualMemory,
@@ -503,14 +462,27 @@ where
     }
 
     #[inline(always)]
-    fn set_pc_relative(
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
+        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
+        let pc = old_pc.wrapping_add_signed(offset);
+        // Stored either way: on the way out it is what `failed_branch()` reports on, and until then
+        // nothing else is allowed to look at it
+        self.pc = pc;
+
+        pc != self.return_trap_address && pc.as_u64().is_multiple_of(u64::from(I::alignment()))
+    }
+
+    #[cold]
+    #[inline(never)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    unsafe fn failed_branch(
         &mut self,
         memory: &Memory,
-        instruction_size: u8,
-        offset: i32,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
-        let old_pc = <Self as ProgramCounter<_, Memory, _>>::old_pc(self, instruction_size);
-        self.set_pc(memory, old_pc.wrapping_add_signed(offset))
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
+        // The program counter holds the refused target, and `set_pc()` is what says what is wrong
+        // with it
+        self.set_pc(memory, self.pc)
     }
 
     #[inline]
@@ -519,7 +491,7 @@ where
         &mut self,
         _memory: &Memory,
         pc: Address<I>,
-    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
         if pc == self.return_trap_address {
             cold_path();
             return Ok(ControlFlow::Break(()));
@@ -538,15 +510,14 @@ where
     }
 }
 
-const impl<I, Memory, CustomError> InstructionFetcher<I, Memory, CustomError>
-    for BasicInstructionFetcher<I, CustomError>
+const impl<I, Memory> InstructionFetcher<I, Memory> for BasicInstructionFetcher<I>
 where
     I: [const] Instruction,
     Memory: [const] VirtualMemory,
 {
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, CustomError> {
+    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
         let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
@@ -570,13 +541,33 @@ where
                 address: PackedAddress::new(self.pc),
             });
         };
-        self.pc += instruction.size().into();
-
         FetchInstructionResult::Instruction(instruction)
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    unsafe fn advance(&mut self, instruction_size: u8) {
+        self.pc = self.pc.wrapping_add_signed(i32::from(instruction_size));
+    }
+
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
+        let result = InstructionFetcher::<I, Memory>::peek_instruction(self, memory);
+
+        if let FetchInstructionResult::Instruction(instruction) = result {
+            // SAFETY: The instruction was just peeked successfully, and this is the only place
+            // that moves past it
+            unsafe {
+                InstructionFetcher::<I, Memory>::advance(self, instruction.size());
+            }
+        }
+
+        result
     }
 }
 
-impl<I, CustomError> BasicInstructionFetcher<I, CustomError>
+impl<I> BasicInstructionFetcher<I>
 where
     I: Instruction,
 {
@@ -589,7 +580,6 @@ where
         Self {
             return_trap_address,
             pc,
-            _phantom: PhantomData,
         }
     }
 }
@@ -599,12 +589,11 @@ where
 #[derive(Debug, Default, Clone, Copy)]
 pub struct IllegalEcallSystemInstructionHandler;
 
-const impl<Reg, Regs, Memory, PC, CustomError>
-    SystemInstructionHandler<Reg, Regs, Memory, PC, CustomError>
+const impl<Reg, Regs, Memory, PC> SystemInstructionHandler<Reg, Regs, Memory, PC>
     for IllegalEcallSystemInstructionHandler
 where
     Reg: [const] Register,
-    PC: [const] ProgramCounter<Reg::Type, Memory, CustomError>,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn handle_ecall(
@@ -612,7 +601,7 @@ where
         _regs: &mut Regs,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
         Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })

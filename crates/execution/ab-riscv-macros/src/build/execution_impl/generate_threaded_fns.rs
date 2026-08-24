@@ -5,26 +5,47 @@ use heck::ToSnakeCase;
 use quote::{ToTokens, format_ident, quote};
 use std::env;
 use std::rc::Rc;
-use syn::{Abi, Arm, Generics, Ident, Item, Pat, Token, Type, Variant, WhereClause, parse_quote};
+use syn::{
+    Abi, Arm, Attribute, Generics, Ident, Item, Pat, Type, Variant, WhereClause, parse_quote,
+};
 
-/// Calling convention used for functions involved in threaded execution.
+/// Calling convention used for functions involved in threaded execution, and the target features
+/// they need.
 ///
-/// Windows x86-64 passes only four arguments in registers, where the System V convention every
-/// other x86-64 target uses passes six, and it is critical for performance that a threaded
-/// interpreter has six registers available for arguments. `sysv64` ABI is supported on Windows too
-/// and solves this particular issue.
-fn handler_abi() -> anyhow::Result<Option<Abi>> {
+/// The default Rust calling convention returns nothing larger than a pointer pair in registers, so
+/// the outcome of execution would come back through memory, costing an argument register in every
+/// handler of the chain. An explicitly pinned convention is what makes the register return
+/// possible through `OpaqueThreadedExecutionResult`, which internally is composed of:
+/// * 256-bit vector register on x86-64 using `sysv64` ABI, which also gives handlers six argument
+///   registers on Windows
+/// * homogeneous aggregates on Aarch64
+///
+/// Everywhere else the outcome comes back through memory, and nothing special is needed for that.
+fn handler_abi() -> anyhow::Result<(Option<Abi>, Option<Attribute>)> {
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").context(
         "Failed to retrieve `CARGO_CFG_TARGET_ARCH` environment variable, make sure to call \
         `process_instruction_macros` from `build.rs`",
     )?;
-    let target_os = env::var("CARGO_CFG_TARGET_OS").context(
-        "Failed to retrieve `CARGO_CFG_TARGET_OS` environment variable, make sure to call \
-        `process_instruction_macros` from `build.rs`",
-    )?;
 
-    Ok((target_arch == "x86_64" && target_os == "windows")
-        .then(|| parse_quote! { extern "sysv64" }))
+    // TODO: `extern "Rust"` returning such a value through memory where the platform's own
+    //  convention returns it in registers is a bug rather than something inherent, so this
+    //  pinning can go away (except on x86-64 Windows) once it is fixed:
+    //  https://github.com/rust-lang/rust/issues/161381
+    Ok(match target_arch.as_str() {
+        "x86_64" => (
+            Some(parse_quote! { extern "sysv64" }),
+            // Miri emulates a CPU without AVX and refuses to call a function that requires it, so
+            // unless it is running code built for AVX in the first place, the feature is disabled
+            Some(parse_quote! {
+                #[cfg_attr(
+                    any(not(miri), target_feature = "avx"),
+                    target_feature(enable = "avx")
+                )]
+            }),
+        ),
+        "aarch64" => (Some(parse_quote! { extern "C" }), None),
+        _ => (None, None),
+    })
 }
 
 /// Where clause for the generated threaded items.
@@ -34,25 +55,22 @@ fn handler_abi() -> anyhow::Result<Option<Abi>> {
 /// are for a non-`const` execution implementation, and the fetching half of the program counter is
 /// required on top of what `execute()` needs.
 fn threaded_where_clause(generics: &Generics, self_ty: &Type) -> anyhow::Result<WhereClause> {
-    let Some(where_clause) = &generics.where_clause else {
+    let Some(mut where_clause) = generics.where_clause.clone() else {
         return Err(anyhow::anyhow!("Missing where clause"));
     };
 
-    let mut predicates = strip_const_where_predicates(where_clause.predicates.clone());
+    strip_const_where_predicates(&mut where_clause.predicates);
 
-    predicates.push(parse_quote! {
-        PC: InstructionFetcher<#self_ty, Memory, CustomError>
+    where_clause.predicates.push(parse_quote! {
+        PC: InstructionFetcher<#self_ty, Memory>
     });
     // Applying an `ExecutionResult` is the executor's job rather than the instruction's, so the
     // handlers need the register file even for an extension whose own instructions never touch it
-    predicates.push(parse_quote! {
+    where_clause.predicates.push(parse_quote! {
         Regs: RegisterFile<Reg>
     });
 
-    Ok(WhereClause {
-        where_token: <Token![where]>::default(),
-        predicates,
-    })
+    Ok(where_clause)
 }
 
 /// Generates tail-call-threaded execution alongside the `match`-based `execute()`.
@@ -72,11 +90,19 @@ pub(super) fn generate_threaded_fns(
 ) -> anyhow::Result<Vec<Item>> {
     let generic_params = &generics.params;
     let where_clause = threaded_where_clause(generics, self_ty)?;
-    let abi = handler_abi()?;
-    let dispatch_fn_name = format_ident!("dispatch_{}", enum_name.to_string().to_snake_case());
+    let (abi, target_feature) = handler_abi()?;
+    let enum_snake_case = enum_name.to_string().to_snake_case();
+    let dispatch_fn_name = format_ident!("dispatch_{enum_snake_case}");
+    let entry_fn_name = format_ident!("execute_{enum_snake_case}_threaded");
     let dispatch_result_name = format_ident!("{enum_name}ThreadedDispatchResult");
+    let branch_failed_fn_name = format_ident!("{enum_snake_case}_threaded_branch_failed");
+    // What handlers return: the outcome serialized into a shape the target returns in registers
+    let handler_result_ty: Type = parse_quote! {
+        OpaqueThreadedExecutionResult<#self_ty>
+    };
+    // What execution as a whole returns, once the chain is over
     let result_ty: Type = parse_quote! {
-        ThreadedExecutionResult<PC, #self_ty, CustomError>
+        ThreadedExecutionResult<#self_ty>
     };
 
     let mut generated_items = Vec::with_capacity(variants.len() + 3);
@@ -86,13 +112,111 @@ pub(super) fn generate_threaded_fns(
     // without the `Continue` variant, which dispatch resolves while fetching rather than passing
     // on. It never escapes the dispatch step it is created in, so it never materializes.
     generated_items.push(parse_quote! {
-        enum #dispatch_result_name<I, Handler, CustomError>
+        enum #dispatch_result_name<I, Handler>
         where
             I: Instruction,
         {
             Next { instruction: I, handler: Handler },
             Break,
-            Err(ExecutionError<<I::Reg as Register>::Type, CustomError>),
+            Err(ExecutionError<<I::Reg as Register>::Type>),
+        }
+    });
+
+    // Where a branch whose target `try_set_pc_relative()` refused goes. Kept out of the handlers
+    // and reached with a tail call: none of them is coming back at that point, so nothing they
+    // hold has to survive the call and none of them needs a frame for it. It takes everything a
+    // handler takes, unused arguments included, because `become` requires the two signatures to
+    // match exactly.
+    generated_items.push(parse_quote! {
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Comments will be stripped, this will suppress some of the lints that are \
+            caused by it"
+        )]
+        #[expect(clippy::allow_attributes, reason = "Attribute below")]
+        #[allow(
+            improper_ctypes_definitions,
+            reason = "Handlers only ever call each other, within this crate"
+        )]
+        #[cold]
+        #[inline(never)]
+        #target_feature
+        unsafe #abi fn #branch_failed_fn_name<#generic_params>(
+            _instruction: #self_ty,
+            mut instruction_fetcher: PC,
+            regs: &mut Regs,
+            ext_state: ExtState,
+            memory: &mut Memory,
+            system_instruction_handler: InstructionHandler,
+        ) -> #handler_result_ty
+            #where_clause
+        {
+            // SAFETY: Only reached from a handler whose `try_set_pc_relative()` returned `false`,
+            // with nothing in between having observed the program counter
+            match unsafe { instruction_fetcher.failed_branch(memory) } {
+                Ok(::core::ops::ControlFlow::Continue(())) => {}
+                Ok(::core::ops::ControlFlow::Break(())) => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        )
+                    };
+                }
+                Err(error) => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        )
+                    };
+                }
+            }
+
+            let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
+                &mut instruction_fetcher,
+                memory,
+            ) {
+                #dispatch_result_name::Next {
+                    instruction,
+                    handler,
+                } => (instruction, handler),
+                #dispatch_result_name::Break => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        )
+                    };
+                }
+                #dispatch_result_name::Err(error) => {
+                    // SAFETY: Platform support is checked before the chain is entered
+                    return unsafe {
+                        OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        )
+                    };
+                }
+            };
+
+            // SAFETY: Every handler carries the same target features this one does, which is what
+            // makes them unsafe to call in the first place
+            unsafe {
+                become handler(
+                    instruction,
+                    instruction_fetcher,
+                    regs,
+                    ext_state,
+                    memory,
+                    system_instruction_handler,
+                )
+            }
         }
     });
 
@@ -117,32 +241,33 @@ pub(super) fn generate_threaded_fns(
             });
 
         generated_items.push(parse_quote! {
-            #[cfg_attr(
-                all(target_arch = "x86_64", target_os = "windows"),
-                expect(
-                    improper_ctypes_definitions,
-                    reason = "Handlers only ever call each other, within this crate"
-                )
+            #[expect(
+                clippy::undocumented_unsafe_blocks,
+                reason = "Comments will be stripped, this will suppress some of the lints that \
+                are caused by it"
             )]
-            #abi fn #handler_fn_name<#generic_params>(
+            #[expect(clippy::allow_attributes, reason = "Attribute below")]
+            #[allow(
+                improper_ctypes_definitions,
+                reason = "Handlers only ever call each other, within this crate"
+            )]
+            // Make sure each handler starts on a cache line boundary
+            #[rustc_align(64)]
+            #target_feature
+            unsafe #abi fn #handler_fn_name<#generic_params>(
                 instruction: #self_ty,
                 mut instruction_fetcher: PC,
                 regs: &mut Regs,
                 mut ext_state: ExtState,
                 memory: &mut Memory,
                 mut system_instruction_handler: InstructionHandler,
-            ) -> #result_ty
+            ) -> #handler_result_ty
                 #where_clause
             {
                 let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
                 let rs1_value = regs.read(rs1);
                 let rs2_value = regs.read(rs2);
 
-                #[expect(
-                    clippy::undocumented_unsafe_blocks,
-                    reason = "Comments will be stripped, this will suppress some of the lints that \
-                    are caused by it"
-                )]
                 let #enum_name::#variant_ident { #pat_fields } = instruction else {
                     // SAFETY: A handler is only ever reached through the dispatch arm for its own
                     // variant
@@ -150,6 +275,18 @@ pub(super) fn generate_threaded_fns(
                         ::core::hint::unreachable_unchecked();
                     }
                 };
+
+                // Dispatch leaves the program counter on the instruction it read, and this is what
+                // moves it past it - by a size the compiler folds to a constant, since the variant
+                // is known here. Doing it during the fetch instead makes the address of the next
+                // instruction depend on decoding the current one, which is a load-to-load
+                // dependency in the middle of every dispatch step.
+                //
+                // SAFETY: Dispatch has just peeked this instruction successfully, and this is the
+                // only place that moves past it
+                unsafe {
+                    instruction_fetcher.advance(Instruction::size(&instruction));
+                }
 
                 let execution_result = #variant_fn_name::<#generic_params>(
                     #( #variant_call_args, )*
@@ -171,27 +308,54 @@ pub(super) fn generate_threaded_fns(
                         Ok(::core::ops::ControlFlow::Continue(()))
                     }
                     ExecutionResult::Branch { offset } => {
-                        instruction_fetcher.set_pc_relative(
-                            memory,
-                            Instruction::size(&instruction),
-                            offset,
-                        )
+                        // SAFETY: A refused target goes straight to the continuation below, which
+                        // is what calls `failed_branch()` on it
+                        if unsafe {
+                            instruction_fetcher.try_set_pc_relative(
+                                Instruction::size(&instruction),
+                                offset,
+                            )
+                        } {
+                            Ok(::core::ops::ControlFlow::Continue(()))
+                        } else {
+                            // SAFETY: The continuation carries the same target features this
+                            // handler does, which is what makes it unsafe to call in the first
+                            // place
+                            unsafe {
+                                become #branch_failed_fn_name::<#generic_params>(
+                                    instruction,
+                                    instruction_fetcher,
+                                    regs,
+                                    ext_state,
+                                    memory,
+                                    system_instruction_handler,
+                                )
+                            }
+                        }
                     }
                     ExecutionResult::Jump { target } => {
                         instruction_fetcher.set_pc(memory, target)
                     }
                     ExecutionResult::Break => {
                         ::core::hint::cold_path();
-                        return ThreadedExecutionResult::stopped(
-                            instruction_fetcher,
-                        );
+                        // SAFETY: Platform support is checked before the chain is entered
+                        return unsafe {
+                            OpaqueThreadedExecutionResult::new(
+                                ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                            )
+                        };
                     }
                     ExecutionResult::Err(error) => {
                         ::core::hint::cold_path();
-                        return ThreadedExecutionResult::failed(
-                            instruction_fetcher,
-                            error,
-                        );
+                        // SAFETY: Platform support is checked before the chain is entered
+                        return unsafe {
+                            OpaqueThreadedExecutionResult::new(
+                                ThreadedExecutionResult::failed(
+                                    instruction_fetcher.get_pc(),
+                                    error,
+                                ),
+                            )
+                        };
                     }
                 };
 
@@ -199,16 +363,24 @@ pub(super) fn generate_threaded_fns(
                     Ok(::core::ops::ControlFlow::Continue(())) => {}
                     Ok(::core::ops::ControlFlow::Break(())) => {
                         ::core::hint::cold_path();
-                        return ThreadedExecutionResult::stopped(
-                            instruction_fetcher,
-                        );
+                        // SAFETY: Platform support is checked before the chain is entered
+                        return unsafe {
+                            OpaqueThreadedExecutionResult::new(
+                                ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                            )
+                        };
                     }
                     Err(error) => {
                         ::core::hint::cold_path();
-                        return ThreadedExecutionResult::failed(
-                            instruction_fetcher,
-                            error,
-                        );
+                        // SAFETY: Platform support is checked before the chain is entered
+                        return unsafe {
+                            OpaqueThreadedExecutionResult::new(
+                                ThreadedExecutionResult::failed(
+                                    instruction_fetcher.get_pc(),
+                                    error,
+                                ),
+                            )
+                        };
                     }
                 }
 
@@ -222,27 +394,39 @@ pub(super) fn generate_threaded_fns(
                     } => (instruction, handler),
                     #dispatch_result_name::Break => {
                         ::core::hint::cold_path();
-                        return ThreadedExecutionResult::stopped(
-                            instruction_fetcher,
-                        );
+                        // SAFETY: Platform support is checked before the chain is entered
+                        return unsafe {
+                            OpaqueThreadedExecutionResult::new(
+                                ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                            )
+                        };
                     }
                     #dispatch_result_name::Err(error) => {
                         ::core::hint::cold_path();
-                        return ThreadedExecutionResult::failed(
-                            instruction_fetcher,
-                            error,
-                        );
+                        // SAFETY: Platform support is checked before the chain is entered
+                        return unsafe {
+                            OpaqueThreadedExecutionResult::new(
+                                ThreadedExecutionResult::failed(
+                                    instruction_fetcher.get_pc(),
+                                    error,
+                                ),
+                            )
+                        };
                     }
                 };
 
-                become handler(
-                    instruction,
-                    instruction_fetcher,
-                    regs,
-                    ext_state,
-                    memory,
-                    system_instruction_handler,
-                )
+                // SAFETY: Every handler carries the same target features this one does, which is
+                // what makes them unsafe to call in the first place
+                unsafe {
+                    become handler(
+                        instruction,
+                        instruction_fetcher,
+                        regs,
+                        ext_state,
+                        memory,
+                        system_instruction_handler,
+                    )
+                }
             }
         });
 
@@ -257,12 +441,10 @@ pub(super) fn generate_threaded_fns(
             reason = "`become` requires an exact signature match and a type alias cannot capture \
             the enclosing generics, so the handler type is spelled out here"
         )]
-        #[cfg_attr(
-            all(target_arch = "x86_64", target_os = "windows"),
-            expect(
-                improper_ctypes_definitions,
-                reason = "Handlers only ever call each other, within this crate"
-            )
+        #[expect(clippy::allow_attributes, reason = "Attribute below")]
+        #[allow(
+            improper_ctypes_definitions,
+            reason = "Handlers only ever call each other, within this crate"
         )]
         #[inline(always)]
         fn #dispatch_fn_name<#generic_params>(
@@ -270,20 +452,19 @@ pub(super) fn generate_threaded_fns(
             memory: &Memory,
         ) -> #dispatch_result_name<
             #self_ty,
-            #abi fn(
+            unsafe #abi fn(
                 #self_ty,
                 PC,
                 &mut Regs,
                 ExtState,
                 &mut Memory,
                 InstructionHandler,
-            ) -> #result_ty,
-            CustomError,
+            ) -> #handler_result_ty,
         >
             #where_clause
         {
             let instruction = loop {
-                match instruction_fetcher.fetch_instruction(memory) {
+                match instruction_fetcher.peek_instruction(memory) {
                     FetchInstructionResult::Instruction(instruction) => {
                         break instruction;
                     }
@@ -313,50 +494,55 @@ pub(super) fn generate_threaded_fns(
         }
     });
 
+    // The one ordinary call in the whole chain: everything from here on is reached with `become`
+    // and nothing returns until execution stops.
+    //
+    // This is a separate function rather than the body of the trait method because it is the one
+    // that calls handlers, so it has to carry the same target features they do, and a safe trait
+    // method cannot carry target features.
     generated_items.push(parse_quote! {
-        impl<#generic_params> ThreadedExecutableInstruction<
-            Regs,
-            ExtState,
-            Memory,
-            PC,
-            InstructionHandler,
-            CustomError,
-        > for #self_ty
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Comments will be stripped, this will suppress some of the lints that are \
+            caused by it"
+        )]
+        #[inline]
+        #target_feature
+        unsafe fn #entry_fn_name<#generic_params>(
+            mut instruction_fetcher: PC,
+            regs: &mut Regs,
+            ext_state: ExtState,
+            memory: &mut Memory,
+            system_instruction_handler: InstructionHandler,
+        ) -> #result_ty
             #where_clause
         {
-            #[inline(always)]
-            fn execute_threaded(
-                mut instruction_fetcher: PC,
-                regs: &mut Regs,
-                ext_state: ExtState,
-                memory: &mut Memory,
-                system_instruction_handler: InstructionHandler,
-            ) -> #result_ty {
-                // This is the one ordinary call in the whole chain: everything from here on is
-                // reached with `become` and nothing returns until execution stops
-                let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
-                    &mut instruction_fetcher,
-                    memory,
-                ) {
-                    #dispatch_result_name::Next {
-                        instruction,
-                        handler,
-                    } => (instruction, handler),
-                    #dispatch_result_name::Break => {
-                        ::core::hint::cold_path();
-                        return ThreadedExecutionResult::stopped(
-                            instruction_fetcher,
-                        );
-                    }
-                    #dispatch_result_name::Err(error) => {
-                        ::core::hint::cold_path();
-                        return ThreadedExecutionResult::failed(
-                            instruction_fetcher,
-                            error,
-                        );
-                    }
-                };
+            let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
+                &mut instruction_fetcher,
+                memory,
+            ) {
+                #dispatch_result_name::Next {
+                    instruction,
+                    handler,
+                } => (instruction, handler),
+                #dispatch_result_name::Break => {
+                    ::core::hint::cold_path();
+                    return ThreadedExecutionResult::stopped(
+                        instruction_fetcher.get_pc(),
+                    );
+                }
+                #dispatch_result_name::Err(error) => {
+                    ::core::hint::cold_path();
+                    return ThreadedExecutionResult::failed(
+                        instruction_fetcher.get_pc(),
+                        error,
+                    );
+                }
+            };
 
+            // SAFETY: This function carries the same target features every handler does, which is
+            // what makes them unsafe to call in the first place
+            let outcome = unsafe {
                 handler(
                     instruction,
                     instruction_fetcher,
@@ -365,6 +551,53 @@ pub(super) fn generate_threaded_fns(
                     memory,
                     system_instruction_handler,
                 )
+            };
+
+            outcome.into_result()
+        }
+    });
+
+    generated_items.push(parse_quote! {
+        impl<#generic_params> ThreadedExecutableInstruction<
+            Regs,
+            ExtState,
+            Memory,
+            PC,
+            InstructionHandler,
+        > for #self_ty
+            #where_clause
+        {
+            #[expect(
+                clippy::undocumented_unsafe_blocks,
+                reason = "Comments will be stripped, this will suppress some of the lints that \
+                are caused by it"
+            )]
+            #[inline(always)]
+            fn execute_threaded(
+                instruction_fetcher: PC,
+                regs: &mut Regs,
+                ext_state: ExtState,
+                memory: &mut Memory,
+                system_instruction_handler: InstructionHandler,
+            ) -> #result_ty {
+                if !OpaqueThreadedExecutionResult::<#self_ty>::platform_supported() {
+                    ::core::hint::cold_path();
+                    return ThreadedExecutionResult::failed(
+                        instruction_fetcher.get_pc(),
+                        ExecutionError::UnsupportedPlatform,
+                    );
+                }
+
+                // SAFETY: Platform support for what handlers need was just checked
+                unsafe {
+                    #entry_fn_name::<#generic_params>(
+                        instruction_fetcher,
+                        regs,
+                        ext_state,
+                        memory,
+                        system_instruction_handler,
+                    )
+                }
             }
         }
     });

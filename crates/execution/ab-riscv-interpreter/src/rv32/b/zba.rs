@@ -5,8 +5,9 @@ mod tests;
 
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
-    ExecutionResult, FetchInstructionResult, InstructionFetcher, RegisterFile, Rs1Rs2OperandValues,
-    Rs1Rs2Operands, ThreadedExecutableInstruction, ThreadedExecutionResult,
+    ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
+    ThreadedExecutionResult,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -18,16 +19,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv32ZbaInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState, CustomError> ExecutableInstructionCsr<ExtState, CustomError>
-    for Rv32ZbaInstruction<Reg>
-where
-    Reg: Register<Type = u32>,
+const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32ZbaInstruction<Reg> where
+    Reg: Register<Type = u32>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler, CustomError>
+const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
+    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
     for Rv32ZbaInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
@@ -46,7 +45,7 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
         _system_instruction_handler: &mut InstructionHandler,
-    ) -> ExecutionResult<Self::Reg, CustomError> {
+    ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Sh1add { rd, rs1: _, rs2: _ } => {
                 let value = (rs1_value << 1).wrapping_add(rs2_value);
