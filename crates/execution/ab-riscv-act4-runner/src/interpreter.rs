@@ -3,10 +3,11 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
+use core::ops::ControlFlow;
 use std::collections::BTreeMap;
 
-/// Extended interpreter state of the core under test
-pub(crate) struct TestExtState<Reg, const ELEN: Elen, const VLEN: Vlen>
+/// Execution environment of the core under test
+pub(crate) struct TestEnv<Reg, const ELEN: Elen, const VLEN: Vlen>
 where
     Reg: Register,
 {
@@ -16,7 +17,7 @@ where
     entropy_source: ChaCha8Rng,
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> TestExtState<Reg, ELEN, VLEN>
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> TestEnv<Reg, ELEN, VLEN>
 where
     Reg: Register,
     Self: VectorRegistersExt<Reg>,
@@ -109,7 +110,7 @@ where
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> Csrs<Reg> for TestExtState<Reg, ELEN, VLEN>
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> Csrs<Reg> for TestEnv<Reg, ELEN, VLEN>
 where
     Reg: Register,
 {
@@ -140,7 +141,7 @@ where
 //  them: https://github.com/rust-lang/rust/issues/161264
 macro_rules! impl_vector_registers {
     ($reg:ty, $elen:expr, $vlen:expr) => {
-        impl VectorRegisters for TestExtState<$reg, { $elen }, { $vlen }> {
+        impl VectorRegisters for TestEnv<$reg, { $elen }, { $vlen }> {
             const ELEN: Elen = $elen;
             const VLEN: Vlen = $vlen;
 
@@ -164,15 +165,14 @@ macro_rules! impl_vector_registers {
 impl_vector_registers!(Reg<u32>, Elen::L64, Vlen::L1024);
 impl_vector_registers!(Reg<u64>, Elen::L64, Vlen::L1024);
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> VectorRegistersExt<Reg>
-    for TestExtState<Reg, ELEN, VLEN>
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> VectorRegistersExt<Reg> for TestEnv<Reg, ELEN, VLEN>
 where
     Reg: Register,
     Self: VectorRegisters,
 {
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> ReservationSet<Reg> for TestExtState<Reg, ELEN, VLEN>
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> ReservationSet<Reg> for TestEnv<Reg, ELEN, VLEN>
 where
     Reg: Register,
 {
@@ -189,7 +189,7 @@ where
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> ZkrSeedSource for TestExtState<Reg, ELEN, VLEN>
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> ZkrSeedSource for TestEnv<Reg, ELEN, VLEN>
 where
     Reg: Register,
 {
@@ -198,4 +198,27 @@ where
         self.entropy_source.fill_bytes(&mut randomness);
         ZkrSeedPoll::Es16(u16::from_le_bytes(randomness))
     }
+}
+
+impl<Reg, Regs, Memory, PC, const ELEN: Elen, const VLEN: Vlen>
+    SystemInstructionHandler<Reg, Regs, Memory, PC> for TestEnv<Reg, ELEN, VLEN>
+where
+    Reg: Register,
+    PC: ProgramCounter<Reg::Type, Memory>,
+{
+    fn handle_ecall(
+        &mut self,
+        _regs: &mut Regs,
+        _memory: &mut Memory,
+        program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+        Err(ExecutionError::IllegalInstruction {
+            address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
+        })
+    }
+}
+
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> WrsHandler for TestEnv<Reg, ELEN, VLEN> where
+    Reg: Register
+{
 }

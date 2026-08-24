@@ -60,10 +60,10 @@ where
 const impl<Reg> ExecutableInstructionOperands for ZkrInstruction<Reg> where Reg: [const] Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZkrInstruction<Reg>
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZkrInstruction<Reg>
 where
     Reg: [const] Register,
-    ExtState: [const] ZkrSeedSource,
+    Env: [const] ZkrSeedSource,
 {
     /// Reads of `seed` are pass-through: the raw stored value already reflects the outcome of the
     /// most recent poll (see [`Self::prepare_csr_write()`]).
@@ -73,7 +73,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn prepare_csr_read(
-        _ext_state: &ExtState,
+        _env: &Env,
         csr_index: u16,
         will_write: bool,
         raw_value: Reg::Type,
@@ -97,7 +97,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn prepare_csr_write(
-        ext_state: &mut ExtState,
+        env: &mut Env,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
@@ -106,7 +106,7 @@ where
         let _: Reg::Type = write_value;
 
         if csr_index == SEED_CSR_INDEX {
-            *output_value = zkr_helpers::encode_seed_poll::<Reg>(ext_state.poll_seed());
+            *output_value = zkr_helpers::encode_seed_poll::<Reg>(env.poll_seed());
             Ok(true)
         } else {
             Ok(false)
@@ -115,11 +115,11 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZkrInstruction<Reg>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZkrInstruction<Reg>
 where
     Reg: Register,
-    ExtState: [const] ZkrSeedSource,
+    Env: [const] ZkrSeedSource,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -130,10 +130,9 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }

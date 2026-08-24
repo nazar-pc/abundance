@@ -122,26 +122,22 @@ where
 /// This is a simple container, which is not required to be used, is helpful for storing the whole
 /// state related to the interpreter together.
 #[derive(Debug)]
-pub struct BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler> {
+pub struct BasicInterpreterState<Regs, Env, Memory, IF> {
     /// General purpose registers
     pub regs: Regs,
-    /// Extended state.
+    /// Execution environment.
     ///
-    /// Extensions might use this to place additional constraints on `ExtState` to require
-    /// additional registers or other resources. If no such extension is used, `()` can be used as
-    /// a placeholder.
-    pub ext_state: ExtState,
+    /// Extensions might use this to place additional constraints on `Env` to require additional
+    /// registers, handlers (like [`SystemInstructionHandler`]) or other resources. If no such
+    /// extension is used, `()` can be used as a placeholder.
+    pub env: Env,
     /// Memory
     pub memory: Memory,
     /// Instruction fetcher
     pub instruction_fetcher: IF,
-    /// System instruction handler
-    pub system_instruction_handler: InstructionHandler,
 }
 
-impl<Regs, ExtState, Memory, IF, InstructionHandler>
-    BasicInterpreterState<Regs, ExtState, Memory, IF, InstructionHandler>
-{
+impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
     /// Execute the program with a given basic interpreter state.
     ///
     /// The implementation is designed to be efficient with little left to optimize further. Though
@@ -155,7 +151,7 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
     pub fn execute<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
     where
         Regs: RegisterFile<<I as Instruction>::Reg>,
-        I: ExecutableInstruction<Regs, ExtState, Memory, IF, InstructionHandler>,
+        I: ExecutableInstruction<Regs, Env, Memory, IF>,
         Memory: VirtualMemory,
         IF: InstructionFetcher<I, Memory> + ProgramCounter<Address<I>, Memory>,
     {
@@ -189,10 +185,9 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
                     let outcome = instruction.execute(
                         rs1rs2_values,
                         &mut self.regs,
-                        &mut self.ext_state,
+                        &mut self.env,
                         &mut self.memory,
                         &mut instruction_fetcher,
-                        &mut self.system_instruction_handler,
                     );
 
                     let control_flow =
@@ -585,7 +580,10 @@ where
 }
 
 /// System instruction handler that results in illegal instruction for all system calls and does
-/// nothing for other system instructions
+/// nothing for other system instructions.
+///
+/// Being stateless, it can be used as the whole execution environment of a configuration that
+/// needs nothing else from it.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct IllegalEcallSystemInstructionHandler;
 

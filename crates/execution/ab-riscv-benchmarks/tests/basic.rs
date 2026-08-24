@@ -93,10 +93,9 @@ where
 
             let mut state = BasicInterpreterState {
                 regs,
-                ext_state: (),
+                env: IllegalEcallSystemInstructionHandler,
                 memory,
                 instruction_fetcher,
-                system_instruction_handler: IllegalEcallSystemInstructionHandler,
             };
             state.execute().unwrap();
 
@@ -117,10 +116,9 @@ where
 
             let mut state = BasicInterpreterState {
                 regs,
-                ext_state: (),
+                env: IllegalEcallSystemInstructionHandler,
                 memory,
                 instruction_fetcher,
-                system_instruction_handler: IllegalEcallSystemInstructionHandler,
             };
             state.execute().unwrap();
 
@@ -142,9 +140,8 @@ where
             ContractInstruction::execute_threaded(
                 instruction_fetcher,
                 &mut threaded_regs,
-                (),
-                &mut memory,
                 IllegalEcallSystemInstructionHandler,
+                &mut memory,
             )
             .outcome
             .unwrap();

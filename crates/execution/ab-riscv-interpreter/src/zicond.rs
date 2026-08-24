@@ -16,14 +16,11 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZicondInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZicondInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZicondInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZicondInstruction<Reg>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZicondInstruction<Reg>
 where
     Reg: [const] Register,
     Regs: [const] RegisterFile<Reg>,
@@ -37,10 +34,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // Conditional zero, equal to zero.

@@ -22,20 +22,19 @@ const impl<Reg> ExecutableInstructionOperands for ZveXxWidenNarrowInstruction<Re
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxWidenNarrowInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxWidenNarrowInstruction<Reg> where
     Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxWidenNarrowInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -48,15 +47,14 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
             Self::VwadduVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -64,7 +62,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -88,7 +86,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -132,7 +130,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -149,7 +147,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -157,7 +155,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -180,7 +178,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -221,7 +219,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -233,7 +231,7 @@ where
             }
             // vwadd.vv - 2*SEW = sext(SEW) + sext(SEW)
             Self::VwaddVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -241,7 +239,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -264,7 +262,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -308,7 +306,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -325,7 +323,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -333,7 +331,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -356,7 +354,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -401,7 +399,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -413,7 +411,7 @@ where
             }
             // vwsubu.vv - 2*SEW = zext(SEW) - zext(SEW)
             Self::VwsubuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -421,7 +419,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -444,7 +442,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -488,7 +486,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -505,7 +503,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -513,7 +511,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -536,7 +534,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -576,7 +574,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -588,7 +586,7 @@ where
             }
             // vwsub.vv - 2*SEW = sext(SEW) - sext(SEW)
             Self::VwsubVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -596,7 +594,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -619,7 +617,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -663,7 +661,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -680,7 +678,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -688,7 +686,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -711,7 +709,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -755,7 +753,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -767,7 +765,7 @@ where
             }
             // vwaddu.wv - 2*SEW = 2*SEW + zext(SEW)
             Self::VwadduWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -775,7 +773,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -798,7 +796,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -843,7 +841,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -860,7 +858,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -868,7 +866,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -890,7 +888,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -928,7 +926,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -940,7 +938,7 @@ where
             }
             // vwadd.wv - 2*SEW = 2*SEW + sext(SEW)
             Self::VwaddWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -948,7 +946,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -971,7 +969,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1015,7 +1013,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1032,7 +1030,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1040,7 +1038,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1062,7 +1060,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1103,7 +1101,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1115,7 +1113,7 @@ where
             }
             // vwsubu.wv - 2*SEW = 2*SEW - zext(SEW)
             Self::VwsubuWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1123,7 +1121,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1146,7 +1144,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1190,7 +1188,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1207,7 +1205,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1215,7 +1213,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1237,7 +1235,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1274,7 +1272,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1286,7 +1284,7 @@ where
             }
             // vwsub.wv - 2*SEW = 2*SEW - sext(SEW)
             Self::VwsubWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1294,7 +1292,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1317,7 +1315,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1361,7 +1359,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1378,7 +1376,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1386,7 +1384,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1408,7 +1406,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1449,7 +1447,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1461,7 +1459,7 @@ where
             }
             // vnsrl.wv - SEW = (2*SEW) >> SEW (logical)
             Self::VnsrlWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1469,7 +1467,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1493,7 +1491,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1534,7 +1532,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1550,7 +1548,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1558,7 +1556,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1581,7 +1579,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1618,7 +1616,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1629,7 +1627,7 @@ where
             }
             // vnsrl.wi - SEW = (2*SEW) >> uimm (logical)
             Self::VnsrlWi { vd, vs2, uimm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1637,7 +1635,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1660,7 +1658,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1696,7 +1694,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
@@ -1707,7 +1705,7 @@ where
             }
             // vnsra.wv - SEW = (2*SEW) >> SEW (arithmetic)
             Self::VnsraWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1715,7 +1713,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1738,7 +1736,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1779,7 +1777,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1795,7 +1793,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1803,7 +1801,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1826,7 +1824,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1863,7 +1861,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1874,7 +1872,7 @@ where
             }
             // vnsra.wi - SEW = (2*SEW) >> uimm (arithmetic)
             Self::VnsraWi { vd, vs2, uimm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1882,7 +1880,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1905,7 +1903,7 @@ where
                         });
                     }
                 };
-                if u32::from(wide_eew.bits_width()) > u32::from(ExtState::ELEN) {
+                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1941,7 +1939,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
@@ -1952,7 +1950,7 @@ where
             }
             // vzext.vf2 - zero-extend SEW/2 -> SEW
             Self::VzextVf2 { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1960,7 +1958,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2005,7 +2003,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vm,
@@ -2016,7 +2014,7 @@ where
             }
             // vzext.vf4 - zero-extend SEW/4 -> SEW
             Self::VzextVf4 { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2024,7 +2022,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2068,7 +2066,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vm,
@@ -2079,7 +2077,7 @@ where
             }
             // vzext.vf8 - zero-extend SEW/8 -> SEW
             Self::VzextVf8 { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2087,7 +2085,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2131,7 +2129,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vm,
@@ -2142,7 +2140,7 @@ where
             }
             // vsext.vf2 - sign-extend SEW/2 -> SEW
             Self::VsextVf2 { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2150,7 +2148,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2193,7 +2191,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vm,
@@ -2204,7 +2202,7 @@ where
             }
             // vsext.vf4 - sign-extend SEW/4 -> SEW
             Self::VsextVf4 { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2212,7 +2210,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2255,7 +2253,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vm,
@@ -2266,7 +2264,7 @@ where
             }
             // vsext.vf8 - sign-extend SEW/8 -> SEW
             Self::VsextVf8 { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2274,7 +2272,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2317,7 +2315,7 @@ where
                 // SAFETY: alignment/overlap/SEW checked above
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vm,

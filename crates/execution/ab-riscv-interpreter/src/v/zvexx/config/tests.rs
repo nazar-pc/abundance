@@ -1,4 +1,4 @@
-use crate::rv64::test_utils::{ExtState, execute, initialize_state};
+use crate::rv64::test_utils::{Env, execute, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{Csrs, ExecutableInstructionCsr, RegisterFile};
 use ab_riscv_primitives::prelude::*;
@@ -38,15 +38,15 @@ fn vsetvli_sets_vl_and_rd_from_avl() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
-    assert!(state.ext_state.vtype().is_some());
-    let vtype = state.ext_state.vtype().unwrap();
+    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
+    assert!(state.env.vtype().is_some());
+    let vtype = state.env.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E32);
     assert_eq!(vtype.vlmul(), Vlmul::M1);
 }
@@ -61,13 +61,13 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 100);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -79,14 +79,14 @@ fn vsetvli_avl_zero_gives_vl_zero() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 0);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
-    assert!(state.ext_state.vtype().is_some());
+    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_some());
 }
 
 #[test]
@@ -99,13 +99,13 @@ fn vsetvli_avl_equals_vlmax() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 32);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 32);
-    assert_eq!(state.ext_state.vl(), Vl::new(32).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(32).unwrap());
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn vsetvli_rd_x0_discards_result() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
@@ -125,7 +125,7 @@ fn vsetvli_rd_x0_discards_result() {
     // x0 always reads as 0
     assert_eq!(state.regs.read(Reg::Zero), 0);
     // vl still set correctly
-    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
 }
 
 // vsetvli SEW/LMUL combination tests
@@ -140,13 +140,13 @@ fn vsetvli_e8_m8_gives_max_vlmax() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 300);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 256);
-    assert_eq!(state.ext_state.vl(), Vl::new(256).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(256).unwrap());
 }
 
 #[test]
@@ -159,14 +159,14 @@ fn vsetvli_e64_m1() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 1);
-    assert_eq!(state.ext_state.vl(), Vl::new(1).unwrap());
-    let vtype = state.ext_state.vtype().unwrap();
+    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
+    let vtype = state.env.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E64);
 }
 
@@ -180,13 +180,13 @@ fn vsetvli_e32_mf2() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), Vl::new(4).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -199,13 +199,13 @@ fn vsetvli_e8_mf8() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 1);
-    assert_eq!(state.ext_state.vl(), Vl::new(1).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
 }
 
 // vsetvli with vta/vma flags
@@ -219,12 +219,12 @@ fn vsetvli_ta_ma_flags_preserved() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    let vtype = state.ext_state.vtype().unwrap();
+    let vtype = state.env.vtype().unwrap();
     assert!(vtype.vta());
     assert!(vtype.vma());
     assert_eq!(vtype.vsew(), Vsew::E16);
@@ -240,12 +240,12 @@ fn vsetvli_tu_mu_flags_preserved() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    let vtype = state.ext_state.vtype().unwrap();
+    let vtype = state.env.vtype().unwrap();
     assert!(!vtype.vta());
     assert!(!vtype.vma());
 }
@@ -262,13 +262,13 @@ fn vsetvli_unsupported_sew_sets_vill() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -282,13 +282,13 @@ fn vsetvli_reserved_vlmul_sets_vill() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -302,13 +302,13 @@ fn vsetvli_vlmax_zero_sets_vill() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -322,13 +322,13 @@ fn vsetvli_reserved_upper_bits_set_vill() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
 }
 
 // vsetvli rs1=x0 special cases
@@ -343,12 +343,12 @@ fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -361,12 +361,12 @@ fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 256);
-    assert_eq!(state.ext_state.vl(), Vl::new(256).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(256).unwrap());
 }
 
 #[test]
@@ -388,13 +388,13 @@ fn vsetvli_rs1_x0_rd_x0_keeps_vl_when_vlmax_unchanged() {
             rs2: Reg::Zero,
         },
     ]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
-    let vtype = state.ext_state.vtype().unwrap();
+    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
+    let vtype = state.env.vtype().unwrap();
     assert!(vtype.vta());
     assert!(vtype.vma());
     assert_eq!(vtype.vsew(), Vsew::E32);
@@ -419,13 +419,13 @@ fn vsetvli_rs1_x0_rd_x0_vill_when_vlmax_changes() {
             rs2: Reg::Zero,
         },
     ]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
 }
 
 // vsetivli tests
@@ -441,13 +441,13 @@ fn vsetivli_basic() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
-    assert!(state.ext_state.vtype().is_some());
+    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
+    assert!(state.env.vtype().is_some());
 }
 
 #[test]
@@ -460,13 +460,13 @@ fn vsetivli_avl_zero() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
-    assert!(state.ext_state.vtype().is_some());
+    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_some());
 }
 
 #[test]
@@ -480,12 +480,12 @@ fn vsetivli_max_immediate() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -499,12 +499,12 @@ fn vsetivli_avl_within_vlmax() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 20);
-    assert_eq!(state.ext_state.vl(), Vl::new(20).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(20).unwrap());
 }
 
 #[test]
@@ -518,12 +518,12 @@ fn vsetivli_unsupported_sets_vill() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -538,12 +538,12 @@ fn vsetivli_with_ta_ma() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 10);
-    let vtype = state.ext_state.vtype().unwrap();
+    let vtype = state.env.vtype().unwrap();
     assert!(vtype.vta());
     assert!(vtype.vma());
 }
@@ -559,16 +559,16 @@ fn vsetvl_basic() {
         rs1: Reg::A1,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
     state.regs.write(Reg::A2, vtype_raw);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
-    assert!(state.ext_state.vtype().is_some());
-    let vtype = state.ext_state.vtype().unwrap();
+    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
+    assert!(state.env.vtype().is_some());
+    let vtype = state.env.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E32);
     assert_eq!(vtype.vlmul(), Vlmul::M1);
 }
@@ -582,13 +582,13 @@ fn vsetvl_rs1_x0_rd_nonzero() {
         rs1: Reg::Zero,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A2, vtype_raw);
 
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.ext_state.vl(), Vl::new(4).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -600,14 +600,14 @@ fn vsetvl_unsupported_raw_sets_vill() {
         rs1: Reg::A1,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 10);
     state.regs.write(Reg::A2, vtype_raw);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -620,14 +620,14 @@ fn vsetvl_high_bits_in_rs2_sets_vill() {
         rs1: Reg::A1,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
     state.regs.write(Reg::A2, vtype_raw);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
 }
 
 #[test]
@@ -640,18 +640,18 @@ fn vsetvl_context_restore_preserves_vtype() {
         rs1: Reg::A1,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 25);
     state.regs.write(Reg::A2, vtype_raw);
 
     execute(&mut state).unwrap();
 
-    let vtype = state.ext_state.vtype().unwrap();
+    let vtype = state.env.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E16);
     assert_eq!(vtype.vlmul(), Vlmul::M4);
     assert!(vtype.vta());
     assert!(!vtype.vma());
-    assert_eq!(state.ext_state.vl(), Vl::new(25).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(25).unwrap());
 }
 
 // mark_vs_dirty tracking
@@ -665,12 +665,12 @@ fn vsetvli_marks_dirty() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vs_dirty_count() > 0);
+    assert!(state.env.vs_dirty_count() > 0);
 }
 
 #[test]
@@ -684,11 +684,11 @@ fn vsetvli_unsupported_still_marks_dirty() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vs_dirty_count() > 0);
+    assert!(state.env.vs_dirty_count() > 0);
 }
 
 // vector_instructions_allowed check
@@ -702,9 +702,9 @@ fn vsetvli_fails_when_vector_disabled() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
 
     let result = execute(&mut state);
     result.unwrap_err();
@@ -720,8 +720,8 @@ fn vsetivli_fails_when_vector_disabled() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
-    state.ext_state.set_vector_allowed(false);
+    state.env.init_vector_csrs();
+    state.env.set_vector_allowed(false);
 
     let result = execute(&mut state);
     result.unwrap_err();
@@ -734,13 +734,13 @@ fn vsetvl_fails_when_vector_disabled() {
         rs1: Reg::A1,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
     state.regs.write(
         Reg::A2,
         u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false)),
     );
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
 
     let result = execute(&mut state);
     result.unwrap_err();
@@ -752,10 +752,10 @@ fn vsetvl_fails_when_vector_disabled() {
 fn prepare_csr_read_passes_through_vector_csrs() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
-        &state.ext_state,
+        &state.env,
         VectorCsr::Vstart.to_csr_index(),
         true,
         42,
@@ -769,15 +769,10 @@ fn prepare_csr_read_passes_through_vector_csrs() {
 fn prepare_csr_read_ignores_non_vector_csrs() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
-        &state.ext_state,
-        0x300,
-        true,
-        42,
-        &mut output,
-    );
+    let result =
+        <ZveXxConfigInstruction<_>>::prepare_csr_read(&state.env, 0x300, true, 42, &mut output);
     // Returns Ok(false) meaning "not handled by this extension"
     assert!(!result.unwrap());
 }
@@ -785,7 +780,7 @@ fn prepare_csr_read_ignores_non_vector_csrs() {
 #[test]
 fn prepare_csr_read_works_for_all_vector_csrs() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let csr_indices = [
         VectorCsr::Vstart.to_csr_index(),
         VectorCsr::Vxsat.to_csr_index(),
@@ -799,7 +794,7 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
     for csr_index in csr_indices {
         let mut output = 0u64;
         let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
-            &state.ext_state,
+            &state.env,
             csr_index,
             true,
             0xFF,
@@ -814,10 +809,10 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
 fn prepare_csr_write_rejects_read_only_vl() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vl.to_csr_index(),
         42,
         &mut output,
@@ -829,10 +824,10 @@ fn prepare_csr_write_rejects_read_only_vl() {
 fn prepare_csr_write_rejects_read_only_vtype() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vtype.to_csr_index(),
         42,
         &mut output,
@@ -844,10 +839,10 @@ fn prepare_csr_write_rejects_read_only_vtype() {
 fn prepare_csr_write_rejects_read_only_vlenb() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vlenb.to_csr_index(),
         42,
         &mut output,
@@ -859,10 +854,10 @@ fn prepare_csr_write_rejects_read_only_vlenb() {
 fn prepare_csr_write_vxsat_masks_to_1_bit() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         0xFF,
         &mut output,
@@ -875,10 +870,10 @@ fn prepare_csr_write_vxsat_masks_to_1_bit() {
 fn prepare_csr_write_vxrm_masks_to_2_bits() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxrm.to_csr_index(),
         0xFF,
         &mut output,
@@ -891,10 +886,10 @@ fn prepare_csr_write_vxrm_masks_to_2_bits() {
 fn prepare_csr_write_vcsr_masks_to_3_bits() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0xFFFF,
         &mut output,
@@ -907,10 +902,10 @@ fn prepare_csr_write_vcsr_masks_to_3_bits() {
 fn prepare_csr_write_vstart_passes_full_value() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vstart.to_csr_index(),
         0x1234,
         &mut output,
@@ -923,14 +918,10 @@ fn prepare_csr_write_vstart_passes_full_value() {
 fn prepare_csr_write_ignores_non_vector_csrs() {
     let mut output = 0u64;
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
-        0x300,
-        42,
-        &mut output,
-    );
+    let result =
+        <ZveXxConfigInstruction<_>>::prepare_csr_write(&mut state.env, 0x300, 42, &mut output);
     assert!(!result.unwrap());
 }
 
@@ -945,15 +936,12 @@ fn vtype_csr_raw_value_matches_decoded() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    let raw = state
-        .ext_state
-        .read_csr(VectorCsr::Vtype.to_csr_index())
-        .unwrap();
+    let raw = state.env.read_csr(VectorCsr::Vtype.to_csr_index()).unwrap();
     // Should match the encoded vtypei (low 8 bits)
     assert_eq!(raw, u64::from(vtypei));
 }
@@ -967,15 +955,12 @@ fn vtype_csr_vill_sets_bit_63() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
 
     execute(&mut state).unwrap();
 
-    let raw = state
-        .ext_state
-        .read_csr(VectorCsr::Vtype.to_csr_index())
-        .unwrap();
+    let raw = state.env.read_csr(VectorCsr::Vtype.to_csr_index()).unwrap();
     assert_eq!(raw, 1u64 << (u64::BITS - 1));
 }
 
@@ -988,27 +973,21 @@ fn vl_csr_matches_vl_value() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
 
     execute(&mut state).unwrap();
 
-    let raw = state
-        .ext_state
-        .read_csr(VectorCsr::Vl.to_csr_index())
-        .unwrap();
+    let raw = state.env.read_csr(VectorCsr::Vl.to_csr_index()).unwrap();
     assert_eq!(raw, 3);
 }
 
 #[test]
 fn vlenb_csr_returns_correct_value() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
-    let raw = state
-        .ext_state
-        .read_csr(VectorCsr::Vlenb.to_csr_index())
-        .unwrap();
-    assert_eq!(raw, u64::from(ExtState::VLEN.bytes()));
+    state.env.init_vector_csrs();
+    let raw = state.env.read_csr(VectorCsr::Vlenb.to_csr_index()).unwrap();
+    assert_eq!(raw, u64::from(Env::VLEN.bytes()));
 }
 
 // Sequential instruction tests
@@ -1029,7 +1008,7 @@ fn sequential_vsetvli_overrides_previous() {
             rs2: Reg::Zero,
         },
     ]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 3);
     state.regs.write(Reg::A3, 10);
 
@@ -1037,9 +1016,9 @@ fn sequential_vsetvli_overrides_previous() {
 
     // Second instruction should have taken effect
     // VLMAX = (256*2)/8 = 64, AVL = 10 -> vl = 10
-    assert_eq!(state.ext_state.vl(), Vl::new(10).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(10).unwrap());
     assert_eq!(state.regs.read(Reg::A2), 10);
-    let vtype = state.ext_state.vtype().unwrap();
+    let vtype = state.env.vtype().unwrap();
     assert_eq!(vtype.vsew(), Vsew::E8);
     assert_eq!(vtype.vlmul(), Vlmul::M2);
     assert!(vtype.vta());
@@ -1064,14 +1043,14 @@ fn vsetvli_after_vill_recovers() {
             rs2: Reg::Zero,
         },
     ]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
     state.regs.write(Reg::A3, 2);
 
     execute(&mut state).unwrap();
 
-    assert!(state.ext_state.vtype().is_some());
-    assert_eq!(state.ext_state.vl(), Vl::new(2).unwrap());
+    assert!(state.env.vtype().is_some());
+    assert_eq!(state.env.vl(), Vl::new(2).unwrap());
     assert_eq!(state.regs.read(Reg::A2), 2);
 }
 
@@ -1096,13 +1075,13 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
             rs2: Reg::Zero,
         },
     ]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     execute(&mut state).unwrap();
 
     // vl should remain 5
-    assert_eq!(state.ext_state.vl(), Vl::new(5).unwrap());
-    let vtype = state.ext_state.vtype().unwrap();
+    assert_eq!(state.env.vl(), Vl::new(5).unwrap());
+    let vtype = state.env.vtype().unwrap();
     assert!(vtype.vta());
     assert!(vtype.vma());
     assert_eq!(vtype.vsew(), Vsew::E16);
@@ -1120,12 +1099,12 @@ fn vsetvli_large_avl_in_register() {
         vtypei,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, u64::MAX);
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.ext_state.vl(), Vl::new(8).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
     assert_eq!(state.regs.read(Reg::A0), 8);
 }
 
@@ -1136,15 +1115,15 @@ fn vsetvl_all_bits_set_in_rs2_sets_vill() {
         rs1: Reg::A1,
         rs2: Reg::A2,
     }]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A1, 1);
     state.regs.write(Reg::A2, u64::MAX);
 
     execute(&mut state).unwrap();
 
     // All bits set means upper bits non-zero -> vill
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
 }
 
 // Vlmul::vlmax unit tests
@@ -1229,8 +1208,7 @@ fn vtype_encode_decode_roundtrip() {
 
     for &(vsew, vlmul, vta, vma) in combos {
         let raw = u64::from(encode_vtype(vsew, vlmul, vta, vma));
-        let decoded =
-            Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+        let decoded = Vtype::<const { Env::ELEN }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
         assert!(
             decoded.is_some(),
             "Failed to decode vsew={vsew}, vlmul={vlmul}"
@@ -1251,8 +1229,7 @@ fn vtype_encode_decode_roundtrip() {
 fn vtype_from_raw_rejects_reserved_vsew() {
     // vsew = 0b100 (bits [5:3] = 4)
     let raw = 0b100_000u64;
-    let result =
-        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result = Vtype::<const { Env::ELEN }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1260,16 +1237,14 @@ fn vtype_from_raw_rejects_reserved_vsew() {
 fn vtype_from_raw_rejects_reserved_vlmul() {
     // vlmul = 0b100
     let raw = 0b100u64;
-    let result =
-        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result = Vtype::<const { Env::ELEN }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
 #[test]
 fn vtype_from_raw_rejects_upper_bits_set() {
     let raw = (1u64 << 8u8) | u64::from(encode_vtype(Vsew::E32, Vlmul::M1, false, false));
-    let result =
-        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result = Vtype::<const { Env::ELEN }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1278,7 +1253,7 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
     // For Zve32x (ELEN=32), e64 should be rejected.
     // But our ELEN=64, so e64 is fine. Test with a smaller ELEN.
     let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::M1, false, false));
-    let result = Vtype::<{ Elen::L32 }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result = Vtype::<{ Elen::L32 }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1286,8 +1261,7 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
 fn vtype_from_raw_rejects_zero_vlmax() {
     // e64 mf8 on VLEN=128: VLMAX = 0
     let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::Mf8, false, false));
-    let result =
-        Vtype::<const { ExtState::ELEN }, const { ExtState::VLEN }>::from_raw::<Reg<u64>>(raw);
+    let result = Vtype::<const { Env::ELEN }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
     assert!(result.is_none());
 }
 
@@ -1316,10 +1290,10 @@ fn vector_csr_from_index_invalid() {
 #[test]
 fn ext_vstart_read_write() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
-    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, Vstart::from(42));
+    state.env.init_vector_csrs();
+    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.env, Vstart::from(42));
     assert_eq!(
-        VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state),
+        VectorRegistersExt::<Reg<u64>>::vstart(&state.env),
         Vstart::from(42)
     );
 }
@@ -1327,46 +1301,40 @@ fn ext_vstart_read_write() {
 #[test]
 fn ext_vxrm_read_write() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
-    VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.ext_state, Vxrm::Rod);
-    assert_eq!(
-        VectorRegistersExt::<Reg<u64>>::vxrm(&state.ext_state),
-        Vxrm::Rod
-    );
+    state.env.init_vector_csrs();
+    VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.env, Vxrm::Rod);
+    assert_eq!(VectorRegistersExt::<Reg<u64>>::vxrm(&state.env), Vxrm::Rod);
 }
 
 #[test]
 fn ext_vxsat_read_write() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
-    VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.ext_state, true);
-    assert!(VectorRegistersExt::<Reg<u64>>::vxsat(&state.ext_state));
+    state.env.init_vector_csrs();
+    VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.env, true);
+    assert!(VectorRegistersExt::<Reg<u64>>::vxsat(&state.env));
 }
 
 #[test]
 fn ext_initialize_vector_state() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Dirty it up
-    state.ext_state.set_vl(Vl::new(42).unwrap());
-    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.ext_state, Vstart::from(7));
-    VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.ext_state, Vxrm::Rne);
-    VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.ext_state, true);
+    state.env.set_vl(Vl::new(42).unwrap());
+    VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.env, Vstart::from(7));
+    VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.env, Vxrm::Rne);
+    VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.env, true);
 
     // Reset
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
-    assert!(state.ext_state.vtype().is_none());
-    assert_eq!(state.ext_state.vl(), Vl::ZERO);
+    assert!(state.env.vtype().is_none());
+    assert_eq!(state.env.vl(), Vl::ZERO);
     assert_eq!(
-        VectorRegistersExt::<Reg<u64>>::vstart(&state.ext_state),
+        VectorRegistersExt::<Reg<u64>>::vstart(&state.env),
         Vstart::ZERO
     );
-    assert_eq!(
-        VectorRegistersExt::<Reg<u64>>::vxrm(&state.ext_state),
-        Vxrm::Rnu
-    );
-    assert!(!VectorRegistersExt::<Reg<u64>>::vxsat(&state.ext_state));
+    assert_eq!(VectorRegistersExt::<Reg<u64>>::vxrm(&state.env), Vxrm::Rnu);
+    assert!(!VectorRegistersExt::<Reg<u64>>::vxsat(&state.env));
 }
 
 // vcsr mirroring tests
@@ -1374,16 +1342,16 @@ fn ext_initialize_vector_state() {
 #[test]
 fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Pre-set vcsr to have vxrm=0b10 (bits [2:1]), vxsat=0 -> vcsr = 0b100
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b100)
         .unwrap();
 
     let mut output = 0u64;
     let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         1,
         &mut output,
@@ -1392,26 +1360,23 @@ fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
     assert_eq!(output, 1);
 
     // vcsr should now be 0b101: vxrm=0b10 preserved, vxsat=1 mirrored
-    let vcsr = state
-        .ext_state
-        .read_csr(VectorCsr::Vcsr.to_csr_index())
-        .unwrap();
+    let vcsr = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
     assert_eq!(vcsr, 0b101);
 }
 
 #[test]
 fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Pre-set vcsr = 0b111 (vxrm=0b11, vxsat=1)
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b111)
         .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         0,
         &mut output,
@@ -1419,26 +1384,23 @@ fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
     .unwrap();
 
     // vcsr should now be 0b110: vxrm=0b11 preserved, vxsat=0
-    let vcsr = state
-        .ext_state
-        .read_csr(VectorCsr::Vcsr.to_csr_index())
-        .unwrap();
+    let vcsr = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
     assert_eq!(vcsr, 0b110);
 }
 
 #[test]
 fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Pre-set vcsr = 0b001 (vxrm=0b00, vxsat=1)
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b001)
         .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxrm.to_csr_index(),
         0b11,
         &mut output,
@@ -1447,26 +1409,23 @@ fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
     assert_eq!(output, 0b11);
 
     // vcsr should now be 0b111: vxrm=0b11 mirrored, vxsat=1 preserved
-    let vcsr = state
-        .ext_state
-        .read_csr(VectorCsr::Vcsr.to_csr_index())
-        .unwrap();
+    let vcsr = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
     assert_eq!(vcsr, 0b111);
 }
 
 #[test]
 fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Pre-set vcsr = 0b111
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b111)
         .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxrm.to_csr_index(),
         0b00,
         &mut output,
@@ -1474,31 +1433,28 @@ fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
     .unwrap();
 
     // vcsr should now be 0b001: vxrm=0b00, vxsat=1 preserved
-    let vcsr = state
-        .ext_state
-        .read_csr(VectorCsr::Vcsr.to_csr_index())
-        .unwrap();
+    let vcsr = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
     assert_eq!(vcsr, 0b001);
 }
 
 #[test]
 fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Start with vxsat=0, vxrm=0
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxsat.to_csr_index(), 0)
         .unwrap();
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxrm.to_csr_index(), 0)
         .unwrap();
 
     let mut output = 0u64;
     // Write vcsr = 0b101 (vxrm=0b10, vxsat=1)
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0b101,
         &mut output,
@@ -1506,64 +1462,52 @@ fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
     .unwrap();
     assert_eq!(output, 0b101);
 
-    let vxsat = state
-        .ext_state
-        .read_csr(VectorCsr::Vxsat.to_csr_index())
-        .unwrap();
+    let vxsat = state.env.read_csr(VectorCsr::Vxsat.to_csr_index()).unwrap();
     assert_eq!(vxsat, 1);
 
-    let vxrm = state
-        .ext_state
-        .read_csr(VectorCsr::Vxrm.to_csr_index())
-        .unwrap();
+    let vxrm = state.env.read_csr(VectorCsr::Vxrm.to_csr_index()).unwrap();
     assert_eq!(vxrm, 0b10);
 }
 
 #[test]
 fn prepare_csr_write_vcsr_zero_clears_vxsat_and_vxrm() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Pre-set non-zero values
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxsat.to_csr_index(), 1)
         .unwrap();
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxrm.to_csr_index(), 0b11)
         .unwrap();
 
     let mut output = 0u64;
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0,
         &mut output,
     )
     .unwrap();
 
-    let vxsat = state
-        .ext_state
-        .read_csr(VectorCsr::Vxsat.to_csr_index())
-        .unwrap();
+    let vxsat = state.env.read_csr(VectorCsr::Vxsat.to_csr_index()).unwrap();
     assert_eq!(vxsat, 0);
 
-    let vxrm = state
-        .ext_state
-        .read_csr(VectorCsr::Vxrm.to_csr_index())
-        .unwrap();
+    let vxrm = state.env.read_csr(VectorCsr::Vxrm.to_csr_index()).unwrap();
     assert_eq!(vxrm, 0);
 }
 
 #[test]
 fn prepare_csr_write_vcsr_masks_then_mirrors() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let mut output = 0u64;
     // Write 0xFF to vcsr; should mask to 0b111, then mirror
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0xFF,
         &mut output,
@@ -1571,29 +1515,23 @@ fn prepare_csr_write_vcsr_masks_then_mirrors() {
     .unwrap();
     assert_eq!(output, 0b111);
 
-    let vxsat = state
-        .ext_state
-        .read_csr(VectorCsr::Vxsat.to_csr_index())
-        .unwrap();
+    let vxsat = state.env.read_csr(VectorCsr::Vxsat.to_csr_index()).unwrap();
     assert_eq!(vxsat, 1);
 
-    let vxrm = state
-        .ext_state
-        .read_csr(VectorCsr::Vxrm.to_csr_index())
-        .unwrap();
+    let vxrm = state.env.read_csr(VectorCsr::Vxrm.to_csr_index()).unwrap();
     assert_eq!(vxrm, 0b11);
 }
 
 #[test]
 fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     let mut output = 0u64;
 
     // Write vxrm=0b10 via vcsr
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0b100,
         &mut output,
@@ -1601,72 +1539,60 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
     .unwrap();
     // Now write the masked vcsr value to the CSR storage itself
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vcsr.to_csr_index(), output)
         .unwrap();
 
     // Write vxsat=1 directly
     <ZveXxConfigInstruction<_>>::prepare_csr_write(
-        &mut state.ext_state,
+        &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         1,
         &mut output,
     )
     .unwrap();
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxsat.to_csr_index(), output)
         .unwrap();
 
     // Read back: vcsr should reflect both
-    let vcsr = state
-        .ext_state
-        .read_csr(VectorCsr::Vcsr.to_csr_index())
-        .unwrap();
+    let vcsr = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
     assert_eq!(vcsr, 0b101);
 
     // vxrm standalone should still be 0b10
-    let vxrm = state
-        .ext_state
-        .read_csr(VectorCsr::Vxrm.to_csr_index())
-        .unwrap();
+    let vxrm = state.env.read_csr(VectorCsr::Vxrm.to_csr_index()).unwrap();
     assert_eq!(vxrm, 0b10);
 
     // vxsat standalone should be 1
-    let vxsat = state
-        .ext_state
-        .read_csr(VectorCsr::Vxsat.to_csr_index())
-        .unwrap();
+    let vxsat = state.env.read_csr(VectorCsr::Vxsat.to_csr_index()).unwrap();
     assert_eq!(vxsat, 1);
 }
 
 #[test]
 fn prepare_csr_read_vcsr_reflects_separate_csr_values() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
 
     // Set vxsat=1 and vxrm=0b10 directly in storage
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxsat.to_csr_index(), 1)
         .unwrap();
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vxrm.to_csr_index(), 0b10)
         .unwrap();
     // Manually compose what vcsr should be: [2:1]=vxrm=0b10, [0]=vxsat=1 -> 0b101
     state
-        .ext_state
+        .env
         .write_csr(VectorCsr::Vcsr.to_csr_index(), 0b101)
         .unwrap();
 
     let mut output = 0u64;
-    let raw = state
-        .ext_state
-        .read_csr(VectorCsr::Vcsr.to_csr_index())
-        .unwrap();
+    let raw = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
     <ZveXxConfigInstruction<_>>::prepare_csr_read(
-        &state.ext_state,
+        &state.env,
         VectorCsr::Vcsr.to_csr_index(),
         true,
         raw,

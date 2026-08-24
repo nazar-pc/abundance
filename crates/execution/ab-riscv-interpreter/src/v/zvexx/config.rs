@@ -18,10 +18,10 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxConfigInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxConfigInstruction<Reg>
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxConfigInstruction<Reg>
 where
     Reg: [const] Register,
-    ExtState: [const] Csrs<Reg>,
+    Env: [const] Csrs<Reg>,
 {
     /// Validate reads to vector CSRs from Zicsr instructions.
     ///
@@ -30,7 +30,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn prepare_csr_read(
-        _ext_state: &ExtState,
+        _env: &Env,
         csr_index: u16,
         _will_write: bool,
         raw_value: Reg::Type,
@@ -56,7 +56,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn prepare_csr_write(
-        ext_state: &mut ExtState,
+        env: &mut Env,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
@@ -72,27 +72,27 @@ where
                 VectorCsr::Vxsat => {
                     let masked = write_value & Reg::Type::from(1u8);
                     // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
-                    let old_vcsr = ext_state.read_csr(VectorCsr::Vcsr.to_csr_index())?;
+                    let old_vcsr = env.read_csr(VectorCsr::Vcsr.to_csr_index())?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
-                    ext_state.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
+                    env.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
                     masked
                 }
                 VectorCsr::Vxrm => {
                     let masked = write_value & Reg::Type::from(0b11u8);
                     // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
-                    let old_vcsr = ext_state.read_csr(VectorCsr::Vcsr.to_csr_index())?;
+                    let old_vcsr = env.read_csr(VectorCsr::Vcsr.to_csr_index())?;
                     let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
-                    ext_state.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
+                    env.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr)?;
                     masked
                 }
                 VectorCsr::Vcsr => {
                     // Mirror `vcsr[0]` -> `vxsat`
                     let new_vxsat = write_value & Reg::Type::from(1u8);
-                    ext_state.write_csr(VectorCsr::Vxsat.to_csr_index(), new_vxsat)?;
+                    env.write_csr(VectorCsr::Vxsat.to_csr_index(), new_vxsat)?;
 
                     // Mirror `vcsr[2:1]` -> `vxrm`
                     let new_vxrm = (write_value >> 1u8) & Reg::Type::from(0b11u8);
-                    ext_state.write_csr(VectorCsr::Vxrm.to_csr_index(), new_vxrm)?;
+                    env.write_csr(VectorCsr::Vxrm.to_csr_index(), new_vxrm)?;
 
                     write_value & Reg::Type::from(0b111u8)
                 }
@@ -109,14 +109,13 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxConfigInstruction<Reg>
 where
     Reg: [const] Register,
     Regs: [const] RegisterFile<Reg>,
-    ExtState: [const] VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: [const] VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]
@@ -128,15 +127,14 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
                 let rd_value = zvexx_config_helpers::apply_vsetvl(
-                    ext_state,
+                    env,
                     program_counter,
                     rd,
                     rs1,
@@ -151,7 +149,7 @@ where
             }
             Self::Vsetivli { rd, uimm, vtypei } => {
                 let rd_value =
-                    zvexx_config_helpers::apply_vsetivli(ext_state, program_counter, uimm, vtypei)?;
+                    zvexx_config_helpers::apply_vsetivli(env, program_counter, uimm, vtypei)?;
 
                 ExecutionResult::Continue {
                     rd,
@@ -161,7 +159,7 @@ where
             Self::Vsetvl { rd, rs1, rs2: _ } => {
                 let vtype_raw = rs2_value;
                 let rd_value = zvexx_config_helpers::apply_vsetvl(
-                    ext_state,
+                    env,
                     program_counter,
                     rd,
                     rs1,

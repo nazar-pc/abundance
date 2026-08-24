@@ -40,14 +40,11 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZveXxInstruction<Reg>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxInstruction<Reg>
 where
     Reg: Register,
 {
@@ -60,10 +57,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }

@@ -17,11 +17,11 @@ fn setup(
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -32,7 +32,7 @@ fn setup_with_vxrm(
     vxrm: Vxrm,
 ) -> TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>> {
     let mut state = setup(vl, vsew, vlmul);
-    state.ext_state.set_vxrm(vxrm);
+    state.env.set_vxrm(vxrm);
     state
 }
 
@@ -49,10 +49,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -81,7 +80,7 @@ fn write_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -99,7 +98,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -120,7 +119,7 @@ fn write_wide_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -133,7 +132,7 @@ fn set_mask_bit(
     i: u32,
     val: bool,
 ) {
-    let byte = &mut state.ext_state.write_vregs().get_mut(reg)[(i / u8::BITS) as usize];
+    let byte = &mut state.env.write_vregs().get_mut(reg)[(i / u8::BITS) as usize];
     if val {
         *byte |= 1 << (i % u8::BITS);
     } else {
@@ -142,7 +141,7 @@ fn set_mask_bit(
 }
 
 fn vxsat(state: &TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>) -> bool {
-    state.ext_state.vxsat()
+    state.env.vxsat()
 }
 
 // vsaddu
@@ -170,8 +169,8 @@ fn vsaddu_vv_e8_no_overflow() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 30, "elem {i}");
     }
     assert!(!vxsat(&state), "vxsat must not be set on no-overflow");
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -1928,7 +1927,7 @@ fn vsaddu_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x55);
     }
     // Set vstart = 2: skip elements 0 and 1
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -1948,7 +1947,7 @@ fn vsaddu_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 255);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 255);
     // vstart is reset to 0 after execution
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // vector not allowed
@@ -1956,7 +1955,7 @@ fn vsaddu_vstart_skips_early_elements() {
 #[test]
 fn vsaddu_vector_not_allowed_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -1977,7 +1976,7 @@ fn vsaddu_vector_not_allowed_faults() {
 #[test]
 fn vsmul_vector_not_allowed_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VsmulVv {
@@ -1998,7 +1997,7 @@ fn vsmul_vector_not_allowed_faults() {
 #[test]
 fn vnclip_vector_not_allowed_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VnclipWi {
@@ -2021,7 +2020,7 @@ fn vnclip_vector_not_allowed_faults() {
 #[test]
 fn vsaddu_vtype_none_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vtype(None);
+    state.env.set_vtype(None);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -2042,7 +2041,7 @@ fn vsaddu_vtype_none_faults() {
 #[test]
 fn vssrl_vtype_none_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vtype(None);
+    state.env.set_vtype(None);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VssrlVi {
@@ -2238,7 +2237,7 @@ fn vs_dirty_increments_per_instruction() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
     exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -2251,13 +2250,13 @@ fn vs_dirty_increments_per_instruction() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.vs_dirty_count(), 2);
+    assert_eq!(state.env.vs_dirty_count(), 2);
 }
 
 #[test]
 fn vstart_resets_to_zero_after_execution() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 1);
     write_elem(&mut state, VReg::V1, 2, Vsew::E8, 1);
     exec(
@@ -2273,7 +2272,7 @@ fn vstart_resets_to_zero_after_execution() {
     )
     .unwrap();
     assert_eq!(
-        state.ext_state.vstart(),
+        state.env.vstart(),
         Vstart::ZERO,
         "vstart must be reset to 0"
     );
@@ -2307,7 +2306,7 @@ fn vsaddu_vl_zero_no_writes() {
         );
     }
     // mark_vs_dirty is still called; vstart still reset
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // multiple SEW sizes for saturation arithmetic

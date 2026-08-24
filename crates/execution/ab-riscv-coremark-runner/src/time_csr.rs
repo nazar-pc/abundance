@@ -4,6 +4,7 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
+use core::ops::ControlFlow;
 use std::time::Instant;
 
 /// State for the counter CSR (time-only)
@@ -47,6 +48,25 @@ impl Csrs<Reg<u64>> for TimeCsrState {
         Ok(())
     }
 }
+
+impl<Regs, Memory, PC> SystemInstructionHandler<Reg<u64>, Regs, Memory, PC> for TimeCsrState
+where
+    PC: ProgramCounter<u64, Memory>,
+{
+    /// Coremark makes no system calls, so `ecall` is rejected as an illegal instruction
+    fn handle_ecall(
+        &mut self,
+        _regs: &mut Regs,
+        _memory: &mut Memory,
+        program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+        Err(ExecutionError::IllegalInstruction {
+            address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
+        })
+    }
+}
+
+impl WrsHandler for TimeCsrState {}
 
 impl TimeCsrState {
     pub(crate) fn elapsed_ns(&self) -> u64 {
@@ -97,13 +117,13 @@ where
 impl<Reg> ExecutableInstructionOperands for TimeCsrInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for TimeCsrInstruction<Reg>
+impl<Reg, Env> ExecutableInstructionCsr<Env> for TimeCsrInstruction<Reg>
 where
     Reg: Register<Type = u64>,
-    ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
+    Env: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
 {
     fn prepare_csr_read(
-        ext_state: &ExtState,
+        env: &Env,
         csr_index: u16,
         _will_write: bool,
         _raw_value: Reg::Type,
@@ -113,7 +133,7 @@ where
 
         if csr_index == CSR_TIME {
             // Return elapsed nanoseconds
-            *output_value = ext_state.as_ref().elapsed_ns();
+            *output_value = env.as_ref().elapsed_ns();
             Ok(true)
         } else {
             Ok(false)
@@ -121,7 +141,7 @@ where
     }
 
     fn prepare_csr_write(
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         csr_index: u16,
         _write_value: Reg::Type,
         _output_value: &mut Reg::Type,
@@ -137,12 +157,11 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for TimeCsrInstruction<Reg>
 where
     Reg: Register<Type = u64>,
-    ExtState: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
+    Env: AsMut<TimeCsrState> + AsRef<TimeCsrState>,
 {
     fn execute(
         self,
@@ -151,10 +170,9 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }

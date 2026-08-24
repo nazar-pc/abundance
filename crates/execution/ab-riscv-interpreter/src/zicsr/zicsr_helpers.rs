@@ -45,18 +45,18 @@ where
 /// see [`ExecutableInstructionCsr::prepare_csr_read()`] for details.
 #[inline(always)]
 #[doc(hidden)]
-pub const fn process_csr_read<Reg, ExtState, I>(
-    ext_state: &ExtState,
+pub const fn process_csr_read<Reg, Env, I>(
+    env: &Env,
     csr_index: u16,
     will_write: bool,
     raw_value: Reg::Type,
 ) -> Result<Reg::Type, CsrError>
 where
     Reg: [const] Register,
-    I: [const] ExecutableInstructionCsr<ExtState, Reg = Reg>,
+    I: [const] ExecutableInstructionCsr<Env, Reg = Reg>,
 {
     let mut out = Reg::Type::default();
-    match I::prepare_csr_read(ext_state, csr_index, will_write, raw_value, &mut out) {
+    match I::prepare_csr_read(env, csr_index, will_write, raw_value, &mut out) {
         Ok(true) => Ok(out),
         Ok(false) => {
             cold_path();
@@ -73,17 +73,17 @@ where
 /// instruction `I` and returning the output value on success.
 #[inline(always)]
 #[doc(hidden)]
-pub const fn process_csr_write<Reg, ExtState, I>(
-    ext_state: &mut ExtState,
+pub const fn process_csr_write<Reg, Env, I>(
+    env: &mut Env,
     csr_index: u16,
     write_value: Reg::Type,
 ) -> Result<Reg::Type, CsrError>
 where
     Reg: [const] Register,
-    I: [const] ExecutableInstructionCsr<ExtState, Reg = Reg>,
+    I: [const] ExecutableInstructionCsr<Env, Reg = Reg>,
 {
     let mut out = Reg::Type::default();
-    match I::prepare_csr_write(ext_state, csr_index, write_value, &mut out) {
+    match I::prepare_csr_write(env, csr_index, write_value, &mut out) {
         Ok(true) => Ok(out),
         Ok(false) => {
             cold_path();

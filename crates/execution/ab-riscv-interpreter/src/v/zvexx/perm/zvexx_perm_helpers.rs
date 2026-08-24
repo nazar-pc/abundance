@@ -169,8 +169,8 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slideup<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_slideup<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -178,13 +178,13 @@ pub unsafe fn execute_slideup<Reg, ExtState>(
     offset: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     // The active range starts at max(vstart, offset).
     for i in vstart
@@ -196,14 +196,14 @@ pub unsafe fn execute_slideup<Reg, ExtState>(
         }
         let src_idx = i - offset.saturating_truncate::<u16>();
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
-        let val = unsafe { read_element_u64(ext_state.read_vregs(), vs2, src_idx, sew) };
+        let val = unsafe { read_element_u64(env.read_vregs(), vs2, src_idx, sew) };
         // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute a vslidedown operation.
@@ -217,8 +217,8 @@ pub unsafe fn execute_slideup<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slidedown<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_slidedown<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -227,13 +227,13 @@ pub unsafe fn execute_slidedown<Reg, ExtState>(
     offset: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -244,17 +244,17 @@ pub unsafe fn execute_slidedown<Reg, ExtState>(
             && src_idx < u64::from(vlmax)
         {
             // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, src_idx as u16, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, src_idx as u16, sew) }
         } else {
             0
         };
         // SAFETY: i < vl <= vlmax <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute a vslide1up operation.
@@ -270,8 +270,8 @@ pub unsafe fn execute_slidedown<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slide1up<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_slide1up<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -279,13 +279,13 @@ pub unsafe fn execute_slide1up<Reg, ExtState>(
     scalar: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -294,15 +294,15 @@ pub unsafe fn execute_slide1up<Reg, ExtState>(
             scalar
         } else {
             // SAFETY: i - 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, i - 1, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, i - 1, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute a vslide1down operation.
@@ -322,8 +322,8 @@ pub unsafe fn execute_slide1up<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slide1down<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_slide1down<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -331,13 +331,13 @@ pub unsafe fn execute_slide1down<Reg, ExtState>(
     scalar: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let range = vstart.range_to(vl);
     for i in range.clone() {
         if !mask_bit(&mask_buf, i) {
@@ -345,17 +345,17 @@ pub unsafe fn execute_slide1down<Reg, ExtState>(
         }
         let val = if i < *range.end() {
             // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, i + 1, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, i + 1, sew) }
         } else {
             scalar
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute vrgather.vv: `vd[i] = (vs1[i] < vlmax) ? vs2[vs1[i]] : 0`.
@@ -367,8 +367,8 @@ pub unsafe fn execute_slide1down<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgather_vv<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_rgather_vv<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -377,32 +377,32 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState>(
     vlmax: Vl,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-        let index = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, sew) };
+        let index = unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u16, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute vrgather.vx / vrgather.vi: all active elements get `vs2[index]` or `0`.
@@ -414,8 +414,8 @@ pub unsafe fn execute_rgather_vv<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgather_scalar<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_rgather_scalar<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -424,17 +424,17 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState>(
     index: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-        unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u16, sew) }
+        unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
     } else {
         0u64
     };
@@ -444,11 +444,11 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState>(
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute vrgatherei16.vv: `vd[i] = (vs1_16[i] < vlmax) ? vs2[vs1_16[i]] : 0`.
@@ -466,8 +466,8 @@ pub unsafe fn execute_rgather_scalar<Reg, ExtState>(
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgatherei16<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_rgatherei16<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -477,15 +477,15 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState>(
     index_group_regs: NonZeroU8,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let index_group_regs = index_group_regs.get();
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // Maximum number of EEW=16 elements the index register group can hold.
     // Each register holds VLEN.bytes() / 2 elements at EEW=16.
-    let index_capacity = u32::from(index_group_regs) * (ExtState::VLEN.bytes() / 2);
+    let index_capacity = u32::from(index_group_regs) * (Env::VLEN.bytes() / 2);
     // `vl` must not exceed either the data VLMAX or the index register group capacity.
     // Both bounds are guaranteed by the caller; this debug assertion catches misuse early.
     debug_assert!(
@@ -493,7 +493,7 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState>(
         "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
     );
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -501,20 +501,20 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState>(
         // Read 16-bit index from vs1; EEW=16 always.
         // SAFETY: i < vl <= index_capacity = index_group_regs * (VLEN.bytes() / 2), so element i
         // fits within the index register group.
-        let index = unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, Vsew::E16) };
+        let index = unsafe { read_element_u64(env.read_vregs(), vs1, i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, index as u16, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute vmerge.vvm / vmv.v.v.
@@ -530,8 +530,8 @@ pub unsafe fn execute_rgatherei16<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_merge_vv<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_merge_vv<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -539,31 +539,31 @@ pub unsafe fn execute_merge_vv<Reg, ExtState>(
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-            unsafe { read_element_u64(ext_state.read_vregs(), vs1, i, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) }
         } else {
             // mask_set=false only reachable when vm=false (vmerge path).
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute vmerge.vxm / vmerge.vim / vmv.v.x / vmv.v.i.
@@ -579,8 +579,8 @@ pub unsafe fn execute_merge_vv<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_merge_scalar<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_merge_scalar<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -588,28 +588,28 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState>(
     scalar: u64,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
 
     for i in vstart.range_to(vl) {
         let val = if mask_bit(&mask_buf, i) {
             scalar
         } else {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) }
+            unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, val);
+            write_element_u64(env.write_vregs(), vd, i, sew, val);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute vcompress.vm: pack active elements of vs2 (under vs1 mask) sequentially into vd.
@@ -625,8 +625,8 @@ pub unsafe fn execute_merge_scalar<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_compress<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_compress<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -634,12 +634,12 @@ pub unsafe fn execute_compress<Reg, ExtState>(
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let mask_bytes = usize::from(vl.bytes());
-    let vreg = ext_state.read_vregs();
-    let mut vs1_buf = [0u8; VLENB_USIZE::<{ ExtState::VLEN }>];
+    let vreg = env.read_vregs();
+    let mut vs1_buf = [0u8; VLENB_USIZE::<{ Env::VLEN }>];
     // SAFETY: mask_bytes <= VLEN.bytes() since vl <= VLEN; vs1_base < 32
     unsafe {
         vs1_buf
@@ -652,15 +652,15 @@ pub unsafe fn execute_compress<Reg, ExtState>(
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg
-        let val = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let val = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, out_idx, sew, val);
+            write_element_u64(env.write_vregs(), vd, out_idx, sew, val);
         }
         out_idx += 1;
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Copy `COUNT` whole vector registers from `src_base` to `dst_base`.

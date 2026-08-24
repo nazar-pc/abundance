@@ -273,10 +273,27 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
-pub(crate) struct TestInstructionHandler;
+#[derive(Default)]
+pub(crate) struct Env {
+    reservation: Option<u32>,
+}
+
+impl ReservationSet<Reg<u32>> for Env {
+    fn reservation(&self) -> Option<u32> {
+        self.reservation
+    }
+
+    fn set_reservation(&mut self, address: u32) {
+        self.reservation = Some(address);
+    }
+
+    fn clear_reservation(&mut self) {
+        self.reservation = None;
+    }
+}
 
 impl<Regs, I> SystemInstructionHandler<Reg<u32>, Regs, TestMemory, TestInstructionFetcher<I>>
-    for TestInstructionHandler
+    for Env
 where
     I: Instruction<Reg = Reg<u32>>,
 {
@@ -301,36 +318,13 @@ where
     }
 }
 
-impl WrsHandler for TestInstructionHandler {}
-
-/// Extended state used by RV32 tests.
-///
-/// Currently only holds the reservation set used by `Zalrsc`.
-#[derive(Default)]
-pub(crate) struct ExtState {
-    reservation: Option<u32>,
-}
-
-impl ReservationSet<Reg<u32>> for ExtState {
-    fn reservation(&self) -> Option<u32> {
-        self.reservation
-    }
-
-    fn set_reservation(&mut self, address: u32) {
-        self.reservation = Some(address);
-    }
-
-    fn clear_reservation(&mut self) {
-        self.reservation = None;
-    }
-}
+impl WrsHandler for Env {}
 
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
     BasicRegisters<Reg<u32>, false>,
-    ExtState,
+    Env,
     TestMemory,
     TestInstructionFetcher<Instruction>,
-    TestInstructionHandler,
 >;
 
 pub(crate) fn initialize_state<I, Instructions>(
@@ -342,7 +336,7 @@ where
 {
     BasicInterpreterState {
         regs: BasicRegisters::default(),
-        ext_state: ExtState::default(),
+        env: Env::default(),
         memory: TestMemory::new(8192, u64::from(TEST_BASE_ADDR)),
         instruction_fetcher: TestInstructionFetcher::new(
             instructions,
@@ -350,7 +344,6 @@ where
             TEST_BASE_ADDR,
             TEST_BASE_ADDR,
         ),
-        system_instruction_handler: TestInstructionHandler,
     }
 }
 
@@ -361,10 +354,9 @@ where
     I: Instruction<Reg = Reg<u32>>
         + ExecutableInstruction<
             BasicRegisters<Reg<u32>, false>,
-            ExtState,
+            Env,
             TestMemory,
             TestInstructionFetcher<I>,
-            TestInstructionHandler,
         >,
 {
     loop {
@@ -390,10 +382,9 @@ where
         match instruction.execute(
             rs1rs2_values,
             &mut state.regs,
-            &mut state.ext_state,
+            &mut state.env,
             &mut state.memory,
             &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);

@@ -24,10 +24,9 @@ mod interpreter;
 
 use crate::abundance_rv32i_max::AbundanceRv32IMaxInstruction;
 use crate::abundance_rv64i_max::AbundanceRv64IMaxInstruction;
-use crate::interpreter::TestExtState;
+use crate::interpreter::TestEnv;
 use ab_riscv_interpreter::basic::{
     BasicInstructionFetcher, BasicInterpreterState, BasicMemory, BasicRegister, BasicRegisters,
-    IllegalEcallSystemInstructionHandler,
 };
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
@@ -339,13 +338,12 @@ fn run_test<I, const ELEN: Elen, const VLEN: Vlen>(
 where
     I: ExecutableInstruction<
             BasicRegisters<<I as Instruction>::Reg>,
-            TestExtState<<I as Instruction>::Reg, ELEN, VLEN>,
+            TestEnv<<I as Instruction>::Reg, ELEN, VLEN>,
             Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
             BasicInstructionFetcher<I>,
-            IllegalEcallSystemInstructionHandler,
             Reg: BasicRegister<Type: BasicInt>,
         >,
-    TestExtState<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
+    TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
 {
     let elf = ParsedElf::<I::Reg>::from_path(elf_path)?;
 
@@ -357,14 +355,13 @@ where
 
     let mut state = BasicInterpreterState {
         regs: BasicRegisters::<I::Reg>::default(),
-        ext_state: TestExtState::new(),
+        env: TestEnv::new(),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<I>::new(
             // Not used, setting to something that is unlikely to be used
             RegisterType::<I>::default(),
             elf.entry,
         ),
-        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     loop {
@@ -388,7 +385,7 @@ where
                     .map_err(ExecutionError::from)?;
                 if raw_instruction == MRET_INSTRUCTION {
                     let mepc = state
-                        .ext_state
+                        .env
                         .read_csr(MCsr::Mepc as u16)
                         .map_err(ExecutionError::from)?;
                     match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
@@ -403,7 +400,7 @@ where
 
                 // All other illegal instructions dispatch through the trap handler
                 let trap_pc = state
-                    .ext_state
+                    .env
                     .take_trap(
                         MCauseException::IllegalInstruction,
                         address,
@@ -446,10 +443,9 @@ where
         match instruction.execute(
             rs1rs2_values,
             &mut state.regs,
-            &mut state.ext_state,
+            &mut state.env,
             &mut state.memory,
             &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);
@@ -503,9 +499,9 @@ where
             //   CSR-error trap cause. It carries no address, so it is recovered from the fetcher's
             //   old PC.
             // - IllegalInstruction: a successfully *decoded* instruction whose execution is
-            //   illegal, currently only `ecall` (IllegalEcallSystemInstructionHandler always
-            //   rejects it - the interpreter has no other way to support it yet). Unlike the
-            //   decode-time case, this one already carries the correct address.
+            //   illegal, currently only `ecall` (`TestEnv` always rejects it - the interpreter has
+            //   no other way to support it yet). Unlike the decode-time case, this one already
+            //   carries the correct address.
             ExecutionResult::Err(
                 error @ (ExecutionError::CsrReadOnly { .. }
                 | ExecutionError::CsrIllegalRead { .. }
@@ -528,7 +524,7 @@ where
                     .read::<u32>(address.as_u64())
                     .map_err(ExecutionError::from)?;
                 let trap_pc = state
-                    .ext_state
+                    .env
                     .take_trap(
                         MCauseException::IllegalInstruction,
                         address,
@@ -719,13 +715,12 @@ fn run_and_report<I, const ELEN: Elen, const VLEN: Vlen>(
 where
     I: ExecutableInstruction<
             BasicRegisters<<I as Instruction>::Reg>,
-            TestExtState<<I as Instruction>::Reg, ELEN, VLEN>,
+            TestEnv<<I as Instruction>::Reg, ELEN, VLEN>,
             Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
             BasicInstructionFetcher<I>,
-            IllegalEcallSystemInstructionHandler,
             Reg: BasicRegister<Type: BasicInt>,
         >,
-    TestExtState<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
+    TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
 {
     let Err(error) = run_test::<I, ELEN, VLEN>(elf_path) else {
         println!("{} {stem}", "PASS".green());

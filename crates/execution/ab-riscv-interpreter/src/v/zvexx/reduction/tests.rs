@@ -16,11 +16,11 @@ fn setup(
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxReductionInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -37,10 +37,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -68,7 +67,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -88,7 +87,7 @@ fn write_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -101,7 +100,7 @@ fn set_mask_bit(
     active: bool,
 ) {
     let byte =
-        &mut state.ext_state.write_vregs().get_mut(VReg::V0)[usize::from(elem_i / u8::BITS as u16)];
+        &mut state.env.write_vregs().get_mut(VReg::V0)[usize::from(elem_i / u8::BITS as u16)];
     if active {
         *byte |= 1 << (elem_i % u8::BITS as u16);
     } else {
@@ -131,8 +130,8 @@ fn vredsum_e8_m1_basic() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 20);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -229,7 +228,7 @@ fn vredsum_vl_zero_leaves_vd_undisturbed() {
     write_elem(&mut state, VReg::V4, 1, Vsew::E32, 0xcafe_babe);
     write_elem(&mut state, VReg::V2, 0, Vsew::E32, 999);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 42);
-    let dirty_before = state.ext_state.vs_dirty_count();
+    let dirty_before = state.env.vs_dirty_count();
     exec(
         &mut state,
         ZveXxReductionInstruction::Vredsum {
@@ -244,8 +243,8 @@ fn vredsum_vl_zero_leaves_vd_undisturbed() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xdead_beef);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xcafe_babe);
-    assert_eq!(state.ext_state.vs_dirty_count(), dirty_before);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), dirty_before);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -297,7 +296,7 @@ fn vredsum_all_masked_out_writes_vs1_zero() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 7);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -376,7 +375,7 @@ fn vredand_vl_zero_leaves_vd_undisturbed() {
     let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V4, 0, Vsew::E32, 0x5555_aaaa);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0xdead_beef);
-    let dirty_before = state.ext_state.vs_dirty_count();
+    let dirty_before = state.env.vs_dirty_count();
     exec(
         &mut state,
         ZveXxReductionInstruction::Vredand {
@@ -390,7 +389,7 @@ fn vredand_vl_zero_leaves_vd_undisturbed() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x5555_aaaa);
-    assert_eq!(state.ext_state.vs_dirty_count(), dirty_before);
+    assert_eq!(state.env.vs_dirty_count(), dirty_before);
 }
 
 // vredor
@@ -725,8 +724,8 @@ fn vwredsumu_e8_to_e16_basic() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 20);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -799,7 +798,7 @@ fn vwredsumu_vl_zero_leaves_vd_undisturbed() {
     let mut state = setup(Vl::new(0).unwrap(), Vsew::E16, Vlmul::M1);
     write_elem(&mut state, VReg::V4, 0, Vsew::E32, 0x5a5a_5a5a);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0xabcd);
-    let dirty_before = state.ext_state.vs_dirty_count();
+    let dirty_before = state.env.vs_dirty_count();
     exec(
         &mut state,
         ZveXxReductionInstruction::Vwredsumu {
@@ -813,7 +812,7 @@ fn vwredsumu_vl_zero_leaves_vd_undisturbed() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x5a5a_5a5a);
-    assert_eq!(state.ext_state.vs_dirty_count(), dirty_before);
+    assert_eq!(state.env.vs_dirty_count(), dirty_before);
 }
 
 // vwredsum
@@ -911,7 +910,7 @@ fn vwredsum_vl_zero_leaves_vd_undisturbed() {
     let mut state = setup(Vl::new(0).unwrap(), Vsew::E8, Vlmul::M1);
     write_elem(&mut state, VReg::V4, 0, Vsew::E16, 0xbeef);
     write_elem(&mut state, VReg::V1, 0, Vsew::E16, 0x1234);
-    let dirty_before = state.ext_state.vs_dirty_count();
+    let dirty_before = state.env.vs_dirty_count();
     exec(
         &mut state,
         ZveXxReductionInstruction::Vwredsum {
@@ -925,7 +924,7 @@ fn vwredsum_vl_zero_leaves_vd_undisturbed() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 0xbeef);
-    assert_eq!(state.ext_state.vs_dirty_count(), dirty_before);
+    assert_eq!(state.env.vs_dirty_count(), dirty_before);
 }
 
 // widening illegal with E64
@@ -975,7 +974,7 @@ fn vwredsum_e64_is_illegal() {
 #[test]
 fn reduction_vector_not_allowed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxReductionInstruction::Vredsum {
@@ -996,7 +995,7 @@ fn reduction_vector_not_allowed() {
 #[test]
 fn reduction_invalid_vtype_is_illegal() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let result = exec(
         &mut state,
         ZveXxReductionInstruction::Vredsum {
@@ -1039,7 +1038,7 @@ fn reduction_misaligned_vs2_m2_is_illegal() {
 #[test]
 fn reduction_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
     let result = exec(
         &mut state,
         ZveXxReductionInstruction::Vredsum {
@@ -1060,7 +1059,7 @@ fn reduction_nonzero_vstart_is_illegal() {
 #[test]
 fn widening_reduction_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     let result = exec(
         &mut state,
         ZveXxReductionInstruction::Vwredsum {
@@ -1097,14 +1096,14 @@ fn reduction_vstart_reset_after_execution() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn reduction_marks_vs_dirty() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
     write_elem(&mut state, VReg::V1, 0, Vsew::E32, 0);
-    let before = state.ext_state.vs_dirty_count();
+    let before = state.env.vs_dirty_count();
     exec(
         &mut state,
         ZveXxReductionInstruction::Vredsum {
@@ -1117,7 +1116,7 @@ fn reduction_marks_vs_dirty() {
         },
     )
     .unwrap();
-    assert!(state.ext_state.vs_dirty_count() > before);
+    assert!(state.env.vs_dirty_count() > before);
 }
 
 #[test]

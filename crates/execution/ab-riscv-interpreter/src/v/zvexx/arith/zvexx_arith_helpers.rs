@@ -188,8 +188,8 @@ pub enum OpSrc {
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_arith_op<Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_arith_op<Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -198,14 +198,14 @@ pub unsafe fn execute_arith_op<Reg, ExtState, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN.bytes()`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
 
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -214,12 +214,12 @@ pub unsafe fn execute_arith_op<Reg, ExtState, F>(
 
         // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -229,12 +229,12 @@ pub unsafe fn execute_arith_op<Reg, ExtState, F>(
         // SAFETY: `vd % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute a single-width element-wise integer compare over `vstart..vl`, writing one result
@@ -253,8 +253,8 @@ pub unsafe fn execute_arith_op<Reg, ExtState, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_compare_op<Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_compare_op<Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -263,14 +263,14 @@ pub unsafe fn execute_compare_op<Reg, ExtState, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> bool,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLEN.bytes()`.
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
 
     for i in vstart.range_to(vl) {
         // When masked, inactive elements in the destination mask register are left undisturbed
@@ -280,12 +280,12 @@ pub unsafe fn execute_compare_op<Reg, ExtState, F>(
         }
 
         // SAFETY: same argument as in `execute_arith_op`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -294,12 +294,12 @@ pub unsafe fn execute_compare_op<Reg, ExtState, F>(
 
         // SAFETY: `i < vl <= VLMAX <= VLEN`, so `i / 8 < VLEN / 8 = VLEN.bytes()`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, result);
+            write_mask_bit(env.write_vregs(), vd, i, result);
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Sign-extend the low `sew.bits_width()` of `val` to a full `i64`

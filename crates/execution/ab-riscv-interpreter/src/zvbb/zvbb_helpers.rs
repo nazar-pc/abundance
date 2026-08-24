@@ -22,25 +22,20 @@ use ab_riscv_primitives::prelude::*;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vbrev<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    sew: Vsew,
-    vm: bool,
-) where
+pub unsafe fn execute_vbrev<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, sew: Vsew, vm: bool)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // `elem` is zero-extended from SEW bits to u64; reverse_bits() on the primitive type
         // of exactly SEW width naturally handles the upper zero bits from zero-extension
         let result = match sew {
@@ -51,11 +46,11 @@ pub unsafe fn execute_vbrev<Reg, ExtState>(
         };
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise count-leading-zeros over `vstart..vl`, writing SEW-wide results into `vd`.
@@ -70,37 +65,32 @@ pub unsafe fn execute_vbrev<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vclz<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    sew: Vsew,
-    vm: bool,
-) where
+pub unsafe fn execute_vclz<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, sew: Vsew, vm: bool)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let sew_bits = u32::from(sew.bits_width());
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // `elem` is zero-extended from SEW bits to u64; `leading_zeros()` on a u64 therefore counts
         // the extra (64 - SEW) upper zero bits introduced by zero-extension. Subtracting them gives
         // the count within the SEW-wide field.
         let clz = elem.leading_zeros() - (64 - sew_bits);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, u64::from(clz));
+            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(clz));
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise count-trailing-zeros over `vstart..vl`, writing SEW-wide results into `vd`.
@@ -115,37 +105,32 @@ pub unsafe fn execute_vclz<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vctz<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    sew: Vsew,
-    vm: bool,
-) where
+pub unsafe fn execute_vctz<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, sew: Vsew, vm: bool)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let sew_bits = u32::from(sew.bits_width());
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // For non-zero `elem`, `trailing_zeros()` on the zero-extended u64 value is correct: the
         // upper zero bits do not affect the trailing count. For zero, `trailing_zeros()` returns
         // 64, but the spec result is SEW; cap at `sew_bits` handles both cases.
         let ctz = elem.trailing_zeros().min(sew_bits);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, u64::from(ctz));
+            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(ctz));
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise population count over `vstart..vl`, writing SEW-wide results into `vd`.
@@ -159,35 +144,30 @@ pub unsafe fn execute_vctz<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vcpop<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    sew: Vsew,
-    vm: bool,
-) where
+pub unsafe fn execute_vcpop<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, sew: Vsew, vm: bool)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // `elem` is zero-extended from SEW bits; upper bits are already zero, so `count_ones()`
         // directly gives the population count within the SEW-wide field
         let cpop = elem.count_ones();
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, u64::from(cpop));
+            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(cpop));
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise widening shift-left-logical over `vstart..vl`, writing 2*SEW-wide
@@ -210,8 +190,8 @@ pub unsafe fn execute_vcpop<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vwsll<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_vwsll<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -220,24 +200,24 @@ pub unsafe fn execute_vwsll<Reg, ExtState>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // `double_sew_bits` is always a power of two (16, 32, or 64); `& (bits - 1)` is equivalent to
     // `% bits` and avoids a division
     let double_sew_bits = u64::from(double_sew.bits_width());
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let amount = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -248,9 +228,9 @@ pub unsafe fn execute_vwsll<Reg, ExtState>(
         // SAFETY: `vd % dest_group_regs == 0` and `vd + dest_group_regs <= 32`; `i < vl`;
         // `write_element_u64` with `double_sew` writes exactly 2*SEW bits of `result`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, double_sew, result);
+            write_element_u64(env.write_vregs(), vd, i, double_sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }

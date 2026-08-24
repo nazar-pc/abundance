@@ -34,20 +34,20 @@ const impl<Reg> ExecutableInstructionOperands for Rv64Instruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64Instruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64Instruction<Reg> where
     Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for Rv64Instruction<Reg>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv64Instruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
     Regs: [const] RegisterFile<Reg>,
+    Env: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
     Memory: [const] VirtualMemory,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
-    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -58,10 +58,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Add { rd, rs1: _, rs2: _ } => {
@@ -431,22 +430,20 @@ where
             }
 
             Self::Fence { pred, succ } => {
-                system_instruction_handler.handle_fence(pred, succ);
+                env.handle_fence(pred, succ);
                 ExecutionResult::ContinueNoWrite
             }
             Self::FenceTso => {
-                system_instruction_handler.handle_fence_tso();
+                env.handle_fence_tso();
                 ExecutionResult::ContinueNoWrite
             }
 
-            Self::Ecall => {
-                match system_instruction_handler.handle_ecall(regs, memory, program_counter)? {
-                    ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
-                    ControlFlow::Break(()) => ExecutionResult::Break,
-                }
-            }
+            Self::Ecall => match env.handle_ecall(regs, memory, program_counter)? {
+                ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
+                ControlFlow::Break(()) => ExecutionResult::Break,
+            },
             Self::Ebreak => {
-                system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
+                env.handle_ebreak(regs, memory, program_counter.get_pc());
                 ExecutionResult::ContinueNoWrite
             }
 

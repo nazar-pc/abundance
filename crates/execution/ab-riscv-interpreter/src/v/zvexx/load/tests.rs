@@ -16,11 +16,11 @@ use core::array;
 /// Initialize the state with vector CSRs and a given vtype configuration
 fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -46,12 +46,12 @@ fn vreg_byte(
     reg: VReg,
     offset: usize,
 ) -> u8 {
-    state.ext_state.read_vregs().get(reg)[offset]
+    state.env.read_vregs().get(reg)[offset]
 }
 
 /// Read a full vector register as a byte slice copy
 fn vreg_bytes(state: &TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
-    *state.ext_state.read_vregs().get(reg)
+    *state.env.read_vregs().get(reg)
 }
 
 /// Set a vector register's bytes directly
@@ -60,7 +60,7 @@ fn set_vreg(
     reg: VReg,
     data: &[u8],
 ) {
-    state.ext_state.write_vregs().get_mut(reg)[..data.len()].copy_from_slice(data);
+    state.env.write_vregs().get_mut(reg)[..data.len()].copy_from_slice(data);
 }
 
 /// Execute a single instruction directly (not via the instruction fetcher)
@@ -77,10 +77,9 @@ fn exec_one(
     if let ExecutionResult::Err(error) = instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         Err(error)
     } else {
@@ -93,7 +92,7 @@ fn exec_one(
 #[test]
 fn vlr_single_register_loads_vlenb_bytes() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data = array::from_fn::<_, 32, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -111,13 +110,13 @@ fn vlr_single_register_loads_vlenb_bytes() {
     .unwrap();
 
     assert_eq!(vreg_bytes(&state, VReg::V2), data);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
 fn vlr_two_registers_loads_two_vlenb_blocks() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data = array::from_fn::<_, 64, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -141,7 +140,7 @@ fn vlr_two_registers_loads_two_vlenb_blocks() {
 #[test]
 fn vlr_four_registers() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data = array::from_fn::<_, 128, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -171,7 +170,7 @@ fn vlr_four_registers() {
 fn vlr_ignores_vtype_and_vl() {
     // vtype is vill and vl=0; Vlr should still load regardless
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // vtype remains vill (default after init_vector_csrs)
     let data = [0xABu8; 32];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
@@ -195,8 +194,8 @@ fn vlr_ignores_vtype_and_vl() {
 #[test]
 fn vlr_resets_vstart_on_success() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
-    state.ext_state.set_vstart(Vstart::from(7));
+    state.env.init_vector_csrs();
+    state.env.set_vstart(Vstart::from(7));
     let data = [0u8; 32];
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -214,7 +213,7 @@ fn vlr_resets_vstart_on_success() {
     .unwrap();
 
     assert_eq!(
-        state.ext_state.vstart(),
+        state.env.vstart(),
         Vstart::ZERO,
         "Vlr must reset vstart on completion"
     );
@@ -223,7 +222,7 @@ fn vlr_resets_vstart_on_success() {
 #[test]
 fn vlr_misaligned_vd_is_illegal() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // nreg=2 requires vd % 2 == 0; V3 is misaligned
     let err = exec_one(
         &mut state,
@@ -242,7 +241,7 @@ fn vlr_misaligned_vd_is_illegal() {
 #[test]
 fn vlr_out_of_bounds_memory_returns_error() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Address 0 is below the memory base
     state.regs.write(Reg::A0, 0);
 
@@ -282,12 +281,8 @@ fn vlm_loads_ceil_vl_over_8_bytes() {
 
     assert_eq!(vreg_byte(&state, VReg::V3, 0), 0b1011_0101);
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 0b0000_0011);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(
-        state.ext_state.vstart(),
-        Vstart::ZERO,
-        "vstart must be reset"
-    );
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO, "vstart must be reset");
 }
 
 #[test]
@@ -333,9 +328,9 @@ fn vlm_vl_0_loads_no_bytes_and_leaves_dst_unchanged() {
 fn vlm_does_not_require_valid_vtype() {
     // vtype is vill; Vlm only needs vector_instructions_allowed, not valid vtype
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // vtype stays vill; vl is 3
-    state.ext_state.set_vl(Vl::new(3).unwrap());
+    state.env.set_vl(Vl::new(3).unwrap());
     write_mem(&mut state, TEST_BASE_ADDR, &[0x07u8]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -355,7 +350,7 @@ fn vlm_does_not_require_valid_vtype() {
 #[test]
 fn vlm_vector_not_allowed_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
 
     let err = exec_one(
         &mut state,
@@ -395,8 +390,8 @@ fn vle_e8_loads_vl_bytes_sequentially() {
     assert_eq!(vreg_byte(&state, VReg::V1, 1), 20);
     assert_eq!(vreg_byte(&state, VReg::V1, 2), 30);
     assert_eq!(vreg_byte(&state, VReg::V1, 3), 40);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -473,7 +468,7 @@ fn vle_vl_0_does_not_write_any_elements() {
 
     // Tail is undisturbed when vl=0
     assert_eq!(vreg_bytes(&state, VReg::V7), [0xFFu8; 32]);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -523,7 +518,7 @@ fn vle_respects_vstart_skips_earlier_elements() {
     set_vreg(&mut state, VReg::V1, &[0xCCu8; 16]);
     write_mem(&mut state, TEST_BASE_ADDR, &[10, 20, 30, 40]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
 
     exec_one(
         &mut state,
@@ -545,7 +540,7 @@ fn vle_respects_vstart_skips_earlier_elements() {
     assert_eq!(reg[2], 30, "element 2 loaded");
     assert_eq!(reg[3], 40, "element 3 loaded");
     assert_eq!(
-        state.ext_state.vstart(),
+        state.env.vstart(),
         Vstart::ZERO,
         "vstart reset after completion"
     );
@@ -554,7 +549,7 @@ fn vle_respects_vstart_skips_earlier_elements() {
 #[test]
 fn vle_vtype_vill_is_illegal() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // vtype stays vill
     let err = exec_one(
         &mut state,
@@ -573,7 +568,7 @@ fn vle_vtype_vill_is_illegal() {
 #[test]
 fn vle_vector_not_allowed_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
 
     let err = exec_one(
         &mut state,
@@ -701,8 +696,8 @@ fn vleff_no_fault_behaves_like_vle() {
     assert_eq!(reg[2], 3);
     assert_eq!(reg[3], 4);
     // vl unchanged
-    assert_eq!(state.ext_state.vl(), Vl::new(4).unwrap());
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -724,7 +719,7 @@ fn vleff_fault_at_i0_traps() {
     .unwrap_err();
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
     // vl must not be modified on a trapped fault
-    assert_eq!(state.ext_state.vl(), Vl::new(4).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -753,9 +748,9 @@ fn vleff_fault_at_i1_truncates_vl_to_1() {
     // Element 0 was loaded
     assert_eq!(vreg_bytes(&state, VReg::V1)[0..4], [0xAA, 0xBB, 0xCC, 0xDD]);
     // vl truncated to 1 (fault at element 1)
-    assert_eq!(state.ext_state.vl(), Vl::new(1).unwrap());
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -782,7 +777,7 @@ fn vleff_fault_at_i2_truncates_vl_to_2() {
 
     assert_eq!(vreg_byte(&state, VReg::V3, 0), 0x11);
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 0x22);
-    assert_eq!(state.ext_state.vl(), Vl::new(2).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(2).unwrap());
 }
 
 // `Vlse` tests
@@ -832,7 +827,7 @@ fn vlse_positive_stride_loads_at_stride_intervals() {
         u32::from_le_bytes(reg[8..12].try_into().unwrap()),
         0xCCCC_CCCC
     );
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1001,7 +996,7 @@ fn vluxei_e32_data_e32_index_basic() {
         0x2222_2222,
         "elem2 at offset 8"
     );
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1377,8 +1372,8 @@ fn vlseg_nf2_e8_interleaved_fields() {
     assert_eq!(v3[1], 21);
     assert_eq!(v3[2], 22);
     assert_eq!(v3[3], 23);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -1483,7 +1478,7 @@ fn vlsegff_no_fault_loads_all_segments() {
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 4);
     assert_eq!(vreg_byte(&state, VReg::V2, 2), 5);
     assert_eq!(vreg_byte(&state, VReg::V3, 2), 6);
-    assert_eq!(state.ext_state.vl(), Vl::new(3).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
 }
 
 #[test]
@@ -1513,7 +1508,7 @@ fn vlsegff_fault_at_segment_1_truncates_vl() {
     assert_eq!(vreg_byte(&state, VReg::V4, 0), 0xAA);
     assert_eq!(vreg_byte(&state, VReg::V5, 0), 0xBB);
     // vl truncated to 1 (fault at element index 1)
-    assert_eq!(state.ext_state.vl(), Vl::new(1).unwrap());
+    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
 }
 
 // `Vlsseg` tests
@@ -1574,7 +1569,7 @@ fn vlsseg_nf2_e32_with_stride() {
         u32::from_le_bytes(v3[4..8].try_into().unwrap()),
         0xDDDD_DDDD
     );
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // Fault cases
@@ -1605,13 +1600,9 @@ fn vlsseg_fault_at_f1_of_i0_marks_vs_dirty_and_sets_vstart() {
 
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
     // f>0 at the fault point: field 0 of element 0 was written
+    assert_eq!(state.env.vs_dirty_count(), 1, "VS must be marked dirty");
     assert_eq!(
-        state.ext_state.vs_dirty_count(),
-        1,
-        "VS must be marked dirty"
-    );
-    assert_eq!(
-        state.ext_state.vstart(),
+        state.env.vstart(),
         Vstart::ZERO,
         "vstart must record the faulting element"
     );
@@ -1649,8 +1640,8 @@ fn vlsseg_fault_at_i1_f0_marks_vs_dirty_and_sets_vstart() {
     .unwrap_err();
 
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::from(2));
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::from(2));
 }
 
 // `Vluxseg` tests
@@ -1718,7 +1709,7 @@ fn vluxseg_nf2_e32_indexed() {
         u32::from_le_bytes(v3[4..8].try_into().unwrap()),
         0x2222_2222
     );
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1851,10 +1842,10 @@ fn all_non_vlr_loads_reset_vstart_on_success() {
             rs2: Reg::Zero,
         },
     ] {
-        state.ext_state.set_vstart(Vstart::from(5));
+        state.env.set_vstart(Vstart::from(5));
         exec_one(&mut state, instr).unwrap();
         assert_eq!(
-            state.ext_state.vstart(),
+            state.env.vstart(),
             Vstart::ZERO,
             "vstart not reset for {instr:?}"
         );
@@ -1881,13 +1872,13 @@ fn mark_vs_dirty_called_exactly_once_on_success() {
     )
     .unwrap();
 
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
 fn mark_vs_dirty_not_called_on_illegal_instruction_error() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // vtype is vill -> IllegalInstruction before any register writes
     exec_one(
         &mut state,
@@ -1900,7 +1891,7 @@ fn mark_vs_dirty_not_called_on_illegal_instruction_error() {
         },
     )
     .unwrap_err();
-    assert_eq!(state.ext_state.vs_dirty_count(), 0);
+    assert_eq!(state.env.vs_dirty_count(), 0);
 }
 
 // Element width boundary tests
@@ -2085,7 +2076,7 @@ fn vle_fault_after_first_element_marks_vs_dirty() {
     assert_eq!(vreg_byte(&state, VReg::V1, 0), 0xAA, "element 0 committed");
     assert_eq!(vreg_byte(&state, VReg::V1, 1), 0xBB, "element 1 committed");
     assert_eq!(
-        state.ext_state.vs_dirty_count(),
+        state.env.vs_dirty_count(),
         1,
         "vs_dirty must be marked after partial write"
     );
@@ -2115,7 +2106,7 @@ fn vle_fault_after_first_element_sets_vstart_to_faulting_index() {
 
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
     assert_eq!(
-        state.ext_state.vstart(),
+        state.env.vstart(),
         Vstart::from(2),
         "vstart must record the faulting element index"
     );
@@ -2142,12 +2133,12 @@ fn vle_fault_at_first_element_does_not_mark_vs_dirty() {
 
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
     assert_eq!(
-        state.ext_state.vs_dirty_count(),
+        state.env.vs_dirty_count(),
         0,
         "vs_dirty must not be marked when no element was written"
     );
     assert_eq!(
-        state.ext_state.vstart(),
+        state.env.vstart(),
         Vstart::ZERO,
         "vstart must not be modified when fault is at the first element"
     );
@@ -2158,7 +2149,7 @@ fn vle_fault_at_first_element_does_not_mark_vs_dirty() {
 #[test]
 fn vlr_eight_registers() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data = array::from_fn::<_, 256, _>(|i| i as u8);
     write_mem(&mut state, TEST_BASE_ADDR, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);

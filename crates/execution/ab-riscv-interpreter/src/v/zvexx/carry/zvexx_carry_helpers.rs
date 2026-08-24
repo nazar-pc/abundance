@@ -42,36 +42,36 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let c = if WITH_CARRY {
             // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-            unsafe { carry_bit(ext_state.read_vregs(), i) }
+            unsafe { carry_bit(env.read_vregs(), i) }
         } else {
             0
         };
@@ -82,12 +82,12 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState>(
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute an element-wise subtract-with-borrow over `vstart..vl`, writing SEW-wide data results
@@ -101,47 +101,42 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_sub<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
-    sew: Vsew,
-) where
+pub unsafe fn execute_carry_sub<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, src: OpSrc, sew: Vsew)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-        let borrow = unsafe { carry_bit(ext_state.read_vregs(), i) };
+        let borrow = unsafe { carry_bit(env.read_vregs(), i) };
 
         let result = a.wrapping_sub(b).wrapping_sub(borrow);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute an element-wise add-with-carry over `vstart..vl`, writing the carry-out as a single mask
@@ -162,38 +157,38 @@ pub unsafe fn execute_carry_sub<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let mask = sew_mask(sew);
 
     for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let c = if WITH_CARRY {
             // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-            unsafe { carry_bit(ext_state.read_vregs(), i) }
+            unsafe { carry_bit(env.read_vregs(), i) }
         } else {
             0
         };
@@ -204,12 +199,12 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState>(
 
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, carry_out);
+            write_mask_bit(env.write_vregs(), vd, i, carry_out);
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute an element-wise subtract-with-borrow over `vstart..vl`, writing the borrow-out as a
@@ -226,38 +221,38 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let mask = sew_mask(sew);
 
     for i in vstart.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let borrow_in = if WITH_BORROW {
             // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-            unsafe { carry_bit(ext_state.read_vregs(), i) }
+            unsafe { carry_bit(env.read_vregs(), i) }
         } else {
             0
         };
@@ -268,10 +263,10 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, ExtState>(
 
         // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, borrow_out);
+            write_mask_bit(env.write_vregs(), vd, i, borrow_out);
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }

@@ -20,21 +20,20 @@ const impl<Reg> ExecutableInstructionOperands for Rv32ZcaInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32ZcaInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32ZcaInstruction<Reg> where
     Reg: Register<Type = u32>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv32ZcaInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
-    InstructionHandler: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
+    Env: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -45,10 +44,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // Quadrant 00
@@ -173,7 +171,7 @@ where
                 value: rs2_value,
             },
             Self::CEbreak => {
-                system_instruction_handler.handle_ebreak(regs, memory, program_counter.get_pc());
+                env.handle_ebreak(regs, memory, program_counter.get_pc());
                 ExecutionResult::ContinueNoWrite
             }
             Self::CJalr { rs1: _ } => {

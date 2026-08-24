@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::rv64::test_utils::{ExtState, execute, initialize_state};
+use crate::rv64::test_utils::{Env, execute, initialize_state};
 use crate::zkr::ZkrSeedPoll;
 use crate::{CsrError, Csrs, ExecutableInstructionCsr, ExecutionError, RegisterFile};
 use ab_riscv_primitives::prelude::*;
@@ -16,21 +16,16 @@ const OTHER_CSR: u16 = 0x300;
 /// Convenience wrapper defaulting to a genuine read-write access (`will_write = true`), the
 /// documented polling idiom (`csrrw rd, seed, x0`). Tests exercising the pure-read restriction use
 /// [`prepare_csr_read`][ExecutableInstructionCsr::prepare_csr_read] directly instead.
-fn prepare_read(ext_state: &ExtState, csr_index: u16, raw_value: u64, output: &mut u64) -> bool {
-    <TestZkr as ExecutableInstructionCsr<ExtState>>::prepare_csr_read(
-        ext_state, csr_index, true, raw_value, output,
+fn prepare_read(env: &Env, csr_index: u16, raw_value: u64, output: &mut u64) -> bool {
+    <TestZkr as ExecutableInstructionCsr<Env>>::prepare_csr_read(
+        env, csr_index, true, raw_value, output,
     )
     .unwrap()
 }
 
-fn prepare_write(
-    ext_state: &mut ExtState,
-    csr_index: u16,
-    write_value: u64,
-    output: &mut u64,
-) -> bool {
-    <TestZkr as ExecutableInstructionCsr<ExtState>>::prepare_csr_write(
-        ext_state,
+fn prepare_write(env: &mut Env, csr_index: u16, write_value: u64, output: &mut u64) -> bool {
+    <TestZkr as ExecutableInstructionCsr<Env>>::prepare_csr_write(
+        env,
         csr_index,
         write_value,
         output,
@@ -44,7 +39,7 @@ fn prepare_csr_read_passes_through_seed() {
     let state = initialize_state::<TestZkr, _>([]);
 
     assert!(prepare_read(
-        &state.ext_state,
+        &state.env,
         SEED_CSR_INDEX,
         0xDEAD_BEEF,
         &mut output
@@ -57,12 +52,7 @@ fn prepare_csr_read_ignores_other_csrs() {
     let mut output = 0u64;
     let state = initialize_state::<TestZkr, _>([]);
 
-    assert!(!prepare_read(
-        &state.ext_state,
-        OTHER_CSR,
-        0x1234,
-        &mut output
-    ));
+    assert!(!prepare_read(&state.env, OTHER_CSR, 0x1234, &mut output));
 }
 
 /// Per specification, a pure read (`will_write = false`, e.g. `csrrs`/`csrrc` with `rs1 = x0`)
@@ -72,8 +62,8 @@ fn prepare_csr_read_rejects_pure_read() {
     let mut output = 0u64;
     let state = initialize_state::<TestZkr, _>([]);
 
-    let result = <TestZkr as ExecutableInstructionCsr<ExtState>>::prepare_csr_read(
-        &state.ext_state,
+    let result = <TestZkr as ExecutableInstructionCsr<Env>>::prepare_csr_read(
+        &state.env,
         SEED_CSR_INDEX,
         false,
         0xDEAD_BEEF,
@@ -94,8 +84,8 @@ fn prepare_csr_read_pure_read_of_other_csr_is_still_ignored() {
     let mut output = 0u64;
     let state = initialize_state::<TestZkr, _>([]);
 
-    let result = <TestZkr as ExecutableInstructionCsr<ExtState>>::prepare_csr_read(
-        &state.ext_state,
+    let result = <TestZkr as ExecutableInstructionCsr<Env>>::prepare_csr_read(
+        &state.env,
         OTHER_CSR,
         false,
         0x1234,
@@ -110,7 +100,7 @@ fn prepare_csr_write_ignores_other_csrs() {
     let mut state = initialize_state::<TestZkr, _>([]);
 
     assert!(!prepare_write(
-        &mut state.ext_state,
+        &mut state.env,
         OTHER_CSR,
         0x1234,
         &mut output
@@ -122,12 +112,10 @@ fn prepare_csr_write_ignores_other_csrs() {
 fn prepare_csr_write_ignores_write_value_and_encodes_wait() {
     let mut output = 0u64;
     let mut state = initialize_state::<TestZkr, _>([]);
-    state
-        .ext_state
-        .set_seed_poll_sequence(vec![ZkrSeedPoll::Wait]);
+    state.env.set_seed_poll_sequence(vec![ZkrSeedPoll::Wait]);
 
     assert!(prepare_write(
-        &mut state.ext_state,
+        &mut state.env,
         SEED_CSR_INDEX,
         // Per specification, the write value is fully ignored
         0xFFFF_FFFF_FFFF_FFFF,
@@ -140,11 +128,9 @@ fn prepare_csr_write_ignores_write_value_and_encodes_wait() {
 fn prepare_csr_write_encodes_bist() {
     let mut output = 0u64;
     let mut state = initialize_state::<TestZkr, _>([]);
-    state
-        .ext_state
-        .set_seed_poll_sequence(vec![ZkrSeedPoll::Bist]);
+    state.env.set_seed_poll_sequence(vec![ZkrSeedPoll::Bist]);
 
-    prepare_write(&mut state.ext_state, SEED_CSR_INDEX, 0, &mut output);
+    prepare_write(&mut state.env, SEED_CSR_INDEX, 0, &mut output);
     assert_eq!(output, 0b00u64 << 30);
 }
 
@@ -153,10 +139,10 @@ fn prepare_csr_write_encodes_es16_with_entropy_bits() {
     let mut output = 0u64;
     let mut state = initialize_state::<TestZkr, _>([]);
     state
-        .ext_state
+        .env
         .set_seed_poll_sequence(vec![ZkrSeedPoll::Es16(0xBEEF)]);
 
-    prepare_write(&mut state.ext_state, SEED_CSR_INDEX, 0, &mut output);
+    prepare_write(&mut state.env, SEED_CSR_INDEX, 0, &mut output);
     assert_eq!(output, (0b10u64 << 30) | 0xBEEF);
     // Reserved (`[29:24]`) and custom (`[23:16]`) bits must be zero
     assert_eq!(output & 0x3FFF_0000, 0);
@@ -166,18 +152,16 @@ fn prepare_csr_write_encodes_es16_with_entropy_bits() {
 fn prepare_csr_write_encodes_dead() {
     let mut output = 0u64;
     let mut state = initialize_state::<TestZkr, _>([]);
-    state
-        .ext_state
-        .set_seed_poll_sequence(vec![ZkrSeedPoll::Dead]);
+    state.env.set_seed_poll_sequence(vec![ZkrSeedPoll::Dead]);
 
-    prepare_write(&mut state.ext_state, SEED_CSR_INDEX, 0, &mut output);
+    prepare_write(&mut state.env, SEED_CSR_INDEX, 0, &mut output);
     assert_eq!(output, 0b11u64 << 30);
 }
 
 #[test]
 fn prepare_csr_write_advances_through_poll_sequence_and_holds_last() {
     let mut state = initialize_state::<TestZkr, _>([]);
-    state.ext_state.set_seed_poll_sequence(vec![
+    state.env.set_seed_poll_sequence(vec![
         ZkrSeedPoll::Bist,
         ZkrSeedPoll::Wait,
         ZkrSeedPoll::Es16(0x1234),
@@ -186,7 +170,7 @@ fn prepare_csr_write_advances_through_poll_sequence_and_holds_last() {
     let mut outputs = Vec::new();
     for _ in 0..4 {
         let mut output = 0u64;
-        prepare_write(&mut state.ext_state, SEED_CSR_INDEX, 0, &mut output);
+        prepare_write(&mut state.env, SEED_CSR_INDEX, 0, &mut output);
         outputs.push(output);
     }
 
@@ -209,40 +193,31 @@ fn prepare_csr_write_advances_through_poll_sequence_and_holds_last() {
 #[test]
 fn seed_csr_polling_idiom_round_trips_through_storage() {
     let mut state = initialize_state::<TestZkr, _>([]);
-    state.ext_state.init_csr(SEED_CSR_INDEX, 0);
+    state.env.init_csr(SEED_CSR_INDEX, 0);
     state
-        .ext_state
+        .env
         .set_seed_poll_sequence(vec![ZkrSeedPoll::Wait, ZkrSeedPoll::Es16(0x00FF)]);
 
     // Reset value reads back as `OPST=BIST` (`0`) before any poll has happened
-    assert_eq!(state.ext_state.read_csr(SEED_CSR_INDEX).unwrap(), 0);
+    assert_eq!(state.env.read_csr(SEED_CSR_INDEX).unwrap(), 0);
 
     // First `csrrw`: reads the reset value, then polls (`Wait`) and stores the result
     let mut write_output = 0u64;
-    prepare_write(&mut state.ext_state, SEED_CSR_INDEX, 0, &mut write_output);
-    state
-        .ext_state
-        .write_csr(SEED_CSR_INDEX, write_output)
-        .unwrap();
-    assert_eq!(
-        state.ext_state.read_csr(SEED_CSR_INDEX).unwrap(),
-        0b01u64 << 30
-    );
+    prepare_write(&mut state.env, SEED_CSR_INDEX, 0, &mut write_output);
+    state.env.write_csr(SEED_CSR_INDEX, write_output).unwrap();
+    assert_eq!(state.env.read_csr(SEED_CSR_INDEX).unwrap(), 0b01u64 << 30);
 
     // Second `csrrw`: reads back `WAIT` from the previous write, then polls again (`Es16`)
     let mut read_output = 0u64;
-    let raw = state.ext_state.read_csr(SEED_CSR_INDEX).unwrap();
-    prepare_read(&state.ext_state, SEED_CSR_INDEX, raw, &mut read_output);
+    let raw = state.env.read_csr(SEED_CSR_INDEX).unwrap();
+    prepare_read(&state.env, SEED_CSR_INDEX, raw, &mut read_output);
     assert_eq!(read_output, 0b01u64 << 30);
 
     let mut write_output = 0u64;
-    prepare_write(&mut state.ext_state, SEED_CSR_INDEX, 0, &mut write_output);
-    state
-        .ext_state
-        .write_csr(SEED_CSR_INDEX, write_output)
-        .unwrap();
+    prepare_write(&mut state.env, SEED_CSR_INDEX, 0, &mut write_output);
+    state.env.write_csr(SEED_CSR_INDEX, write_output).unwrap();
     assert_eq!(
-        state.ext_state.read_csr(SEED_CSR_INDEX).unwrap(),
+        state.env.read_csr(SEED_CSR_INDEX).unwrap(),
         (0b10u64 << 30) | 0x00FF
     );
 }
@@ -268,7 +243,7 @@ fn csrrs_pure_read_of_seed_is_rejected_end_to_end() {
         rs2: Reg::Zero,
         csr_index: SEED_CSR_INDEX,
     }]);
-    state.ext_state.init_csr(SEED_CSR_INDEX, 0);
+    state.env.init_csr(SEED_CSR_INDEX, 0);
 
     let error = execute(&mut state).unwrap_err();
     assert_matches!(
@@ -289,15 +264,15 @@ fn csrrs_read_write_of_seed_succeeds_end_to_end() {
         rs2: Reg::Zero,
         csr_index: SEED_CSR_INDEX,
     }]);
-    state.ext_state.init_csr(SEED_CSR_INDEX, 0);
+    state.env.init_csr(SEED_CSR_INDEX, 0);
     state
-        .ext_state
+        .env
         .set_seed_poll_sequence(vec![ZkrSeedPoll::Es16(0x00FF)]);
 
     execute(&mut state).unwrap();
     assert_eq!(state.regs.read(Reg::A0), 0);
     assert_eq!(
-        state.ext_state.read_csr(SEED_CSR_INDEX).unwrap(),
+        state.env.read_csr(SEED_CSR_INDEX).unwrap(),
         (0b10u64 << 30) | 0x00FF
     );
 }
@@ -311,7 +286,7 @@ fn csrrc_pure_read_of_seed_is_rejected_end_to_end() {
         rs2: Reg::Zero,
         csr_index: SEED_CSR_INDEX,
     }]);
-    state.ext_state.init_csr(SEED_CSR_INDEX, 0);
+    state.env.init_csr(SEED_CSR_INDEX, 0);
 
     let error = execute(&mut state).unwrap_err();
     assert_matches!(
@@ -332,7 +307,7 @@ fn csrrsi_pure_read_of_seed_is_rejected_end_to_end() {
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
-    state.ext_state.init_csr(SEED_CSR_INDEX, 0);
+    state.env.init_csr(SEED_CSR_INDEX, 0);
 
     let error = execute(&mut state).unwrap_err();
     assert_matches!(
@@ -353,14 +328,9 @@ fn csrrw_of_seed_always_succeeds_end_to_end() {
         rs2: Reg::Zero,
         csr_index: SEED_CSR_INDEX,
     }]);
-    state.ext_state.init_csr(SEED_CSR_INDEX, 0);
-    state
-        .ext_state
-        .set_seed_poll_sequence(vec![ZkrSeedPoll::Wait]);
+    state.env.init_csr(SEED_CSR_INDEX, 0);
+    state.env.set_seed_poll_sequence(vec![ZkrSeedPoll::Wait]);
 
     execute(&mut state).unwrap();
-    assert_eq!(
-        state.ext_state.read_csr(SEED_CSR_INDEX).unwrap(),
-        0b01u64 << 30
-    );
+    assert_eq!(state.env.read_csr(SEED_CSR_INDEX).unwrap(), 0b01u64 << 30);
 }

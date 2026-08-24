@@ -16,11 +16,11 @@ fn setup(
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -37,10 +37,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -68,7 +67,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -88,7 +87,7 @@ fn write_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -96,7 +95,7 @@ fn write_elem(
 }
 
 fn write_mask(state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>, bits: u32) {
-    let reg = state.ext_state.write_vregs().get_mut(VReg::V0);
+    let reg = state.env.write_vregs().get_mut(VReg::V0);
     reg.fill(0);
     for i in 0..32 {
         if (bits >> i) & 1 != 0 {
@@ -143,8 +142,8 @@ fn vwaddu_vv_e8_m1_zero_extends() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1006,7 +1005,7 @@ fn vnsrl_wv_e8_m1_logical_shift() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1202,8 +1201,8 @@ fn vzext_vf2_e16_m1_zero_extends() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1350,8 +1349,8 @@ fn vsext_vf2_e16_m1_sign_extends() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1571,7 +1570,7 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 2);
         write_elem(&mut state, VReg::V8, i, Vsew::E16, 0xdead);
     }
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxWidenNarrowInstruction::VwadduVv {
@@ -1591,7 +1590,7 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
     assert_eq!(read_elem(&state, VReg::V8, 2, Vsew::E16), 3u64);
     assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E16), 3u64);
     // vstart must be reset to 0 after execution
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // Illegal instruction: SEW=64 for widening
@@ -1866,7 +1865,7 @@ fn vzext_vf2_masked_vd_v0_illegal() {
 fn vwaddu_vv_vtype_not_set_illegal() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // Explicitly invalidate vtype
-    state.ext_state.set_vtype(None);
+    state.env.set_vtype(None);
     let result = exec(
         &mut state,
         ZveXxWidenNarrowInstruction::VwadduVv {
@@ -1887,7 +1886,7 @@ fn vwaddu_vv_vtype_not_set_illegal() {
 #[test]
 fn vnsrl_vtype_not_set_illegal() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vtype(None);
+    state.env.set_vtype(None);
     let result = exec(
         &mut state,
         ZveXxWidenNarrowInstruction::VnsrlWi {
@@ -1910,7 +1909,7 @@ fn vnsrl_vtype_not_set_illegal() {
 #[test]
 fn vwaddu_vv_not_allowed_illegal() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxWidenNarrowInstruction::VwadduVv {
@@ -1931,7 +1930,7 @@ fn vwaddu_vv_not_allowed_illegal() {
 #[test]
 fn vsext_vf2_not_allowed_illegal() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxWidenNarrowInstruction::VsextVf2 {
@@ -2122,8 +2121,8 @@ fn vwaddu_vv_vl_zero_nop() {
         );
     }
     // vs_dirty and vstart still updated (instruction did execute)
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // vnsrl shamt mask boundary

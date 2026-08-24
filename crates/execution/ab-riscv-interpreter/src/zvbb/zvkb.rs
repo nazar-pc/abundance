@@ -32,19 +32,16 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZvkbInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZvkbInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZvkbInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZvkbInstruction<Reg>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZvkbInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -57,15 +54,14 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // vandn: vd[i] = ~vs1[i] & vs2[i]  (or ~rs1 & vs2[i])
             Self::VandnVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -81,7 +77,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -109,7 +105,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vandn::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Vreg(vs1),
@@ -124,7 +120,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -140,7 +136,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -164,7 +160,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vandn::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Scalar(scalar),
@@ -175,7 +171,7 @@ where
             }
             // vbrev8: reverse bits within each byte of each element
             Self::Vbrev8V { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -191,7 +187,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -213,12 +209,12 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vbrev8::<Reg, _>(ext_state, vd, vs2, sew, vm);
+                    zvkb_helpers::execute_vbrev8::<Reg, _>(env, vd, vs2, sew, vm);
                 }
             }
             // vrev8: reverse bytes within each element
             Self::Vrev8V { vd, vs2, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -234,7 +230,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -256,12 +252,12 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvkb_helpers::execute_vrev8::<Reg, _>(ext_state, vd, vs2, sew, vm);
+                    zvkb_helpers::execute_vrev8::<Reg, _>(env, vd, vs2, sew, vm);
                 }
             }
             // vrol: vd[i] = rotate_left(vs2[i], src[i] % SEW)
             Self::VrolVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -277,7 +273,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -305,7 +301,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vrol::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Vreg(vs1),
@@ -320,7 +316,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -336,7 +332,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -360,7 +356,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vrol::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Scalar(scalar),
@@ -371,7 +367,7 @@ where
             }
             // vror: vd[i] = rotate_right(vs2[i], src[i] % SEW)
             Self::VrorVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -387,7 +383,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -415,7 +411,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vror::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Vreg(vs1),
@@ -430,7 +426,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -446,7 +442,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -470,7 +466,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vror::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Scalar(scalar),
@@ -481,7 +477,7 @@ where
             }
             // vror.vi: 5-bit immediate in vs1[19:15]; bit[25] is the standard vm mask-control bit
             Self::VrorVi { vd, vs2, uimm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -497,7 +493,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -520,7 +516,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvkb_helpers::execute_vror::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvkb_helpers::OpSrc::Scalar(u64::from(uimm)),

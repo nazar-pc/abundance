@@ -20,7 +20,7 @@ use crate::elf::{LoadedElf, load_elf};
 use crate::instruction::CoremarkInstruction;
 use crate::interpreter::{EagerInstructions, GuestMemory};
 use crate::time_csr::TimeCsrState;
-use ab_riscv_interpreter::basic::{BasicRegisters, IllegalEcallSystemInstructionHandler};
+use ab_riscv_interpreter::basic::BasicRegisters;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -103,7 +103,6 @@ fn main() -> anyhow::Result<()> {
         &mut regs,
         &mut TimeCsrState::default(),
         &mut memory,
-        IllegalEcallSystemInstructionHandler,
     );
 
     outcome.context("Coremark execution failed")?;

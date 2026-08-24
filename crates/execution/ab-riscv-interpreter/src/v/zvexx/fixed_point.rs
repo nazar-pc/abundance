@@ -20,20 +20,19 @@ const impl<Reg> ExecutableInstructionOperands for ZveXxFixedPointInstruction<Reg
 {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxFixedPointInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxFixedPointInstruction<Reg> where
     Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxFixedPointInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -46,15 +45,14 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
             Self::VsadduVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -62,7 +60,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -98,7 +96,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -116,7 +114,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -124,7 +122,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -156,7 +154,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -169,7 +167,7 @@ where
                 }
             }
             Self::VsadduVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -177,7 +175,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -211,7 +209,7 @@ where
                 let scalar = i64::from(imm).cast_unsigned();
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -225,7 +223,7 @@ where
             }
             // vsadd.vv / vsadd.vx / vsadd.vi - saturating signed add
             Self::VsaddVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -233,7 +231,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -269,7 +267,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -287,7 +285,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -295,7 +293,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -327,7 +325,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -340,7 +338,7 @@ where
                 }
             }
             Self::VsaddVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -348,7 +346,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -381,7 +379,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -395,7 +393,7 @@ where
             }
             // vssubu.vv / vssubu.vx - saturating unsigned subtract
             Self::VssubuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -403,7 +401,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -439,7 +437,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -457,7 +455,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -465,7 +463,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -497,7 +495,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -511,7 +509,7 @@ where
             }
             // vssub.vv / vssub.vx - saturating signed subtract
             Self::VssubVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -519,7 +517,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -555,7 +553,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -573,7 +571,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -581,7 +579,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -613,7 +611,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -627,7 +625,7 @@ where
             }
             // vaaddu.vv / vaaddu.vx - averaging unsigned add
             Self::VaadduVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -635,7 +633,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -671,7 +669,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -689,7 +687,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -697,7 +695,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -729,7 +727,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -743,7 +741,7 @@ where
             }
             // vaadd.vv / vaadd.vx - averaging signed add
             Self::VaaddVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -751,7 +749,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -787,7 +785,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -805,7 +803,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -813,7 +811,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -845,7 +843,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -859,7 +857,7 @@ where
             }
             // vasubu.vv / vasubu.vx - averaging unsigned subtract
             Self::VasubuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -867,7 +865,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -903,7 +901,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -921,7 +919,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -929,7 +927,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -961,7 +959,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -975,7 +973,7 @@ where
             }
             // vasub.vv / vasub.vx - averaging signed subtract
             Self::VasubVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -983,7 +981,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1019,7 +1017,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1037,7 +1035,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1045,7 +1043,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1077,7 +1075,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1091,7 +1089,7 @@ where
             }
             // vsmul.vv / vsmul.vx - fractional multiply with rounding and saturation
             Self::VsmulVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1099,7 +1097,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1144,7 +1142,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1162,7 +1160,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1170,7 +1168,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1211,7 +1209,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1225,7 +1223,7 @@ where
             }
             // vssrl.vv / vssrl.vx / vssrl.vi - scaling shift right logical
             Self::VssrlVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1233,7 +1231,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1269,7 +1267,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1291,7 +1289,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1299,7 +1297,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1331,7 +1329,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1347,7 +1345,7 @@ where
                 }
             }
             Self::VssrlVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1355,7 +1353,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1388,7 +1386,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
@@ -1405,7 +1403,7 @@ where
             }
             // vssra.vv / vssra.vx / vssra.vi - scaling shift right arithmetic
             Self::VssraVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1413,7 +1411,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1449,7 +1447,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1469,7 +1467,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1477,7 +1475,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1509,7 +1507,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1524,7 +1522,7 @@ where
                 }
             }
             Self::VssraVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1532,7 +1530,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1564,7 +1562,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
@@ -1580,7 +1578,7 @@ where
             }
             // vnclipu.wv / vnclipu.wx / vnclipu.wi - narrowing unsigned clip
             Self::VnclipuWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1588,7 +1586,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1629,7 +1627,7 @@ where
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1647,7 +1645,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1655,7 +1653,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1689,7 +1687,7 @@ where
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1702,7 +1700,7 @@ where
                 }
             }
             Self::VnclipuWi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1710,7 +1708,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1743,7 +1741,7 @@ where
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         // Immediate is the shift amount directly; masking done inside the helper
@@ -1758,7 +1756,7 @@ where
             }
             // vnclip.wv / vnclip.wx / vnclip.wi - narrowing signed clip
             Self::VnclipWv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1766,7 +1764,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1804,7 +1802,7 @@ where
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1822,7 +1820,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1830,7 +1828,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1864,7 +1862,7 @@ where
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1877,7 +1875,7 @@ where
                 }
             }
             Self::VnclipWi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1885,7 +1883,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1918,7 +1916,7 @@ where
                 // SAFETY: sew <= 32 checked; alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),

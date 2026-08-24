@@ -21,14 +21,13 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZcmpInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZcmpInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZcmpInstruction<Reg> where
     Reg: ZcmpRegister<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZcmpInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u64>,
@@ -42,10 +41,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }
@@ -58,21 +56,20 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZcmpOnlyInstruction<Reg> w
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZcmpOnlyInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZcmpOnlyInstruction<Reg> where
     Reg: ZcmpRegister<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZcmpOnlyInstruction<Reg>
 where
     Reg: ZcmpRegister<Type = u64>,
     Regs: RegisterFile<Reg>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
-    InstructionHandler: SystemInstructionHandler<Reg, Regs, Memory, PC>,
+    Env: SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -83,10 +80,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::CmPush { urlist, stack_adj } => {
