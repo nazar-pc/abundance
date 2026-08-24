@@ -50,17 +50,14 @@ where
 const impl<Reg> ExecutableInstructionOperands for ZawrsInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZawrsInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZawrsInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZawrsInstruction<Reg>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZawrsInstruction<Reg>
 where
     Reg: [const] Register,
-    InstructionHandler: [const] WrsHandler,
+    Env: [const] WrsHandler,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -71,18 +68,17 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::WrsNto => {
-                system_instruction_handler.handle_wrs_nto();
+                env.handle_wrs_nto();
                 ExecutionResult::ContinueNoWrite
             }
             Self::WrsSto => {
-                system_instruction_handler.handle_wrs_sto();
+                env.handle_wrs_sto();
                 ExecutionResult::ContinueNoWrite
             }
         }

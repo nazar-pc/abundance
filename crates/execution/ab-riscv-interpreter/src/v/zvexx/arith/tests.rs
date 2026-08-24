@@ -18,11 +18,11 @@ fn setup(
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxArithInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -40,10 +40,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -66,14 +65,14 @@ fn set_vreg(
     reg: VReg,
     data: &[u8],
 ) {
-    let dst = state.ext_state.write_vregs().get_mut(reg);
+    let dst = state.env.write_vregs().get_mut(reg);
     dst.fill(0);
     dst[..data.len()].copy_from_slice(data);
 }
 
 /// Read a full vector register as bytes
 fn get_vreg(state: &TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
-    *state.ext_state.read_vregs().get(reg)
+    *state.env.read_vregs().get(reg)
 }
 
 /// Read element `i` from a register group as a u64 (zero-extended), given SEW
@@ -88,7 +87,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -109,7 +108,7 @@ fn write_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -122,7 +121,7 @@ fn mask_bit(
     reg: VReg,
     i: u32,
 ) -> bool {
-    let byte = state.ext_state.read_vregs().get(reg)[(i / u8::BITS) as usize];
+    let byte = state.env.read_vregs().get(reg)[(i / u8::BITS) as usize];
     (byte >> (i % u8::BITS)) & 1 != 0
 }
 
@@ -164,8 +163,8 @@ fn vadd_vv_e8_m1_basic() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -555,7 +554,7 @@ fn vsrl_vx_e8_does_not_bleed_upper_bits() {
     // Register holds 0xAB in the e8 slot; upper bits of u64 representation must not affect result
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
     // Manually place 0xAB in the byte slot for element 0
-    state.ext_state.write_vregs().get_mut(VReg::V2)[0] = 0xAB;
+    state.env.write_vregs().get_mut(VReg::V2)[0] = 0xAB;
     state.regs.write(Reg::A0, 1);
     exec(
         &mut state,
@@ -576,8 +575,8 @@ fn vsrl_vx_e8_does_not_bleed_upper_bits() {
 fn vsra_vv_e8_arithmetic_shift() {
     // 0x80 as signed i8 = -128; >> 1 = -64 = 0xC0 (arithmetic)
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.write_vregs().get_mut(VReg::V2)[0] = 0x80;
-    state.ext_state.write_vregs().get_mut(VReg::V2)[1] = 0x40;
+    state.env.write_vregs().get_mut(VReg::V2)[0] = 0x80;
+    state.env.write_vregs().get_mut(VReg::V2)[1] = 0x40;
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 1);
     write_elem(&mut state, VReg::V1, 1, Vsew::E8, 1);
     exec(
@@ -793,15 +792,15 @@ fn vmseq_vv_e8_m1_writes_mask_bits() {
     // Bits above vl (8..VLEN) must remain undisturbed (all-ones from pre-fill)
     for i in 8..256usize {
         assert_eq!(
-            (state.ext_state.read_vregs().get(VReg::V4)[i / u8::BITS as usize]
+            (state.env.read_vregs().get(VReg::V4)[i / u8::BITS as usize]
                 >> (i % u8::BITS as usize))
                 & 1,
             1,
             "tail bit {i} was disturbed"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -985,7 +984,7 @@ fn vmsleu_vi_negative_imm_always_true() {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
     }
     // Pre-clear vd bits so we can confirm they all get set
-    state.ext_state.write_vregs().get_mut(VReg::V4)[0] = 0x00;
+    state.env.write_vregs().get_mut(VReg::V4)[0] = 0x00;
     exec(
         &mut state,
         ZveXxArithInstruction::VmsleuVi {
@@ -1117,7 +1116,7 @@ fn masked_arith_leaves_inactive_elements_undisturbed() {
     // vm=false: only active (mask bit set) elements are written; others unchanged
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     // Mask: bits 0 and 2 active, bits 1 and 3 inactive
-    state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0b0101;
+    state.env.write_vregs().get_mut(VReg::V0)[0] = 0b0101;
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 10);
         write_elem(&mut state, VReg::V1, i, Vsew::E32, 1);
@@ -1152,13 +1151,13 @@ fn masked_arith_leaves_inactive_elements_undisturbed() {
 fn masked_compare_leaves_inactive_mask_bits_undisturbed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     // Mask: only bits 0 and 2 active
-    state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0b0101;
+    state.env.write_vregs().get_mut(VReg::V0)[0] = 0b0101;
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 5);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 5);
     }
     // Pre-fill destination bits with known pattern: all 1s
-    state.ext_state.write_vregs().get_mut(VReg::V4)[0] = 0xFF;
+    state.env.write_vregs().get_mut(VReg::V4)[0] = 0xFF;
     exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1172,7 +1171,7 @@ fn masked_compare_leaves_inactive_mask_bits_undisturbed() {
     )
     .unwrap();
     // Active elements (0,2): eq -> bit set; inactive (1,3): undisturbed (were 1)
-    let vd = state.ext_state.read_vregs().get(VReg::V4)[0];
+    let vd = state.env.read_vregs().get(VReg::V4)[0];
     // bits 0,2 active and eq -> 1; bits 1,3 undisturbed from 1
     assert_eq!(vd & 0x0F, 0b1111);
 }
@@ -1182,7 +1181,7 @@ fn compare_can_write_to_v0_when_masked() {
     // Per spec, compare destination may be v0 even with masking (vm=false)
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
     // Mask v0 all active
-    state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0xFF;
+    state.env.write_vregs().get_mut(VReg::V0)[0] = 0xFF;
     write_elem(&mut state, VReg::V2, 0, Vsew::E8, 5);
     write_elem(&mut state, VReg::V2, 1, Vsew::E8, 3);
     write_elem(&mut state, VReg::V1, 0, Vsew::E8, 5);
@@ -1218,7 +1217,7 @@ fn vstart_skips_elements_before_vstart() {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
     // Start at element 2: elements 0,1 should remain as sentinel
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1240,7 +1239,7 @@ fn vstart_skips_elements_before_vstart() {
     // executed
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 2);
     // vstart must be reset to 0
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1251,8 +1250,8 @@ fn vstart_skips_elements_before_vstart_compare() {
         write_elem(&mut state, VReg::V1, i, Vsew::E8, i as u64);
     }
     // Pre-fill vd bits with 0
-    state.ext_state.write_vregs().get_mut(VReg::V4)[0] = 0x00;
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.write_vregs().get_mut(VReg::V4)[0] = 0x00;
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1266,9 +1265,9 @@ fn vstart_skips_elements_before_vstart_compare() {
     )
     .unwrap();
     // Bits 0,1 undisturbed (0); bits 2,3 written (eq = 1)
-    let vd = state.ext_state.read_vregs().get(VReg::V4)[0];
+    let vd = state.env.read_vregs().get(VReg::V4)[0];
     assert_eq!(vd & 0x0F, 0b1100);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // vl=0: no writes, dirty still incremented
@@ -1298,7 +1297,7 @@ fn vl_zero_no_elements_written() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 // Error paths
@@ -1306,7 +1305,7 @@ fn vl_zero_no_elements_written() {
 #[test]
 fn error_vector_instructions_not_allowed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1327,10 +1326,10 @@ fn error_vector_instructions_not_allowed() {
 #[test]
 fn error_vill_set_vtype() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // vtype = None (vill set)
-    state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(Vl::ZERO);
+    state.env.set_vtype(None);
+    state.env.set_vl(Vl::ZERO);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1413,7 +1412,7 @@ fn error_masked_arith_vd_is_v0() {
 #[test]
 fn error_vector_not_allowed_compare() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
@@ -1561,12 +1560,12 @@ fn every_instruction_marks_vs_dirty_exactly_once() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
         exec(&mut state, *instr).unwrap();
         assert_eq!(
-            state.ext_state.vs_dirty_count(),
+            state.env.vs_dirty_count(),
             1,
             "instr #{n} didn't mark dirty exactly once"
         );
         assert_eq!(
-            state.ext_state.vstart(),
+            state.env.vstart(),
             Vstart::ZERO,
             "instr #{n} didn't reset vstart"
         );
@@ -1597,10 +1596,7 @@ fn compare_mask_dest_may_overlap_vs2_base_lmul_gt_1() {
         },
     )
     .unwrap();
-    assert_eq!(
-        state.ext_state.read_vregs().get(VReg::V2)[0..2],
-        [0xFF, 0xFF]
-    );
+    assert_eq!(state.env.read_vregs().get(VReg::V2)[0..2], [0xFF, 0xFF]);
 }
 
 #[test]
@@ -1622,10 +1618,7 @@ fn compare_mask_dest_may_overlap_vs1_base_lmul_gt_1() {
         },
     )
     .unwrap();
-    assert_eq!(
-        state.ext_state.read_vregs().get(VReg::V6)[0..2],
-        [0xFF, 0xFF]
-    );
+    assert_eq!(state.env.read_vregs().get(VReg::V6)[0..2], [0xFF, 0xFF]);
 }
 
 #[test]
@@ -1690,10 +1683,7 @@ fn compare_mask_dest_may_overlap_vs2_lmul_gt_1_vx() {
         },
     )
     .unwrap();
-    assert_eq!(
-        state.ext_state.read_vregs().get(VReg::V2)[0..2],
-        [0xFF, 0xFF]
-    );
+    assert_eq!(state.env.read_vregs().get(VReg::V2)[0..2], [0xFF, 0xFF]);
 }
 
 #[test]
@@ -1716,7 +1706,7 @@ fn compare_mask_dest_may_overlap_source_at_lmul_1() {
     )
     .unwrap();
     // All 4 elements equal 42 -> low 4 bits set
-    assert_eq!(state.ext_state.read_vregs().get(VReg::V2)[0] & 0x0F, 0x0F);
+    assert_eq!(state.env.read_vregs().get(VReg::V2)[0] & 0x0F, 0x0F);
 }
 
 #[test]
@@ -1739,5 +1729,5 @@ fn compare_mask_dest_outside_source_group_lmul_gt_1_ok() {
         },
     )
     .unwrap();
-    assert_eq!(state.ext_state.read_vregs().get(VReg::V8)[0], 0xFF);
+    assert_eq!(state.env.read_vregs().get(VReg::V8)[0], 0xFF);
 }

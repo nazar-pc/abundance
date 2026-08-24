@@ -54,12 +54,12 @@ where
 impl<Reg> ExecutableInstructionOperands for MachineModePlaceholder<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for MachineModePlaceholder<Reg>
+impl<Reg, Env> ExecutableInstructionCsr<Env> for MachineModePlaceholder<Reg>
 where
     Reg: Register,
 {
     fn prepare_csr_read(
-        _ext_state: &ExtState,
+        _env: &Env,
         csr_index: u16,
         _will_write: bool,
         raw_value: Reg::Type,
@@ -90,7 +90,7 @@ where
     }
 
     fn prepare_csr_write(
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
@@ -133,8 +133,7 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for MachineModePlaceholder<Reg>
 where
     Reg: Register,
@@ -146,10 +145,9 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }

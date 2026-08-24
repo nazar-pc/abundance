@@ -119,10 +119,9 @@ fn test_cjal_negative_offset() {
     let next = instruction.execute(
         Rs1Rs2OperandValues::default(),
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     );
     assert_matches!(next, ExecutionResult::Branch { offset: -4 });
     state

@@ -21,11 +21,11 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 
 fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -42,10 +42,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -63,7 +62,7 @@ fn exec(
 }
 
 fn get_vreg(state: &TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
-    *state.ext_state.read_vregs().get(reg)
+    *state.env.read_vregs().get(reg)
 }
 
 fn set_vreg(
@@ -71,7 +70,7 @@ fn set_vreg(
     reg: VReg,
     data: [u8; 32],
 ) {
-    *state.ext_state.write_vregs().get_mut(reg) = data;
+    *state.env.write_vregs().get_mut(reg) = data;
 }
 
 /// Read element `i` from a register group as a u64 (zero-extended), given SEW
@@ -86,7 +85,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -100,7 +99,7 @@ fn mask_bit(
     reg: VReg,
     i: u32,
 ) -> bool {
-    let byte = state.ext_state.read_vregs().get(reg)[(i / u8::BITS) as usize];
+    let byte = state.env.read_vregs().get(reg)[(i / u8::BITS) as usize];
     (byte >> (i % u8::BITS)) & 1 != 0
 }
 
@@ -126,8 +125,8 @@ fn vmand_basic() {
     .unwrap();
     // 0xAA & 0xCC = 0x88
     assert_eq!(get_vreg(&state, VReg::V4), [0x88; 32]);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -310,7 +309,7 @@ fn vmand_respects_vstart_prestart_undisturbed() {
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0xFF; 32]);
     set_vreg(&mut state, VReg::V4, [0x00; 32]);
-    state.ext_state.set_vstart(Vstart::from(4));
+    state.env.set_vstart(Vstart::from(4));
     exec(
         &mut state,
         ZveXxMaskInstruction::Vmand {
@@ -330,7 +329,7 @@ fn vmand_respects_vstart_prestart_undisturbed() {
     for i in 4..8 {
         assert!(mask_bit(&state, VReg::V4, i), "body bit {i}");
     }
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// With vl=0, mask-logical ops write nothing; vd is undisturbed but VS is still marked dirty.
@@ -352,7 +351,7 @@ fn vmand_vl_zero_undisturbed() {
     )
     .unwrap();
     assert_eq!(get_vreg(&state, VReg::V4), [0x5C; 32]);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 /// Regression for the Vx16-vmand.mm certification failure. The cert uses SEW=16, LMUL=1/4,
@@ -457,7 +456,7 @@ fn vmand_vd_is_v0() {
 #[test]
 fn vmand_vector_not_allowed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vmand {
@@ -493,8 +492,8 @@ fn vcpop_all_set_unmasked() {
     )
     .unwrap();
     assert_eq!(state.regs.read(Reg::A0), 16);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// vcpop with all bits clear
@@ -571,7 +570,7 @@ fn vcpop_masked() {
 fn vcpop_vstart_skips_early_elements() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
-    state.ext_state.set_vstart(Vstart::from(4));
+    state.env.set_vstart(Vstart::from(4));
     exec(
         &mut state,
         ZveXxMaskInstruction::Vcpop {
@@ -591,7 +590,7 @@ fn vcpop_vstart_skips_early_elements() {
 #[test]
 fn vcpop_invalid_vtype() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vtype(None);
+    state.env.set_vtype(None);
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vcpop {
@@ -612,7 +611,7 @@ fn vcpop_invalid_vtype() {
 #[test]
 fn vcpop_vector_not_allowed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vcpop {
@@ -678,8 +677,8 @@ fn vfirst_basic() {
     )
     .unwrap();
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// vfirst with no bits set returns -1 (all-ones for XLEN=64 -> u64::MAX)
@@ -778,7 +777,7 @@ fn vfirst_vstart_skips_early() {
     let mut data = [0u8; 32];
     data[0] = 0b0010_0010;
     set_vreg(&mut state, VReg::V2, data);
-    state.ext_state.set_vstart(Vstart::from(3));
+    state.env.set_vstart(Vstart::from(3));
     exec(
         &mut state,
         ZveXxMaskInstruction::Vfirst {
@@ -822,8 +821,8 @@ fn vmsbf_first_at_position_3() {
     for i in 3..8 {
         assert!(!mask_bit(&state, VReg::V4, i), "bit {i} should be clear");
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// vmsbf when no bit is set in vs2: all active elements in vd are set
@@ -971,7 +970,7 @@ fn vmsbf_vd_eq_v0_masked_illegal() {
 #[test]
 fn vmsbf_nonzero_vstart_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vmsbf {
@@ -1013,8 +1012,8 @@ fn vmsof_first_at_position_3() {
     for i in 0..8 {
         assert_eq!(mask_bit(&state, VReg::V4, i), i == 3, "bit {i}");
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// vmsof when no bit is set: all active elements in vd are clear
@@ -1119,7 +1118,7 @@ fn vmsof_masked_inactive_undisturbed() {
 #[test]
 fn vmsof_nonzero_vstart_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vmsof {
@@ -1164,8 +1163,8 @@ fn vmsif_first_at_position_3() {
     for i in 4..8 {
         assert!(!mask_bit(&state, VReg::V4, i), "bit {i} should be clear");
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// vmsif when no bit is set: all active elements are set
@@ -1257,7 +1256,7 @@ fn vmsif_vd_eq_v0_masked_illegal() {
 #[test]
 fn vmsif_nonzero_vstart_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vmsif {
@@ -1386,8 +1385,8 @@ fn viota_basic_e8_m1() {
     for (i, &exp) in expected.iter().enumerate() {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), exp, "elem {i}");
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// viota with SEW=32
@@ -1467,7 +1466,7 @@ fn viota_inactive_vs2_bits_treated_as_zero() {
 #[test]
 fn viota_nonzero_vstart_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Viota {
@@ -1629,8 +1628,8 @@ fn vid_basic_e8_m1() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 /// vid.v with SEW=16
@@ -1808,7 +1807,7 @@ fn vid_misaligned_vd_illegal() {
 fn vid_vstart_undisturbed_below() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V4, [0xFF; 32]);
-    state.ext_state.set_vstart(Vstart::from(4));
+    state.env.set_vstart(Vstart::from(4));
     exec(
         &mut state,
         ZveXxMaskInstruction::Vid {
@@ -1837,7 +1836,7 @@ fn vid_vstart_undisturbed_below() {
 #[test]
 fn vid_invalid_vtype() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vtype(None);
+    state.env.set_vtype(None);
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vid {
@@ -1857,7 +1856,7 @@ fn vid_invalid_vtype() {
 #[test]
 fn vid_vector_not_allowed() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxMaskInstruction::Vid {
@@ -2038,15 +2037,11 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
     ];
     for (idx, &instr) in vstart_ok.iter().enumerate() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-        state.ext_state.set_vstart(Vstart::from(2));
+        state.env.set_vstart(Vstart::from(2));
         exec(&mut state, instr).unwrap();
+        assert_eq!(state.env.vs_dirty_count(), 1, "instruction {idx}: vs_dirty");
         assert_eq!(
-            state.ext_state.vs_dirty_count(),
-            1,
-            "instruction {idx}: vs_dirty"
-        );
-        assert_eq!(
-            state.ext_state.vstart(),
+            state.env.vstart(),
             Vstart::ZERO,
             "instruction {idx}: vstart reset"
         );
@@ -2086,12 +2081,12 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
         exec(&mut state, instr).unwrap();
         assert_eq!(
-            state.ext_state.vs_dirty_count(),
+            state.env.vs_dirty_count(),
             1,
             "vstart=0 instruction {idx}: vs_dirty"
         );
         assert_eq!(
-            state.ext_state.vstart(),
+            state.env.vstart(),
             Vstart::ZERO,
             "vstart=0 instruction {idx}"
         );
@@ -2162,7 +2157,7 @@ fn mask_logical_invalid_vtype() {
     ];
     for (idx, &op) in ops.iter().enumerate() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-        state.ext_state.set_vtype(None);
+        state.env.set_vtype(None);
         let result = exec(&mut state, op);
         assert!(
             matches!(result, Err(ExecutionError::IllegalInstruction { .. })),

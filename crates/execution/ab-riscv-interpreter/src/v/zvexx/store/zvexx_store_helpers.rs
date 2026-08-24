@@ -93,8 +93,8 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_unit_stride_store<Reg, Env, Memory>(
+    env: &mut Env,
     memory: &mut Memory,
     vs3: VReg,
     vm: bool,
@@ -105,17 +105,17 @@ pub unsafe fn execute_unit_stride_store<Reg, ExtState, Memory>(
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -139,18 +139,17 @@ where
             //
             // Therefore,
             // `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
-            let data =
-                unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, eew) };
+            let data = unsafe { read_group_element(env.read_vregs(), field_base_reg, i, eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
-                ext_state.set_vstart(Vstart::from(i));
+                env.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::from(error));
             }
         }
     }
-    ext_state.reset_vstart();
+    env.reset_vstart();
     Ok(())
 }
 
@@ -171,8 +170,8 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_strided_store<Reg, ExtState, Memory>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_strided_store<Reg, Env, Memory>(
+    env: &mut Env,
     memory: &mut Memory,
     vs3: VReg,
     vm: bool,
@@ -184,16 +183,16 @@ pub unsafe fn execute_strided_store<Reg, ExtState, Memory>(
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -207,18 +206,17 @@ where
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
             // i / elems_per_reg < field_base_reg + group_regs <= vs3.to_bits() + nf *
             // group_regs <= 32`.
-            let data =
-                unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, eew) };
+            let data = unsafe { read_group_element(env.read_vregs(), field_base_reg, i, eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
                 cold_path();
-                ext_state.set_vstart(Vstart::from(i));
+                env.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::from(error));
             }
         }
     }
-    ext_state.reset_vstart();
+    env.reset_vstart();
     Ok(())
 }
 
@@ -244,8 +242,8 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_indexed_store<Reg, ExtState, Memory>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_indexed_store<Reg, Env, Memory>(
+    env: &mut Env,
     memory: &mut Memory,
     vs3: VReg,
     vs2: VReg,
@@ -258,16 +256,16 @@ pub unsafe fn execute_indexed_store<Reg, ExtState, Memory>(
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
 {
     let data_group_regs = data_group_regs.get();
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let data_elem_bytes = data_eew.bytes_width();
     // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -275,7 +273,7 @@ where
         // SAFETY: `i < vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()` (precondition),
         // so `vs2.to_bits() + i / (VLEN.bytes() / index_eew.bytes()) <
         //     vs2.to_bits() + index_group_regs <= 32`
-        let index_buf = unsafe { read_group_element(ext_state.read_vregs(), vs2, i, index_eew) };
+        let index_buf = unsafe { read_group_element(env.read_vregs(), vs2, i, index_eew) };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
         let elem_base = base.wrapping_add(offset);
@@ -287,17 +285,16 @@ where
             // SAFETY: `i < vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()` (precondition),
             // so `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
             //                                    <= vs3.to_bits() + nf * data_group_regs <= 32`.
-            let data =
-                unsafe { read_group_element(ext_state.read_vregs(), field_base_reg, i, data_eew) };
+            let data = unsafe { read_group_element(env.read_vregs(), field_base_reg, i, data_eew) };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
                 cold_path();
-                ext_state.set_vstart(Vstart::from(i));
+                env.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::from(error));
             }
         }
     }
-    ext_state.reset_vstart();
+    env.reset_vstart();
     Ok(())
 }

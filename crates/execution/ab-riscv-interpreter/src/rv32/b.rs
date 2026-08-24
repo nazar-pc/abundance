@@ -22,14 +22,14 @@ const impl<Reg> ExecutableInstructionOperands for Rv32BInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv32BInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32BInstruction<Reg> where
     Reg: Register<Type = u32>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for Rv32BInstruction<Reg>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv32BInstruction<Reg>
 where
     Reg: Register<Type = u32>,
 {
@@ -42,10 +42,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }

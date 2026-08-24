@@ -145,9 +145,8 @@ pub(super) fn generate_threaded_fns(
             _instruction: #self_ty,
             mut instruction_fetcher: PC,
             regs: &mut Regs,
-            ext_state: ExtState,
+            env: Env,
             memory: &mut Memory,
-            system_instruction_handler: InstructionHandler,
         ) -> #handler_result_ty
             #where_clause
         {
@@ -212,9 +211,8 @@ pub(super) fn generate_threaded_fns(
                     instruction,
                     instruction_fetcher,
                     regs,
-                    ext_state,
+                    env,
                     memory,
-                    system_instruction_handler,
                 )
             }
         }
@@ -258,9 +256,8 @@ pub(super) fn generate_threaded_fns(
                 instruction: #self_ty,
                 mut instruction_fetcher: PC,
                 regs: &mut Regs,
-                mut ext_state: ExtState,
+                mut env: Env,
                 memory: &mut Memory,
-                mut system_instruction_handler: InstructionHandler,
             ) -> #handler_result_ty
                 #where_clause
             {
@@ -293,10 +290,9 @@ pub(super) fn generate_threaded_fns(
                     rs1_value,
                     rs2_value,
                     regs,
-                    &mut ext_state,
+                    &mut env,
                     memory,
                     &mut instruction_fetcher,
-                    &mut system_instruction_handler,
                 );
 
                 let control_flow = match execution_result {
@@ -326,9 +322,8 @@ pub(super) fn generate_threaded_fns(
                                     instruction,
                                     instruction_fetcher,
                                     regs,
-                                    ext_state,
+                                    env,
                                     memory,
-                                    system_instruction_handler,
                                 )
                             }
                         }
@@ -422,9 +417,8 @@ pub(super) fn generate_threaded_fns(
                         instruction,
                         instruction_fetcher,
                         regs,
-                        ext_state,
+                        env,
                         memory,
-                        system_instruction_handler,
                     )
                 }
             }
@@ -456,9 +450,8 @@ pub(super) fn generate_threaded_fns(
                 #self_ty,
                 PC,
                 &mut Regs,
-                ExtState,
+                Env,
                 &mut Memory,
-                InstructionHandler,
             ) -> #handler_result_ty,
         >
             #where_clause
@@ -511,9 +504,8 @@ pub(super) fn generate_threaded_fns(
         unsafe fn #entry_fn_name<#generic_params>(
             mut instruction_fetcher: PC,
             regs: &mut Regs,
-            ext_state: ExtState,
+            env: Env,
             memory: &mut Memory,
-            system_instruction_handler: InstructionHandler,
         ) -> #result_ty
             #where_clause
         {
@@ -547,9 +539,8 @@ pub(super) fn generate_threaded_fns(
                     instruction,
                     instruction_fetcher,
                     regs,
-                    ext_state,
+                    env,
                     memory,
-                    system_instruction_handler,
                 )
             };
 
@@ -560,10 +551,9 @@ pub(super) fn generate_threaded_fns(
     generated_items.push(parse_quote! {
         impl<#generic_params> ThreadedExecutableInstruction<
             Regs,
-            ExtState,
+            Env,
             Memory,
             PC,
-            InstructionHandler,
         > for #self_ty
             #where_clause
         {
@@ -576,9 +566,8 @@ pub(super) fn generate_threaded_fns(
             fn execute_threaded(
                 instruction_fetcher: PC,
                 regs: &mut Regs,
-                ext_state: ExtState,
+                env: Env,
                 memory: &mut Memory,
-                system_instruction_handler: InstructionHandler,
             ) -> #result_ty {
                 if !OpaqueThreadedExecutionResult::<#self_ty>::platform_supported() {
                     ::core::hint::cold_path();
@@ -593,9 +582,8 @@ pub(super) fn generate_threaded_fns(
                     #entry_fn_name::<#generic_params>(
                         instruction_fetcher,
                         regs,
-                        ext_state,
+                        env,
                         memory,
-                        system_instruction_handler,
                     )
                 }
             }

@@ -283,32 +283,32 @@ where
 //  https://github.com/rust-lang/rust/issues/161264
 #[macro_export]
 macro_rules! impl_vector_registers_for_mut_ref {
-    ($ext_state:ty, $reg:ty) => {
-        impl VectorRegisters for &mut $ext_state {
-            const ELEN: Elen = <$ext_state as VectorRegisters>::ELEN;
-            const VLEN: Vlen = <$ext_state as VectorRegisters>::VLEN;
+    ($env:ty, $reg:ty) => {
+        impl VectorRegisters for &mut $env {
+            const ELEN: Elen = <$env as VectorRegisters>::ELEN;
+            const VLEN: Vlen = <$env as VectorRegisters>::VLEN;
 
             #[inline(always)]
             fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
-                <$ext_state as VectorRegisters>::read_vregs(self)
+                <$env as VectorRegisters>::read_vregs(self)
             }
 
             #[inline(always)]
             fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
-                <$ext_state as VectorRegisters>::write_vregs(self)
+                <$env as VectorRegisters>::write_vregs(self)
             }
 
             #[inline(always)]
             fn vector_instructions_allowed(&self) -> bool {
-                <$ext_state as VectorRegisters>::vector_instructions_allowed(self)
+                <$env as VectorRegisters>::vector_instructions_allowed(self)
             }
 
             #[inline(always)]
             fn mark_vs_dirty(&mut self) {
-                <$ext_state as VectorRegisters>::mark_vs_dirty(self);
+                <$env as VectorRegisters>::mark_vs_dirty(self);
             }
         }
 
-        impl VectorRegistersExt<$reg> for &mut $ext_state {}
+        impl VectorRegistersExt<$reg> for &mut $env {}
     };
 }

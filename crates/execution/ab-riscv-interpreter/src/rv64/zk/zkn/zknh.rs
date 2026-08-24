@@ -20,14 +20,13 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZknhInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZknhInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZknhInstruction<Reg> where
     Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZknhInstruction<Reg>
 where
     Reg: Register<Type = u64>,
@@ -42,10 +41,9 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        _ext_state: &mut ExtState,
+        _env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Sha256Sig0 { rd, rs1: _ } => {

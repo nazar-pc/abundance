@@ -32,19 +32,16 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZvbcInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZvbcInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZvbcInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for ZvbcInstruction<Reg>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZvbcInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -57,15 +54,14 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // vclmul: vd[i] = lower SEW bits of clmul(vs2[i], vs1[i])
             Self::VclmulVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -81,7 +77,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -109,7 +105,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvbc_helpers::execute_vclmul::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvbc_helpers::OpSrc::Vreg(vs1),
@@ -124,7 +120,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -140,7 +136,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -164,7 +160,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvbc_helpers::execute_vclmul::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvbc_helpers::OpSrc::Scalar(scalar),
@@ -175,7 +171,7 @@ where
             }
             // vclmulh: vd[i] = upper SEW bits of clmul(vs2[i], vs1[i])
             Self::VclmulhVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -191,7 +187,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -219,7 +215,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvbc_helpers::execute_vclmulh::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvbc_helpers::OpSrc::Vreg(vs1),
@@ -234,7 +230,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -250,7 +246,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -274,7 +270,7 @@ where
                 // SAFETY: alignments checked above
                 unsafe {
                     zvbc_helpers::execute_vclmulh::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvbc_helpers::OpSrc::Scalar(scalar),

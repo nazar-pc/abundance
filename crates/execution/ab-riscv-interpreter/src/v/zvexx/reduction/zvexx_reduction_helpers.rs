@@ -18,8 +18,8 @@ use core::hint::cold_path;
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_reduce_op<Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_reduce_op<Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -29,8 +29,8 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     // Spec §5.4: when vstart >= vl, no element of vd is updated. For reductions this means
@@ -38,28 +38,28 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, F>(
     // must not mark vs dirty.
     if vl == Vl::ZERO {
         cold_path();
-        ext_state.reset_vstart();
+        env.reset_vstart();
         return;
     }
     // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { read_element_u64(ext_state.read_vregs(), vs1, 0, sew) };
+    let init = unsafe { read_element_u64(env.read_vregs(), vs1, 0, sew) };
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let mut acc = init;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         acc = op(acc, elem, sew);
     }
     // SAFETY: element 0 always fits within register vd
     unsafe {
-        write_element_u64(ext_state.write_vregs(), vd, 0, sew, acc);
+        write_element_u64(env.write_vregs(), vd, 0, sew, acc);
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute a widening integer sum reduction.
@@ -74,8 +74,8 @@ pub unsafe fn execute_reduce_op<Reg, ExtState, F>(
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -85,8 +85,8 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, ExtSt
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let Some(wide_sew) = sew.double_width() else {
@@ -95,20 +95,20 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, ExtSt
     };
     if vl == Vl::ZERO {
         cold_path();
-        ext_state.reset_vstart();
+        env.reset_vstart();
         return;
     }
     // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { read_element_u64(ext_state.read_vregs(), vs1, 0, wide_sew) };
+    let init = unsafe { read_element_u64(env.read_vregs(), vs1, 0, wide_sew) };
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let mut acc = init;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: same bounds argument as `execute_reduce_op`
-        let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let raw = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let elem = if SIGN_EXTEND_SRC {
             sign_extend(raw, sew).cast_unsigned()
         } else {
@@ -118,8 +118,8 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, ExtSt
     }
     // SAFETY: element 0 always fits within register vd
     unsafe {
-        write_element_u64(ext_state.write_vregs(), vd, 0, wide_sew, acc);
+        write_element_u64(env.write_vregs(), vd, 0, wide_sew, acc);
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }

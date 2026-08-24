@@ -437,8 +437,8 @@ pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_fixed_point_op<Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -447,42 +447,42 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
-    let vxrm = ext_state.vxrm();
+    let vl = env.vl();
+    let vstart = env.vstart();
+    let vxrm = env.vxrm();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let mut any_sat = false;
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: alignment and bounds checked by caller
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew, vxrm, &mut any_sat);
         // SAFETY: alignment and bounds checked by caller
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
     if any_sat {
         // vxsat is sticky: OR in the new saturation flag
-        ext_state.set_vxsat(true);
+        env.set_vxsat(true);
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute a narrowing fixed-point clip operation.
@@ -502,8 +502,8 @@ pub unsafe fn execute_fixed_point_op<Reg, ExtState, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -512,16 +512,16 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, F>(
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
-    let vxrm = ext_state.vxrm();
+    let vl = env.vl();
+    let vstart = env.vstart();
+    let vxrm = env.vxrm();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
@@ -531,11 +531,11 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, F>(
         }
         // Read 2*SEW-wide source element
         // SAFETY: `vs2` double-width alignment checked by caller
-        let wide_a = unsafe { read_wide_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let wide_a = unsafe { read_wide_element_u64(env.read_vregs(), vs2, i, sew) };
         let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: vs1 SEW-wide alignment checked by caller
-                let raw = unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) };
+                let raw = unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) };
                 (raw & shamt_mask) as u32
             }
             OpSrc::Scalar(val) => (val & shamt_mask) as u32,
@@ -543,14 +543,14 @@ pub unsafe fn execute_narrowing_clip_op<Reg, ExtState, F>(
         let result = op(wide_a, shamt, sew, vxrm, &mut any_sat);
         // SAFETY: `vd` alignment checked by caller
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
     if any_sat {
-        ext_state.set_vxsat(true);
+        env.set_vxsat(true);
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Verify that the destination SEW is valid for narrowing (must be at most 32 in Zve64x).

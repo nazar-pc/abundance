@@ -20,20 +20,19 @@ const impl<Reg> ExecutableInstructionOperands for Rv64ZalrscInstruction<Reg> whe
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64ZalrscInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZalrscInstruction<Reg> where
     Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZalrscInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
-    ExtState: [const] ReservationSet<Reg>,
+    Env: [const] ReservationSet<Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -44,10 +43,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Lr {
@@ -57,7 +55,7 @@ where
                 rl: _,
             } => {
                 let value = memory.read::<i32>(rs1_value)?;
-                ext_state.set_reservation(rs1_value);
+                env.set_reservation(rs1_value);
                 ExecutionResult::Continue {
                     rd,
                     value: i64::from(value).cast_unsigned(),
@@ -70,8 +68,8 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let success = ext_state.reservation() == Some(rs1_value);
-                ext_state.clear_reservation();
+                let success = env.reservation() == Some(rs1_value);
+                env.clear_reservation();
 
                 if success {
                     memory.write(rs1_value, rs2_value as u32)?;
@@ -87,7 +85,7 @@ where
                 rl: _,
             } => {
                 let value = memory.read::<u64>(rs1_value)?;
-                ext_state.set_reservation(rs1_value);
+                env.set_reservation(rs1_value);
                 ExecutionResult::Continue { rd, value }
             }
             Self::ScD {
@@ -97,8 +95,8 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let success = ext_state.reservation() == Some(rs1_value);
-                ext_state.clear_reservation();
+                let success = env.reservation() == Some(rs1_value);
+                env.clear_reservation();
 
                 if success {
                     memory.write(rs1_value, rs2_value)?;

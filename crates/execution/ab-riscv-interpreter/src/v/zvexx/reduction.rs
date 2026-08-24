@@ -20,20 +20,19 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxReductionInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxReductionInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxReductionInstruction<Reg> where
     Reg: Register
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxReductionInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -46,14 +45,13 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -61,7 +59,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -70,7 +68,7 @@ where
                     });
                 };
                 // Spec §14: reductions with vstart > 0 are reserved; raise illegal instruction
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -85,12 +83,12 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: `vs2` alignment checked; `vstart == 0` checked;
                 // `vs1` and `vd` are single-register scalar operands
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -102,7 +100,7 @@ where
                 }
             }
             Self::Vredand { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -110,7 +108,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -118,7 +116,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -133,11 +131,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -149,7 +147,7 @@ where
                 }
             }
             Self::Vredor { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -157,7 +155,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -165,7 +163,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -180,11 +178,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -196,7 +194,7 @@ where
                 }
             }
             Self::Vredxor { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -204,7 +202,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -212,7 +210,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -227,11 +225,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -243,7 +241,7 @@ where
                 }
             }
             Self::Vredminu { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -251,7 +249,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -259,7 +257,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -274,11 +272,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -293,7 +291,7 @@ where
                 }
             }
             Self::Vredmin { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -301,7 +299,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -309,7 +307,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -324,11 +322,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -348,7 +346,7 @@ where
                 }
             }
             Self::Vredmaxu { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -356,7 +354,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -364,7 +362,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -379,11 +377,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -398,7 +396,7 @@ where
                 }
             }
             Self::Vredmax { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -406,7 +404,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -414,7 +412,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -429,11 +427,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -453,7 +451,7 @@ where
                 }
             }
             Self::Vwredsumu { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -461,7 +459,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -469,7 +467,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -478,7 +476,7 @@ where
                     });
                 }
                 // Widening: 2*SEW must fit in ELEN
-                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(ExtState::ELEN) {
+                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -493,12 +491,12 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: `vs2` alignment checked; widening SEW constraint checked above;
                 // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
                 unsafe {
                     zvexx_reduction_helpers::execute_widening_reduce_op::<false, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,
@@ -511,7 +509,7 @@ where
                 }
             }
             Self::Vwredsum { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -519,7 +517,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -527,7 +525,7 @@ where
                         ),
                     });
                 };
-                if ext_state.vstart() != Vstart::ZERO {
+                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -535,7 +533,7 @@ where
                         ),
                     });
                 }
-                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(ExtState::ELEN) {
+                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -550,11 +548,11 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 // SAFETY: see `Vwredsumu`
                 unsafe {
                     zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         vs1,

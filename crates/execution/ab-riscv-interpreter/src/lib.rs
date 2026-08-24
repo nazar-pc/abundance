@@ -986,7 +986,7 @@ where
     fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
 }
 
-pub const trait ExecutableInstructionCsr<ExtState>
+pub const trait ExecutableInstructionCsr<Env>
 where
     Self: Instruction,
 {
@@ -1012,14 +1012,14 @@ where
     /// access.
     #[inline(always)]
     fn prepare_csr_read(
-        ext_state: &ExtState,
+        env: &Env,
         csr_index: u16,
         will_write: bool,
         raw_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
     ) -> Result<bool, CsrError> {
         // These are for cleaner trait API without leading `_` on arguments
-        let _: &ExtState = ext_state;
+        let _: &Env = env;
         let _: u16 = csr_index;
         let _: bool = will_write;
         let _: RegisterType<Self> = raw_value;
@@ -1043,13 +1043,13 @@ where
     /// access.
     #[inline(always)]
     fn prepare_csr_write(
-        ext_state: &mut ExtState,
+        env: &mut Env,
         csr_index: u16,
         write_value: RegisterType<Self>,
         output_value: &mut RegisterType<Self>,
     ) -> Result<bool, CsrError> {
         // These are for cleaner trait API without leading `_` on arguments
-        let _: &mut ExtState = ext_state;
+        let _: &mut Env = env;
         let _: u16 = csr_index;
         let _: RegisterType<Self> = write_value;
         let _: &mut RegisterType<Self> = output_value;
@@ -1059,15 +1059,15 @@ where
 }
 
 /// Trait for executable instructions
-pub const trait ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+pub const trait ExecutableInstruction<Regs, Env, Memory, PC>
 where
-    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<ExtState>,
+    Self: ExecutableInstructionOperands + ExecutableInstructionCsr<Env>,
 {
     /// Execute instruction.
     ///
-    /// Instructions might place additional constraints on `ExtState` to require additional
-    /// registers or other resources. If no such constraint is used, `()` can be used as a
-    /// placeholder.
+    /// Instructions might place additional constraints on `Env` to require additional registers,
+    /// handlers (like [`SystemInstructionHandler`]) or other resources. If no such constraint is
+    /// used, `()` can be used as a placeholder.
     ///
     /// On success `ExecutionResult::Continue { rd: rd, value: rd_value }` is returned, which will
     /// be written into the register file. In most cases this is the only register that needs to
@@ -1077,10 +1077,9 @@ where
         self,
         rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg>;
 }
 
@@ -1375,9 +1374,9 @@ where
 /// This trait is deliberately not `const`, unlike [`ExecutableInstruction`]: dispatch goes through
 /// a table of function pointers, and calls through a function pointer are not allowed in
 /// `const fn`.
-pub trait ThreadedExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+pub trait ThreadedExecutableInstruction<Regs, Env, Memory, PC>
 where
-    Self: ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>,
+    Self: ExecutableInstruction<Regs, Env, Memory, PC>,
     PC: InstructionFetcher<Self, Memory>,
 {
     /// Execute instructions starting at the instruction fetcher's current position and continue
@@ -1386,18 +1385,16 @@ where
     /// The instruction fetcher is taken by value rather than behind a reference so that it stays in
     /// registers across the whole handler chain.
     ///
-    /// `ext_state` and `system_instruction_handler` are taken by value for the same reason and one
-    /// more: an owned value can be a zero-sized type, which occupies no argument register at all,
-    /// whereas a `&mut` occupies one whether there is anything behind it or not. Most
-    /// configurations have no extension state and a stateless system instruction handler, so both
-    /// vanish, allowing more registers for other arguments. A configuration that does have a state
-    /// passes a `&mut` to it (which is an owned value too and for which there are blanket
+    /// `env` is taken by value for the same reason and one more: an owned value can be a zero-sized
+    /// type, which occupies no argument register at all, whereas a `&mut` occupies one whether
+    /// there is anything behind it or not. Most configurations have a stateless environment, which
+    /// thus vanishes, allowing more registers for other arguments. A configuration that does have a
+    /// state passes a `&mut` to it (which is an owned value too and for which there are blanket
     /// implementations for convenience).
     fn execute_threaded(
         instruction_fetcher: PC,
         regs: &mut Regs,
-        ext_state: ExtState,
+        env: Env,
         memory: &mut Memory,
-        system_instruction_handler: InstructionHandler,
     ) -> ThreadedExecutionResult<Self>;
 }

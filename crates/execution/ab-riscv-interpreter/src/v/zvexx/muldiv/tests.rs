@@ -1,5 +1,5 @@
 use crate::prelude::VLENB_USIZE;
-use crate::rv64::test_utils::{ExtState, TestInterpreterState, initialize_state};
+use crate::rv64::test_utils::{Env, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{
     mulh_ss, mulhsu_su, mulhu_uu, widening_dest_register_count,
@@ -20,7 +20,7 @@ use core::num::NonZeroU8;
 //   E16/M2 -> VLMAX=32, 2 regs
 //   E32/M2 -> VLMAX=16, 2 regs (vd for widening E16 uses 2 regs)
 //   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
-const TEST_VLENB: usize = VLENB_USIZE::<{ <ExtState as VectorRegisters>::VLEN }>;
+const TEST_VLENB: usize = VLENB_USIZE::<{ <Env as VectorRegisters>::VLEN }>;
 const {
     assert!(TEST_VLENB == 32);
 }
@@ -35,11 +35,11 @@ fn setup(
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -56,10 +56,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -87,7 +86,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -108,7 +107,7 @@ fn read_wide_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -128,7 +127,7 @@ fn write_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -147,7 +146,7 @@ fn write_wide_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * wide_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -159,7 +158,7 @@ fn set_mask_bit(
     elem_i: u16,
     val: bool,
 ) {
-    let reg = state.ext_state.write_vregs().get_mut(VReg::V0);
+    let reg = state.env.write_vregs().get_mut(VReg::V0);
     let byte = &mut reg[usize::from(elem_i / u8::BITS as u16)];
     if val {
         *byte |= 1 << (elem_i % u8::BITS as u16);
@@ -196,8 +195,8 @@ fn vmul_vv_e32_m1_basic() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -250,7 +249,7 @@ fn vmul_vx_e64_m1() {
 fn vmul_masked_skips_inactive() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     // mask: only elements 0 and 2 active (bits 0 and 2 set)
-    state.ext_state.write_vregs().get_mut(VReg::V0)[0] = 0b0000_0101;
+    state.env.write_vregs().get_mut(VReg::V0)[0] = 0b0000_0101;
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 5);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 10);
@@ -985,7 +984,7 @@ fn vwmulu_vv_e8_to_e16() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -1166,7 +1165,7 @@ fn vwmulu_mf2_e8_correct_result() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -1509,8 +1508,8 @@ fn vmacc_vv_e32_basic() {
         // 100 + 3 * 7 = 121
         assert_eq!(read_elem(&state, VReg::V8, i, Vsew::E32), 121, "elem {i}");
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1965,7 +1964,7 @@ fn vwmaccsu_vx_e8() {
 #[test]
 fn vector_instructions_not_allowed() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZveXxMulDivInstruction::VmulVv {
@@ -1986,7 +1985,7 @@ fn vector_instructions_not_allowed() {
 #[test]
 fn vtype_not_configured_is_illegal() {
     let mut state = initialize_state::<ZveXxMulDivInstruction<Reg<u64>>, _>([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // vtype left in illegal state (vill=1, no set_vtype called)
     let result = exec(
         &mut state,
@@ -2056,7 +2055,7 @@ fn vstart_respected_for_mul() {
         write_elem(&mut state, VReg::V8, i, Vsew::E32, 0xDEAD);
     }
     // Only elements 2..4 should be processed
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZveXxMulDivInstruction::VmulVv {
@@ -2076,7 +2075,7 @@ fn vstart_respected_for_mul() {
     assert_eq!(read_elem(&state, VReg::V8, 2, Vsew::E32), 35);
     assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E32), 35);
     // vstart reset to 0
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -2098,7 +2097,7 @@ fn vl_zero_writes_nothing() {
     // Nothing written; vd undisturbed
     assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0xCAFE);
     // mark_vs_dirty still called
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]

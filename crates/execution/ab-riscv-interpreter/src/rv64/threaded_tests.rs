@@ -6,8 +6,8 @@ extern crate alloc;
 
 use crate::basic::BasicRegisters;
 use crate::rv64::test_utils::{
-    ExtState, TEST_BASE_ADDR, TestInstructionFetcher, TestInstructionHandler, TestMemory, execute,
-    execute_threaded, initialize_state,
+    Env, TEST_BASE_ADDR, TestInstructionFetcher, TestMemory, execute, execute_threaded,
+    initialize_state,
 };
 use crate::{
     ExecutableInstruction, ExecutionError, OpaqueThreadedExecutionResult, ProgramCounter,
@@ -51,18 +51,12 @@ fn assert_paths_agree<I, Instructions>(
     setup: fn(&mut BasicRegisters<Reg<u64>>),
 ) where
     I: Instruction<Reg = Reg<u64>>
-        + ExecutableInstruction<
+        + ExecutableInstruction<BasicRegisters<Reg<u64>>, Env, TestMemory, TestInstructionFetcher<I>>
+        + for<'a> ThreadedExecutableInstruction<
             BasicRegisters<Reg<u64>>,
-            ExtState,
+            &'a mut Env,
             TestMemory,
             TestInstructionFetcher<I>,
-            TestInstructionHandler,
-        > + for<'a> ThreadedExecutableInstruction<
-            BasicRegisters<Reg<u64>>,
-            &'a mut ExtState,
-            TestMemory,
-            TestInstructionFetcher<I>,
-            &'a mut TestInstructionHandler,
         >,
     Instructions: IntoIterator<Item = I> + Clone,
 {

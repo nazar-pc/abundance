@@ -19,20 +19,17 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxArithInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxArithInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxArithInstruction<Reg> where Reg: Register
+{}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxArithInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -45,15 +42,14 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // vadd
             Self::VaddVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -61,7 +57,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -98,7 +94,7 @@ where
                 // sew_bytes`; masked vd != v0 checked above.
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -114,7 +110,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -122,7 +118,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -154,7 +150,7 @@ where
                 // SAFETY: alignment checked above; scalar source has no register constraints
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -165,7 +161,7 @@ where
                 }
             }
             Self::VaddVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -173,7 +169,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -206,7 +202,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -218,7 +214,7 @@ where
             }
             // vsub / vrsub
             Self::VsubVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -226,7 +222,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -262,7 +258,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -278,7 +274,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -286,7 +282,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -318,7 +314,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -334,7 +330,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -342,7 +338,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -375,7 +371,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -386,7 +382,7 @@ where
                 }
             }
             Self::VrsubVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -394,7 +390,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -426,7 +422,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -438,7 +434,7 @@ where
             }
             // vand
             Self::VandVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -446,7 +442,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -482,7 +478,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -498,7 +494,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -506,7 +502,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -538,7 +534,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -549,7 +545,7 @@ where
                 }
             }
             Self::VandVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -557,7 +553,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -589,7 +585,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -601,7 +597,7 @@ where
             }
             // vor
             Self::VorVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -609,7 +605,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -645,7 +641,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -661,7 +657,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -669,7 +665,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -701,7 +697,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -712,7 +708,7 @@ where
                 }
             }
             Self::VorVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -720,7 +716,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -752,7 +748,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -764,7 +760,7 @@ where
             }
             // vxor
             Self::VxorVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -772,7 +768,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -808,7 +804,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -824,7 +820,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -832,7 +828,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -864,7 +860,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -875,7 +871,7 @@ where
                 }
             }
             Self::VxorVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -883,7 +879,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -915,7 +911,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -927,7 +923,7 @@ where
             }
             // vsll
             Self::VsllVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -935,7 +931,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -971,7 +967,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -988,7 +984,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -996,7 +992,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1028,7 +1024,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1039,7 +1035,7 @@ where
                 }
             }
             Self::VsllVi { vd, vs2, uimm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1047,7 +1043,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1080,7 +1076,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(shamt),
@@ -1092,7 +1088,7 @@ where
             }
             // vsrl
             Self::VsrlVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1100,7 +1096,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1136,7 +1132,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1157,7 +1153,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1165,7 +1161,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1197,7 +1193,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1212,7 +1208,7 @@ where
                 }
             }
             Self::VsrlVi { vd, vs2, uimm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1220,7 +1216,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1252,7 +1248,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(shamt),
@@ -1264,7 +1260,7 @@ where
             }
             // vsra
             Self::VsraVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1272,7 +1268,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1308,7 +1304,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1328,7 +1324,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1336,7 +1332,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1368,7 +1364,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1383,7 +1379,7 @@ where
                 }
             }
             Self::VsraVi { vd, vs2, uimm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1391,7 +1387,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1423,7 +1419,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(shamt),
@@ -1438,7 +1434,7 @@ where
             }
             // vminu / vmin
             Self::VminuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1446,7 +1442,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1482,7 +1478,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1501,7 +1497,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1509,7 +1505,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1541,7 +1537,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1555,7 +1551,7 @@ where
                 }
             }
             Self::VminVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1563,7 +1559,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1599,7 +1595,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1623,7 +1619,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1631,7 +1627,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1663,7 +1659,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1683,7 +1679,7 @@ where
             }
             // vmaxu / vmax
             Self::VmaxuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1691,7 +1687,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1727,7 +1723,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1746,7 +1742,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1754,7 +1750,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1786,7 +1782,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1800,7 +1796,7 @@ where
                 }
             }
             Self::VmaxVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1808,7 +1804,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1844,7 +1840,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1868,7 +1864,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1876,7 +1872,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1908,7 +1904,7 @@ where
                 // SAFETY: alignment checked above
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1928,7 +1924,7 @@ where
             }
             // vmseq
             Self::VmseqVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1936,7 +1932,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1973,7 +1969,7 @@ where
                 // register
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1992,7 +1988,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2000,7 +1996,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2025,7 +2021,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2039,7 +2035,7 @@ where
                 }
             }
             Self::VmseqVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2047,7 +2043,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2072,7 +2068,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2087,7 +2083,7 @@ where
             }
             // vmsne
             Self::VmsneVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2095,7 +2091,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2130,7 +2126,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2149,7 +2145,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2157,7 +2153,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2182,7 +2178,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2196,7 +2192,7 @@ where
                 }
             }
             Self::VmsneVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2204,7 +2200,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2229,7 +2225,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2244,7 +2240,7 @@ where
             }
             // vmsltu (unsigned <)
             Self::VmsltuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2252,7 +2248,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2287,7 +2283,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2306,7 +2302,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2314,7 +2310,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2339,7 +2335,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2354,7 +2350,7 @@ where
             }
             // vmslt (signed <)
             Self::VmsltVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2362,7 +2358,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2397,7 +2393,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2416,7 +2412,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2424,7 +2420,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2449,7 +2445,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2464,7 +2460,7 @@ where
             }
             // vmsleu (unsigned <=)
             Self::VmsleuVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2472,7 +2468,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2507,7 +2503,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2526,7 +2522,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2534,7 +2530,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2559,7 +2555,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2573,7 +2569,7 @@ where
                 }
             }
             Self::VmsleuVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2581,7 +2577,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2613,7 +2609,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2628,7 +2624,7 @@ where
             }
             // vmsle (signed <=)
             Self::VmsleVv { vd, vs2, vs1, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2636,7 +2632,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2671,7 +2667,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2690,7 +2686,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2698,7 +2694,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2723,7 +2719,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2737,7 +2733,7 @@ where
                 }
             }
             Self::VmsleVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2745,7 +2741,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2770,7 +2766,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2790,7 +2786,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2798,7 +2794,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2823,7 +2819,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2837,7 +2833,7 @@ where
                 }
             }
             Self::VmsgtuVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2845,7 +2841,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2870,7 +2866,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2890,7 +2886,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2898,7 +2894,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2923,7 +2919,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2937,7 +2933,7 @@ where
                 }
             }
             Self::VmsgtVi { vd, vs2, imm, vm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2945,7 +2941,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2970,7 +2966,7 @@ where
                 // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),

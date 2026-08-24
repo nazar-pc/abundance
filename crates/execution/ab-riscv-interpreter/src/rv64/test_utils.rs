@@ -277,10 +277,140 @@ impl<I> TestInstructionFetcher<I> {
     }
 }
 
-pub(crate) struct TestInstructionHandler;
+struct CsrState {
+    privilege_level: PrivilegeLevel,
+    csrs: BTreeMap<u16, u64>,
+    prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError>,
+    prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError>,
+}
+
+impl Default for CsrState {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            privilege_level: PrivilegeLevel::Machine,
+            csrs: BTreeMap::new(),
+            prepare_csr_read: |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
+            prepare_csr_write: |csr_index, _| Err(CsrError::IllegalWrite { csr_index }),
+        }
+    }
+}
+
+struct VectorState {
+    vregs: VectorRegisterFile<const { Env::VLEN }>,
+    vs_dirty_count: u32,
+    vector_allowed: bool,
+}
+
+impl Default for VectorState {
+    fn default() -> Self {
+        Self {
+            vregs: VectorRegisterFile::default(),
+            vs_dirty_count: 0,
+            vector_allowed: true,
+        }
+    }
+}
+
+struct SeedState {
+    sequence: Vec<ZkrSeedPoll>,
+    index: usize,
+}
+
+impl Default for SeedState {
+    fn default() -> Self {
+        Self {
+            sequence: vec![ZkrSeedPoll::Wait],
+            index: 0,
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct Env {
+    csr: CsrState,
+    vector: VectorState,
+    seed: SeedState,
+    reservation: Option<u64>,
+}
+
+impl ZkrSeedSource for Env {
+    fn poll_seed(&mut self) -> ZkrSeedPoll {
+        // SAFETY: Protected internal invariant
+        let poll = *unsafe { self.seed.sequence.get_unchecked(self.seed.index) };
+        if self.seed.index + 1 < self.seed.sequence.len() {
+            self.seed.index += 1;
+        }
+        poll
+    }
+}
+
+impl ReservationSet<Reg<u64>> for Env {
+    fn reservation(&self) -> Option<u64> {
+        self.reservation
+    }
+
+    fn set_reservation(&mut self, address: u64) {
+        self.reservation = Some(address);
+    }
+
+    fn clear_reservation(&mut self) {
+        self.reservation = None;
+    }
+}
+
+impl Csrs<Reg<u64>> for Env {
+    fn privilege_level(&self) -> PrivilegeLevel {
+        self.csr.privilege_level
+    }
+
+    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError> {
+        self.csr
+            .csrs
+            .get(&csr_index)
+            .copied()
+            .ok_or(CsrError::IllegalRead { csr_index })
+    }
+
+    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError> {
+        let stored_value = self
+            .csr
+            .csrs
+            .get_mut(&csr_index)
+            .ok_or(CsrError::IllegalWrite { csr_index })?;
+        *stored_value = value;
+        Ok(())
+    }
+}
+
+const impl VectorRegisters for Env
+where
+    Self: Csrs<Reg<u64>>,
+{
+    const ELEN: Elen = Elen::L64;
+    const VLEN: Vlen = Vlen::L256;
+
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+        &self.vector.vregs
+    }
+
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+        &mut self.vector.vregs
+    }
+
+    fn vector_instructions_allowed(&self) -> bool {
+        self.vector.vector_allowed
+    }
+
+    fn mark_vs_dirty(&mut self) {
+        self.vector.vs_dirty_count += 1;
+    }
+}
+
+impl VectorRegistersExt<Reg<u64>> for Env {}
 
 impl<Regs, I> SystemInstructionHandler<Reg<u64>, Regs, TestMemory, TestInstructionFetcher<I>>
-    for TestInstructionHandler
+    for Env
 where
     I: Instruction<Reg = Reg<u64>>,
 {
@@ -305,143 +435,11 @@ where
     }
 }
 
-impl WrsHandler for TestInstructionHandler {}
+impl WrsHandler for Env {}
 
-struct CsrExtState {
-    privilege_level: PrivilegeLevel,
-    csrs: BTreeMap<u16, u64>,
-    prepare_csr_read: fn(csr_index: u16, raw_value: u64) -> Result<u64, CsrError>,
-    prepare_csr_write: fn(csr_index: u16, write_value: u64) -> Result<u64, CsrError>,
-}
+impl_vector_registers_for_mut_ref!(Env, Reg<u64>);
 
-impl Default for CsrExtState {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            privilege_level: PrivilegeLevel::Machine,
-            csrs: BTreeMap::new(),
-            prepare_csr_read: |csr_index, _| Err(CsrError::IllegalRead { csr_index }),
-            prepare_csr_write: |csr_index, _| Err(CsrError::IllegalWrite { csr_index }),
-        }
-    }
-}
-
-struct VectorExtState {
-    vregs: VectorRegisterFile<const { ExtState::VLEN }>,
-    vs_dirty_count: u32,
-    vector_allowed: bool,
-}
-
-impl Default for VectorExtState {
-    fn default() -> Self {
-        Self {
-            vregs: VectorRegisterFile::default(),
-            vs_dirty_count: 0,
-            vector_allowed: true,
-        }
-    }
-}
-
-struct SeedExtState {
-    sequence: Vec<ZkrSeedPoll>,
-    index: usize,
-}
-
-impl Default for SeedExtState {
-    fn default() -> Self {
-        Self {
-            sequence: vec![ZkrSeedPoll::Wait],
-            index: 0,
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct ExtState {
-    csr: CsrExtState,
-    vector: VectorExtState,
-    seed: SeedExtState,
-    reservation: Option<u64>,
-}
-
-impl ZkrSeedSource for ExtState {
-    fn poll_seed(&mut self) -> ZkrSeedPoll {
-        // SAFETY: Protected internal invariant
-        let poll = *unsafe { self.seed.sequence.get_unchecked(self.seed.index) };
-        if self.seed.index + 1 < self.seed.sequence.len() {
-            self.seed.index += 1;
-        }
-        poll
-    }
-}
-
-impl ReservationSet<Reg<u64>> for ExtState {
-    fn reservation(&self) -> Option<u64> {
-        self.reservation
-    }
-
-    fn set_reservation(&mut self, address: u64) {
-        self.reservation = Some(address);
-    }
-
-    fn clear_reservation(&mut self) {
-        self.reservation = None;
-    }
-}
-
-impl Csrs<Reg<u64>> for ExtState {
-    fn privilege_level(&self) -> PrivilegeLevel {
-        self.csr.privilege_level
-    }
-
-    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError> {
-        self.csr
-            .csrs
-            .get(&csr_index)
-            .copied()
-            .ok_or(CsrError::IllegalRead { csr_index })
-    }
-
-    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError> {
-        let stored_value = self
-            .csr
-            .csrs
-            .get_mut(&csr_index)
-            .ok_or(CsrError::IllegalWrite { csr_index })?;
-        *stored_value = value;
-        Ok(())
-    }
-}
-
-const impl VectorRegisters for ExtState
-where
-    Self: Csrs<Reg<u64>>,
-{
-    const ELEN: Elen = Elen::L64;
-    const VLEN: Vlen = Vlen::L256;
-
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
-        &self.vector.vregs
-    }
-
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
-        &mut self.vector.vregs
-    }
-
-    fn vector_instructions_allowed(&self) -> bool {
-        self.vector.vector_allowed
-    }
-
-    fn mark_vs_dirty(&mut self) {
-        self.vector.vs_dirty_count += 1;
-    }
-}
-
-impl VectorRegistersExt<Reg<u64>> for ExtState {}
-
-impl_vector_registers_for_mut_ref!(ExtState, Reg<u64>);
-
-impl ExtState {
+impl Env {
     pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
         self.csr.privilege_level = privilege_level;
     }
@@ -519,10 +517,9 @@ impl ExtState {
 
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
     BasicRegisters<Reg<u64>, false>,
-    ExtState,
+    Env,
     TestMemory,
     TestInstructionFetcher<Instruction>,
-    TestInstructionHandler,
 >;
 
 pub(crate) fn initialize_state<I, Instructions>(
@@ -534,7 +531,7 @@ where
 {
     BasicInterpreterState {
         regs: BasicRegisters::default(),
-        ext_state: ExtState::default(),
+        env: Env::default(),
         memory: TestMemory::new(8192, TEST_BASE_ADDR),
         instruction_fetcher: TestInstructionFetcher::new(
             instructions,
@@ -542,7 +539,6 @@ where
             TEST_BASE_ADDR,
             TEST_BASE_ADDR,
         ),
-        system_instruction_handler: TestInstructionHandler,
     }
 }
 
@@ -553,10 +549,9 @@ where
     I: Instruction<Reg = Reg<u64>>
         + ExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
-            ExtState,
+            Env,
             TestMemory,
             TestInstructionFetcher<I>,
-            TestInstructionHandler,
         >,
 {
     loop {
@@ -582,10 +577,9 @@ where
         match instruction.execute(
             rs1rs2_values,
             &mut state.regs,
-            &mut state.ext_state,
+            &mut state.env,
             &mut state.memory,
             &mut state.instruction_fetcher,
-            &mut state.system_instruction_handler,
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);
@@ -632,17 +626,15 @@ where
     I: Instruction<Reg = Reg<u64>>
         + for<'a> ThreadedExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
-            &'a mut ExtState,
+            &'a mut Env,
             TestMemory,
             TestInstructionFetcher<I>,
-            &'a mut TestInstructionHandler,
         >,
 {
     I::execute_threaded(
         state.instruction_fetcher.clone(),
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
-        &mut state.system_instruction_handler,
     )
 }

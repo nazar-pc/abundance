@@ -59,8 +59,8 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vclmul<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_vclmul<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -68,24 +68,24 @@ pub unsafe fn execute_vclmul<Reg, ExtState>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -94,11 +94,11 @@ pub unsafe fn execute_vclmul<Reg, ExtState>(
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise carry-less multiplication (upper half) over `vstart..vl`.
@@ -112,8 +112,8 @@ pub unsafe fn execute_vclmul<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vclmulh<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_vclmulh<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -121,30 +121,30 @@ pub unsafe fn execute_vclmulh<Reg, ExtState>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let result = vclmulh_element(a, b, sew);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }

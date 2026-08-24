@@ -19,20 +19,17 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxCarryInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxCarryInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxCarryInstruction<Reg> where Reg: Register
+{}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxCarryInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -45,15 +42,14 @@ where
             rs2_value: _,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // vadc: add with carry-in from v0, data result
             Self::VadcVvm { vd, vs2, vs1 } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -61,7 +57,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -98,7 +94,7 @@ where
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -108,7 +104,7 @@ where
             }
 
             Self::VadcVxm { vd, vs2, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -116,7 +112,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -148,7 +144,7 @@ where
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -158,7 +154,7 @@ where
             }
 
             Self::VadcVim { vd, vs2, imm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -166,7 +162,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -198,7 +194,7 @@ where
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -209,7 +205,7 @@ where
 
             // vmadc: add and write carry-out mask
             Self::VmadcVvm { vd, vs2, vs1 } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -217,7 +213,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -252,7 +248,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -262,7 +258,7 @@ where
             }
 
             Self::VmadcVxm { vd, vs2, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -270,7 +266,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -295,7 +291,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -305,7 +301,7 @@ where
             }
 
             Self::VmadcVim { vd, vs2, imm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -313,7 +309,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -338,7 +334,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -348,7 +344,7 @@ where
             }
 
             Self::VmadcVv { vd, vs2, vs1 } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -356,7 +352,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -391,7 +387,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -401,7 +397,7 @@ where
             }
 
             Self::VmadcVx { vd, vs2, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -409,7 +405,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -434,7 +430,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -444,7 +440,7 @@ where
             }
 
             Self::VmadcVi { vd, vs2, imm } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -452,7 +448,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -477,7 +473,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -488,7 +484,7 @@ where
 
             // vsbc: subtract with borrow-in from v0, data result
             Self::VsbcVvm { vd, vs2, vs1 } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -496,7 +492,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -532,7 +528,7 @@ where
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -542,7 +538,7 @@ where
             }
 
             Self::VsbcVxm { vd, vs2, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -550,7 +546,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -582,7 +578,7 @@ where
                 // SAFETY: alignments checked above; vd != v0 checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -593,7 +589,7 @@ where
 
             // vmsbc: subtract and write borrow-out mask
             Self::VmsbcVvm { vd, vs2, vs1 } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -601,7 +597,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -636,7 +632,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -646,7 +642,7 @@ where
             }
 
             Self::VmsbcVxm { vd, vs2, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -654,7 +650,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -679,7 +675,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -689,7 +685,7 @@ where
             }
 
             Self::VmsbcVv { vd, vs2, vs1 } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -697,7 +693,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -732,7 +728,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -742,7 +738,7 @@ where
             }
 
             Self::VmsbcVx { vd, vs2, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -750,7 +746,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -775,7 +771,7 @@ where
                 // SAFETY: alignments and mask-destination overlap checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
-                        ext_state,
+                        env,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),

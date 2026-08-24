@@ -20,20 +20,17 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg> ExecutableInstructionOperands for ZveXxStoreInstruction<Reg> where Reg: Register {}
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for ZveXxStoreInstruction<Reg> where
-    Reg: Register
-{
-}
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxStoreInstruction<Reg> where Reg: Register
+{}
 
 #[instruction_execution]
-impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler>
+impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for ZveXxStoreInstruction<Reg>
 where
     Reg: Register,
     Regs: RegisterFile<Reg>,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -46,10 +43,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // Whole-register store: stores `nreg` consecutive registers starting at `vs3` directly
@@ -59,7 +55,7 @@ where
             // instruction is a no-op.
             Self::Vsr { vs3, rs1: _, nreg } => {
                 let nreg = nreg.num_registers();
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -75,9 +71,9 @@ where
                         ),
                     });
                 }
-                let vlenb = u64::from(ExtState::VLEN.bytes());
+                let vlenb = u64::from(Env::VLEN.bytes());
                 let evl = u64::from(nreg) * vlenb;
-                let vstart = ext_state.vstart();
+                let vstart = env.vstart();
                 if u64::from(u16::from(vstart)) < evl {
                     let base = rs1_value.as_u64();
                     let mut byte_off = u64::from(u16::from(vstart));
@@ -90,22 +86,21 @@ where
                             VReg::from_bits(vs3.to_bits() + reg_off as u8).unwrap_unchecked()
                         };
                         // SAFETY: `in_reg < VLEN.bytes()` by construction
-                        let src =
-                            unsafe { ext_state.read_vregs().get(reg).get_unchecked(in_reg..) };
+                        let src = unsafe { env.read_vregs().get(reg).get_unchecked(in_reg..) };
                         if let Err(error) = memory.write_slice(base + byte_off, src) {
-                            ext_state.set_vstart(Vstart::from(byte_off as u16));
+                            env.set_vstart(Vstart::from(byte_off as u16));
                             return ExecutionResult::Err(ExecutionError::from(error));
                         }
                         byte_off += src.len() as u64;
                     }
                 }
-                ext_state.reset_vstart();
+                env.reset_vstart();
             }
             // Mask store: stores `ceil(vl / 8)` bytes from `vs3` to memory with no masking.
             // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are written.
             // Honors `vstart` at byte granularity: the first `vstart / 8` bytes are skipped.
             Self::Vsm { vs3, rs1: _ } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -113,16 +108,16 @@ where
                         ),
                     });
                 }
-                let vl = ext_state.vl();
+                let vl = env.vl();
                 let evl_bytes = vl.bytes();
-                let start_byte = ext_state.vstart();
+                let start_byte = env.vstart();
                 if u16::from(start_byte) < evl_bytes {
                     let base = rs1_value.as_u64();
                     // SAFETY: `evl_bytes = vl.div_ceil(8) <= VLEN / 8 = VLEN.bytes()` because
                     // `vl <= VLMAX <= VLEN`, so the slice `start_byte..evl_bytes` is in bounds of
                     // the `VLEN.bytes()`-byte source register
                     let src = unsafe {
-                        ext_state.read_vregs().get(vs3).get_unchecked(
+                        env.read_vregs().get(vs3).get_unchecked(
                             usize::from(u16::from(start_byte))..usize::from(evl_bytes),
                         )
                     };
@@ -130,7 +125,7 @@ where
                         .write_slice(base + u64::from(u16::from(start_byte)), src)
                         .map_err(ExecutionError::from)?;
                 }
-                ext_state.reset_vstart();
+                env.reset_vstart();
             }
             // Unit-stride store.
             //
@@ -143,7 +138,7 @@ where
                 vm,
                 eew,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -151,7 +146,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -181,7 +176,7 @@ where
                 //   source/v0 overlap
                 unsafe {
                     zvexx_store_helpers::execute_unit_stride_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vm,
@@ -200,7 +195,7 @@ where
                 vm,
                 eew,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -208,7 +203,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -232,7 +227,7 @@ where
                 // SAFETY: same preconditions as `Vse`.
                 unsafe {
                     zvexx_store_helpers::execute_strided_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vm,
@@ -252,7 +247,7 @@ where
                 vm,
                 eew: index_eew,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -260,7 +255,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -299,7 +294,7 @@ where
                 // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vs2,
@@ -322,7 +317,7 @@ where
                 vm,
                 eew: index_eew,
             } => {
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -330,7 +325,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -361,7 +356,7 @@ where
                 // SAFETY: identical precondition argument to `Vsuxei`
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vs2,
@@ -383,7 +378,7 @@ where
             } => {
                 let vm = vm_nf.vm();
                 let nf = vm_nf.nf();
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -391,7 +386,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -419,7 +414,7 @@ where
                 // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_unit_stride_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vm,
@@ -440,7 +435,7 @@ where
             } => {
                 let vm = vm_nf.vm();
                 let nf = vm_nf.nf();
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -448,7 +443,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -473,7 +468,7 @@ where
                 // SAFETY: same as `Vsseg`.
                 unsafe {
                     zvexx_store_helpers::execute_strided_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vm,
@@ -495,7 +490,7 @@ where
             } => {
                 let vm = vm_nf.vm();
                 let nf = vm_nf.nf();
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -503,7 +498,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -539,7 +534,7 @@ where
                 // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vs2,
@@ -563,7 +558,7 @@ where
             } => {
                 let vm = vm_nf.vm();
                 let nf = vm_nf.nf();
-                if !ext_state.vector_instructions_allowed() {
+                if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -571,7 +566,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = ext_state.vtype() else {
+                let Some(vtype) = env.vtype() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -603,7 +598,7 @@ where
                 // SAFETY: identical precondition argument to `Vsuxseg`
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
-                        ext_state,
+                        env,
                         memory,
                         vs3,
                         vs2,

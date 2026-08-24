@@ -117,14 +117,13 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut lazy_state = BasicInterpreterState {
         regs: ContractRegisters::<false>::default(),
-        ext_state: (),
+        env: IllegalEcallSystemInstructionHandler,
         memory,
         // SAFETY: Program counter is set later to the correct address, all instructions are valid
         // and contract ends with a jump
         instruction_fetcher: unsafe {
             LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
         },
-        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     // SAFETY: All instructions are valid and contract ends with a jump
@@ -138,20 +137,18 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut eager_state = BasicInterpreterState {
         regs: ContractRegisters::<false>::default(),
-        ext_state: (),
+        env: IllegalEcallSystemInstructionHandler,
         memory,
         // SAFETY: Program counter is set later to the correct address
         instruction_fetcher: unsafe { instructions.fetcher(benchmarks_blake3_hash_chunk_addr) },
-        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     let mut eager_state_zerostore = BasicInterpreterState {
         regs: ContractRegisters::<true>::default(),
-        ext_state: (),
+        env: IllegalEcallSystemInstructionHandler,
         memory,
         // SAFETY: Program counter is set later to the correct address
         instruction_fetcher: unsafe { instructions.fetcher(benchmarks_blake3_hash_chunk_addr) },
-        system_instruction_handler: IllegalEcallSystemInstructionHandler,
     };
 
     {
@@ -248,9 +245,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                 ContractInstruction::execute_threaded(
                     state.instruction_fetcher,
                     &mut state.regs,
-                    (),
-                    &mut state.memory,
                     IllegalEcallSystemInstructionHandler,
+                    &mut state.memory,
                 )
                 .outcome
                 .unwrap();
@@ -359,9 +355,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                 ContractInstruction::execute_threaded(
                     state.instruction_fetcher,
                     &mut state.regs,
-                    (),
-                    &mut state.memory,
                     IllegalEcallSystemInstructionHandler,
+                    &mut state.memory,
                 )
                 .outcome
                 .unwrap();

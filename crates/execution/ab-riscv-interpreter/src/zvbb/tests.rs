@@ -13,11 +13,11 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 
 fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZvbbInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -33,10 +33,9 @@ fn exec(
     match instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -64,7 +63,7 @@ fn write_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .write_vregs()
         .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let buf = value.to_le_bytes();
@@ -82,7 +81,7 @@ fn read_elem(
     let reg_off = elem_i / elems_per_reg;
     let byte_off = (elem_i % elems_per_reg) * sew_bytes;
     let reg = state
-        .ext_state
+        .env
         .read_vregs()
         .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
     let mut buf = [0u8; 8];
@@ -96,7 +95,7 @@ fn set_mask_bit(
     i: u32,
     value: bool,
 ) {
-    let byte = &mut state.ext_state.write_vregs().get_mut(reg)[(i / u8::BITS) as usize];
+    let byte = &mut state.env.write_vregs().get_mut(reg)[(i / u8::BITS) as usize];
     if value {
         *byte |= 1 << (i % u8::BITS);
     } else {
@@ -345,8 +344,8 @@ fn vbrev_v_e8_reverses_all_8_bits() {
     for i in 0..4 {
         assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x8D, "elem {i}");
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -477,8 +476,8 @@ fn vclz_v_e8_zero_gives_sew() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 8);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -552,8 +551,8 @@ fn vctz_v_e8_zero_gives_sew() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 8);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -660,8 +659,8 @@ fn vcpop_v_e8_zero_gives_zero() {
     )
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -776,8 +775,8 @@ fn vwsll_vv_e8_to_e16_basic() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -937,8 +936,8 @@ fn vwsll_vx_basic() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -983,8 +982,8 @@ fn vwsll_vi_uimm_zero_is_widening_identity() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 0x00AB);
     assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E16), 0x00CD);
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 1);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1092,7 +1091,7 @@ fn vbrev_v_vl_zero_no_writes() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 #[test]
@@ -1120,7 +1119,7 @@ fn vwsll_vv_vl_zero_no_writes() {
             "elem {i}"
         );
     }
-    assert_eq!(state.ext_state.vs_dirty_count(), 1);
+    assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
 // vstart partial execution
@@ -1132,7 +1131,7 @@ fn vclz_v_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x01);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
     }
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZvbbInstruction::VclzV {
@@ -1150,7 +1149,7 @@ fn vclz_v_vstart_skips_earlier_elements() {
     // Elements 2,3 processed: clz(0x01) at E8 = 7
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 7);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 7);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1161,7 +1160,7 @@ fn vwsll_vv_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 4);
         write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xBEEF);
     }
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
     exec(
         &mut state,
         ZvbbInstruction::VwsllVv {
@@ -1180,7 +1179,7 @@ fn vwsll_vv_vstart_skips_earlier_elements() {
     // Elements 2,3 processed: 0x01 << 4 = 0x0010
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E16), 0x0010);
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E16), 0x0010);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // Error paths
@@ -1188,7 +1187,7 @@ fn vwsll_vv_vstart_skips_earlier_elements() {
 #[test]
 fn error_vector_not_allowed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
         ZvbbInstruction::VbrevV {
@@ -1205,9 +1204,9 @@ fn error_vector_not_allowed() {
 #[test]
 fn error_vill_vtype() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
-    state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(Vl::ZERO);
+    state.env.init_vector_csrs();
+    state.env.set_vtype(None);
+    state.env.set_vl(Vl::ZERO);
     let result = exec(
         &mut state,
         ZvbbInstruction::VclzV {

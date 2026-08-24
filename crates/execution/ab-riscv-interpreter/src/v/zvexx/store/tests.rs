@@ -19,11 +19,11 @@ fn setup(
     vlmul: Vlmul,
 ) -> TestInterpreterState<ZveXxStoreInstruction<Reg<u64>>> {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.ext_state.set_vtype(Some(vtype));
-    state.ext_state.set_vl(vl);
-    state.ext_state.set_vstart(Vstart::ZERO);
+    state.env.set_vtype(Some(vtype));
+    state.env.set_vl(vl);
+    state.env.set_vstart(Vstart::ZERO);
     state
 }
 
@@ -36,7 +36,7 @@ fn set_vreg(
     reg: VReg,
     data: &[u8],
 ) {
-    state.ext_state.write_vregs().get_mut(reg)[..data.len()].copy_from_slice(data);
+    state.env.write_vregs().get_mut(reg)[..data.len()].copy_from_slice(data);
 }
 
 fn read_mem_bytes<const N: usize>(
@@ -64,10 +64,9 @@ fn exec_one(
     if let ExecutionResult::Err(error) = instr.execute(
         rs1rs2_values,
         &mut state.regs,
-        &mut state.ext_state,
+        &mut state.env,
         &mut state.memory,
         &mut state.instruction_fetcher,
-        &mut state.system_instruction_handler,
     ) {
         Err(error)
     } else {
@@ -80,7 +79,7 @@ fn exec_one(
 #[test]
 fn vsr_single_register_stores_vlenb_bytes() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data = array::from_fn::<_, 16, _>(|i| i as u8 + 1);
     set_vreg(&mut state, VReg::V2, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -98,13 +97,13 @@ fn vsr_single_register_stores_vlenb_bytes() {
 
     assert_eq!(read_mem_bytes::<16>(&state, TEST_BASE_ADDR), &data);
     // Stores must not mark vector state dirty
-    assert_eq!(state.ext_state.vs_dirty_count(), 0);
+    assert_eq!(state.env.vs_dirty_count(), 0);
 }
 
 #[test]
 fn vsr_two_registers_stores_two_vlenb_blocks() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data0 = array::from_fn::<_, 32, _>(|i| i as u8);
     let data1 = array::from_fn::<_, 32, _>(|i| i as u8 + 32);
     set_vreg(&mut state, VReg::V2, &data0);
@@ -129,7 +128,7 @@ fn vsr_two_registers_stores_two_vlenb_blocks() {
 #[test]
 fn vsr_four_registers_stores_four_vlenb_blocks() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     for i in 0u8..4 {
         let data = array::from_fn::<_, 32, _>(|j| i * 32 + j as u8);
         set_vreg(&mut state, VReg::from_bits(4 + i).unwrap(), &data);
@@ -159,7 +158,7 @@ fn vsr_four_registers_stores_four_vlenb_blocks() {
 #[test]
 fn vsr_eight_registers_stores_eight_vlenb_blocks() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     for i in 0u8..8 {
         let data = array::from_fn::<_, 32, _>(|j| i * 32 + j as u8);
         set_vreg(&mut state, VReg::from_bits(8 + i).unwrap(), &data);
@@ -189,7 +188,7 @@ fn vsr_eight_registers_stores_eight_vlenb_blocks() {
 #[test]
 fn vsr_misaligned_register_returns_illegal_instruction() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     // V3 is not aligned to nreg=2
@@ -213,10 +212,10 @@ fn vsr_misaligned_register_returns_illegal_instruction() {
 fn vsr_ignores_vtype_and_vl() {
     // vsr must work even when vtype=None (vill=1)
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     // Leave vtype as illegal (default)
-    state.ext_state.set_vtype(None);
-    state.ext_state.set_vl(Vl::ZERO);
+    state.env.set_vtype(None);
+    state.env.set_vl(Vl::ZERO);
     let data = array::from_fn::<_, 16, _>(|i| i as u8 + 0xAA);
     set_vreg(&mut state, VReg::V0, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -233,14 +232,14 @@ fn vsr_ignores_vtype_and_vl() {
     .unwrap();
 
     assert_eq!(read_mem_bytes::<16>(&state, TEST_BASE_ADDR), &data);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn vsr_vector_not_allowed_returns_illegal_instruction() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
-    state.ext_state.set_vector_allowed(false);
+    state.env.init_vector_csrs();
+    state.env.set_vector_allowed(false);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -262,14 +261,14 @@ fn vsr_vector_not_allowed_returns_illegal_instruction() {
 #[test]
 fn vsr_honors_nonzero_vstart() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let data = array::from_fn::<_, 16, _>(|i| i as u8 + 1);
     set_vreg(&mut state, VReg::V2, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     for i in 0u64..16 {
         state.memory.write::<u8>(TEST_BASE_ADDR + i, 0xEE).unwrap();
     }
-    state.ext_state.set_vstart(Vstart::from(5));
+    state.env.set_vstart(Vstart::from(5));
 
     exec_one(
         &mut state,
@@ -291,18 +290,18 @@ fn vsr_honors_nonzero_vstart() {
             i as u8 + 1
         );
     }
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn vsr_vstart_at_or_past_evl_writes_nothing() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     set_vreg(&mut state, VReg::V2, &[0xAA; 16]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.memory.write::<u8>(TEST_BASE_ADDR, 0x55).unwrap();
     // EVL = 1 * VLENB = 16; vstart = 16 => no-op
-    state.ext_state.set_vstart(Vstart::from(16));
+    state.env.set_vstart(Vstart::from(16));
 
     exec_one(
         &mut state,
@@ -316,13 +315,13 @@ fn vsr_vstart_at_or_past_evl_writes_nothing() {
     .unwrap();
 
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x55);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
 fn vsr_nreg2_vstart_spans_register_boundary() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
+    state.env.init_vector_csrs();
     let d0 = array::from_fn::<_, 32, _>(|i| i as u8);
     let d1 = array::from_fn::<_, 32, _>(|i| i as u8 + 32);
     set_vreg(&mut state, VReg::V2, &d0);
@@ -332,7 +331,7 @@ fn vsr_nreg2_vstart_spans_register_boundary() {
         state.memory.write::<u8>(TEST_BASE_ADDR + i, 0xEE).unwrap();
     }
     // Start mid-second register (byte 36: v3, in-reg offset 4)
-    state.ext_state.set_vstart(Vstart::from(36));
+    state.env.set_vstart(Vstart::from(36));
 
     exec_one(
         &mut state,
@@ -356,7 +355,7 @@ fn vsr_nreg2_vstart_spans_register_boundary() {
             in_reg + 32
         );
     }
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // Vsm (mask store)
@@ -387,7 +386,7 @@ fn vsm_stores_ceil_vl_over_8_bytes() {
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 1).unwrap(), 0x01);
     // Third byte must not have been written (still zero)
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 2).unwrap(), 0x00);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -441,7 +440,7 @@ fn vsm_vl_exactly_8_writes_one_byte() {
 #[test]
 fn vsm_vector_not_allowed_returns_illegal_instruction() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -479,7 +478,7 @@ fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
 
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     // the key edge-case value
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
 
     exec_one(
         &mut state,
@@ -498,7 +497,7 @@ fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
     // No further bytes written
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 2).unwrap(), 0x00);
 
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -508,7 +507,7 @@ fn vsm_vstart_past_evl_writes_nothing() {
     set_vreg(&mut state, VReg::V1, &[0xFF; 16]);
     state.memory.write::<u8>(TEST_BASE_ADDR, 0x77).unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.ext_state.set_vstart(Vstart::from(8));
+    state.env.set_vstart(Vstart::from(8));
 
     exec_one(
         &mut state,
@@ -521,7 +520,7 @@ fn vsm_vstart_past_evl_writes_nothing() {
     .unwrap();
 
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x77);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // Vse (unit-stride store)
@@ -547,8 +546,8 @@ fn vse_e8_m1_stores_all_elements() {
     .unwrap();
 
     assert_eq!(read_mem_bytes::<32>(&state, TEST_BASE_ADDR), &data);
-    assert_eq!(state.ext_state.vs_dirty_count(), 0);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vs_dirty_count(), 0);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -678,7 +677,7 @@ fn vse_vstart_nonzero_skips_earlier_elements() {
         .unwrap();
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     // Start from element 2
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
 
     exec_one(
         &mut state,
@@ -702,7 +701,7 @@ fn vse_vstart_nonzero_skips_earlier_elements() {
     assert_eq!(state.memory.read::<u32>(TEST_BASE_ADDR + 8).unwrap(), 3u32);
     assert_eq!(state.memory.read::<u32>(TEST_BASE_ADDR + 12).unwrap(), 4u32);
     // vstart reset
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -735,8 +734,8 @@ fn vse_masked_vs3_equals_v0_is_legal() {
 #[test]
 fn vse_vtype_illegal_returns_illegal_instruction() {
     let mut state = initialize_state([]);
-    state.ext_state.init_vector_csrs();
-    state.ext_state.set_vtype(None);
+    state.env.init_vector_csrs();
+    state.env.set_vtype(None);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -759,7 +758,7 @@ fn vse_vtype_illegal_returns_illegal_instruction() {
 #[test]
 fn vse_vector_not_allowed_returns_illegal_instruction() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.ext_state.set_vector_allowed(false);
+    state.env.set_vector_allowed(false);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -963,7 +962,7 @@ fn vsuxei_e32_data_e32_index_stores_at_indexed_addresses() {
         state.memory.read::<u32>(TEST_BASE_ADDR + 16).unwrap(),
         300u32
     );
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1165,7 +1164,7 @@ fn vsseg_nf2_e8_m1_stores_two_fields_interleaved() {
     // Element 3: [f0[3]=4, f1[3]=20]
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 6).unwrap(), 4);
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 7).unwrap(), 20);
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1410,7 +1409,7 @@ fn vse_resets_vstart_to_zero() {
     let vreg = [0u8; 16];
     set_vreg(&mut state, VReg::V4, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.ext_state.set_vstart(Vstart::from(2));
+    state.env.set_vstart(Vstart::from(2));
 
     exec_one(
         &mut state,
@@ -1424,7 +1423,7 @@ fn vse_resets_vstart_to_zero() {
     )
     .unwrap();
 
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1434,7 +1433,7 @@ fn vsse_resets_vstart_to_zero() {
     set_vreg(&mut state, VReg::V4, &vreg);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
     state.regs.write(Reg::A1, 8);
-    state.ext_state.set_vstart(Vstart::from(1));
+    state.env.set_vstart(Vstart::from(1));
 
     exec_one(
         &mut state,
@@ -1448,7 +1447,7 @@ fn vsse_resets_vstart_to_zero() {
     )
     .unwrap();
 
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]
@@ -1456,7 +1455,7 @@ fn vsm_resets_vstart_to_zero() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V1, &[0u8; 16]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.ext_state.set_vstart(Vstart::from(3));
+    state.env.set_vstart(Vstart::from(3));
 
     exec_one(
         &mut state,
@@ -1468,7 +1467,7 @@ fn vsm_resets_vstart_to_zero() {
     )
     .unwrap();
 
-    assert_eq!(state.ext_state.vstart(), Vstart::ZERO);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 // vs_dirty invariant
@@ -1504,7 +1503,7 @@ fn stores_never_mark_vs_dirty() {
     )
     .unwrap();
 
-    assert_eq!(state.ext_state.vs_dirty_count(), 0);
+    assert_eq!(state.env.vs_dirty_count(), 0);
 }
 
 // Memory error propagation

@@ -19,23 +19,23 @@ use ab_riscv_primitives::prelude::*;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_mask_logical_op<Reg, ExtState, F>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
     op: F,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(bool, bool) -> bool,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
-    let vs2_snap = *ext_state.read_vregs().get(vs2);
-    let vs1_snap = *ext_state.read_vregs().get(vs1);
+    let vs2_snap = *env.read_vregs().get(vs2);
+    let vs1_snap = *env.read_vregs().get(vs1);
     // Body elements [vstart, vl): compute the logical operation bit-by-bit. Prestart bits
     // [0, vstart) and tail bits [vl, VLEN) are left undisturbed.
     for i in vstart.range_to(vl) {
@@ -43,11 +43,11 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, F>(
         let b = mask_bit(&vs1_snap, i);
         // SAFETY: `i < vl <= VLEN`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, op(a, b));
+            write_mask_bit(env.write_vregs(), vd, i, op(a, b));
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute `vcpop.m`: count set bits in vs2 for active elements `Vstart::ZERO.range_to(vl)`, write
@@ -64,21 +64,17 @@ pub unsafe fn execute_mask_logical_op<Reg, ExtState, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vcpop<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vs2: VReg,
-    vm: bool,
-) -> Reg::Type
+pub unsafe fn execute_vcpop<Reg, Env>(env: &mut Env, vs2: VReg, vm: bool) -> Reg::Type
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    let vs2_reg = *ext_state.read_vregs().get(vs2);
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vs2_reg = *env.read_vregs().get(vs2);
     let mut count = 0u32;
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -89,8 +85,8 @@ where
         }
     }
 
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 
     Reg::Type::from(count)
 }
@@ -109,21 +105,17 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vfirst<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vs2: VReg,
-    vm: bool,
-) -> Reg::Type
+pub unsafe fn execute_vfirst<Reg, Env>(env: &mut Env, vs2: VReg, vm: bool) -> Reg::Type
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    let vs2_reg = *ext_state.read_vregs().get(vs2);
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vs2_reg = *env.read_vregs().get(vs2);
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
     let not_found = u64::MAX;
     let mut result = not_found;
@@ -146,8 +138,8 @@ where
     } else {
         Reg::Type::from(result as u32)
     };
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 
     rd_value
 }
@@ -167,20 +159,15 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vmsbf<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    vm: bool,
-    vl: Vl,
-) where
+pub unsafe fn execute_vmsbf<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, vm: bool, vl: Vl)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    let vs2_snap = *ext_state.read_vregs().get(vs2);
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
     for i in Vstart::ZERO.range_to(vl) {
         // Inactive elements: undisturbed
@@ -195,10 +182,10 @@ pub unsafe fn execute_vmsbf<Reg, ExtState>(
         }
         // SAFETY: `i < vl <= VLEN`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, result);
+            write_mask_bit(env.write_vregs(), vd, i, result);
         }
     }
-    ext_state.mark_vs_dirty();
+    env.mark_vs_dirty();
     // vstart is already zero, doesn't need to be reset
 }
 
@@ -212,20 +199,15 @@ pub unsafe fn execute_vmsbf<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vmsof<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    vm: bool,
-    vl: Vl,
-) where
+pub unsafe fn execute_vmsof<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, vm: bool, vl: Vl)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    let vs2_snap = *ext_state.read_vregs().get(vs2);
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -239,10 +221,10 @@ pub unsafe fn execute_vmsof<Reg, ExtState>(
         }
         // SAFETY: `i < vl <= VLEN`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, result);
+            write_mask_bit(env.write_vregs(), vd, i, result);
         }
     }
-    ext_state.mark_vs_dirty();
+    env.mark_vs_dirty();
     // vstart is already zero, doesn't need to be reset
 }
 
@@ -257,20 +239,15 @@ pub unsafe fn execute_vmsof<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vmsif<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    vm: bool,
-    vl: Vl,
-) where
+pub unsafe fn execute_vmsif<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, vm: bool, vl: Vl)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    let vs2_snap = *ext_state.read_vregs().get(vs2);
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -284,10 +261,10 @@ pub unsafe fn execute_vmsif<Reg, ExtState>(
         }
         // SAFETY: `i < vl <= VLEN`
         unsafe {
-            write_mask_bit(ext_state.write_vregs(), vd, i, result);
+            write_mask_bit(env.write_vregs(), vd, i, result);
         }
     }
-    ext_state.mark_vs_dirty();
+    env.mark_vs_dirty();
     // vstart is already zero, doesn't need to be reset
 }
 
@@ -311,8 +288,8 @@ pub unsafe fn execute_vmsif<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_viota<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_viota<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -320,12 +297,12 @@ pub unsafe fn execute_viota<Reg, ExtState>(
     sew: Vsew,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
-    let vs2_snap = *ext_state.read_vregs().get(vs2);
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vs2_snap = *env.read_vregs().get(vs2);
     // Per spec §16.8: inactive vs2 elements are treated as zero for the prefix sum.
     // The prefix count advances only when the execution mask is active AND the
     // corresponding vs2 bit is set.
@@ -336,14 +313,14 @@ pub unsafe fn execute_viota<Reg, ExtState>(
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, prefix_count);
+            write_element_u64(env.write_vregs(), vd, i, sew, prefix_count);
         }
         if mask_bit(&vs2_snap, i) {
             prefix_count += 1;
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute `vid.v`: write the element index `i` as a SEW-wide integer into `vd[i]` for each
@@ -359,25 +336,25 @@ pub unsafe fn execute_viota<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vid<Reg, ExtState>(ext_state: &mut ExtState, vd: VReg, vm: bool, sew: Vsew)
+pub unsafe fn execute_vid<Reg, Env>(env: &mut Env, vd: VReg, vm: bool, sew: Vsew)
 where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(ext_state.read_vregs(), vm, vl) };
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, u64::from(i));
+            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(i));
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }

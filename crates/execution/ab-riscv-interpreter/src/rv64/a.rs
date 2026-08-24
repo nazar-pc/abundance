@@ -20,19 +20,19 @@ const impl<Reg> ExecutableInstructionOperands for Rv64AInstruction<Reg> where
 }
 
 #[instruction_execution]
-const impl<Reg, ExtState> ExecutableInstructionCsr<ExtState> for Rv64AInstruction<Reg> where
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64AInstruction<Reg> where
     Reg: Register<Type = u64>
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, ExtState, Memory, PC, InstructionHandler>
-    ExecutableInstruction<Regs, ExtState, Memory, PC, InstructionHandler> for Rv64AInstruction<Reg>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv64AInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
-    ExtState: [const] ReservationSet<Reg>,
+    Env: [const] ReservationSet<Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -43,10 +43,9 @@ where
             rs2_value,
         }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
         _regs: &mut Regs,
-        ext_state: &mut ExtState,
+        env: &mut Env,
         memory: &mut Memory,
         _program_counter: &mut PC,
-        _system_instruction_handler: &mut InstructionHandler,
     ) -> ExecutionResult<Self::Reg> {
         ExecutionResult::ContinueNoWrite
     }

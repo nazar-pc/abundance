@@ -21,8 +21,8 @@ use ab_riscv_primitives::prelude::*;
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vandn<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_vandn<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -30,24 +30,24 @@ pub unsafe fn execute_vandn<Reg, ExtState>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -58,11 +58,11 @@ pub unsafe fn execute_vandn<Reg, ExtState>(
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise bit-reversal within bytes over `vstart..vl`, writing results into `vd`.
@@ -77,26 +77,21 @@ pub unsafe fn execute_vandn<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vbrev8<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    sew: Vsew,
-    vm: bool,
-) where
+pub unsafe fn execute_vbrev8<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, sew: Vsew, vm: bool)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let sew_bytes = u32::from(sew.bytes_width());
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // Decompose into bytes (LE = index 0 is least-significant), reverse bits within each active
         // byte, then reassemble; bytes beyond sew_bytes are already zero because `read_element_u64`
         // zero-extends to u64
@@ -107,11 +102,11 @@ pub unsafe fn execute_vbrev8<Reg, ExtState>(
         let result = u64::from_le_bytes(bytes);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise byte reversal over `vstart..vl`, writing results into `vd`.
@@ -125,26 +120,21 @@ pub unsafe fn execute_vbrev8<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vrev8<Reg, ExtState>(
-    ext_state: &mut ExtState,
-    vd: VReg,
-    vs2: VReg,
-    sew: Vsew,
-    vm: bool,
-) where
+pub unsafe fn execute_vrev8<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, sew: Vsew, vm: bool)
+where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let sew_bytes = u32::from(sew.bytes_width());
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         // Reverse the byte slice covering exactly the SEW-wide element; bytes beyond sew_bytes are
         // zero (from zero-extension) and are left untouched
         let mut bytes = elem.to_le_bytes();
@@ -152,11 +142,11 @@ pub unsafe fn execute_vrev8<Reg, ExtState>(
         let result = u64::from_le_bytes(bytes);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise rotate-left over `vstart..vl`, writing SEW-wide results into `vd`.
@@ -170,8 +160,8 @@ pub unsafe fn execute_vrev8<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vrol<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_vrol<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -179,23 +169,23 @@ pub unsafe fn execute_vrol<Reg, ExtState>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let amount = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -208,11 +198,11 @@ pub unsafe fn execute_vrol<Reg, ExtState>(
         let result = hi | lo;
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
 
 /// Execute element-wise rotate-right over `vstart..vl`, writing SEW-wide results into `vd`.
@@ -228,8 +218,8 @@ pub unsafe fn execute_vrol<Reg, ExtState>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vror<Reg, ExtState>(
-    ext_state: &mut ExtState,
+pub unsafe fn execute_vror<Reg, Env>(
+    env: &mut Env,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -237,23 +227,23 @@ pub unsafe fn execute_vror<Reg, ExtState>(
     vm: bool,
 ) where
     Reg: Register,
-    ExtState: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ ExtState::ELEN }, { ExtState::VLEN }>]:,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = ext_state.vl();
-    let vstart = ext_state.vstart();
+    let vl = env.vl();
+    let vstart = env.vstart();
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
     for i in vstart.range_to(vl) {
-        if !vm && !mask_bit(ext_state.read_vregs().get(VReg::V0), i) {
+        if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(ext_state.read_vregs(), vs2, i, sew) };
+        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
         let amount = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(ext_state.read_vregs(), vs1_base, i, sew) }
+                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -266,9 +256,9 @@ pub unsafe fn execute_vror<Reg, ExtState>(
         let result = lo | hi;
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(ext_state.write_vregs(), vd, i, sew, result);
+            write_element_u64(env.write_vregs(), vd, i, sew, result);
         }
     }
-    ext_state.mark_vs_dirty();
-    ext_state.reset_vstart();
+    env.mark_vs_dirty();
+    env.reset_vstart();
 }
