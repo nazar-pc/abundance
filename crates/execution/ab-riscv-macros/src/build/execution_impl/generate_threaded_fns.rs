@@ -251,6 +251,8 @@ pub(super) fn generate_threaded_fns(
                 improper_ctypes_definitions,
                 reason = "Handlers only ever call each other, within this crate"
             )]
+            // Make sure each handler starts on a cache line boundary
+            #[rustc_align(64)]
             #target_feature
             unsafe #abi fn #handler_fn_name<#generic_params>(
                 instruction: #self_ty,

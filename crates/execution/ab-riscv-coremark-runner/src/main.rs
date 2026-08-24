@@ -6,6 +6,7 @@
     const_try,
     const_try_residual,
     explicit_tail_calls,
+    fn_align,
     signed_bigint_helpers,
     try_blocks
 )]

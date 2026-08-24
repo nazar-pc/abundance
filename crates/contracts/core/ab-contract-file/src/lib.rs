@@ -39,6 +39,7 @@
     const_try_residual,
     derive_const,
     explicit_tail_calls,
+    fn_align,
     maybe_uninit_fill,
     signed_bigint_helpers,
     trusted_len,

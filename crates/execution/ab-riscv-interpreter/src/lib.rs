@@ -123,6 +123,7 @@
     const_trait_impl,
     const_try,
     explicit_tail_calls,
+    fn_align,
     generic_const_args,
     generic_const_items,
     impl_restriction,

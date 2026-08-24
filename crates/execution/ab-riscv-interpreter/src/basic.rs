@@ -149,6 +149,9 @@ impl<Regs, ExtState, Memory, IF, InstructionHandler>
     /// program.
     // TODO: It might be impractical to support `no-panic` here directly in a general case, but it
     //  should be possible to do so for small extensions to verify the workflow
+    //
+    // Make sure each handler starts on a cache line boundary
+    #[rustc_align(64)]
     pub fn execute<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
     where
         Regs: RegisterFile<<I as Instruction>::Reg>,
