@@ -63,7 +63,7 @@ where
 
     {
         let internal_args = create_internal_args(internal_args_addr);
-        // SAFETY: Byte representation of `#[repr(C)]` without internal padding
+        // SAFETY: Byte representation of `#[repr(C)]` without any padding, hence fully initialized
         let internal_args_bytes = unsafe {
             slice::from_raw_parts(ptr::from_ref(&internal_args).cast::<u8>(), size_of::<IA>())
         };
@@ -120,7 +120,7 @@ where
         }
     };
 
-    // SAFETY: Byte representation of `#[repr(C)]` without internal padding
+    // SAFETY: Byte representation of `#[repr(C)]` without any padding, hence fully initialized
     *unsafe {
         memory
             .read_slice(internal_args_addr, size_of::<IA>() as u32)

@@ -120,6 +120,7 @@ jobs:
             name: Install kache
             uses: kunobi-ninja/kache-action@a257c055543c2840700a9bbca8f9c3094a421b1b # No release with Windows support yet
             with:
+              version: v0.15.0-rc.3
               # TODO: Enable for C++ too once https://github.com/kunobi-ninja/kache-action/issues/13 is implemented
               cache-executables: 'true'
               github-cache: 'false'

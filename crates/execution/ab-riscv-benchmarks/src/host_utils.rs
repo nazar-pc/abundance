@@ -36,6 +36,14 @@ pub struct Blake3HashChunkInternalArgs {
     result: [u8; OUT_LEN],
 }
 
+const _: () = {
+    assert!(
+        size_of::<Blake3HashChunkInternalArgs>()
+            == offset_of!(Blake3HashChunkInternalArgs, result) + size_of::<[u8; OUT_LEN]>(),
+        "`Blake3HashChunkInternalArgs` must not have implicit padding"
+    );
+};
+
 impl Blake3HashChunkInternalArgs {
     /// Create a new instance
     pub fn new(internal_args_addr: u64, chunk: [u8; CHUNK_LEN]) -> Self {
@@ -77,7 +85,20 @@ pub struct Ed25519VerifyInternalArgs {
     pub signature: Ed25519Signature,
     pub message: [u8; OUT_LEN],
     pub result: Bool,
+    /// Explicit trailing padding.
+    ///
+    /// The host copies the byte representation of this data structure into guest memory, which is
+    /// only sound if every byte of it is initialized, hence implicit padding must not exist here.
+    pub padding: [u8; 7],
 }
+
+const _: () = {
+    assert!(
+        size_of::<Ed25519VerifyInternalArgs>()
+            == offset_of!(Ed25519VerifyInternalArgs, padding) + size_of::<[u8; 7]>(),
+        "`Ed25519VerifyInternalArgs` must not have implicit padding"
+    );
+};
 
 impl Ed25519VerifyInternalArgs {
     /// Create a new instance
@@ -102,6 +123,7 @@ impl Ed25519VerifyInternalArgs {
             signature,
             message,
             result: Bool::new(false),
+            padding: [0; _],
         }
     }
 
