@@ -6,7 +6,7 @@ categories = ["algorithms", "cryptography", "no-std::no-alloc"]
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-blake3"
 license = "0BSD"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     "Nazar Mokrynskyi <nazar@mokrynskyi.com>",
     "Jack O'Connor <oconnor663@gmail.com>",
@@ -16,6 +16,7 @@ edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
+    "/CHANGELOG.md",
 ]
 
 [package.metadata.docs.rs]

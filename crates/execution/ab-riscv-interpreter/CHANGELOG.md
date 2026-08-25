@@ -1,6 +1,39 @@
+# 0.1.0
+
+Breaking changes:
+
+* Migrate from `generic_const_exprs` to `generic_const_args` family of nightly features
+
+New features:
+
+* Implemented new extensions (pass all ACT4 tests):
+    * A
+    * Zaamo
+    * Zabha
+    * Zacas
+    * Zalrsc
+    * Zawrs
+    * Zkr
+    * Zvbb
+    * Zvbc
+    * Zvkb
+* Implemented new extensions (in good shape, but ACT4 tests are currently non-existing):
+    * Zalasr
+* Completely panic-free implementation of everything
+* `const` implementations of almost all APIs and execution of most extensions (except vector)
+
+Improvements:
+
+* Many API improvements around type safety and correctness
+* Improved documentation
+
+Fixes:
+
+* ZveXx (Zve64x, etc.) extension saw numerous fixes and now passes all ACT4 tests
+
 # 0.0.4
 
-Features:
+New features:
 
 * Implement `c.unimp` pseudo-instruction
 * Introduce `RegisterFile` trait that allows customizing registers data structure with `BasicRegisters` that contains
@@ -19,7 +52,7 @@ Fixes:
 
 # 0.0.3
 
-Features:
+New features:
 
 * Implemented new extensions (pass all ACT4 tests):
     * Zbkb
@@ -44,7 +77,7 @@ Fixes:
 
 # 0.0.2
 
-Features:
+New features:
 
 * Zicsr extension support
 * Experimental Zve32x/Zve64x extension support (known to be buggy)

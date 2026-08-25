@@ -5,12 +5,13 @@ keywords = ["alignment", "aligned", "buffer", "rc", "no-std"]
 categories = ["data-structures", "no-std", "rust-patterns"]
 repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
+    "/CHANGELOG.md",
 ]
 
 [package.metadata.docs.rs]
