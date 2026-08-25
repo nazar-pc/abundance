@@ -202,7 +202,6 @@ extern crate alloc;
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use core::convert::Infallible;
 use core::fmt;
 use core::hint::cold_path;
 use core::marker::{Destruct, PhantomData};
@@ -640,12 +639,12 @@ where
     }
 }
 
-const impl<Reg> FromResidual<Result<Infallible, ExecutionError<Reg::Type>>> for ExecutionResult<Reg>
+const impl<Reg> FromResidual<Result<!, ExecutionError<Reg::Type>>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, ExecutionError<Reg::Type>>) -> Self {
+    fn from_residual(residual: Result<!, ExecutionError<Reg::Type>>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
@@ -656,12 +655,12 @@ where
     }
 }
 
-const impl<Reg> FromResidual<Result<Infallible, VirtualMemoryError>> for ExecutionResult<Reg>
+const impl<Reg> FromResidual<Result<!, VirtualMemoryError>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, VirtualMemoryError>) -> Self {
+    fn from_residual(residual: Result<!, VirtualMemoryError>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
@@ -672,12 +671,12 @@ where
     }
 }
 
-const impl<Reg> FromResidual<Result<Infallible, CsrError>> for ExecutionResult<Reg>
+const impl<Reg> FromResidual<Result<!, CsrError>> for ExecutionResult<Reg>
 where
     Reg: Register,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<Infallible, CsrError>) -> Self {
+    fn from_residual(residual: Result<!, CsrError>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {

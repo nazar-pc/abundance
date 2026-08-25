@@ -7,7 +7,6 @@
     const_block_items,
     iter_array_chunks,
     maybe_uninit_array_assume_init,
-    never_type,
     portable_simd,
     try_blocks
 )]
