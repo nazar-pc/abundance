@@ -114,15 +114,12 @@ jobs:
           - *checkout-step
           - *cache-restore-step
 
-          # TODO: Switch to taiki-e/install-action once supported: https://github.com/taiki-e/install-action/issues/1976
-          #  The reason is that this action doesn't pin binary releases, unless https://github.com/kunobi-ninja/kache-action/issues/14 is resolved
           - &install-kache-step
             name: Install kache
-            uses: kunobi-ninja/kache-action@eeafa81c39bb1b268304fd144523de074e0f793b # v1 is a moving target
+            uses: kunobi-ninja/kache-action@78ff455251aa37139061201a39113a1924994035 # v1 is a moving target
             with:
-              version: v0.15.1
-              # TODO: Can't use C/C++ yet: https://github.com/kunobi-ninja/kache/issues/823
-              cache-c-cpp: 'false'
+              version: v0.16.0
+              cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               cache-executables: 'true'
               github-cache: 'false'
