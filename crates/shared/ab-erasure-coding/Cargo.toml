@@ -6,6 +6,7 @@ version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
+    "/benches",
     "/src",
     "/tests",
     "/Cargo.toml",
@@ -14,14 +15,22 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
-# TODO: Benches
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[[bench]]
+name = "erasure-coding"
+harness = false
 
 [dependencies]
 reed-solomon-simd = { workspace = true }
 thiserror = { workspace = true, default-features = false }
 
 [dev-dependencies]
+ab-core-primitives = { workspace = true }
 chacha20 = { workspace = true, features = ["rng"] }
+criterion = { workspace = true }
 
 [lints]
 workspace = true
