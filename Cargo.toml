@@ -210,8 +210,6 @@ inline_always = "allow"
 integer_division = "allow"
 integer_division_remainder_used = "allow"
 little_endian_bytes = "allow"
-# TODO: Unusable for now: https://github.com/rust-lang/rust-clippy/issues/17524
-manual_assert_eq = "allow"
 match_same_arms = "allow"
 min_ident_chars = "allow"
 missing_docs_in_private_items = "allow"
@@ -309,8 +307,6 @@ elidable_lifetime_names = "allow"
 non_zero_suggestions = "allow"
 # TODO: False-positives: https://github.com/rust-lang/rust-clippy/issues/17043
 redundant_type_annotations = "allow"
-# TODO: Waiting on https://github.com/paritytech/parity-scale-codec/pull/820 or https://github.com/rust-lang/rust-clippy/issues/17199
-semicolon_if_nothing_returned = "allow"
 # TODO: False-positives: https://github.com/rust-lang/rust-clippy/issues/11024
 tests_outside_test_module = "allow"
 # TODO: https://github.com/rust-lang/rust-clippy/issues/5368#issuecomment-4665479346

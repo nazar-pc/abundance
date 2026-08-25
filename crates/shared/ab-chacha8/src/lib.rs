@@ -102,9 +102,12 @@ impl ChaCha8State {
         // for (d, initial) in self.data.iter_mut().zip(initial) {
         //     *d = d.wrapping_add(initial);
         // }
-        #[expect(
-            clippy::needless_range_loop,
-            reason = "Intentional workaround for rust-gpu"
+        #[cfg_attr(
+            target_arch = "spirv",
+            expect(
+                clippy::needless_range_loop,
+                reason = "Intentional workaround for rust-gpu"
+            )
         )]
         for i in 0..16 {
             self.data[i] = self.data[i].wrapping_add(initial[i]);

@@ -106,7 +106,6 @@
     min_adt_const_params,
     macroless_generic_const_args,
     min_generic_const_args,
-    never_type,
     stmt_expr_attributes,
     try_blocks
 )]
