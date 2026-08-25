@@ -26,14 +26,14 @@ const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32ZbkbInstruction<Reg> 
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv32ZbkbInstruction<Reg>
 where
-    Reg: Register<Type = u32>,
-    Regs: RegisterFile<Reg>,
+    Reg: [const] Register<Type = u32>,
+    Regs: [const] RegisterFile<Reg>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -62,15 +62,14 @@ where
             }
             Self::Brev8 { rd, rs1: _ } => {
                 // Reverse bits within each byte of rs1
-                let src = rs1_value;
-                let mut bytes = src.to_le_bytes();
-                for byte in &mut bytes {
-                    *byte = byte.reverse_bits();
-                }
-                ExecutionResult::Continue {
-                    rd,
-                    value: u32::from_le_bytes(bytes),
-                }
+                let bytes = rs1_value.to_le_bytes();
+                let value = u32::from_le_bytes([
+                    bytes[0].reverse_bits(),
+                    bytes[1].reverse_bits(),
+                    bytes[2].reverse_bits(),
+                    bytes[3].reverse_bits(),
+                ]);
+                ExecutionResult::Continue { rd, value }
             }
             Self::Zip { rd, rs1: _ } => {
                 // Bit-interleave: scatter bits of rs1 so that

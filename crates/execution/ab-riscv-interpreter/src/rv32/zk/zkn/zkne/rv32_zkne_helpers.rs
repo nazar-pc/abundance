@@ -1,12 +1,12 @@
 //! Opaque helpers for RV32 Zkne extension
 
 use ab_riscv_primitives::prelude::*;
+use const_fn_specialization::const_fn_specialization;
 
 /// Software fallback for aes32esi and aes32esmi.
 ///
 /// Both instructions share the same S-box and MixColumn machinery; the only difference is whether
 /// forward MixColumns is applied.
-#[cfg(not(all(not(miri), target_arch = "riscv32", target_feature = "zkne")))]
 #[expect(
     clippy::inline_modules,
     reason = "Small internal API, it is more readable this way"
@@ -29,7 +29,7 @@ pub(in super::super) mod soft {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn mix_col_byte(b: u8) -> u32 {
+    pub(super) const fn mix_col_byte(b: u8) -> u32 {
         let r0 = u32::from(gmul(b, 0x02));
         let r1 = u32::from(b);
         let r2 = u32::from(b);
@@ -48,7 +48,7 @@ pub(in super::super) mod soft {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn aes32esi(rs1: u32, rs2: u32, bs: u8) -> u32 {
+    pub(super) const fn aes32esi(rs1: u32, rs2: u32, bs: u8) -> u32 {
         let shamt = u32::from(bs) * 8;
         let si = ((rs2 >> shamt) & 0xff) as u8;
         let so = u32::from(SBOX[usize::from(si)]);
@@ -67,7 +67,7 @@ pub(in super::super) mod soft {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn aes32esmi(rs1: u32, rs2: u32, bs: u8) -> u32 {
+    pub(super) const fn aes32esmi(rs1: u32, rs2: u32, bs: u8) -> u32 {
         let shamt = u32::from(bs) * 8;
         let si = ((rs2 >> shamt) & 0xff) as u8;
         let so = SBOX[usize::from(si)];
@@ -76,6 +76,7 @@ pub(in super::super) mod soft {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -90,6 +91,7 @@ pub fn aes32esi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -102,4 +104,20 @@ pub fn aes32esmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
         }
         _ => soft::aes32esmi(rs1, rs2, u8::from(bs)),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes32esi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
+    soft::aes32esi(rs1, rs2, bs as u8)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes32esmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
+    soft::aes32esmi(rs1, rs2, bs as u8)
 }

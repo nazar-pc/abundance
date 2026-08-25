@@ -1,5 +1,9 @@
 //! Opaque helpers for Zbkx extension
 
+use crate::const_utils::ConstRange;
+use const_fn_specialization::const_fn_specialization;
+
+#[const_fn_specialization]
 #[inline]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -31,6 +35,24 @@ pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
+#[inline]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn xperm4(rs1: u64, rs2: u64) -> u64 {
+    let mut result = 0;
+
+    // Each nibble of `rs2` selects a nibble of `rs1`, all 16 indices are in-bounds
+    for nibble in ConstRange::new(0, u64::BITS / 4) {
+        let index = (rs2 >> (nibble * 4)) & 0xf;
+
+        result |= ((rs1 >> (index * 4)) & 0xf) << (nibble * 4);
+    }
+
+    result
+}
+
+#[const_fn_specialization]
 #[inline]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -51,4 +73,23 @@ pub fn xperm8(rs1: u64, rs2: u64) -> u64 {
             u64::from_le_bytes(result.to_array())
         }
     }
+}
+
+#[const_fn_specialization]
+#[inline]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn xperm8(rs1: u64, rs2: u64) -> u64 {
+    let mut result = 0;
+
+    // Each byte of `rs2` selects a byte of `rs1`, out of bounds selection yields zero
+    for byte in ConstRange::new(0, u64::BITS / 8) {
+        let index = (rs2 >> (byte * 8)) & 0xff;
+
+        if index < 8 {
+            result |= ((rs1 >> (index * 8)) & 0xff) << (byte * 8);
+        }
+    }
+
+    result
 }

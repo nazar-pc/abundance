@@ -20,6 +20,10 @@
     )
 )]
 
+use crate::const_utils::ConstRange;
+use const_fn_specialization::const_fn_specialization;
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -30,13 +34,11 @@ pub fn clmul(a: u32, b: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::clmul(a as usize, b as usize) as u32 }
         }
-        _ => {
-            let result = clmul_internal(a, b);
-            result as u32
-        }
+        _ => clmul_internal(a, b) as u32,
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -47,13 +49,11 @@ pub fn clmulh(a: u32, b: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::clmulh(a as usize, b as usize) as u32 }
         }
-        _ => {
-            let result = clmul_internal(a, b);
-            (result >> 32) as u32
-        }
+        _ => (clmul_internal(a, b) >> 32) as u32,
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -64,11 +64,32 @@ pub fn clmulr(a: u32, b: u32) -> u32 {
             // SAFETY: Compile-time checked for supported feature
             unsafe { core::arch::riscv32::clmulr(a as usize, b as usize) as u32 }
         }
-        _ => {
-            let result = clmul_internal(a, b);
-            (result >> 31) as u32
-        }
+        _ => (clmul_internal(a, b) >> 31) as u32,
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn clmul(a: u32, b: u32) -> u32 {
+    clmul_internal_generic(u64::from(a), u64::from(b)) as u32
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn clmulh(a: u32, b: u32) -> u32 {
+    (clmul_internal_generic(u64::from(a), u64::from(b)) >> 32) as u32
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn clmulr(a: u32, b: u32) -> u32 {
+    (clmul_internal_generic(u64::from(a), u64::from(b)) >> 31) as u32
 }
 
 /// Carryless multiplication helper
@@ -106,16 +127,20 @@ fn clmul_internal(a: u32, b: u32) -> u64 {
                 result as u64
             }
         }
-        _ => {
-            // Generic implementation: inputs are at most 32 bits wide, result fits in 64 bits
-            let mut result = 0u64;
-            let mut b = b;
-            for i in 0..u32::BITS {
-                let bit = b & 1;
-                result ^= a.wrapping_shl(i) & (0u64.wrapping_sub(bit));
-                b >>= 1;
-            }
-            result
-        }
+        _ => clmul_internal_generic(a, b),
     }
+}
+
+/// Generic carryless multiplication of two 32-bit values widened to `u64`, result fits in 64 bits
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+const fn clmul_internal_generic(a: u64, b: u64) -> u64 {
+    let mut result = 0u64;
+    let mut b = b;
+    for i in ConstRange::new(0, u32::BITS) {
+        let bit = b & 1;
+        result ^= a.wrapping_shl(i) & (0u64.wrapping_sub(bit));
+        b >>= 1;
+    }
+    result
 }

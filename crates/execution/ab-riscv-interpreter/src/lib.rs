@@ -117,6 +117,7 @@
     const_default,
     const_destruct,
     const_index,
+    const_iter,
     const_ops,
     const_option_ops,
     const_result_trait_fn,
@@ -183,6 +184,7 @@
 #![no_std]
 
 pub mod basic;
+mod const_utils;
 pub mod prelude;
 pub mod rv32;
 pub mod rv64;

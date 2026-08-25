@@ -94,6 +94,7 @@
     const_convert,
     const_default,
     const_destruct,
+    const_iter,
     const_ops,
     const_option_ops,
     const_trait_impl,
@@ -107,6 +108,7 @@
     macroless_generic_const_args,
     min_generic_const_args,
     stmt_expr_attributes,
+    trusted_len,
     try_blocks
 )]
 #![cfg_attr(feature = "no-panic", feature(const_closures))]

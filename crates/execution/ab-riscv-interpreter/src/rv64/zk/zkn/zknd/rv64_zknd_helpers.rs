@@ -1,11 +1,11 @@
 //! Opaque helpers for RV64 Zknd extension
 
 use ab_riscv_primitives::prelude::*;
+use const_fn_specialization::const_fn_specialization;
 
 /// Key schedule operations shared across all backends.
 ///
 /// Neither `aes64ks1i` nor `aes64ks2` has a hardware mapping on non-riscv64.
-#[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zknd")))]
 #[expect(
     clippy::inline_modules,
     reason = "Small internal API, it is more readable this way"
@@ -26,7 +26,7 @@ mod ks {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
+    pub(super) const fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
         let w = (rs1 >> 32u8) as u32;
 
         let rotated = if rnum == Rv64ZkndKsRnum::Final {
@@ -60,7 +60,7 @@ mod ks {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
+    pub(super) const fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
         let w0 = (rs1 >> 32u8) as u32 ^ rs2 as u32;
         let w1 = w0 ^ (rs2 >> 32u8) as u32;
         u64::from(w0) | (u64::from(w1) << 32u8)
@@ -171,79 +171,83 @@ cfg_select! {
         }
     }
     _ => {
-        /// Software fallback for aes64ds, aes64dsm, aes64im
-        #[expect(
-            clippy::inline_modules,
-            reason = "Small internal API, it is more readable this way"
-        )]
-        mod soft {
-            use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{INV_SBOX, gmul};
-
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            fn inv_mix_col(col: u32) -> u32 {
-                let s0 = col as u8;
-                let s1 = (col >> 8u8) as u8;
-                let s2 = (col >> 16u8) as u8;
-                let s3 = (col >> 24u8) as u8;
-                let r0 = gmul(s0, 0x0e) ^ gmul(s1, 0x0b) ^ gmul(s2, 0x0d) ^ gmul(s3, 0x09);
-                let r1 = gmul(s0, 0x09) ^ gmul(s1, 0x0e) ^ gmul(s2, 0x0b) ^ gmul(s3, 0x0d);
-                let r2 = gmul(s0, 0x0d) ^ gmul(s1, 0x09) ^ gmul(s2, 0x0e) ^ gmul(s3, 0x0b);
-                let r3 = gmul(s0, 0x0b) ^ gmul(s1, 0x0d) ^ gmul(s2, 0x09) ^ gmul(s3, 0x0e);
-                u32::from(r0)
-                    | (u32::from(r1) << 8u8)
-                    | (u32::from(r2) << 16u8)
-                    | (u32::from(r3) << 24u8)
-            }
-
-            /// Apply InvShiftRows + InvSubBytes to the full 128-bit state `(rs1, rs2)` and return
-            /// the low 64-bit half of the result.
-            ///
-            /// State layout: column-major, little-endian 64-bit halves.
-            /// `byte[col*4 + row]` is at bit `(row*8)` of `rs1` for `col < 2`, or bit `(row*8)` of
-            /// `rs2` for `col >= 2`.
-            ///
-            /// InvShiftRows shifts row `r` right by `r` columns (cyclically over 4).
-            /// Output low half contains post-transform columns 0 and 1.
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            pub(super) fn aes64ds(rs1: u64, rs2: u64) -> u64 {
-                let state_byte = |col: usize, row: usize| -> u8 {
-                    let word = if col < 2 { rs1 } else { rs2 };
-                    (word >> ((col % 2) * 32 + row * 8)) as u8
-                };
-
-                let mut out = 0;
-                for c in 0..2usize {
-                    for r in 0..4usize {
-                        let src_col = (c + 4 - r) & 3;
-                        let b = INV_SBOX[state_byte(src_col, r) as usize];
-                        out |= u64::from(b) << (c * 32 + r * 8);
-                    }
-                }
-                out
-            }
-
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            pub(super) fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
-                let lo = aes64ds(rs1, rs2);
-                let col0 = inv_mix_col(lo as u32);
-                let col1 = inv_mix_col((lo >> 32u8) as u32);
-                u64::from(col0) | (u64::from(col1) << 32u8)
-            }
-
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            pub(super) fn aes64im(rs1: u64) -> u64 {
-                let col0 = inv_mix_col(rs1 as u32);
-                let col1 = inv_mix_col((rs1 >> 32u8) as u32);
-                u64::from(col0) | (u64::from(col1) << 32u8)
-            }
-        }
+        // Nothing, the software fallback below is always available
     }
 }
 
+/// Software fallback for aes64ds, aes64dsm, aes64im
+#[expect(
+    clippy::inline_modules,
+    reason = "Small internal API, it is more readable this way"
+)]
+mod soft {
+    use crate::const_utils::ConstRange;
+    use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{INV_SBOX, gmul};
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    const fn inv_mix_col(col: u32) -> u32 {
+        let s0 = col as u8;
+        let s1 = (col >> 8u8) as u8;
+        let s2 = (col >> 16u8) as u8;
+        let s3 = (col >> 24u8) as u8;
+        let r0 = gmul(s0, 0x0e) ^ gmul(s1, 0x0b) ^ gmul(s2, 0x0d) ^ gmul(s3, 0x09);
+        let r1 = gmul(s0, 0x09) ^ gmul(s1, 0x0e) ^ gmul(s2, 0x0b) ^ gmul(s3, 0x0d);
+        let r2 = gmul(s0, 0x0d) ^ gmul(s1, 0x09) ^ gmul(s2, 0x0e) ^ gmul(s3, 0x0b);
+        let r3 = gmul(s0, 0x0b) ^ gmul(s1, 0x0d) ^ gmul(s2, 0x09) ^ gmul(s3, 0x0e);
+        u32::from(r0) | (u32::from(r1) << 8u8) | (u32::from(r2) << 16u8) | (u32::from(r3) << 24u8)
+    }
+
+    /// Byte in row `row` of column `col` of the 128-bit state `(rs1, rs2)`
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    const fn state_byte(rs1: u64, rs2: u64, col: usize, row: usize) -> u8 {
+        let word = if col < 2 { rs1 } else { rs2 };
+        (word >> ((col % 2) * 32 + row * 8)) as u8
+    }
+
+    /// Apply InvShiftRows + InvSubBytes to the full 128-bit state `(rs1, rs2)` and return
+    /// the low 64-bit half of the result.
+    ///
+    /// State layout: column-major, little-endian 64-bit halves.
+    /// `byte[col*4 + row]` is at bit `(row*8)` of `rs1` for `col < 2`, or bit `(row*8)` of
+    /// `rs2` for `col >= 2`.
+    ///
+    /// InvShiftRows shifts row `r` right by `r` columns (cyclically over 4).
+    /// Output low half contains post-transform columns 0 and 1.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub(super) const fn aes64ds(rs1: u64, rs2: u64) -> u64 {
+        let mut out = 0;
+        for c in ConstRange::new(0usize, 2) {
+            for r in ConstRange::new(0usize, 4) {
+                let src_col = (c + 4 - r) & 3;
+                let b = INV_SBOX[state_byte(rs1, rs2, src_col, r) as usize];
+                out |= u64::from(b) << (c * 32 + r * 8);
+            }
+        }
+        out
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub(super) const fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
+        let lo = aes64ds(rs1, rs2);
+        let col0 = inv_mix_col(lo as u32);
+        let col1 = inv_mix_col((lo >> 32u8) as u32);
+        u64::from(col0) | (u64::from(col1) << 32u8)
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub(super) const fn aes64im(rs1: u64) -> u64 {
+        let col0 = inv_mix_col(rs1 as u32);
+        let col1 = inv_mix_col((rs1 >> 32u8) as u32);
+        u64::from(col0) | (u64::from(col1) << 32u8)
+    }
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -270,6 +274,7 @@ pub fn aes64ds(rs1: u64, rs2: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -296,6 +301,7 @@ pub fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -322,6 +328,7 @@ pub fn aes64im(rs1: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -336,6 +343,7 @@ pub fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -348,4 +356,44 @@ pub fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
         }
         _ => ks::aes64ks2(rs1, rs2),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64ds(rs1: u64, rs2: u64) -> u64 {
+    soft::aes64ds(rs1, rs2)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64dsm(rs1: u64, rs2: u64) -> u64 {
+    soft::aes64dsm(rs1, rs2)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64im(rs1: u64) -> u64 {
+    soft::aes64im(rs1)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
+    ks::aes64ks1i(rs1, rnum)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
+    ks::aes64ks2(rs1, rs2)
 }

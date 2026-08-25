@@ -25,14 +25,14 @@ const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZbkbInstruction<Reg> 
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZbkbInstruction<Reg>
 where
-    Reg: Register<Type = u64>,
-    Regs: RegisterFile<Reg>,
+    Reg: [const] Register<Type = u64>,
+    Regs: [const] RegisterFile<Reg>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -70,15 +70,18 @@ where
             }
             Self::Brev8 { rd, rs1: _ } => {
                 // Reverse bits within each byte of rs1
-                let src = rs1_value;
-                let mut bytes = src.to_le_bytes();
-                for byte in &mut bytes {
-                    *byte = byte.reverse_bits();
-                }
-                ExecutionResult::Continue {
-                    rd,
-                    value: u64::from_le_bytes(bytes),
-                }
+                let bytes = rs1_value.to_le_bytes();
+                let value = u64::from_le_bytes([
+                    bytes[0].reverse_bits(),
+                    bytes[1].reverse_bits(),
+                    bytes[2].reverse_bits(),
+                    bytes[3].reverse_bits(),
+                    bytes[4].reverse_bits(),
+                    bytes[5].reverse_bits(),
+                    bytes[6].reverse_bits(),
+                    bytes[7].reverse_bits(),
+                ]);
+                ExecutionResult::Continue { rd, value }
             }
         }
     }

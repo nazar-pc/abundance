@@ -26,14 +26,14 @@ const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32ZknhInstruction<Reg> 
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv32ZknhInstruction<Reg>
 where
-    Reg: Register<Type = u32>,
-    Regs: RegisterFile<Reg>,
+    Reg: [const] Register<Type = u32>,
+    Regs: [const] RegisterFile<Reg>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {

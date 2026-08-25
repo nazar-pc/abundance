@@ -1,5 +1,8 @@
 //! Opaque helpers for RV64 Zknh extension
 
+use const_fn_specialization::const_fn_specialization;
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -14,6 +17,15 @@ pub fn sha256sig0(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sig0(x: u32) -> u32 {
+    x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -28,6 +40,15 @@ pub fn sha256sig1(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sig1(x: u32) -> u32 {
+    x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -42,6 +63,15 @@ pub fn sha256sum0(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sum0(x: u32) -> u32 {
+    x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -56,6 +86,15 @@ pub fn sha256sum1(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sum1(x: u32) -> u32 {
+    x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -70,6 +109,15 @@ pub fn sha512sig0(x: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sig0(x: u64) -> u64 {
+    x.rotate_right(1) ^ x.rotate_right(8) ^ (x >> 7)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -84,6 +132,15 @@ pub fn sha512sig1(x: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sig1(x: u64) -> u64 {
+    x.rotate_right(19) ^ x.rotate_right(61) ^ (x >> 6)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -98,6 +155,15 @@ pub fn sha512sum0(x: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sum0(x: u64) -> u64 {
+    x.rotate_right(28) ^ x.rotate_right(34) ^ x.rotate_right(39)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -110,4 +176,12 @@ pub fn sha512sum1(x: u64) -> u64 {
         }
         _ => x.rotate_right(14) ^ x.rotate_right(18) ^ x.rotate_right(41),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sum1(x: u64) -> u64 {
+    x.rotate_right(14) ^ x.rotate_right(18) ^ x.rotate_right(41)
 }

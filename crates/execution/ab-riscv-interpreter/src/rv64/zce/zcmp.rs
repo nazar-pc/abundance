@@ -27,13 +27,13 @@ const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZcmpInstruction<Reg> 
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZcmpInstruction<Reg>
 where
-    Reg: ZcmpRegister<Type = u64>,
+    Reg: [const] ZcmpRegister<Type = u64>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {
@@ -62,17 +62,17 @@ const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZcmpOnlyInstruction<R
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv64ZcmpOnlyInstruction<Reg>
 where
-    Reg: ZcmpRegister<Type = u64>,
-    Regs: RegisterFile<Reg>,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory>,
-    Env: SystemInstructionHandler<Reg, Regs, Memory, PC>,
+    Reg: [const] ZcmpRegister<Type = u64>,
+    Regs: [const] RegisterFile<Reg>,
+    Memory: [const] VirtualMemory,
+    PC: [const] ProgramCounter<Reg::Type, Memory>,
+    Env: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
 {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn execute(
         self,
         Rs1Rs2OperandValues {

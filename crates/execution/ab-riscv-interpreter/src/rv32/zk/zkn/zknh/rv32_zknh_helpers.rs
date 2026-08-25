@@ -1,5 +1,8 @@
 //! Opaque helpers for RV32 Zknh extension
 
+use const_fn_specialization::const_fn_specialization;
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -14,6 +17,15 @@ pub fn sha256sig0(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sig0(x: u32) -> u32 {
+    x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -28,6 +40,15 @@ pub fn sha256sig1(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sig1(x: u32) -> u32 {
+    x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -42,6 +63,15 @@ pub fn sha256sum0(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sum0(x: u32) -> u32 {
+    x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -56,6 +86,14 @@ pub fn sha256sum1(x: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha256sum1(x: u32) -> u32 {
+    x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
+}
+
 // SHA-512 sigma0: ROR64(x,1) ^ ROR64(x,8) ^ SHR64(x,7)
 
 /// High 32 bits of SHA-512 sigma0. rs1 = HIGH word, rs2 = LOW word.
@@ -65,6 +103,7 @@ pub fn sha256sum1(x: u32) -> u32 {
 /// ROR64(x,8).hi  = (rs1>>8)  ^ (rs2<<24)
 /// SHR64(x,7).hi  =  rs1>>7              <- shift: no rs2 contribution
 /// ```
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -79,6 +118,14 @@ pub fn sha512sig0h(rs1: u32, rs2: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sig0h(rs1: u32, rs2: u32) -> u32 {
+    (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7)
+}
+
 /// Low 32 bits of SHA-512 sigma0. rs1 = LOW word, rs2 = HIGH word.
 ///
 /// ```text
@@ -86,6 +133,7 @@ pub fn sha512sig0h(rs1: u32, rs2: u32) -> u32 {
 /// ROR64(x,8).lo  = (rs1>>8)  ^ (rs2<<24)
 /// SHR64(x,7).lo  = (rs1>>7)  ^ (rs2<<25)  <- cross-boundary bits from hi
 /// ```
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -100,6 +148,14 @@ pub fn sha512sig0l(rs1: u32, rs2: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sig0l(rs1: u32, rs2: u32) -> u32 {
+    (rs1 >> 1) ^ (rs2 << 31) ^ (rs1 >> 8) ^ (rs2 << 24) ^ (rs1 >> 7) ^ (rs2 << 25)
+}
+
 // SHA-512 sigma1: ROR64(x,19) ^ ROR64(x,61) ^ SHR64(x,6)
 
 /// High 32 bits of SHA-512 sigma1. rs1 = HIGH word, rs2 = LOW word.
@@ -109,6 +165,7 @@ pub fn sha512sig0l(rs1: u32, rs2: u32) -> u32 {
 /// ROR64(x,61).hi = ROR64(x,32+29).hi = (rs2>>29) ^ (rs1<<3)
 /// SHR64(x,6).hi  =  rs1>>6              <- shift: no rs2 contribution
 /// ```
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -123,6 +180,14 @@ pub fn sha512sig1h(rs1: u32, rs2: u32) -> u32 {
     }
 }
 
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sig1h(rs1: u32, rs2: u32) -> u32 {
+    (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6)
+}
+
 /// Low 32 bits of SHA-512 sigma1. rs1 = LOW word, rs2 = HIGH word.
 ///
 /// ```text
@@ -130,6 +195,7 @@ pub fn sha512sig1h(rs1: u32, rs2: u32) -> u32 {
 /// ROR64(x,61).lo = ROR64(x,32+29).lo = (rs2>>29) ^ (rs1<<3)
 /// SHR64(x,6).lo  = (rs1>>6)  ^ (rs2<<26)  <- cross-boundary bits from hi
 /// ```
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -142,6 +208,14 @@ pub fn sha512sig1l(rs1: u32, rs2: u32) -> u32 {
         }
         _ => (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6) ^ (rs2 << 26),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sig1l(rs1: u32, rs2: u32) -> u32 {
+    (rs1 >> 19) ^ (rs2 << 13) ^ (rs2 >> 29) ^ (rs1 << 3) ^ (rs1 >> 6) ^ (rs2 << 26)
 }
 
 // SHA-512 Sum0: ROR64(x,28) ^ ROR64(x,34) ^ ROR64(x,39)
@@ -162,6 +236,7 @@ pub fn sha512sig1l(rs1: u32, rs2: u32) -> u32 {
 /// ROR64(x,34).lo = ROR64(x,32+2).lo  = (rs2>>2)  ^ (rs1<<30)
 /// ROR64(x,39).lo = ROR64(x,32+7).lo  = (rs2>>7)  ^ (rs1<<25)
 /// ```
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -174,6 +249,14 @@ pub fn sha512sum0r(rs1: u32, rs2: u32) -> u32 {
         }
         _ => (rs1 >> 28) ^ (rs2 << 4) ^ (rs2 >> 2) ^ (rs1 << 30) ^ (rs2 >> 7) ^ (rs1 << 25),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sum0r(rs1: u32, rs2: u32) -> u32 {
+    (rs1 >> 28) ^ (rs2 << 4) ^ (rs2 >> 2) ^ (rs1 << 30) ^ (rs2 >> 7) ^ (rs1 << 25)
 }
 
 // SHA-512 Sum1: ROR64(x,14) ^ ROR64(x,18) ^ ROR64(x,41)
@@ -194,6 +277,7 @@ pub fn sha512sum0r(rs1: u32, rs2: u32) -> u32 {
 /// ROR64(x,18).lo = (rs1>>18) ^ (rs2<<14)
 /// ROR64(x,41).lo = ROR64(x,32+9).lo = (rs2>>9)  ^ (rs1<<23)
 /// ```
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -206,4 +290,12 @@ pub fn sha512sum1r(rs1: u32, rs2: u32) -> u32 {
         }
         _ => (rs1 >> 14) ^ (rs2 << 18) ^ (rs1 >> 18) ^ (rs2 << 14) ^ (rs2 >> 9) ^ (rs1 << 23),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn sha512sum1r(rs1: u32, rs2: u32) -> u32 {
+    (rs1 >> 14) ^ (rs2 << 18) ^ (rs1 >> 18) ^ (rs2 << 14) ^ (rs2 >> 9) ^ (rs1 << 23)
 }
