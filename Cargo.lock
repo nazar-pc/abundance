@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ab-aligned-buffer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "stable_deref_trait",
  "yoke",
@@ -27,7 +27,7 @@ dependencies = [
 
 [[package]]
 name = "ab-blake3"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "no-panic",
@@ -35,7 +35,7 @@ dependencies = [
 
 [[package]]
 name = "ab-chacha8"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chacha20 0.10.1",
  "no-panic",
@@ -357,7 +357,7 @@ dependencies = [
 
 [[package]]
 name = "ab-direct-io-file"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chacha20 0.10.1",
  "fs4",
@@ -549,7 +549,7 @@ dependencies = [
 
 [[package]]
 name = "ab-io-type"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ab-io-type-derive",
  "parity-scale-codec",
@@ -567,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "ab-merkle-tree"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ab-blake3",
  "blake3",
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-interpreter"
-version = "0.0.4"
+version = "0.1.0"
 dependencies = [
  "ab-riscv-macros",
  "ab-riscv-primitives",
@@ -787,7 +787,7 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-macros"
-version = "0.0.4"
+version = "0.1.0"
 dependencies = [
  "ab-riscv-macros-common",
  "ab-riscv-macros-impl",
@@ -800,11 +800,11 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-macros-common"
-version = "0.0.4"
+version = "0.1.0"
 
 [[package]]
 name = "ab-riscv-macros-impl"
-version = "0.0.3"
+version = "0.1.0"
 dependencies = [
  "ab-riscv-macros-common",
  "proc-macro2",
@@ -814,7 +814,7 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-primitives"
-version = "0.0.4"
+version = "0.1.0"
 dependencies = [
  "ab-riscv-macros",
  "no-panic-const",

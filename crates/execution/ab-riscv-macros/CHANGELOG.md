@@ -1,6 +1,19 @@
+# 0.1.0
+
+Breaking changes:
+
+* Migrate from `generic_const_exprs` to `generic_const_args` family of nightly features
+
+New features:
+
+* Major changes in supported syntax and generated code for better performance
+* Support for panic-free implementations
+* Support for `const` implementation of instruction execution
+* Support for indirect threading dispatch code generation
+
 # 0.0.4
 
-Features:
+New features:
 
 * Support for compressed instructions (composition of size and alignment methods)
 
@@ -14,7 +27,7 @@ Fixes:
 
 # 0.0.3
 
-Features:
+New features:
 
 * Support for compressed instructions (composition of size and alignment methods)
 
@@ -32,7 +45,7 @@ Fixes:
 
 # 0.0.2
 
-Features:
+New features:
 
 * Implement support for new `ExecutableInstruction::prepare_csr_read()`/`ExecutableInstruction::prepare_csr_write()`
   methods

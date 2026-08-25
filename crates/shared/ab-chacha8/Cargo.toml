@@ -6,12 +6,13 @@ categories = ["algorithms", "cryptography", "no-std::no-alloc"]
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-chacha8"
 license = "0BSD"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
+    "/CHANGELOG.md",
 ]
 
 [package.metadata.docs.rs]
