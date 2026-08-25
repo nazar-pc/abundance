@@ -10,7 +10,8 @@ use crate::registers::general_purpose::{EReg, Reg, Register};
 use ab_riscv_macros::instruction;
 use core::fmt;
 use core::hint::unreachable_unchecked;
-use core::marker::PhantomData;
+use core::iter::TrustedLen;
+use core::marker::{Destruct, PhantomData};
 
 /// General purpose register with additional constraints for Zcmp extension
 ///
@@ -99,6 +100,52 @@ const impl<Reg> PartialEq<ZcmpUrlist<Reg>> for ZcmpUrlist<Reg> {
 
 const impl<Reg> Eq for ZcmpUrlist<Reg> {}
 
+/// Iterator over the registers of a [`ZcmpUrlist`], see [`ZcmpUrlist::reg_list()`]
+#[derive(Debug, Clone)]
+struct ZcmpRegList<Reg> {
+    /// Absolute register numbers that are left to yield
+    bits: &'static [u8],
+    reg: PhantomData<Reg>,
+}
+
+const impl<Reg> Iterator for ZcmpRegList<Reg>
+where
+    Reg: [const] ZcmpRegister,
+{
+    type Item = Reg;
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn next(&mut self) -> Option<Self::Item> {
+        let (&bits, rest) = self.bits.split_first()?;
+        self.bits = rest;
+
+        // SAFETY: `ZcmpRegister` requires `Reg::from_bits()` to return `Some` for every register
+        // number a `ZcmpUrlist` can contain
+        Some(unsafe { Reg::from_bits(bits).unwrap_unchecked() })
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.bits.len(), Some(self.bits.len()))
+    }
+}
+
+impl<Reg> ExactSizeIterator for ZcmpRegList<Reg>
+where
+    Reg: ZcmpRegister,
+{
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    fn len(&self) -> usize {
+        self.bits.len()
+    }
+}
+
+// SAFETY: `size_hint()` returns the exact number of registers left to yield
+const unsafe impl<Reg> TrustedLen for ZcmpRegList<Reg> where Reg: [const] ZcmpRegister {}
+
 impl<Reg> ZcmpUrlist<Reg>
 where
     Reg: ZcmpRegister,
@@ -162,8 +209,7 @@ where
         self.inner as u8
     }
 
-    // TODO: Map iterator isn't const or else this method would be const too
-    /// Iterator over the absolute register numbers in this list.
+    /// Iterator over the registers in this list.
     ///
     /// Order matches the spec push/pop order: ra first, then s0 ascending.
     /// ra=x1, s0=x8, s1=x9, s2=x18..s9=x25, s10=x26, s11=x27.
@@ -172,8 +218,13 @@ where
     /// {ra, s0-s10} has no encoding.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn reg_list(self) -> impl Iterator<Item = Reg> {
-        let regs: &[u8] = match self.inner {
+    pub const fn reg_list(
+        self,
+    ) -> impl [const] Iterator<Item = Reg> + ExactSizeIterator + [const] TrustedLen + const Destruct
+    where
+        Reg: [const] ZcmpRegister,
+    {
+        let bits: &[u8] = match self.inner {
             ZcmpUrlistInner::Ra => &[1],
             ZcmpUrlistInner::RaS0 => &[1, 8],
             ZcmpUrlistInner::RaS0S1 => &[1, 8, 9],
@@ -188,11 +239,10 @@ where
             ZcmpUrlistInner::RaS0S11 => &[1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
         };
 
-        regs.iter().map(|&bits| {
-            // SAFETY: constructor invariant guarantees Reg::from_bits returns
-            // Some for all register numbers in these lists
-            unsafe { Reg::from_bits(bits).unwrap_unchecked() }
-        })
+        ZcmpRegList {
+            bits,
+            reg: PhantomData,
+        }
     }
 
     /// Stack adjustment base in bytes.

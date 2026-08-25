@@ -28,7 +28,7 @@ const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32BInstruction<Reg> whe
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for Rv32BInstruction<Reg>
 where
     Reg: Register<Type = u32>,

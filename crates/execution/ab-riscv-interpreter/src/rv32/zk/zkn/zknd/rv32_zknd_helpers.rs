@@ -1,15 +1,10 @@
 //! Opaque helpers for RV32 Zknd extension
 
+use crate::const_utils::ConstRange;
 use ab_riscv_primitives::prelude::*;
+use const_fn_specialization::const_fn_specialization;
 
 /// AES forward S-box (SubBytes, used only for the key schedule)
-#[cfg(not(all(
-    not(miri),
-    all(
-        any(target_arch = "riscv32", target_arch = "riscv64"),
-        any(target_feature = "zknd", target_feature = "zkne")
-    )
-)))]
 #[rustfmt::skip]
 pub(crate) const SBOX: [u8; 256] = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b,
@@ -37,11 +32,6 @@ pub(crate) const SBOX: [u8; 256] = [
 ];
 
 /// AES inverse S-box (InvSubBytes)
-#[cfg(not(all(
-    not(miri),
-    any(target_arch = "riscv32", target_arch = "riscv64"),
-    target_feature = "zknd"
-)))]
 #[rustfmt::skip]
 pub(crate) const INV_SBOX: [u8; 256] = [
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e,
@@ -68,21 +58,11 @@ pub(crate) const INV_SBOX: [u8; 256] = [
     0x55, 0x21, 0x0c, 0x7d,
 ];
 
-#[cfg(any(
-    test,
-    not(all(
-        not(miri),
-        all(
-            any(target_arch = "riscv32", target_arch = "riscv64"),
-            any(target_feature = "zknd", target_feature = "zkne")
-        )
-    ))
-))]
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(crate) fn gmul(mut a: u8, mut b: u8) -> u8 {
+pub(crate) const fn gmul(mut a: u8, mut b: u8) -> u8 {
     let mut p = 0u8;
-    for _ in 0..8u8 {
+    for _ in ConstRange::new(0u8, 8) {
         if b & 1 != 0 {
             p ^= a;
         }
@@ -100,7 +80,6 @@ pub(crate) fn gmul(mut a: u8, mut b: u8) -> u8 {
 ///
 /// Both instructions share the same S-box and MixColumn machinery; the only difference is whether
 /// InvMixColumns is applied.
-#[cfg(not(all(not(miri), target_arch = "riscv32", target_feature = "zknd")))]
 #[expect(
     clippy::inline_modules,
     reason = "Small internal API, it is more readable this way"
@@ -123,7 +102,7 @@ pub(in super::super) mod soft {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn inv_mix_col_byte(b: u8) -> u32 {
+    pub(super) const fn inv_mix_col_byte(b: u8) -> u32 {
         let r0 = u32::from(gmul(b, 0x0e));
         let r1 = u32::from(gmul(b, 0x09));
         let r2 = u32::from(gmul(b, 0x0d));
@@ -142,7 +121,7 @@ pub(in super::super) mod soft {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn aes32dsi(rs1: u32, rs2: u32, bs: u8) -> u32 {
+    pub(super) const fn aes32dsi(rs1: u32, rs2: u32, bs: u8) -> u32 {
         let shamt = u32::from(bs) * 8;
         let si = ((rs2 >> shamt) & 0xff) as u8;
         let so = u32::from(INV_SBOX[usize::from(si)]);
@@ -161,7 +140,7 @@ pub(in super::super) mod soft {
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(super) fn aes32dsmi(rs1: u32, rs2: u32, bs: u8) -> u32 {
+    pub(super) const fn aes32dsmi(rs1: u32, rs2: u32, bs: u8) -> u32 {
         let shamt = u32::from(bs) * 8;
         let si = ((rs2 >> shamt) & 0xff) as u8;
         let so = INV_SBOX[usize::from(si)];
@@ -170,6 +149,7 @@ pub(in super::super) mod soft {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -184,6 +164,7 @@ pub fn aes32dsi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -196,4 +177,20 @@ pub fn aes32dsmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
         }
         _ => soft::aes32dsmi(rs1, rs2, u8::from(bs)),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes32dsi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
+    soft::aes32dsi(rs1, rs2, bs as u8)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes32dsmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
+    soft::aes32dsmi(rs1, rs2, bs as u8)
 }

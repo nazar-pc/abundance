@@ -1,5 +1,7 @@
 //! Opaque helpers for RV64 Zkne extension
 
+use const_fn_specialization::const_fn_specialization;
+
 cfg_select! {
     all(not(miri), target_arch = "riscv64", target_feature = "zkne") => {
         // Nothing, calling native intrinsics
@@ -85,65 +87,72 @@ cfg_select! {
         }
     }
     _ => {
-        /// Software fallback for aes64es, aes64esm
-        #[expect(
-            clippy::inline_modules,
-            reason = "Small internal API, it is more readable this way"
-        )]
-        mod soft {
-            use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{SBOX, gmul};
-
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            fn mix_col(col: u32) -> u32 {
-                let s0 = col as u8;
-                let s1 = (col >> 8) as u8;
-                let s2 = (col >> 16) as u8;
-                let s3 = (col >> 24) as u8;
-                let r0 = gmul(s0, 0x02) ^ gmul(s1, 0x03) ^ s2 ^ s3;
-                let r1 = s0 ^ gmul(s1, 0x02) ^ gmul(s2, 0x03) ^ s3;
-                let r2 = s0 ^ s1 ^ gmul(s2, 0x02) ^ gmul(s3, 0x03);
-                let r3 = gmul(s0, 0x03) ^ s1 ^ s2 ^ gmul(s3, 0x02);
-                u32::from(r0) | (u32::from(r1) << 8) | (u32::from(r2) << 16) | (u32::from(r3) << 24)
-            }
-
-            /// Apply ShiftRows + SubBytes to the full 128-bit state `(rs1, rs2)` and return the
-            /// low 64-bit half of the result.
-            ///
-            /// State layout: column-major, little-endian 64-bit halves.
-            /// ShiftRows shifts row `r` left by `r` columns (cyclically over 4).
-            /// Output low half contains post-transform columns 0 and 1.
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            pub(super) fn aes64es(rs1: u64, rs2: u64) -> u64 {
-                let state_byte = |col: usize, row: usize| -> u8 {
-                    let word = if col < 2 { rs1 } else { rs2 };
-                    (word >> ((col % 2) * 32 + row * 8)) as u8
-                };
-
-                let mut out = 0;
-                for c in 0..2usize {
-                    for r in 0..4usize {
-                        let src_col = (c + r) & 3;
-                        let b = SBOX[state_byte(src_col, r) as usize];
-                        out |= u64::from(b) << (c * 32 + r * 8);
-                    }
-                }
-                out
-            }
-
-            #[inline(always)]
-            #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-            pub(super) fn aes64esm(rs1: u64, rs2: u64) -> u64 {
-                let lo = aes64es(rs1, rs2);
-                let col0 = mix_col(lo as u32);
-                let col1 = mix_col((lo >> 32) as u32);
-                u64::from(col0) | (u64::from(col1) << 32)
-            }
-        }
+        // Nothing, the software fallback below is always available
     }
 }
 
+/// Software fallback for aes64es, aes64esm
+#[expect(
+    clippy::inline_modules,
+    reason = "Small internal API, it is more readable this way"
+)]
+mod soft {
+    use crate::const_utils::ConstRange;
+    use crate::rv32::zk::zkn::zknd::rv32_zknd_helpers::{SBOX, gmul};
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    const fn mix_col(col: u32) -> u32 {
+        let s0 = col as u8;
+        let s1 = (col >> 8) as u8;
+        let s2 = (col >> 16) as u8;
+        let s3 = (col >> 24) as u8;
+        let r0 = gmul(s0, 0x02) ^ gmul(s1, 0x03) ^ s2 ^ s3;
+        let r1 = s0 ^ gmul(s1, 0x02) ^ gmul(s2, 0x03) ^ s3;
+        let r2 = s0 ^ s1 ^ gmul(s2, 0x02) ^ gmul(s3, 0x03);
+        let r3 = gmul(s0, 0x03) ^ s1 ^ s2 ^ gmul(s3, 0x02);
+        u32::from(r0) | (u32::from(r1) << 8) | (u32::from(r2) << 16) | (u32::from(r3) << 24)
+    }
+
+    /// Byte in row `row` of column `col` of the 128-bit state `(rs1, rs2)`
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    const fn state_byte(rs1: u64, rs2: u64, col: usize, row: usize) -> u8 {
+        let word = if col < 2 { rs1 } else { rs2 };
+        (word >> ((col % 2) * 32 + row * 8)) as u8
+    }
+
+    /// Apply ShiftRows + SubBytes to the full 128-bit state `(rs1, rs2)` and return the
+    /// low 64-bit half of the result.
+    ///
+    /// State layout: column-major, little-endian 64-bit halves.
+    /// ShiftRows shifts row `r` left by `r` columns (cyclically over 4).
+    /// Output low half contains post-transform columns 0 and 1.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub(super) const fn aes64es(rs1: u64, rs2: u64) -> u64 {
+        let mut out = 0;
+        for c in ConstRange::new(0usize, 2) {
+            for r in ConstRange::new(0usize, 4) {
+                let src_col = (c + r) & 3;
+                let b = SBOX[state_byte(rs1, rs2, src_col, r) as usize];
+                out |= u64::from(b) << (c * 32 + r * 8);
+            }
+        }
+        out
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub(super) const fn aes64esm(rs1: u64, rs2: u64) -> u64 {
+        let lo = aes64es(rs1, rs2);
+        let col0 = mix_col(lo as u32);
+        let col1 = mix_col((lo >> 32) as u32);
+        u64::from(col0) | (u64::from(col1) << 32)
+    }
+}
+
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -170,6 +179,7 @@ pub fn aes64es(rs1: u64, rs2: u64) -> u64 {
     }
 }
 
+#[const_fn_specialization]
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -194,4 +204,20 @@ pub fn aes64esm(rs1: u64, rs2: u64) -> u64 {
         }
         _ => soft::aes64esm(rs1, rs2),
     }
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64es(rs1: u64, rs2: u64) -> u64 {
+    soft::aes64es(rs1, rs2)
+}
+
+#[const_fn_specialization]
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub const fn aes64esm(rs1: u64, rs2: u64) -> u64 {
+    soft::aes64esm(rs1, rs2)
 }

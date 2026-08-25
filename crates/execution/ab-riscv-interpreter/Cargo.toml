@@ -24,6 +24,7 @@ all-features = false
 [dependencies]
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
+const-fn-specialization = { workspace = true }
 no-panic-const = { workspace = true, optional = true }
 replace_with = { workspace = true }
 thiserror = { workspace = true }

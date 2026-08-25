@@ -74,6 +74,7 @@ cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.1", default-features = false }
 clap = { version = "4.6.6", features = ["derive"] }
 colored = { version = "3.1.1" }
+const-fn-specialization = "0.1.0"
 const_format = "0.2.36"
 core_affinity = "0.8.3"
 cpufeatures = "0.3.0"
@@ -131,7 +132,7 @@ smallvec = { version = "1.15.2", features = ["union"] }
 spirv-std = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "eb73c07837c31b4eca701237e04ef1a46432e57b" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
-syn = "3.0.3"
+syn = "3.0.4"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.20", default-features = false }
 tokio = { version = "1.53.1", default-features = false }
