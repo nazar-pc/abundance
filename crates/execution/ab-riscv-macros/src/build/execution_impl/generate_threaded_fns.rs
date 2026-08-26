@@ -31,8 +31,8 @@ fn handler_abi() -> anyhow::Result<(Option<Abi>, Option<Attribute>)> {
     //  convention returns it in registers is a bug rather than something inherent, so this
     //  pinning can go away (except on x86-64 Windows) once it is fixed:
     //  https://github.com/rust-lang/rust/issues/161381
-    Ok(match target_arch.as_str() {
-        "x86_64" => (
+    Ok(if target_arch == "x86_64" {
+        (
             Some(parse_quote! { extern "sysv64" }),
             // Miri emulates a CPU without AVX and refuses to call a function that requires it, so
             // unless it is running code built for AVX in the first place, the feature is disabled
@@ -42,9 +42,9 @@ fn handler_abi() -> anyhow::Result<(Option<Abi>, Option<Attribute>)> {
                     target_feature(enable = "avx")
                 )]
             }),
-        ),
-        "aarch64" => (Some(parse_quote! { extern "C" }), None),
-        _ => (None, None),
+        )
+    } else {
+        (Some(parse_quote! { extern "C" }), None)
     })
 }
 
