@@ -371,7 +371,9 @@ dependencies = [
 name = "ab-erasure-coding"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "chacha20 0.10.1",
+ "criterion",
  "reed-solomon-simd",
  "thiserror 2.0.20",
 ]

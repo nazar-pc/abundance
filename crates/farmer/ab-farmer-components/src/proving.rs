@@ -4,9 +4,7 @@
 //! before they can be sent to the node and this is exactly what this module is about.
 
 use crate::auditing::ChunkCandidate;
-use crate::reading::{
-    ReadingError, read_record_metadata, read_sector_record_chunks, recover_extended_record_chunks,
-};
+use crate::reading::{ReadingError, read_record_metadata, read_sector_record_chunks};
 use crate::sector::{
     RecordMetadata, SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
 };
@@ -245,29 +243,43 @@ where
                 &pos_proofs,
                 &self.sector,
             );
-            let sector_record_chunks = sector_record_chunks_fut
+            let mut sector_record_chunks = sector_record_chunks_fut
                 .now_or_never()
                 .expect("Sync reader; qed")
                 .map_err(ProvingError::RecordReadingError)?;
 
-            let chunk = sector_record_chunks
-                .get(usize::from(self.s_bucket))
-                .expect("Within s-bucket range; qed")
-                .expect("Winning chunk was plotted; qed");
+            let chunk = sector_record_chunks.get_chunk(self.s_bucket);
 
-            let chunks = recover_extended_record_chunks(
-                &sector_record_chunks,
-                piece_offset,
-                self.erasure_coding,
-            )
-            .map_err(ProvingError::RecordReadingError)?;
+            self.erasure_coding
+                .recover_all(
+                    &mut sector_record_chunks.source,
+                    &mut sector_record_chunks.parity,
+                    &sector_record_chunks.present,
+                )
+                .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
+                    piece_offset,
+                    error,
+                })
+                .map_err(ProvingError::RecordReadingError)?;
+
+            // TODO: Remove this extra allocation
+            // SAFETY: Data structure filled with zeroes is a valid invariant
+            let mut record_chunks = unsafe {
+                Box::<[[u8; RecordChunk::SIZE]; Record::NUM_S_BUCKETS]>::new_zeroed().assume_init()
+            };
+
+            for (target, source) in record_chunks.iter_mut().zip(
+                sector_record_chunks
+                    .source
+                    .iter()
+                    .chain(sector_record_chunks.parity.iter()),
+            ) {
+                *target = *source;
+            }
+
+            let record_merkle_tree =
+                BalancedMerkleTree::<{ Record::NUM_S_BUCKETS }>::new_boxed(&record_chunks);
             drop(sector_record_chunks);
-
-            let record_merkle_tree = BalancedMerkleTree::<{ Record::NUM_S_BUCKETS }>::new_boxed(
-                RecordChunk::slice_to_repr(chunks.as_slice())
-                    .try_into()
-                    .expect("Statically guaranteed to have correct length; qed"),
-            );
 
             // NOTE: We do not check plot consistency using checksum because it is more
             // expensive and consensus will verify validity of the proof anyway

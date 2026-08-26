@@ -687,7 +687,7 @@ fn object_on_the_edge_of_segment() {
 
     // Ensure bytes are mapped correctly
     assert_eq!(
-        archived_segments[1].pieces.as_ref()[0]
+        archived_segments[1].pieces[PiecePosition::from(0)]
             .record
             .as_flattened()[object_mapping[0].offset as usize..][..mapped_bytes.len()],
         mapped_bytes

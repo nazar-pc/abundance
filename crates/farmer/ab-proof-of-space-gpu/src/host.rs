@@ -293,7 +293,7 @@ impl RecordsEncoder for GpuRecordsEncoder {
                     // TODO: Do erasure coding on the GPU
                     // Erasure code source record chunks
                     self.erasure_coding
-                        .extend(record.iter(), parity_record_chunks.iter_mut())
+                        .extend(record, &mut parity_record_chunks)
                         .expect("Statically guaranteed valid inputs; qed");
 
                     if abort_early.load(Ordering::Relaxed) {

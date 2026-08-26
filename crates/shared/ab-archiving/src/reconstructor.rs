@@ -5,9 +5,9 @@ use ab_core_primitives::segments::{
     ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex, RecordedHistorySegment,
     SegmentHeader,
 };
-use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
+use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsBitmap};
 use alloc::vec::Vec;
-use core::mem;
+use core::{array, mem};
 use parity_scale_codec::Decode;
 
 /// Reconstructor-related instantiation error
@@ -71,6 +71,7 @@ impl Reconstructor {
     /// Does not modify the internal state of the reconstructor.
     pub fn reconstruct_segment(
         &self,
+        // TODO: Improve API to not use `Option` anymore
         segment_pieces: &[Option<Piece>],
     ) -> Result<Segment, ReconstructorError> {
         if segment_pieces.len() < ArchivedHistorySegment::NUM_PIECES {
@@ -98,28 +99,43 @@ impl Reconstructor {
             // coding
             let (source_segment_pieces, parity_segment_pieces) =
                 segment_pieces.split_at(RecordedHistorySegment::NUM_RAW_RECORDS);
-            let source = segment_data.iter_mut().zip(source_segment_pieces).map(
-                |(output_record, maybe_source_piece)| match maybe_source_piece {
-                    Some(input_piece) => {
-                        // Fancy way to insert value to avoid going through stack (if naive
-                        // dereferencing is used) and potentially causing stack overflow as the
-                        // result
-                        output_record.copy_from_slice(&*input_piece.record);
-                        RecoveryShardState::Present(input_piece.record.as_flattened())
-                    }
-                    None => RecoveryShardState::MissingRecover(output_record.as_flattened_mut()),
+
+            let mut source_present = ShardsBitmap::none();
+            for (index, (output_record, maybe_source_piece)) in segment_data
+                .iter_mut()
+                .zip(source_segment_pieces)
+                .enumerate()
+            {
+                if let Some(input_piece) = maybe_source_piece {
+                    // Fancy way to insert value to avoid going through stack (if naive
+                    // dereferencing is used) and potentially causing stack overflow as the result
+                    output_record.copy_from_slice(&*input_piece.record);
+                    source_present.set(index);
+                }
+            }
+
+            // Parity records are read-only here, so missing ones simply have no memory
+            let parity_records = array::from_fn(|index| {
+                parity_segment_pieces[index]
+                    .as_ref()
+                    .map(|input_piece| &input_piece.record)
+            });
+
+            self.erasure_coding.recover_source_scattered(
+                {
+                    let records: &mut [_; RecordedHistorySegment::NUM_RAW_RECORDS] =
+                        segment_data.as_mut();
+                    let mut records = records.iter_mut();
+
+                    array::from_fn::<_, { RecordedHistorySegment::NUM_RAW_RECORDS }, _>(|_| {
+                        records
+                            .next()
+                            .expect("Number of records matches the array size; qed")
+                    })
                 },
-            );
-            let parity =
-                parity_segment_pieces
-                    .iter()
-                    .map(|maybe_source_piece| match maybe_source_piece {
-                        Some(input_piece) => {
-                            RecoveryShardState::Present(input_piece.record.as_flattened())
-                        }
-                        None => RecoveryShardState::MissingIgnore,
-                    });
-            self.erasure_coding.recover(source, parity)?;
+                &source_present,
+                parity_records,
+            )?;
         }
 
         let segment = Segment::decode(&mut AsRef::<[u8]>::as_ref(segment_data.as_ref()))

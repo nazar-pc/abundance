@@ -6,7 +6,7 @@ use ab_core_primitives::segments::{
     SegmentRoot, SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
-use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
+use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsPresent};
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
@@ -64,60 +64,46 @@ impl PiecesReconstructor {
             let (source_reconstructed_pieces, parity_reconstructed_pieces) =
                 reconstructed_pieces.split_at_mut(RecordedHistorySegment::NUM_RAW_RECORDS);
 
-            let source = source_input_pieces
+            let mut present = ShardsPresent::none();
+
+            for (index, (maybe_input_piece, output_piece)) in source_input_pieces
                 .iter()
-                .zip(source_reconstructed_pieces)
-                .map(
-                    |(maybe_input_piece, output_piece)| match maybe_input_piece {
-                        Some(input_piece) => {
-                            if shared_piece_details.is_none() {
-                                shared_piece_details.replace(SharedPieceDetails {
-                                    shard_index: input_piece.header.shard_index.as_inner(),
-                                    local_segment_index: input_piece
-                                        .header
-                                        .local_segment_index
-                                        .as_inner(),
-                                    super_segment_index: input_piece
-                                        .header
-                                        .super_segment_index
-                                        .as_inner(),
-                                    segment_position: input_piece
-                                        .header
-                                        .segment_position
-                                        .as_inner(),
-                                    segment_root: input_piece.header.segment_root,
-                                    segment_proof: input_piece.header.segment_proof,
-                                });
-                            }
-                            // Fancy way to insert value to avoid going through stack (if naive
-                            // dereferencing is used) and potentially causing stack overflow as the
-                            // result
-                            output_piece.record.copy_from_slice(&*input_piece.record);
-                            RecoveryShardState::Present(input_piece.record.as_flattened())
-                        }
-                        None => RecoveryShardState::MissingRecover(
-                            output_piece.record.as_flattened_mut(),
-                        ),
-                    },
-                );
-            let parity = parity_input_pieces
+                .zip(source_reconstructed_pieces.iter_mut())
+                .enumerate()
+            {
+                if let Some(input_piece) = maybe_input_piece {
+                    if shared_piece_details.is_none() {
+                        shared_piece_details.replace(SharedPieceDetails {
+                            shard_index: input_piece.header.shard_index.as_inner(),
+                            local_segment_index: input_piece.header.local_segment_index.as_inner(),
+                            super_segment_index: input_piece.header.super_segment_index.as_inner(),
+                            segment_position: input_piece.header.segment_position.as_inner(),
+                            segment_root: input_piece.header.segment_root,
+                            segment_proof: input_piece.header.segment_proof,
+                        });
+                    }
+                    // Fancy way to insert value to avoid going through stack (if naive
+                    // dereferencing is used) and potentially causing stack overflow as the result
+                    output_piece.record.copy_from_slice(&*input_piece.record);
+                    present.source.set(index);
+                }
+            }
+
+            for (index, (maybe_input_piece, output_piece)) in parity_input_pieces
                 .iter()
                 .zip(parity_reconstructed_pieces.iter_mut())
-                .map(
-                    |(maybe_input_piece, output_piece)| match maybe_input_piece {
-                        Some(input_piece) => {
-                            // Fancy way to insert value to avoid going through stack (if naive
-                            // dereferencing is used) and potentially causing stack overflow as the
-                            // result
-                            output_piece.record.copy_from_slice(&*input_piece.record);
-                            RecoveryShardState::Present(input_piece.record.as_flattened())
-                        }
-                        None => RecoveryShardState::MissingRecover(
-                            output_piece.record.as_flattened_mut(),
-                        ),
-                    },
-                );
-            self.erasure_coding.recover(source, parity)?;
+                .enumerate()
+            {
+                if let Some(input_piece) = maybe_input_piece {
+                    output_piece.record.copy_from_slice(&*input_piece.record);
+                    present.parity.set(index);
+                }
+            }
+
+            let (source_records, parity_records) = reconstructed_pieces.split_records_mut();
+
+            self.erasure_coding
+                .recover_all_scattered(source_records, parity_records, &present)?;
         }
         let SharedPieceDetails {
             shard_index,
@@ -149,7 +135,7 @@ impl PiecesReconstructor {
                         let mut parity_chunks = Record::new_boxed();
 
                         self.erasure_coding
-                            .extend(piece.record.iter(), parity_chunks.iter_mut())?;
+                            .extend(&piece.record, &mut parity_chunks)?;
 
                         let source_chunks_root = *piece.record.source_chunks_root();
                         let parity_chunks_root =
