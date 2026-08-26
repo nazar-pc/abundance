@@ -412,6 +412,21 @@ impl AsRef<[u8]> for Record {
     }
 }
 
+impl AsRef<[u8; Record::SIZE]> for Record {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8; Record::SIZE] {
+        self.as_bytes()
+    }
+}
+
+impl AsMut<[u8; Record::SIZE]> for Record {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [u8; Record::SIZE] {
+        // SAFETY: `Record` is a plain byte array, any bit pattern is valid for it
+        unsafe { self.as_bytes_mut() }
+    }
+}
+
 impl AsMut<[u8]> for Record {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {

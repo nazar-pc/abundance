@@ -603,7 +603,7 @@ fn record_encoding<PosTable>(
 
     // Erasure code source record chunks
     erasure_coding
-        .extend(record.iter(), parity_record_chunks.iter_mut())
+        .extend(record, &mut parity_record_chunks)
         .expect("Statically guaranteed valid inputs; qed");
 
     *record_chunks_used = pos_proofs.found_proofs;

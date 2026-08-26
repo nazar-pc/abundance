@@ -1,53 +1,150 @@
-#![feature(trusted_len)]
+#![expect(incomplete_features, reason = "generic_const_*")]
+#![feature(
+    generic_const_args,
+    generic_const_items,
+    macroless_generic_const_args,
+    min_generic_const_args
+)]
 #![no_std]
 
-extern crate alloc;
-
-use alloc::vec;
-use alloc::vec::Vec;
-use core::iter::TrustedLen;
-use core::mem::MaybeUninit;
+use core::fmt;
 use reed_solomon_simd::Error;
 use reed_solomon_simd::engine::DefaultEngine;
 use reed_solomon_simd::rate::{HighRateDecoder, HighRateEncoder, RateDecoder, RateEncoder};
 
-/// Error that occurs when calling [`ErasureCoding::recover()`]
+/// Error that occurs when erasure coding data
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ErasureCodingError {
     /// Decoder error
     #[error("Decoder error: {0}")]
     DecoderError(#[from] Error),
-    /// Ignored source shard
-    #[error("Ignored source shard {index}")]
-    IgnoredSourceShard {
-        /// Shard index
-        index: usize,
-    },
-    /// Wrong source shard byte length
-    #[error("Wrong source shard byte length: expected {expected}, actual {actual}")]
-    WrongSourceShardByteLength { expected: usize, actual: usize },
-    /// Wrong parity shard byte length
-    #[error("Wrong parity shard byte length: expected {expected}, actual {actual}")]
-    WrongParityShardByteLength { expected: usize, actual: usize },
 }
 
-/// State of the shard for recovery
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum RecoveryShardState<PresentShard, MissingShard> {
-    /// Shard is present and will be used for recovery
-    Present(PresentShard),
-    /// Shard is missing and needs to be recovered
-    MissingRecover(MissingShard),
-    /// Shard is missing and does not need to be recovered.
-    ///
-    /// This is only allowed for parity shards, all source shards must always be present or
-    /// recovered.
-    MissingIgnore,
+/// Number of `u64` words needed for a bit per shard
+const NUM_WORDS<const NUM_SHARDS: usize>: usize = NUM_SHARDS.div_ceil(u64::BITS as usize);
+
+/// A bit per shard, typically saying whether that shard is present.
+///
+/// Bit `index % 64` of word `index / 64` corresponds to shard `index`, which is the same layout
+/// `reed_solomon_simd::rate::ReceivedShards` uses.
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct ShardsBitmap<const NUM_SHARDS: usize> {
+    words: [u64; NUM_WORDS::<NUM_SHARDS>],
+}
+
+impl<const NUM_SHARDS: usize> fmt::Debug for ShardsBitmap<NUM_SHARDS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ShardsBitmap")
+            .field("num_shards", &NUM_SHARDS)
+            .field("num_set", &self.count())
+            .finish()
+    }
+}
+
+impl<const NUM_SHARDS: usize> Default for ShardsBitmap<NUM_SHARDS> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::none()
+    }
+}
+
+impl<const NUM_SHARDS: usize> ShardsBitmap<NUM_SHARDS> {
+    /// Bitmap with no shards set
+    #[inline(always)]
+    pub const fn none() -> Self {
+        Self {
+            words: [0; NUM_WORDS::<NUM_SHARDS>],
+        }
+    }
+
+    /// Bitmap with all shards set
+    #[inline(always)]
+    pub const fn all() -> Self {
+        let mut this = Self {
+            words: [u64::MAX; NUM_WORDS::<NUM_SHARDS>],
+        };
+
+        // Bits past the last shard must not be set
+        let unused_bits = NUM_WORDS::<NUM_SHARDS> * u64::BITS as usize - NUM_SHARDS;
+        if unused_bits > 0 {
+            this.words[NUM_WORDS::<NUM_SHARDS> - 1] >>= unused_bits;
+        }
+
+        this
+    }
+
+    /// Whether the shard at `index` is set, `false` if `index` is out of bounds
+    #[inline(always)]
+    pub const fn get(&self, index: usize) -> bool {
+        if index >= NUM_SHARDS {
+            return false;
+        }
+
+        (self.words[index / u64::BITS as usize] >> (index % u64::BITS as usize)) & 1 == 1
+    }
+
+    /// Sets the shard at `index`, does nothing if `index` is out of bounds
+    #[inline(always)]
+    pub const fn set(&mut self, index: usize) {
+        if index < NUM_SHARDS {
+            self.words[index / u64::BITS as usize] |= 1 << (index % u64::BITS as usize);
+        }
+    }
+
+    /// Unsets the shard at `index`, does nothing if `index` is out of bounds
+    #[inline(always)]
+    pub const fn unset(&mut self, index: usize) {
+        if index < NUM_SHARDS {
+            self.words[index / u64::BITS as usize] &= !(1 << (index % u64::BITS as usize));
+        }
+    }
+
+    /// Number of shards that are set
+    #[inline]
+    pub const fn count(&self) -> usize {
+        let mut count = 0;
+        let mut word_index = 0;
+        while word_index < NUM_WORDS::<NUM_SHARDS> {
+            count += self.words[word_index].count_ones() as usize;
+            word_index += 1;
+        }
+
+        count
+    }
+}
+
+/// Which source and parity shards are present
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub struct ShardsPresent<const NUM_SHARDS: usize> {
+    /// Which source shards are present
+    pub source: ShardsBitmap<NUM_SHARDS>,
+    /// Which parity shards are present
+    pub parity: ShardsBitmap<NUM_SHARDS>,
+}
+
+impl<const NUM_SHARDS: usize> ShardsPresent<NUM_SHARDS> {
+    /// Nothing is present
+    #[inline(always)]
+    pub const fn none() -> Self {
+        Self {
+            source: ShardsBitmap::none(),
+            parity: ShardsBitmap::none(),
+        }
+    }
+
+    /// Everything is present
+    #[inline(always)]
+    pub const fn all() -> Self {
+        Self {
+            source: ShardsBitmap::all(),
+            parity: ShardsBitmap::all(),
+        }
+    }
 }
 
 /// Erasure coding abstraction.
 ///
-/// Supports creation of parity records and recovery of missing data.
+/// Supports creation of parity shards and recovery of missing data.
 #[derive(Debug, Clone)]
 pub struct ErasureCoding;
 
@@ -63,31 +160,13 @@ impl ErasureCoding {
         Self {}
     }
 
-    /// Extend sources using erasure coding
-    pub fn extend<'a, SourceIter, ParityIter, SourceBytes, ParityBytes>(
+    /// Extend contiguously stored source shards with parity shards
+    pub fn extend<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
         &self,
-        source: SourceIter,
-        parity: ParityIter,
-    ) -> Result<(), ErasureCodingError>
-    where
-        SourceIter: TrustedLen<Item = SourceBytes>,
-        ParityIter: TrustedLen<Item = ParityBytes>,
-        SourceBytes: AsRef<[u8]> + 'a,
-        ParityBytes: AsMut<[u8]> + 'a,
-    {
-        let mut source = source.peekable();
-        let shard_byte_len = source
-            .peek()
-            .map(|shard| shard.as_ref().len())
-            .unwrap_or_default();
-
-        let mut encoder = HighRateEncoder::new(
-            source.size_hint().0,
-            parity.size_hint().0,
-            shard_byte_len,
-            DefaultEngine::new(),
-            None,
-        )?;
+        source: &[[u8; SHARD_BYTES]; NUM_SHARDS],
+        parity: &mut [[u8; SHARD_BYTES]; NUM_SHARDS],
+    ) -> Result<(), ErasureCodingError> {
+        let mut encoder = new_encoder::<NUM_SHARDS, SHARD_BYTES>()?;
 
         for shard in source {
             encoder.add_original_shard(shard)?;
@@ -95,161 +174,260 @@ impl ErasureCoding {
 
         let result = encoder.encode()?;
 
-        for (input, mut output) in result.recovery_iter().zip(parity) {
-            let output = output.as_mut();
-            if output.len() != shard_byte_len {
-                return Err(ErasureCodingError::WrongParityShardByteLength {
-                    expected: shard_byte_len,
-                    actual: output.len(),
-                });
-            }
+        for (input, output) in result.recovery_iter().zip(parity) {
             output.copy_from_slice(input);
         }
 
         Ok(())
     }
 
-    /// Recover missing shards
-    pub fn recover<'a, SourceIter, ParityIter>(
+    /// Extend source shards with parity shards, where shards are not stored contiguously
+    pub fn extend_scattered<
+        const NUM_SHARDS: usize,
+        const SHARD_BYTES: usize,
+        SourceShard,
+        ParityShard,
+    >(
         &self,
-        source: SourceIter,
-        parity: ParityIter,
+        source: [SourceShard; NUM_SHARDS],
+        parity: [ParityShard; NUM_SHARDS],
     ) -> Result<(), ErasureCodingError>
     where
-        SourceIter: TrustedLen<Item = RecoveryShardState<&'a [u8], &'a mut [u8]>>,
-        ParityIter: TrustedLen<Item = RecoveryShardState<&'a [u8], &'a mut [u8]>>,
+        SourceShard: AsRef<[u8; SHARD_BYTES]>,
+        ParityShard: AsMut<[u8; SHARD_BYTES]>,
     {
-        let num_source = source.size_hint().0;
-        let num_parity = parity.size_hint().0;
-        let mut source = source.enumerate().peekable();
-        let mut parity = parity.enumerate().peekable();
-        let mut shard_byte_len = 0;
+        let mut encoder = new_encoder::<NUM_SHARDS, SHARD_BYTES>()?;
 
-        while let Some((_, shard)) = source.peek_mut() {
-            match shard {
-                RecoveryShardState::Present(shard_bytes) => {
-                    shard_byte_len = shard_bytes.len();
-                    break;
-                }
-                RecoveryShardState::MissingRecover(shard_bytes) => {
-                    shard_byte_len = shard_bytes.len();
-                    break;
-                }
-                RecoveryShardState::MissingIgnore => {
-                    // Skip, it is inconsequential here
-                    source.next();
-                }
+        for shard in &source {
+            encoder.add_original_shard(shard.as_ref())?;
+        }
+
+        let result = encoder.encode()?;
+
+        let mut parity = parity;
+        for (input, output) in result.recovery_iter().zip(&mut parity) {
+            output.as_mut().copy_from_slice(input);
+        }
+
+        Ok(())
+    }
+
+    /// Recover missing source shards in place, with everything stored contiguously.
+    ///
+    /// Parity shards are inputs only, missing ones are simply not used. Prefer this over
+    /// [`Self::recover_all()`] when parity shards are not needed.
+    pub fn recover_source<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
+        &self,
+        source: &mut [[u8; SHARD_BYTES]; NUM_SHARDS],
+        parity: &[[u8; SHARD_BYTES]; NUM_SHARDS],
+        present: &ShardsPresent<NUM_SHARDS>,
+    ) -> Result<(), ErasureCodingError> {
+        let mut decoder = new_decoder::<NUM_SHARDS, SHARD_BYTES>()?;
+
+        for (index, shard) in source.iter().enumerate() {
+            if present.source.get(index) {
+                decoder.add_original_shard(index, shard)?;
             }
         }
-        if shard_byte_len == 0 {
-            while let Some((_, shard)) = parity.peek_mut() {
-                match shard {
-                    RecoveryShardState::Present(shard_bytes) => {
-                        shard_byte_len = shard_bytes.len();
-                        break;
-                    }
-                    RecoveryShardState::MissingRecover(shard_bytes) => {
-                        shard_byte_len = shard_bytes.len();
-                        break;
-                    }
-                    RecoveryShardState::MissingIgnore => {
-                        // Skip, it is inconsequential here
-                        parity.next();
-                    }
-                }
+        for (index, shard) in parity.iter().enumerate() {
+            if present.parity.get(index) {
+                decoder.add_recovery_shard(index, shard)?;
             }
         }
 
-        let mut all_source_shards = vec![MaybeUninit::uninit(); num_source];
-        let mut parity_shards_to_recover = Vec::new();
+        let result = decoder.decode()?;
 
-        {
-            let mut decoder = HighRateDecoder::new(
-                num_source,
-                num_parity,
-                shard_byte_len,
-                DefaultEngine::new(),
-                None,
-            )?;
-
-            let mut source_shards_to_recover = Vec::new();
-            for (index, shard) in source {
-                match shard {
-                    RecoveryShardState::Present(shard_bytes) => {
-                        all_source_shards[index].write(shard_bytes);
-                        decoder.add_original_shard(index, shard_bytes)?;
-                    }
-                    RecoveryShardState::MissingRecover(shard_bytes) => {
-                        source_shards_to_recover.push((index, shard_bytes));
-                    }
-                    RecoveryShardState::MissingIgnore => {
-                        return Err(ErasureCodingError::IgnoredSourceShard { index });
-                    }
-                }
-            }
-
-            for (index, shard) in parity {
-                match shard {
-                    RecoveryShardState::Present(shard_bytes) => {
-                        decoder.add_recovery_shard(index, shard_bytes)?;
-                    }
-                    RecoveryShardState::MissingRecover(shard_bytes) => {
-                        parity_shards_to_recover.push((index, shard_bytes));
-                    }
-                    RecoveryShardState::MissingIgnore => {}
-                }
-            }
-
-            let result = decoder.decode()?;
-
-            for (index, output) in source_shards_to_recover {
-                if output.len() != shard_byte_len {
-                    return Err(ErasureCodingError::WrongSourceShardByteLength {
-                        expected: shard_byte_len,
-                        actual: output.len(),
-                    });
-                }
-                let shard = result
-                    .restored_original(index)
-                    .expect("Always corresponds to a missing original shard; qed");
-                output.copy_from_slice(shard);
-                all_source_shards[index].write(output);
-            }
-        }
-
-        if !parity_shards_to_recover.is_empty() {
-            // SAFETY: All `all_source_shards` are either initialized from the start or recovered
-            let all_source_shards = unsafe { all_source_shards.assume_init_ref() };
-
-            let mut encoder = HighRateEncoder::new(
-                num_source,
-                num_parity,
-                shard_byte_len,
-                DefaultEngine::new(),
-                None,
-            )?;
-
-            for shard in all_source_shards {
-                encoder.add_original_shard(shard)?;
-            }
-
-            let result = encoder.encode()?;
-
-            for (index, output) in parity_shards_to_recover {
-                if output.len() != shard_byte_len {
-                    return Err(ErasureCodingError::WrongParityShardByteLength {
-                        expected: shard_byte_len,
-                        actual: output.len(),
-                    });
-                }
-                output.copy_from_slice(
-                    result
-                        .recovery(index)
-                        .expect("Always corresponds to a missing parity shard; qed"),
-                );
+        for (index, shard) in source.iter_mut().enumerate() {
+            if !present.source.get(index) {
+                shard.copy_from_slice(restored_original(&result, index));
             }
         }
 
         Ok(())
     }
+
+    /// Recover missing source shards in place, where shards are not stored contiguously.
+    ///
+    /// Parity shards are inputs only, so missing ones simply have no memory.
+    pub fn recover_source_scattered<
+        const NUM_SHARDS: usize,
+        const SHARD_BYTES: usize,
+        SourceShard,
+        ParityShard,
+    >(
+        &self,
+        source: [SourceShard; NUM_SHARDS],
+        source_present: &ShardsBitmap<NUM_SHARDS>,
+        parity: [Option<ParityShard>; NUM_SHARDS],
+    ) -> Result<(), ErasureCodingError>
+    where
+        SourceShard: AsMut<[u8; SHARD_BYTES]>,
+        ParityShard: AsRef<[u8; SHARD_BYTES]>,
+    {
+        let mut decoder = new_decoder::<NUM_SHARDS, SHARD_BYTES>()?;
+
+        let mut source = source;
+        for (index, shard) in source.iter_mut().enumerate() {
+            if source_present.get(index) {
+                decoder.add_original_shard(index, shard.as_mut().as_slice())?;
+            }
+        }
+        for (index, shard) in parity.iter().enumerate() {
+            if let Some(shard) = shard {
+                decoder.add_recovery_shard(index, shard.as_ref())?;
+            }
+        }
+
+        let result = decoder.decode()?;
+
+        for (index, shard) in source.iter_mut().enumerate() {
+            if !source_present.get(index) {
+                shard
+                    .as_mut()
+                    .copy_from_slice(restored_original(&result, index));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Recover missing source and parity shards in place, with everything stored contiguously.
+    ///
+    /// Use [`Self::recover_source()`] instead if parity shards are not needed.
+    pub fn recover_all<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
+        &self,
+        source: &mut [[u8; SHARD_BYTES]; NUM_SHARDS],
+        parity: &mut [[u8; SHARD_BYTES]; NUM_SHARDS],
+        present: &ShardsPresent<NUM_SHARDS>,
+    ) -> Result<(), ErasureCodingError> {
+        self.recover_source(source, parity, present)?;
+
+        if present.parity.count() == NUM_SHARDS {
+            return Ok(());
+        }
+
+        // Source shards are complete at this point, so missing parity shards are simply encoded
+        // again
+        let mut encoder = new_encoder::<NUM_SHARDS, SHARD_BYTES>()?;
+
+        for shard in &*source {
+            encoder.add_original_shard(shard)?;
+        }
+
+        let result = encoder.encode()?;
+
+        for (index, shard) in parity.iter_mut().enumerate() {
+            if !present.parity.get(index) {
+                shard.copy_from_slice(recovery(&result, index));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Recover missing source and parity shards in place, where shards are not stored contiguously
+    pub fn recover_all_scattered<
+        const NUM_SHARDS: usize,
+        const SHARD_BYTES: usize,
+        SourceShard,
+        ParityShard,
+    >(
+        &self,
+        source: [SourceShard; NUM_SHARDS],
+        parity: [ParityShard; NUM_SHARDS],
+        present: &ShardsPresent<NUM_SHARDS>,
+    ) -> Result<(), ErasureCodingError>
+    where
+        SourceShard: AsMut<[u8; SHARD_BYTES]>,
+        ParityShard: AsMut<[u8; SHARD_BYTES]>,
+    {
+        let mut source = source;
+        let mut parity = parity;
+
+        {
+            let mut decoder = new_decoder::<NUM_SHARDS, SHARD_BYTES>()?;
+
+            for (index, shard) in source.iter_mut().enumerate() {
+                if present.source.get(index) {
+                    decoder.add_original_shard(index, shard.as_mut().as_slice())?;
+                }
+            }
+            for (index, shard) in parity.iter_mut().enumerate() {
+                if present.parity.get(index) {
+                    decoder.add_recovery_shard(index, shard.as_mut().as_slice())?;
+                }
+            }
+
+            let result = decoder.decode()?;
+
+            for (index, shard) in source.iter_mut().enumerate() {
+                if !present.source.get(index) {
+                    shard
+                        .as_mut()
+                        .copy_from_slice(restored_original(&result, index));
+                }
+            }
+        }
+
+        if present.parity.count() == NUM_SHARDS {
+            return Ok(());
+        }
+
+        let mut encoder = new_encoder::<NUM_SHARDS, SHARD_BYTES>()?;
+
+        for shard in &mut source {
+            encoder.add_original_shard(shard.as_mut().as_slice())?;
+        }
+
+        let result = encoder.encode()?;
+
+        for (index, shard) in parity.iter_mut().enumerate() {
+            if !present.parity.get(index) {
+                shard.as_mut().copy_from_slice(recovery(&result, index));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[inline(always)]
+fn new_encoder<const NUM_SHARDS: usize, const SHARD_BYTES: usize>()
+-> Result<HighRateEncoder<DefaultEngine>, ErasureCodingError> {
+    Ok(HighRateEncoder::new(
+        NUM_SHARDS,
+        NUM_SHARDS,
+        SHARD_BYTES,
+        DefaultEngine::new(),
+        None,
+    )?)
+}
+
+#[inline(always)]
+fn new_decoder<const NUM_SHARDS: usize, const SHARD_BYTES: usize>()
+-> Result<HighRateDecoder<DefaultEngine>, ErasureCodingError> {
+    Ok(HighRateDecoder::new(
+        NUM_SHARDS,
+        NUM_SHARDS,
+        SHARD_BYTES,
+        DefaultEngine::new(),
+        None,
+    )?)
+}
+
+#[inline(always)]
+fn restored_original<'a>(
+    result: &'a reed_solomon_simd::DecoderResult<'_>,
+    index: usize,
+) -> &'a [u8] {
+    result
+        .restored_original(index)
+        .expect("Always corresponds to a missing source shard; qed")
+}
+
+#[inline(always)]
+fn recovery<'a>(result: &'a reed_solomon_simd::EncoderResult<'_>, index: usize) -> &'a [u8] {
+    result
+        .recovery(index)
+        .expect("Always corresponds to a missing parity shard; qed")
 }

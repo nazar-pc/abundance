@@ -673,14 +673,10 @@ impl Archiver {
             // Segment is quite big and no longer necessary
             drop(segment);
 
-            let (source_shards, parity_shards) =
-                pieces.split_at_mut(RecordedHistorySegment::NUM_RAW_RECORDS);
+            let (source_records, parity_records) = pieces.split_records_mut();
 
             self.erasure_coding
-                .extend(
-                    source_shards.iter().map(|shard| &shard.record),
-                    parity_shards.iter_mut().map(|shard| &mut shard.record),
-                )
+                .extend_scattered(source_records.map(|record| &*record), parity_records)
                 .expect("Statically correct parameters; qed");
 
             pieces
@@ -703,7 +699,7 @@ impl Archiver {
                     let mut parity_chunks = Record::new_boxed();
 
                     self.erasure_coding
-                        .extend(piece.record.iter(), parity_chunks.iter_mut())
+                        .extend(&piece.record, &mut parity_chunks)
                         .expect(
                             "Erasure coding instance is deliberately configured to support this \
                             input; qed",
