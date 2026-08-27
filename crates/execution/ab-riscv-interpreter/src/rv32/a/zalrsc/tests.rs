@@ -1,6 +1,7 @@
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use crate::{RegisterFile, VirtualMemory};
+use crate::{ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 #[test]
 fn test_lr_reads_value() {
@@ -144,31 +145,40 @@ fn test_sc_fails_after_second_sc() {
 }
 
 #[test]
-fn test_lr_sc_supports_misaligned_access() {
-    let mut state = initialize_state([
-        Rv32ZalrscInstruction::Lr {
-            rd: Reg::A1,
-            rs1: Reg::A0,
-            aq: false,
-            rl: false,
-            rs2: Reg::Zero,
-        },
-        Rv32ZalrscInstruction::Sc {
-            rd: Reg::A2,
-            rs1: Reg::A0,
-            rs2: Reg::A3,
-            aq: false,
-            rl: false,
-        },
-    ]);
+fn test_lr_rejects_misaligned_access() {
+    let mut state = initialize_state([Rv32ZalrscInstruction::Lr {
+        rd: Reg::A1,
+        rs1: Reg::A0,
+        aq: false,
+        rl: false,
+        rs2: Reg::Zero,
+    }]);
     // Not 4-byte aligned
     let addr = TEST_BASE_ADDR + 0x101;
-    state.memory.write::<u32>(u64::from(addr), 1).unwrap();
+    state.regs.write(Reg::A0, addr);
+
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::MisalignedRead { .. })
+    );
+}
+
+#[test]
+fn test_sc_rejects_misaligned_access() {
+    let mut state = initialize_state([Rv32ZalrscInstruction::Sc {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A3,
+        aq: false,
+        rl: false,
+    }]);
+    // Not 4-byte aligned
+    let addr = TEST_BASE_ADDR + 0x101;
     state.regs.write(Reg::A0, addr);
     state.regs.write(Reg::A3, 42);
 
-    execute(&mut state).unwrap();
-
-    assert_eq!(state.regs.read(Reg::A2), 0);
-    assert_eq!(state.memory.read::<u32>(u64::from(addr)).unwrap(), 42);
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::MisalignedWrite { .. })
+    );
 }

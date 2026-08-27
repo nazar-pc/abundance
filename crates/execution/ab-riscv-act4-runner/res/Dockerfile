@@ -32,7 +32,7 @@ ARG CLANG_VERSION=22
 #
 # HOME=/home/shared is used so all caches (mise, uv, udb, etc.) land in a single directory that is copied to the final
 # image.
-FROM ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb AS mise-fetcher
+FROM ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b AS mise-fetcher
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -77,7 +77,7 @@ RUN cd /act4 \
   && chmod -R 777 /act4 /home/shared
 
 # Stage 2: final runtime image
-FROM ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb AS act4-build
+FROM ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b AS act4-build
 
 LABEL description="RISC-V Architectural Certification Tests (ACT4) build env"
 LABEL org.opencontainers.image.source="https://github.com/riscv/riscv-arch-test"
@@ -140,7 +140,6 @@ COPY --chmod=777 . /act4
 # are actually missing bits keeps the copy-up (and therefore the layer) down to what uv rewrote
 RUN make tests \
   && make vector-tests \
-  && find tests ! -perm -0777 -exec chmod 0777 {} + \
   && find /act4/.venv ! -perm -0777 -exec chmod 0777 {} +
 
 # Default user with ID 1000 matching typical desktop installation

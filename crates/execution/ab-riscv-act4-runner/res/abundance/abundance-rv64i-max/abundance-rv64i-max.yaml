@@ -73,13 +73,13 @@ params:
   # --- mtval ---
   MTVAL_WIDTH: 64
   REPORT_VA_IN_MTVAL_ON_BREAKPOINT: false
-  REPORT_VA_IN_MTVAL_ON_INSTRUCTION_ACCESS_FAULT: false
+  REPORT_VA_IN_MTVAL_ON_INSTRUCTION_ACCESS_FAULT: true
   REPORT_VA_IN_MTVAL_ON_INSTRUCTION_MISALIGNED: false
-  REPORT_VA_IN_MTVAL_ON_LOAD_ACCESS_FAULT: false
+  REPORT_VA_IN_MTVAL_ON_LOAD_ACCESS_FAULT: true
   REPORT_VA_IN_MTVAL_ON_LOAD_MISALIGNED: false
-  REPORT_VA_IN_MTVAL_ON_STORE_AMO_ACCESS_FAULT: false
+  REPORT_VA_IN_MTVAL_ON_STORE_AMO_ACCESS_FAULT: true
   REPORT_VA_IN_MTVAL_ON_STORE_AMO_MISALIGNED: false
-  REPORT_ENCODING_IN_MTVAL_ON_ILLEGAL_INSTRUCTION: false
+  REPORT_ENCODING_IN_MTVAL_ON_ILLEGAL_INSTRUCTION: true
 
   # --- Trap behavior ---
   PRECISE_SYNCHRONOUS_EXCEPTIONS: true
@@ -180,10 +180,13 @@ params:
   MISALIGNED_SPLIT_STRATEGY: sequential_bytes
 
   # --- Atomics ---
-  # Misaligned AMOs and LR/SC are allowed, same as plain loads/stores above.
+  # Misaligned AMOs are allowed, same as plain loads/stores above. `lr`/`sc` are the exception:
+  # Zalrsc unconditionally requires them to be naturally aligned, regardless of MISALIGNED_AMO -
+  # upstream's `LRSC_MISALIGNED_BEHAVIOR` doc comment claiming it only applies when
+  # MISALIGNED_AMO is false is inaccurate; the reference IDL for `lr`/`sc` checks alignment
+  # unconditionally.
   MISALIGNED_AMO: true
-  # Only used when MISALIGNED_AMO is false, which it never is here.
-  LRSC_MISALIGNED_BEHAVIOR: "always raise access fault"
+  LRSC_MISALIGNED_BEHAVIOR: "always raise misaligned exception"
   # The interpreter tracks a single reservation address and requires an exact
   # match for `sc` to succeed.
   LRSC_RESERVATION_STRATEGY: "reserve exactly enough to cover the access"

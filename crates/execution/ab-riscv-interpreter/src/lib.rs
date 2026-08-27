@@ -524,6 +524,20 @@ where
         /// Address of the out-of-bounds write
         address: PackedAddress<u64>,
     },
+    /// Misaligned read from an instruction that requires natural alignment (e.g. `lr`), unlike
+    /// ordinary loads
+    #[error("Misaligned read at address {address}")]
+    MisalignedRead {
+        /// Address of the misaligned read
+        address: PackedAddress<u64>,
+    },
+    /// Misaligned write from an instruction that requires natural alignment (e.g. `sc`), unlike
+    /// ordinary stores
+    #[error("Misaligned write at address {address}")]
+    MisalignedWrite {
+        /// Address of the misaligned write
+        address: PackedAddress<u64>,
+    },
     /// Unsupported `ecall` instruction
     #[error("Unsupported `ecall` instruction at address {address:#x}")]
     EcallUnsupported {
@@ -573,15 +587,15 @@ where
         /// Current privilege level
         current: PrivilegeLevel,
     },
-    /// Custom error
-    #[error("Custom error: {0:?}")]
-    Custom([u8; 8]),
     /// Threaded execution is not supported on this platform.
     ///
     /// See [`OpaqueThreadedExecutionResult::platform_supported()`] for what makes a platform
     /// unsupported and why the answer is a run-time one.
     #[error("Threaded execution is not supported on this platform")]
     UnsupportedPlatform,
+    /// Custom error
+    #[error("Custom error: {0:?}")]
+    Custom([u8; 8]),
 }
 
 /// Where execution continues after an instruction, or why it could not.
@@ -1171,15 +1185,17 @@ where
     const TAG_UNALIGNED_INSTRUCTION: u64 = 1;
     const TAG_OUT_OF_BOUNDS_READ: u64 = 2;
     const TAG_OUT_OF_BOUNDS_WRITE: u64 = 3;
-    const TAG_ECALL_UNSUPPORTED: u64 = 4;
-    const TAG_ILLEGAL_INSTRUCTION: u64 = 5;
-    const TAG_CSR_READ_ONLY: u64 = 6;
-    const TAG_CSR_ILLEGAL_READ: u64 = 7;
-    const TAG_CSR_ILLEGAL_WRITE: u64 = 8;
-    const TAG_CSR_UNKNOWN: u64 = 9;
-    const TAG_CSR_INSUFFICIENT_PRIVILEGE: u64 = 10;
-    const TAG_CUSTOM: u64 = 11;
-    const TAG_UNSUPPORTED_PLATFORM: u64 = 12;
+    const TAG_MISALIGNED_READ: u64 = 4;
+    const TAG_MISALIGNED_WRITE: u64 = 5;
+    const TAG_ECALL_UNSUPPORTED: u64 = 6;
+    const TAG_ILLEGAL_INSTRUCTION: u64 = 7;
+    const TAG_CSR_READ_ONLY: u64 = 8;
+    const TAG_CSR_ILLEGAL_READ: u64 = 9;
+    const TAG_CSR_ILLEGAL_WRITE: u64 = 10;
+    const TAG_CSR_UNKNOWN: u64 = 11;
+    const TAG_CSR_INSUFFICIENT_PRIVILEGE: u64 = 12;
+    const TAG_UNSUPPORTED_PLATFORM: u64 = 13;
+    const TAG_CUSTOM: u64 = 14;
 
     /// Whether this platform can carry an outcome the way [`Self::new()`] does.
     ///
@@ -1226,6 +1242,12 @@ where
                 }
                 ExecutionError::OutOfBoundsWrite { address } => {
                     (Self::TAG_OUT_OF_BOUNDS_WRITE, address.get())
+                }
+                ExecutionError::MisalignedRead { address } => {
+                    (Self::TAG_MISALIGNED_READ, address.get())
+                }
+                ExecutionError::MisalignedWrite { address } => {
+                    (Self::TAG_MISALIGNED_WRITE, address.get())
                 }
                 ExecutionError::EcallUnsupported { address } => {
                     (Self::TAG_ECALL_UNSUPPORTED, address.get().as_u64())
@@ -1323,6 +1345,12 @@ where
             Self::TAG_OUT_OF_BOUNDS_WRITE => ExecutionError::OutOfBoundsWrite {
                 address: PackedAddress::new(payload),
             },
+            Self::TAG_MISALIGNED_READ => ExecutionError::MisalignedRead {
+                address: PackedAddress::new(payload),
+            },
+            Self::TAG_MISALIGNED_WRITE => ExecutionError::MisalignedWrite {
+                address: PackedAddress::new(payload),
+            },
             Self::TAG_ECALL_UNSUPPORTED => ExecutionError::EcallUnsupported {
                 address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
             },
@@ -1347,8 +1375,8 @@ where
                     current,
                 }
             }
-            Self::TAG_CUSTOM => ExecutionError::Custom(payload.to_le_bytes()),
             Self::TAG_UNSUPPORTED_PLATFORM => ExecutionError::UnsupportedPlatform,
+            Self::TAG_CUSTOM => ExecutionError::Custom(payload.to_le_bytes()),
             _ => {
                 unreachable!("Lanes are only ever produced by `new()`; qed");
             }
