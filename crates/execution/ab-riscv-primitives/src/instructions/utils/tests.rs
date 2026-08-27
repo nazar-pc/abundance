@@ -71,7 +71,7 @@ fn u24_high_byte_not_leaked() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input value exceeds 24 bits"]
 fn u24_from_u32_overflow_panics_in_debug() {
     // 0x0100_0000 exceeds 24 bits
     let _: U24 = U24::from_u32(0x0100_0000);
@@ -182,7 +182,7 @@ fn i24_to_i32_sign_extends_high_bit() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input value exceeds 24 bits"]
 fn i24_from_i32_overflow_positive_panics_in_debug() {
     // 0x0080_0000 = 8_388_608, one above max positive I24
     let _: I24 = I24::from_i32(0x0080_0000);
@@ -190,7 +190,7 @@ fn i24_from_i32_overflow_positive_panics_in_debug() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input value exceeds 24 bits"]
 fn i24_from_i32_overflow_negative_panics_in_debug() {
     // -8_388_609, one below min I24
     let _: I24 = I24::from_i32(-0x0080_0001);
@@ -233,7 +233,7 @@ fn i24_with_zeroed_bits_one_bit_even_value_roundtrip() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_one_bit_odd_value_panics_in_debug() {
     // Low bit is set; from_i32 now requires alignment, not truncation
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<1>::from_i32(101);
@@ -247,7 +247,7 @@ fn i24_with_zeroed_bits_one_bit_negative_even_roundtrip() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_one_bit_negative_odd_panics_in_debug() {
     // Low bit is set; from_i32 now requires alignment, not truncation
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<1>::from_i32(-101);
@@ -278,7 +278,7 @@ fn i24_with_zeroed_bits_four_bits_aligned_positive_roundtrip() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_four_bits_unaligned_positive_panics_in_debug() {
     // Low nibble is set; from_i32 now requires alignment, not truncation
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(0x1F);
@@ -292,7 +292,7 @@ fn i24_with_zeroed_bits_four_bits_aligned_negative_roundtrip() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_four_bits_unaligned_negative_panics_in_debug() {
     // Low nibble is set; from_i32 now requires alignment, not truncation
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(-1);
@@ -335,7 +335,7 @@ fn i24_with_zeroed_bits_default_is_zero() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_four_bits_overflow_positive_panics_in_debug() {
     // Low bits set ensures round-trip mismatch regardless of overflow path
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(0x0080_0001);
@@ -343,14 +343,14 @@ fn i24_with_zeroed_bits_four_bits_overflow_positive_panics_in_debug() {
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_four_bits_overflow_negative_panics_in_debug() {
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(-0x0800_0001);
 }
 
 #[test]
 #[cfg(debug_assertions)]
-#[should_panic]
+#[should_panic = "Input has non-zero low bits"]
 fn i24_with_zeroed_bits_one_bit_overflow_positive_panics_in_debug() {
     // After storing, 0x01000000 does not fit in 24 bits
     let _: I24WithZeroedBits<_> = I24WithZeroedBits::<1>::from_i32(0x0100_0000);

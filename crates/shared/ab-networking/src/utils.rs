@@ -87,7 +87,7 @@ pub(crate) fn is_global_address_or_dns(addr: &Multiaddr) -> bool {
     match addr.iter().next() {
         Some(Protocol::Ip4(ip)) => ip.is_global(),
         Some(Protocol::Ip6(ip)) => ip.is_global(),
-        Some(Protocol::Dns(_)) | Some(Protocol::Dns4(_)) | Some(Protocol::Dns6(_)) => true,
+        Some(Protocol::Dns(_) | Protocol::Dns4(_) | Protocol::Dns6(_)) => true,
         _ => false,
     }
 }

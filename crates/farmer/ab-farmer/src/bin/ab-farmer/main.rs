@@ -130,11 +130,12 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Wipe { disk_farms } => {
             for disk_farm in &disk_farms {
-                assert!(
-                    disk_farm.exists(),
-                    "Directory {} doesn't exist",
-                    disk_farm.display()
-                );
+                if !disk_farm.exists() {
+                    return Err(anyhow::anyhow!(
+                        "Directory {} doesn't exist",
+                        disk_farm.display()
+                    ));
+                }
             }
 
             for disk_farm in &disk_farms {

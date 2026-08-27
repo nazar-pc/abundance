@@ -145,6 +145,10 @@ pub(super) fn collect_enum_definitions_from_dependencies() -> impl Iterator<
             return None;
         }
 
+        #[expect(
+            clippy::string_slice,
+            reason = "String is known to end with that suffix"
+        )]
         let result = try {
             let definition_key = format!(
                 "{}{ENUM_DEFINITION_ENV_VAR_SUFFIX}",

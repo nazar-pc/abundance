@@ -37,10 +37,12 @@ fn unrelated_funct6_in_opmvv_not_claimed() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPMVV, 1);
     assert!(!matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbcInstruction::VclmulVv { .. })
-            | Some(ZvbcInstruction::VclmulVx { .. })
-            | Some(ZvbcInstruction::VclmulhVv { .. })
-            | Some(ZvbcInstruction::VclmulhVx { .. })
+        Some(
+            ZvbcInstruction::VclmulVv { .. }
+                | ZvbcInstruction::VclmulVx { .. }
+                | ZvbcInstruction::VclmulhVv { .. }
+                | ZvbcInstruction::VclmulhVx { .. }
+        )
     ));
 }
 
@@ -50,10 +52,12 @@ fn funct6_above_vclmulh_not_claimed_in_opmvv() {
     let inst = make_vop(0b00_1110, 1, 4, 5, OPMVV, 2);
     assert!(!matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbcInstruction::VclmulVv { .. })
-            | Some(ZvbcInstruction::VclmulVx { .. })
-            | Some(ZvbcInstruction::VclmulhVv { .. })
-            | Some(ZvbcInstruction::VclmulhVx { .. })
+        Some(
+            ZvbcInstruction::VclmulVv { .. }
+                | ZvbcInstruction::VclmulVx { .. }
+                | ZvbcInstruction::VclmulhVv { .. }
+                | ZvbcInstruction::VclmulhVx { .. }
+        )
     ));
 }
 
@@ -63,10 +67,12 @@ fn funct6_below_vclmul_not_claimed_in_opmvv() {
     let inst = make_vop(0b00_1011, 1, 4, 5, OPMVV, 2);
     assert!(!matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbcInstruction::VclmulVv { .. })
-            | Some(ZvbcInstruction::VclmulVx { .. })
-            | Some(ZvbcInstruction::VclmulhVv { .. })
-            | Some(ZvbcInstruction::VclmulhVx { .. })
+        Some(
+            ZvbcInstruction::VclmulVv { .. }
+                | ZvbcInstruction::VclmulVx { .. }
+                | ZvbcInstruction::VclmulhVv { .. }
+                | ZvbcInstruction::VclmulhVx { .. }
+        )
     ));
 }
 
@@ -77,10 +83,12 @@ fn unrelated_funct6_in_opmvx_not_claimed() {
     let inst = make_vop(0b00_0001, 1, 3, 10, OPMVX, 5);
     assert!(!matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbcInstruction::VclmulVv { .. })
-            | Some(ZvbcInstruction::VclmulVx { .. })
-            | Some(ZvbcInstruction::VclmulhVv { .. })
-            | Some(ZvbcInstruction::VclmulhVx { .. })
+        Some(
+            ZvbcInstruction::VclmulVv { .. }
+                | ZvbcInstruction::VclmulVx { .. }
+                | ZvbcInstruction::VclmulhVv { .. }
+                | ZvbcInstruction::VclmulhVx { .. }
+        )
     ));
 }
 
@@ -90,10 +98,12 @@ fn vclmul_has_no_immediate_form() {
     let inst = make_vop(0b00_1100, 1, 4, 7, OPIVI, 2);
     assert!(!matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbcInstruction::VclmulVv { .. })
-            | Some(ZvbcInstruction::VclmulVx { .. })
-            | Some(ZvbcInstruction::VclmulhVv { .. })
-            | Some(ZvbcInstruction::VclmulhVx { .. })
+        Some(
+            ZvbcInstruction::VclmulVv { .. }
+                | ZvbcInstruction::VclmulVx { .. }
+                | ZvbcInstruction::VclmulhVv { .. }
+                | ZvbcInstruction::VclmulhVx { .. }
+        )
     ));
 }
 
@@ -103,10 +113,12 @@ fn vclmulh_has_no_immediate_form() {
     let inst = make_vop(0b00_1101, 1, 4, 7, OPIVI, 2);
     assert!(!matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbcInstruction::VclmulVv { .. })
-            | Some(ZvbcInstruction::VclmulVx { .. })
-            | Some(ZvbcInstruction::VclmulhVv { .. })
-            | Some(ZvbcInstruction::VclmulhVx { .. })
+        Some(
+            ZvbcInstruction::VclmulVv { .. }
+                | ZvbcInstruction::VclmulVx { .. }
+                | ZvbcInstruction::VclmulhVv { .. }
+                | ZvbcInstruction::VclmulhVx { .. }
+        )
     ));
 }
 

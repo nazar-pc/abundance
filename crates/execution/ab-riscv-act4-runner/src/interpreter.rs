@@ -101,7 +101,7 @@ where
         *self.csrs.get_mut(&(MCsr::Mcause as u16)).unwrap() = MCause::from(cause).to_raw::<Reg>();
         *self.csrs.get_mut(&(MCsr::Mtval as u16)).unwrap() = tval;
 
-        let mtvec = *self.csrs.get(&(MCsr::Mtvec as u16)).unwrap();
+        let mtvec = self.csrs[&(MCsr::Mtvec as u16)];
         if mtvec == Reg::Type::default() {
             return None;
         }

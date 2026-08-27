@@ -347,7 +347,7 @@ pub struct ProofsIterator<'a, const N: usize> {
     len: usize,
 }
 
-impl<'a, const N: usize> Iterator for ProofsIterator<'a, N> {
+impl<const N: usize> Iterator for ProofsIterator<'_, N> {
     type Item = [[u8; OUT_LEN]; PROOF_ELEMENTS::<N>];
 
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -433,7 +433,7 @@ impl<'a, const N: usize> Iterator for ProofsIterator<'a, N> {
     }
 }
 
-impl<'a, const N: usize> ExactSizeIterator for ProofsIterator<'a, N> {
+impl<const N: usize> ExactSizeIterator for ProofsIterator<'_, N> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.len
@@ -441,4 +441,4 @@ impl<'a, const N: usize> ExactSizeIterator for ProofsIterator<'a, N> {
 }
 
 // SAFETY: size_hint is always exact
-unsafe impl<'a, const N: usize> TrustedLen for ProofsIterator<'a, N> {}
+unsafe impl<const N: usize> TrustedLen for ProofsIterator<'_, N> {}

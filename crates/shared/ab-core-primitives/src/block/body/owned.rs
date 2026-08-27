@@ -153,7 +153,7 @@ impl TransactionBuilder {
             let num_transactions_ptr = self
                 .buffer
                 .as_mut_ptr()
-                .add(self.num_transactions_offset)
+                .byte_add(self.num_transactions_offset)
                 .cast::<u32>();
             let num_transactions = num_transactions_ptr.read_unaligned();
             let num_transactions = num_transactions
@@ -173,7 +173,7 @@ impl TransactionBuilder {
             let num_transactions_ptr = self
                 .buffer
                 .as_mut_ptr()
-                .add(self.num_transactions_offset)
+                .byte_add(self.num_transactions_offset)
                 .cast::<u32>();
             let num_transactions = num_transactions_ptr.read_unaligned();
             let num_transactions = num_transactions.saturating_sub(1);

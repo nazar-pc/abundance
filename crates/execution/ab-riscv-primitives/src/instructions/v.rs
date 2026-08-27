@@ -412,6 +412,7 @@ impl Vlmul {
         let g = if num < den { num } else { den };
         let (n, d) = (num / g, den / g);
         // Legal EMUL fractions: 1/8, 1/4, 1/2, 1, 2, 4, 8
+        #[expect(clippy::unnested_or_patterns, reason = "Readability")]
         let legal = matches!(
             (n, d),
             (1, 8) | (1, 4) | (1, 2) | (1, 1) | (2, 1) | (4, 1) | (8, 1)

@@ -83,6 +83,7 @@ fn replace_inplace(mut s: &mut str, from: &str, to: &str) {
         return;
     }
 
+    #[expect(clippy::string_slice, reason = "Offset is a search result")]
     while let Some(found) = s.find(from) {
         let start = found;
         let end = found + from.len();

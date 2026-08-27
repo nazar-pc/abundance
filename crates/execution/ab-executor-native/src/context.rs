@@ -33,7 +33,7 @@ pub(super) struct NativeExecutorContext<'a> {
     allow_env_mutation: bool,
 }
 
-impl<'a> ExecutorContext for NativeExecutorContext<'a> {
+impl ExecutorContext for NativeExecutorContext<'_> {
     fn call(
         &self,
         previous_env_state: &EnvState,

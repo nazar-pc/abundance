@@ -220,6 +220,10 @@ impl EagerInstructions {
     ) -> Self {
         let instructions_len = instructions.len();
         let layout = Self::allocation_layout(instructions_len);
+        #[expect(
+            clippy::cast_ptr_alignment,
+            reason = "Layout is configured to produce correctly aligned memory"
+        )]
         // SAFETY: The state itself is always there, so the layout has non-zero size
         let state = unsafe { alloc(layout) }.cast::<EagerInstructionFetcherState>();
         let Some(state) = NonNull::new(state) else {

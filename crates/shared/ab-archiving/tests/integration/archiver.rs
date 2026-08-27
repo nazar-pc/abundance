@@ -311,7 +311,7 @@ fn archiver() {
         );
     }
     {
-        let archived_segment = archived_segments.get(1).unwrap();
+        let archived_segment = &archived_segments[1];
         let last_archived_block = archived_segment.segment_header.last_archived_block;
         assert_eq!(last_archived_block.number(), BlockNumber::from(2));
         assert_eq!(

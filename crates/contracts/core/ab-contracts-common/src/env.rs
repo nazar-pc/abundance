@@ -113,6 +113,13 @@ pub struct Env<'a> {
 // TODO: API to "attach" data structures to the environment to make sure pointers to it can be
 //  returned safely, will likely require `Pin` and return some reference from which pointer is to
 //  be created
+#[cfg_attr(
+    not(feature = "executor"),
+    expect(
+        clippy::elidable_lifetime_names,
+        reason = "False-positive, see https://github.com/rust-lang/rust-clippy/issues/17638"
+    )
+)]
 impl<'a> Env<'a> {
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]

@@ -40,15 +40,17 @@ fn vadd_funct6_not_claimed() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPIVV, 1);
     assert!(!matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvkbInstruction::VandnVv { .. })
-            | Some(ZvkbInstruction::VandnVx { .. })
-            | Some(ZvkbInstruction::Vbrev8V { .. })
-            | Some(ZvkbInstruction::Vrev8V { .. })
-            | Some(ZvkbInstruction::VrolVv { .. })
-            | Some(ZvkbInstruction::VrolVx { .. })
-            | Some(ZvkbInstruction::VrorVv { .. })
-            | Some(ZvkbInstruction::VrorVx { .. })
-            | Some(ZvkbInstruction::VrorVi { .. })
+        Some(
+            ZvkbInstruction::VandnVv { .. }
+                | ZvkbInstruction::VandnVx { .. }
+                | ZvkbInstruction::Vbrev8V { .. }
+                | ZvkbInstruction::Vrev8V { .. }
+                | ZvkbInstruction::VrolVv { .. }
+                | ZvkbInstruction::VrolVx { .. }
+                | ZvkbInstruction::VrorVv { .. }
+                | ZvkbInstruction::VrorVx { .. }
+                | ZvkbInstruction::VrorVi { .. }
+        )
     ));
 }
 
@@ -59,15 +61,17 @@ fn vadc_funct6_not_claimed() {
     let inst = make_vop(0b01_0000, 0, 2, 3, OPIVV, 1);
     assert!(!matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvkbInstruction::VandnVv { .. })
-            | Some(ZvkbInstruction::VandnVx { .. })
-            | Some(ZvkbInstruction::Vbrev8V { .. })
-            | Some(ZvkbInstruction::Vrev8V { .. })
-            | Some(ZvkbInstruction::VrolVv { .. })
-            | Some(ZvkbInstruction::VrolVx { .. })
-            | Some(ZvkbInstruction::VrorVv { .. })
-            | Some(ZvkbInstruction::VrorVx { .. })
-            | Some(ZvkbInstruction::VrorVi { .. })
+        Some(
+            ZvkbInstruction::VandnVv { .. }
+                | ZvkbInstruction::VandnVx { .. }
+                | ZvkbInstruction::Vbrev8V { .. }
+                | ZvkbInstruction::Vrev8V { .. }
+                | ZvkbInstruction::VrolVv { .. }
+                | ZvkbInstruction::VrolVx { .. }
+                | ZvkbInstruction::VrorVv { .. }
+                | ZvkbInstruction::VrorVx { .. }
+                | ZvkbInstruction::VrorVi { .. }
+        )
     ));
 }
 
@@ -85,15 +89,17 @@ fn opmvv_wrong_funct6_not_claimed() {
     let inst = make_vop(0b00_0001, 1, 3, 0b01000, OPMVV, 2);
     assert!(!matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvkbInstruction::VandnVv { .. })
-            | Some(ZvkbInstruction::VandnVx { .. })
-            | Some(ZvkbInstruction::Vbrev8V { .. })
-            | Some(ZvkbInstruction::Vrev8V { .. })
-            | Some(ZvkbInstruction::VrolVv { .. })
-            | Some(ZvkbInstruction::VrolVx { .. })
-            | Some(ZvkbInstruction::VrorVv { .. })
-            | Some(ZvkbInstruction::VrorVx { .. })
-            | Some(ZvkbInstruction::VrorVi { .. })
+        Some(
+            ZvkbInstruction::VandnVv { .. }
+                | ZvkbInstruction::VandnVx { .. }
+                | ZvkbInstruction::Vbrev8V { .. }
+                | ZvkbInstruction::Vrev8V { .. }
+                | ZvkbInstruction::VrolVv { .. }
+                | ZvkbInstruction::VrolVx { .. }
+                | ZvkbInstruction::VrorVv { .. }
+                | ZvkbInstruction::VrorVx { .. }
+                | ZvkbInstruction::VrorVi { .. }
+        )
     ));
 }
 

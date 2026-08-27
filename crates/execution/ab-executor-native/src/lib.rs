@@ -244,7 +244,8 @@ impl NativeExecutor {
             let mut nested_slots = slots.new_nested_rw();
             // Allow deployment of system contracts
             for (address, _code) in system_contracts {
-                assert!(nested_slots.add_new_contract(address));
+                let result = nested_slots.add_new_contract(address);
+                debug_assert!(result);
             }
         }
 

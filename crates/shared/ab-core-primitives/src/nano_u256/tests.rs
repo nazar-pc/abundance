@@ -25,7 +25,7 @@ fn basic() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "failed: division by zero"]
 fn no_division_by_zero() {
     let input = NanoU256::from_le_bytes(blake3::hash(&[1, 2, 3]).into());
     let _: u64 = input % 0;

@@ -194,26 +194,26 @@ impl InnerBuffer {
     const fn as_slice(&self) -> &[u8] {
         let len = self.len() as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
+        unsafe { slice::from_raw_parts(self.as_ptr().cast::<u8>(), len) }
     }
 
     #[inline(always)]
     const fn as_mut_slice(&mut self) -> &mut [u8] {
         let len = self.len() as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), len) }
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr().cast::<u8>(), len) }
     }
 
     #[inline(always)]
-    const fn as_ptr(&self) -> *const u8 {
+    const fn as_ptr(&self) -> *const u128 {
         // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { self.buffer.as_ptr().cast_const().add(1).cast::<u8>() }
+        unsafe { self.buffer.as_ptr().cast::<u128>().cast_const().add(1) }
     }
 
     #[inline(always)]
-    const fn as_mut_ptr(&mut self) -> *mut u8 {
+    const fn as_mut_ptr(&mut self) -> *mut u128 {
         // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { self.buffer.as_ptr().add(1).cast::<u8>() }
+        unsafe { self.buffer.as_ptr().cast::<u128>().add(1) }
     }
 }
 
@@ -290,12 +290,12 @@ impl OwnedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub const fn as_ptr(&self) -> *const u8 {
+    pub const fn as_ptr(&self) -> *const u128 {
         self.inner.as_ptr()
     }
 
     #[inline(always)]
-    pub const fn as_mut_ptr(&mut self) -> *mut u8 {
+    pub const fn as_mut_ptr(&mut self) -> *mut u128 {
         self.inner.as_mut_ptr()
     }
 
@@ -333,6 +333,7 @@ impl OwnedAlignedBuffer {
         // and output, non-overlapping allocations guaranteed by the type system
         unsafe {
             self.as_mut_ptr()
+                .cast::<u8>()
                 .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
 
             self.inner.set_len(len);
@@ -362,6 +363,7 @@ impl OwnedAlignedBuffer {
         // and output, non-overlapping allocations guaranteed by the type system
         unsafe {
             self.as_mut_ptr()
+                .cast::<u8>()
                 .add(self.len() as usize)
                 .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
 
@@ -469,7 +471,7 @@ impl SharedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub const fn as_ptr(&self) -> *const u8 {
+    pub const fn as_ptr(&self) -> *const u128 {
         self.inner.as_ptr()
     }
 
