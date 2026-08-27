@@ -230,6 +230,10 @@ async fn start_walking(node: Node, retries: u32, print_failed_addresses: bool) {
     let mut report_period_start = Instant::now();
     let mut retry_period_start = Instant::now();
 
+    #[expect(
+        clippy::infinite_loop,
+        reason = "Testing code, will probably be removed"
+    )]
     loop {
         let key = Multihash::from(PeerId::random());
         let short_key = &key.to_bytes()[0..4];

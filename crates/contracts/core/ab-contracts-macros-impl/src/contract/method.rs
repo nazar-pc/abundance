@@ -104,6 +104,7 @@ pub(super) struct ExtTraitComponents {
 pub(super) struct MethodDetails {
     method_type: MethodType,
     self_type: Type,
+    #[expect(clippy::option_option, reason = "Intentional storing of syn's type")]
     state: Option<Option<Token![mut]>>,
     env: Option<Env>,
     tmp: Option<Tmp>,

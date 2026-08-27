@@ -28,6 +28,10 @@ where
             )
         }
     };
+    #[expect(
+        clippy::infinite_loop,
+        reason = "Intentional loop is a part of a future that can be dropped"
+    )]
     loop {
         // TODO: Sync and networking status once implemented
 

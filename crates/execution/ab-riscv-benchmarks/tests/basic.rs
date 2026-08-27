@@ -85,7 +85,7 @@ where
     // Stack is between internal arguments and contract memory
     threaded_regs.write(Register::SP, stack_pointer);
 
-    let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
+    let pc = MEMORY_BASE_ADDRESS + u64::from(methods[method_name.as_bytes()]);
     let memory = match run_type {
         RunType::Lazy => {
             // SAFETY: Program counter and code are trusted

@@ -32,14 +32,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     })
     .unwrap();
 
-    let benchmarks_blake3_hash_chunk_addr = MEMORY_BASE_ADDRESS
-        + u64::from(
-            *methods
-                .get("benchmarks_blake3_hash_chunk".as_bytes())
-                .unwrap(),
-        );
-    let benchmarks_ed25519_verify_addr = MEMORY_BASE_ADDRESS
-        + u64::from(*methods.get("benchmarks_ed25519_verify".as_bytes()).unwrap());
+    let benchmarks_blake3_hash_chunk_addr =
+        MEMORY_BASE_ADDRESS + u64::from(methods["benchmarks_blake3_hash_chunk".as_bytes()]);
+    let benchmarks_ed25519_verify_addr =
+        MEMORY_BASE_ADDRESS + u64::from(methods["benchmarks_ed25519_verify".as_bytes()]);
 
     {
         let mut group = c.benchmark_group("file");

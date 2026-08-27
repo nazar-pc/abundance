@@ -53,6 +53,7 @@ pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<NonZeroU8> {
     let g = emul_num.min(emul_den);
     let (n, d) = (emul_num / g, emul_den / g);
     // Legal EMUL fractions: 1/8, 1/4, 1/2, 1, 2, 4, 8
+    #[expect(clippy::unnested_or_patterns, reason = "Readability")]
     let legal = matches!(
         (n, d),
         (1, 8) | (1, 4) | (1, 2) | (1, 1) | (2, 1) | (4, 1) | (8, 1)

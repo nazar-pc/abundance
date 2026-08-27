@@ -429,6 +429,7 @@ fn create_plotting_thread_pool_manager_thread_pool_pair(
             // We want to guarantee exit, rather than panicking in a panic handler.
             eprintln!("rayon panic handler called on non-rayon thread: {panic_info:?}");
         }
+        #[expect(clippy::exit, reason = "Exit on panic is intentional")]
         exit(1);
     };
 

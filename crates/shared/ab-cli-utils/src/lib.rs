@@ -14,6 +14,7 @@ pub fn set_exit_on_panic() {
     let default_panic_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {
         default_panic_hook(panic_info);
+        #[expect(clippy::exit, reason = "Exit on panic is intentional")]
         exit(1);
     }));
 }

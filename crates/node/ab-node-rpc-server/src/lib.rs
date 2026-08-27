@@ -52,9 +52,9 @@ use tracing::{error, info, warn};
 const CACHED_SUPER_SEGMENTS_CAPACITY: usize = 5;
 const CACHED_ARCHIVED_SEGMENT_TIMEOUT: Duration = Duration::from_mins(1);
 
-/// Top-level error type for the RPC handler.
+/// Top-level error type for the RPC handler
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum FarmerRpcApiError {
     /// Solution was ignored
     #[error("Solution was ignored for slot {slot}")]
     SolutionWasIgnored {
@@ -78,17 +78,17 @@ pub enum Error {
     BlockingTaskJoinError(#[from] JoinError),
 }
 
-impl From<Error> for ErrorObjectOwned {
-    fn from(error: Error) -> Self {
+impl From<FarmerRpcApiError> for ErrorObjectOwned {
+    fn from(error: FarmerRpcApiError) -> Self {
         #[expect(
             clippy::rest_pattern_accessible_field,
             reason = "Only extracting error code"
         )]
         let code = match &error {
-            Error::SolutionWasIgnored { .. } => 0,
-            Error::SuperSegmentHeadersLengthExceeded { .. } => 1,
-            Error::FailedToRecreateSegment(_) => 2,
-            Error::BlockingTaskJoinError(_) => 3,
+            FarmerRpcApiError::SolutionWasIgnored { .. } => 0,
+            FarmerRpcApiError::SuperSegmentHeadersLengthExceeded { .. } => 1,
+            FarmerRpcApiError::FailedToRecreateSegment(_) => 2,
+            FarmerRpcApiError::BlockingTaskJoinError(_) => 3,
         };
 
         ErrorObject::owned(code, error.to_string(), None::<()>)
@@ -100,10 +100,13 @@ impl From<Error> for ErrorObjectOwned {
 pub trait FarmerRpcApi {
     /// Get metadata necessary for farmer operation
     #[method(name = "getFarmerAppInfo")]
-    fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error>;
+    fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, FarmerRpcApiError>;
 
     #[method(name = "submitSolutionResponse")]
-    fn submit_solution_response(&self, solution_response: SolutionResponse) -> Result<(), Error>;
+    fn submit_solution_response(
+        &self,
+        solution_response: SolutionResponse,
+    ) -> Result<(), FarmerRpcApiError>;
 
     /// Slot info subscription
     #[subscription(
@@ -122,7 +125,7 @@ pub trait FarmerRpcApi {
     async fn subscribe_block_seal(&self) -> SubscriptionResult;
 
     #[method(name = "submitBlockSeal")]
-    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error>;
+    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), FarmerRpcApiError>;
 
     /// New super segment header subscription
     #[subscription(
@@ -136,28 +139,28 @@ pub trait FarmerRpcApi {
     async fn super_segment_headers(
         &self,
         super_segment_indices: Vec<SuperSegmentIndex>,
-    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error>;
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, FarmerRpcApiError>;
 
     #[method(name = "lastSuperSegmentHeaders")]
     async fn last_super_segment_headers(
         &self,
         limit: u32,
-    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error>;
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, FarmerRpcApiError>;
 
     #[method(name = "superSegmentRootForSegmentIndex")]
     async fn super_segment_root_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<Option<SuperSegmentRoot>, Error>;
+    ) -> Result<Option<SuperSegmentRoot>, FarmerRpcApiError>;
 
     #[method(name = "piece")]
-    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error>;
+    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, FarmerRpcApiError>;
 
     #[method(name = "updateShardMembershipInfo", with_extensions)]
     async fn update_shard_membership_info(
         &self,
         info: Vec<FarmerShardMembershipInfo>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), FarmerRpcApiError>;
 }
 
 #[derive(Debug, Default)]
@@ -549,7 +552,7 @@ where
     BCI: BeaconChainInfo,
     CSS: ChainSyncStatus,
 {
-    fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
+    fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, FarmerRpcApiError> {
         let max_segment_index = self
             .beacon_chain_info
             .last_super_segment_header()
@@ -580,7 +583,10 @@ where
         Ok(farmer_app_info)
     }
 
-    fn submit_solution_response(&self, solution_response: SolutionResponse) -> Result<(), Error> {
+    fn submit_solution_response(
+        &self,
+        solution_response: SolutionResponse,
+    ) -> Result<(), FarmerRpcApiError> {
         let slot = solution_response.slot_number;
         let public_key_hash = solution_response.solution.public_key_hash;
         let sector_index = solution_response.solution.sector_index;
@@ -599,7 +605,7 @@ where
                 "Solution was ignored, likely because farmer was too slow"
             );
 
-            return Err(Error::SolutionWasIgnored { slot });
+            return Err(FarmerRpcApiError::SolutionWasIgnored { slot });
         }
 
         Ok(())
@@ -625,7 +631,7 @@ where
         Ok(())
     }
 
-    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error> {
+    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), FarmerRpcApiError> {
         let block_sealing_senders = Arc::clone(&self.block_sealing_senders);
 
         let mut block_sealing_senders = block_sealing_senders.lock();
@@ -654,14 +660,14 @@ where
     async fn super_segment_headers(
         &self,
         super_segment_indices: Vec<SuperSegmentIndex>,
-    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error> {
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, FarmerRpcApiError> {
         if super_segment_indices.len() > MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST {
             error!(
                 "`super_segment_indices` length exceed the limit: {} ",
                 super_segment_indices.len()
             );
 
-            return Err(Error::SuperSegmentHeadersLengthExceeded {
+            return Err(FarmerRpcApiError::SuperSegmentHeadersLengthExceeded {
                 actual: super_segment_indices.len(),
             });
         }
@@ -678,14 +684,14 @@ where
     async fn last_super_segment_headers(
         &self,
         limit: u32,
-    ) -> Result<Vec<Option<SuperSegmentHeader>>, Error> {
+    ) -> Result<Vec<Option<SuperSegmentHeader>>, FarmerRpcApiError> {
         if limit as usize > MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST {
             error!(
                 "Request limit ({}) exceed the server limit: {} ",
                 limit, MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST
             );
 
-            return Err(Error::SuperSegmentHeadersLengthExceeded {
+            return Err(FarmerRpcApiError::SuperSegmentHeadersLengthExceeded {
                 actual: limit as usize,
             });
         }
@@ -714,7 +720,7 @@ where
     async fn super_segment_root_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<Option<SuperSegmentRoot>, Error> {
+    ) -> Result<Option<SuperSegmentRoot>, FarmerRpcApiError> {
         Ok(self
             .beacon_chain_info
             .get_super_segment_header_for_segment_index(segment_index)
@@ -723,7 +729,7 @@ where
 
     // Note: this RPC uses the cached archived segment, which is only updated by archived segments
     // subscriptions
-    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
+    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, FarmerRpcApiError> {
         let segment_index = piece_index.segment_index();
         let cached_archived_segment = &mut *self.cached_archived_segment.lock().await;
 
@@ -855,7 +861,7 @@ where
         &self,
         ext: &Extensions,
         info: Vec<FarmerShardMembershipInfo>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), FarmerRpcApiError> {
         let connection_id = ext
             .get::<ConnectionId>()
             .expect("`ConnectionId` is always present; qed");

@@ -352,8 +352,8 @@ struct TransactionPayloadDecoderInternal<'tmp, 'decoder, const VERIFY: bool>(
     &'tmp mut TransactionPayloadDecoder<'decoder>,
 );
 
-impl<'tmp, 'decoder, const VERIFY: bool> Deref
-    for TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY>
+impl<'decoder, const VERIFY: bool> Deref
+    for TransactionPayloadDecoderInternal<'_, 'decoder, VERIFY>
 {
     type Target = TransactionPayloadDecoder<'decoder>;
 
@@ -364,9 +364,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> Deref
     }
 }
 
-impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
-    for TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY>
-{
+impl<const VERIFY: bool> DerefMut for TransactionPayloadDecoderInternal<'_, '_, VERIFY> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -374,7 +372,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
     }
 }
 
-impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY> {
+impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decoder, VERIFY> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn decode_next_method(

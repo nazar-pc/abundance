@@ -36,13 +36,15 @@ fn vadd_funct6_not_claimed_by_zvbb() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPIVV, 1);
     assert!(!matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbbInstruction::VbrevV { .. })
-            | Some(ZvbbInstruction::VclzV { .. })
-            | Some(ZvbbInstruction::VctzV { .. })
-            | Some(ZvbbInstruction::VcpopV { .. })
-            | Some(ZvbbInstruction::VwsllVv { .. })
-            | Some(ZvbbInstruction::VwsllVx { .. })
-            | Some(ZvbbInstruction::VwsllVi { .. })
+        Some(
+            ZvbbInstruction::VbrevV { .. }
+                | ZvbbInstruction::VclzV { .. }
+                | ZvbbInstruction::VctzV { .. }
+                | ZvbbInstruction::VcpopV { .. }
+                | ZvbbInstruction::VwsllVv { .. }
+                | ZvbbInstruction::VwsllVx { .. }
+                | ZvbbInstruction::VwsllVi { .. }
+        )
     ));
 }
 
@@ -63,13 +65,15 @@ fn undefined_opivv_funct6_not_claimed_by_zvbb() {
     let inst = make_vop(0b10_0000, 1, 4, 5, OPIVV, 2);
     assert!(!matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbbInstruction::VbrevV { .. })
-            | Some(ZvbbInstruction::VclzV { .. })
-            | Some(ZvbbInstruction::VctzV { .. })
-            | Some(ZvbbInstruction::VcpopV { .. })
-            | Some(ZvbbInstruction::VwsllVv { .. })
-            | Some(ZvbbInstruction::VwsllVx { .. })
-            | Some(ZvbbInstruction::VwsllVi { .. })
+        Some(
+            ZvbbInstruction::VbrevV { .. }
+                | ZvbbInstruction::VclzV { .. }
+                | ZvbbInstruction::VctzV { .. }
+                | ZvbbInstruction::VcpopV { .. }
+                | ZvbbInstruction::VwsllVv { .. }
+                | ZvbbInstruction::VwsllVx { .. }
+                | ZvbbInstruction::VwsllVi { .. }
+        )
     ));
 }
 
@@ -100,10 +104,12 @@ fn opmvv_wrong_funct6_not_claimed() {
     let inst = make_vop(0b00_0001, 1, 3, 0b01010, OPMVV, 2);
     assert!(!matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbbInstruction::VbrevV { .. })
-            | Some(ZvbbInstruction::VclzV { .. })
-            | Some(ZvbbInstruction::VctzV { .. })
-            | Some(ZvbbInstruction::VcpopV { .. })
+        Some(
+            ZvbbInstruction::VbrevV { .. }
+                | ZvbbInstruction::VclzV { .. }
+                | ZvbbInstruction::VctzV { .. }
+                | ZvbbInstruction::VcpopV { .. }
+        )
     ));
 }
 
@@ -135,10 +141,12 @@ fn opmvv_vbrev8_vs1_not_claimed_by_zvbb_decode_path() {
     let inst = make_vop(0b01_0010, 1, 5, 0b01000, OPMVV, 3);
     assert!(!matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst),
-        Some(ZvbbInstruction::VbrevV { .. })
-            | Some(ZvbbInstruction::VclzV { .. })
-            | Some(ZvbbInstruction::VctzV { .. })
-            | Some(ZvbbInstruction::VcpopV { .. })
+        Some(
+            ZvbbInstruction::VbrevV { .. }
+                | ZvbbInstruction::VclzV { .. }
+                | ZvbbInstruction::VctzV { .. }
+                | ZvbbInstruction::VcpopV { .. }
+        )
     ));
 }
 

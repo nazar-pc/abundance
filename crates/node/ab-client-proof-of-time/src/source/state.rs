@@ -10,6 +10,11 @@ struct InnerState {
 }
 
 impl InnerState {
+    #[expect(
+        clippy::option_option,
+        reason = "External option indicates whether the change should be done, while internal is \
+        the value itself"
+    )]
     fn update(
         mut self,
         mut slot: SlotNumber,

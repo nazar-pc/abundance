@@ -62,7 +62,7 @@ struct VerificationChainInfo<'a, CI> {
     importing_blocks: &'a ImportingBlocks<OwnedBeaconChainHeader>,
 }
 
-impl<'a, CI> DeriveConsensusParametersChainInfo for VerificationChainInfo<'a, CI>
+impl<CI> DeriveConsensusParametersChainInfo for VerificationChainInfo<'_, CI>
 where
     CI: ChainInfo<OwnedBeaconChainBlock>,
 {
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<'a, CI> ShardMembershipEntropySourceChainInfo for VerificationChainInfo<'a, CI>
+impl<CI> ShardMembershipEntropySourceChainInfo for VerificationChainInfo<'_, CI>
 where
     CI: ChainInfo<OwnedBeaconChainBlock>,
 {

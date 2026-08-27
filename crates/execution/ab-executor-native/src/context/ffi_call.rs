@@ -104,7 +104,7 @@ impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
     fn drop(&mut self) {
         match self {
             MaybeEnv::None(_) => {}
-            &mut MaybeEnv::ReadOnly(env) | &mut MaybeEnv::ReadWrite(env) => {
+            &mut (MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env)) => {
                 // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
                 // and drop the original `Box`
                 let _: Box<_> = unsafe { Box::from_raw(env) };
@@ -212,6 +212,10 @@ impl<'env> MaybeEnv<Env<'env>, NestedSlots<'env>> {
         // SAFETY: Nothing is accessing `env` right now as per function signature
         let env = unsafe { env.as_mut_unchecked() };
         let env = env.get_mut();
+        #[expect(
+            clippy::cast_ptr_alignment,
+            reason = "Correct original type, hence aligned correctly"
+        )]
         // SAFETY: this is the correct original type, and nothing else is referencing it right now
         let context = unsafe {
             &mut *ptr::from_mut::<dyn ExecutorContext + 'tmp>(env.get_mut_executor_context())
