@@ -1,6 +1,6 @@
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(not(miri), target_arch = "aarch64"))]
 use crate::aes::aarch64;
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(not(miri), target_arch = "x86_64"))]
 use crate::aes::x86_64;
 use crate::aes::{create, create_generic, verify_sequential, verify_sequential_generic};
 use ab_core_primitives::pot::{PotCheckpoints, PotKey, PotOutput, PotSeed};
@@ -30,7 +30,7 @@ fn verify_test(
     assert_eq!(sequential, generic);
 
     cfg_select! {
-        target_arch = "x86_64" => {
+        all(not(miri), target_arch = "x86_64") => {
             cpufeatures::new!(has_avx512f_vaes, "avx512f", "vaes");
             if has_avx512f_vaes::get() {
                 // SAFETY: Checked `avx512f` and `vaes` features
@@ -73,7 +73,7 @@ fn verify_test(
                 assert_eq!(sequential, aes_sse41);
             }
         }
-        target_arch = "aarch64" => {
+        all(not(miri), target_arch = "aarch64") => {
             cpufeatures::new!(has_aes, "aes");
             if has_aes::get() {
                 // SAFETY: Checked `aes` feature
