@@ -31,7 +31,7 @@ struct FfiDataSizeCapacityRo {
 #[derive(Copy, Clone)]
 #[repr(C)]
 struct FfiDataSizeCapacityRw {
-    data_ptr: *mut u8,
+    data_ptr: *mut u128,
     size: u32,
     capacity: u32,
 }
@@ -707,7 +707,8 @@ where
                     }
                     // SAFETY: For native execution guest behavior is assumed to be trusted and
                     // provide a correct pointer and size
-                    let data = unsafe { slice::from_raw_parts(data_ptr, size as usize) };
+                    let data =
+                        unsafe { slice::from_raw_parts(data_ptr.cast::<u8>(), size as usize) };
                     slot_bytes.copy_from_slice(data);
                     continue;
                 }

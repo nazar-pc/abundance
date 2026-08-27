@@ -217,7 +217,7 @@ impl OwnedTransaction {
         let lengths = unsafe {
             buffer
                 .as_ptr()
-                .add(size_of::<TransactionHeader>())
+                .byte_add(size_of::<TransactionHeader>())
                 .cast::<SerializedTransactionLengths>()
                 .read()
         };
