@@ -1,6 +1,7 @@
 use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use crate::{RegisterFile, VirtualMemory};
+use crate::{ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 #[test]
 fn test_amoswap_b_sign_extends() {
@@ -194,4 +195,24 @@ fn test_amoadd_w_inherited_from_zaamo() {
 
     assert_eq!(state.regs.read(Reg::A2), 10);
     assert_eq!(state.memory.read::<u32>(u64::from(addr)).unwrap(), 42);
+}
+
+#[test]
+fn test_amoadd_h_rejects_misaligned_atomicity_granule_crossing() {
+    let mut state = initialize_state([Rv32ZabhaInstruction::AmoaddH {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
+        aq: false,
+        rl: false,
+    }]);
+    // 1 byte before a 4096-byte misaligned atomicity granule boundary: the 2-byte access
+    // straddles it
+    let addr = TEST_BASE_ADDR + 0xfff;
+    state.regs.write(Reg::A0, addr);
+
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::MisalignedAtomic { .. })
+    );
 }

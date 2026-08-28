@@ -538,6 +538,13 @@ where
         /// Address of the misaligned write
         address: PackedAddress<u64>,
     },
+    /// Misaligned atomic access (e.g. AMO) whose accessed bytes are not all within the same
+    /// misaligned atomicity granule, unlike an ordinary misaligned read or write
+    #[error("Misaligned atomic access at address {address}")]
+    MisalignedAtomic {
+        /// Address of the misaligned atomic access
+        address: PackedAddress<u64>,
+    },
     /// Unsupported `ecall` instruction
     #[error("Unsupported `ecall` instruction at address {address:#x}")]
     EcallUnsupported {
@@ -1187,15 +1194,16 @@ where
     const TAG_OUT_OF_BOUNDS_WRITE: u64 = 3;
     const TAG_MISALIGNED_READ: u64 = 4;
     const TAG_MISALIGNED_WRITE: u64 = 5;
-    const TAG_ECALL_UNSUPPORTED: u64 = 6;
-    const TAG_ILLEGAL_INSTRUCTION: u64 = 7;
-    const TAG_CSR_READ_ONLY: u64 = 8;
-    const TAG_CSR_ILLEGAL_READ: u64 = 9;
-    const TAG_CSR_ILLEGAL_WRITE: u64 = 10;
-    const TAG_CSR_UNKNOWN: u64 = 11;
-    const TAG_CSR_INSUFFICIENT_PRIVILEGE: u64 = 12;
-    const TAG_UNSUPPORTED_PLATFORM: u64 = 13;
-    const TAG_CUSTOM: u64 = 14;
+    const TAG_MISALIGNED_ATOMIC: u64 = 6;
+    const TAG_ECALL_UNSUPPORTED: u64 = 7;
+    const TAG_ILLEGAL_INSTRUCTION: u64 = 8;
+    const TAG_CSR_READ_ONLY: u64 = 9;
+    const TAG_CSR_ILLEGAL_READ: u64 = 10;
+    const TAG_CSR_ILLEGAL_WRITE: u64 = 11;
+    const TAG_CSR_UNKNOWN: u64 = 12;
+    const TAG_CSR_INSUFFICIENT_PRIVILEGE: u64 = 13;
+    const TAG_UNSUPPORTED_PLATFORM: u64 = 14;
+    const TAG_CUSTOM: u64 = 15;
 
     /// Whether this platform can carry an outcome the way [`Self::new()`] does.
     ///
@@ -1248,6 +1256,9 @@ where
                 }
                 ExecutionError::MisalignedWrite { address } => {
                     (Self::TAG_MISALIGNED_WRITE, address.get())
+                }
+                ExecutionError::MisalignedAtomic { address } => {
+                    (Self::TAG_MISALIGNED_ATOMIC, address.get())
                 }
                 ExecutionError::EcallUnsupported { address } => {
                     (Self::TAG_ECALL_UNSUPPORTED, address.get().as_u64())
@@ -1349,6 +1360,9 @@ where
                 address: PackedAddress::new(payload),
             },
             Self::TAG_MISALIGNED_WRITE => ExecutionError::MisalignedWrite {
+                address: PackedAddress::new(payload),
+            },
+            Self::TAG_MISALIGNED_ATOMIC => ExecutionError::MisalignedAtomic {
                 address: PackedAddress::new(payload),
             },
             Self::TAG_ECALL_UNSUPPORTED => ExecutionError::EcallUnsupported {

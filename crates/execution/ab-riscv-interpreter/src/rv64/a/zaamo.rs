@@ -6,8 +6,8 @@ mod tests;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory,
+    PackedAddress, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -53,6 +53,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 memory.write(rs1_value, rs2_value as u32)?;
                 ExecutionResult::Continue {
@@ -67,6 +75,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = (old.cast_unsigned()).wrapping_add(rs2_value as u32);
                 memory.write(rs1_value, new)?;
@@ -82,6 +98,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = old.cast_unsigned() ^ (rs2_value as u32);
                 memory.write(rs1_value, new)?;
@@ -97,6 +121,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = old.cast_unsigned() & (rs2_value as u32);
                 memory.write(rs1_value, new)?;
@@ -112,6 +144,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = old.cast_unsigned() | (rs2_value as u32);
                 memory.write(rs1_value, new)?;
@@ -127,6 +167,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = if old < (rs2_value as u32).cast_signed() {
                     old.cast_unsigned()
@@ -146,6 +194,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = if old > (rs2_value as u32).cast_signed() {
                     old.cast_unsigned()
@@ -165,6 +221,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = if old.cast_unsigned() < (rs2_value as u32) {
                     old.cast_unsigned()
@@ -184,6 +248,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<i32>(rs1_value)?;
                 let new = if old.cast_unsigned() > (rs2_value as u32) {
                     old.cast_unsigned()
@@ -204,6 +276,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
@@ -215,6 +295,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old.wrapping_add(rs2_value))?;
                 ExecutionResult::Continue { rd, value: old }
@@ -226,6 +314,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old ^ rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
@@ -237,6 +333,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old & rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
@@ -248,6 +352,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 memory.write(rs1_value, old | rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
@@ -259,6 +371,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 let new = if old.cast_signed() < rs2_value.cast_signed() {
                     old
@@ -275,6 +395,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 let new = if old.cast_signed() > rs2_value.cast_signed() {
                     old
@@ -291,6 +419,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 let new = if old < rs2_value { old } else { rs2_value };
                 memory.write(rs1_value, new)?;
@@ -303,6 +439,14 @@ where
                 aq: _,
                 rl: _,
             } => {
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if rs1_value / 4096 != (rs1_value + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(rs1_value),
+                    });
+                }
                 let old = memory.read::<u64>(rs1_value)?;
                 let new = if old > rs2_value { old } else { rs2_value };
                 memory.write(rs1_value, new)?;
