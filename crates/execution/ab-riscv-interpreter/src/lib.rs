@@ -1211,13 +1211,6 @@ where
     /// x86-64-v1 by default, so a runtime check is necessary.
     ///
     /// This is called once within [`ThreadedExecutableInstruction::execute_threaded()`].
-    #[cfg_attr(
-        all(target_arch = "x86_64", not(target_feature = "avx")),
-        expect(
-            deprecated,
-            reason = "`cpufeatures` uses a deprecated associated function internally"
-        )
-    )]
     #[inline(always)]
     #[must_use]
     pub fn platform_supported() -> bool {
