@@ -1,6 +1,7 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
-use crate::{RegisterFile, VirtualMemory};
+use crate::{ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 #[test]
 fn test_amoswap_w_sign_extends() {
@@ -182,4 +183,44 @@ fn test_amoxor_d_supports_misaligned_access() {
 
     assert_eq!(state.regs.read(Reg::A2), 0b1010);
     assert_eq!(state.memory.read::<u64>(addr).unwrap(), 0b1100);
+}
+
+#[test]
+fn test_amoadd_w_rejects_misaligned_atomicity_granule_crossing() {
+    let mut state = initialize_state([Rv64ZaamoInstruction::Amoadd {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
+        aq: false,
+        rl: false,
+    }]);
+    // 3 bytes before a 4096-byte misaligned atomicity granule boundary: the 4-byte access
+    // straddles it
+    let addr = TEST_BASE_ADDR + 0xffd;
+    state.regs.write(Reg::A0, addr);
+
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::MisalignedAtomic { .. })
+    );
+}
+
+#[test]
+fn test_amoadd_d_rejects_misaligned_atomicity_granule_crossing() {
+    let mut state = initialize_state([Rv64ZaamoInstruction::AmoaddD {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
+        aq: false,
+        rl: false,
+    }]);
+    // 6 bytes before a 4096-byte misaligned atomicity granule boundary: the 8-byte access
+    // straddles it
+    let addr = TEST_BASE_ADDR + 0xffa;
+    state.regs.write(Reg::A0, addr);
+
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::MisalignedAtomic { .. })
+    );
 }

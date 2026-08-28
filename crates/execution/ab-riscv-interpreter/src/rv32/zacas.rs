@@ -6,8 +6,8 @@ mod tests;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory,
+    PackedAddress, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -54,6 +54,14 @@ where
                 rl: _,
             } => {
                 let addr = u64::from(rs1_value);
+                // The 4-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if addr / 4096 != (addr + 3) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(addr),
+                    });
+                }
                 let compare = regs.read(rd);
                 let old = memory.read::<u32>(addr)?;
                 if old == compare {
@@ -71,6 +79,14 @@ where
                 rl: _,
             } => {
                 let addr = u64::from(rs1_value);
+                // The 8-byte access must not cross a misaligned atomicity granule (4096 bytes)
+                // boundary
+                if addr / 4096 != (addr + 7) / 4096 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedAtomic {
+                        address: PackedAddress::new(addr),
+                    });
+                }
                 // Per spec, when the first register of a pair is `x0`, BOTH halves of that pair
                 // read as zero - not just the literal `x0` half. `compare_lo`/`rs2_value` are
                 // already 0 in that case since `x0` is hardwired, but `compare_hi`/`swap_hi`
