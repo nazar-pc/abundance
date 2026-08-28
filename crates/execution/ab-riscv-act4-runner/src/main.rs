@@ -540,6 +540,58 @@ where
                     }
                 }
             }
+            // Out-of-bounds memory accesses (e.g. a vector indexed load/store whose computed
+            // effective address wraps or otherwise lands outside of RAM) are load/store access
+            // faults on real hardware, not a hard interpreter error - dispatch through the trap
+            // handler exactly like the illegal-instruction case above. `mtval` carries the
+            // faulting virtual address, per `REPORT_VA_IN_MTVAL_ON_{LOAD,STORE_AMO}_ACCESS_FAULT`
+            // in the DUT config.
+            //
+            // `lr`/`sc` additionally require natural alignment (unlike ordinary loads/stores,
+            // which this core allows misaligned per `MISALIGNED_LDST`): the Zalrsc extension
+            // mandates that a misaligned `lr`/`sc` always raises an exception, and this DUT
+            // config's `LRSC_MISALIGNED_BEHAVIOR: "always raise misaligned exception"` picks an
+            // address-misaligned exception over an access fault for it - a different `mcause`
+            // than an out-of-bounds access, and per `REPORT_VA_IN_MTVAL_ON_{LOAD,STORE_AMO}
+            // _MISALIGNED` (both `false`) `mtval` is left at zero rather than the address.
+            ExecutionResult::Err(
+                error @ (ExecutionError::OutOfBoundsRead { .. }
+                | ExecutionError::OutOfBoundsWrite { .. }
+                | ExecutionError::MisalignedRead { .. }
+                | ExecutionError::MisalignedWrite { .. }),
+            ) => {
+                let (cause, tval) = match error {
+                    ExecutionError::OutOfBoundsRead { address } => (
+                        MCauseException::LoadAccessFault,
+                        RegisterType::<I>::truncate_from_u64(address.get()),
+                    ),
+                    ExecutionError::OutOfBoundsWrite { address } => (
+                        MCauseException::StoreAccessFault,
+                        RegisterType::<I>::truncate_from_u64(address.get()),
+                    ),
+                    ExecutionError::MisalignedRead { .. } => (
+                        MCauseException::LoadAddressMisaligned,
+                        RegisterType::<I>::default(),
+                    ),
+                    ExecutionError::MisalignedWrite { .. } => (
+                        MCauseException::StoreAddressMisaligned,
+                        RegisterType::<I>::default(),
+                    ),
+                    _ => unreachable!(),
+                };
+                let epc =
+                    ProgramCounter::<RegisterType<I>, Box<BasicMemory<RAM_BASE, RAM_SIZE>>>::old_pc(
+                        &state.instruction_fetcher,
+                        instruction.size(),
+                    );
+                let trap_pc = state.env.take_trap(cause, epc, tval).ok_or(error)?;
+                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
+                    ControlFlow::Continue(()) => {}
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
             ExecutionResult::Err(error) => {
                 if state
                     .memory

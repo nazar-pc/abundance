@@ -7,8 +7,8 @@ use crate::rv32::a::ReservationSet;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory,
+    PackedAddress, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    ThreadedExecutableInstruction, ThreadedExecutionResult, VirtualMemory,
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
@@ -54,6 +54,12 @@ where
                 aq: _,
                 rl: _,
             } => {
+                if !rs1_value.is_multiple_of(4) {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedRead {
+                        address: PackedAddress::new(u64::from(rs1_value)),
+                    });
+                }
                 let value = memory.read::<u32>(u64::from(rs1_value))?;
                 env.set_reservation(rs1_value);
                 ExecutionResult::Continue { rd, value }
@@ -65,6 +71,12 @@ where
                 aq: _,
                 rl: _,
             } => {
+                if !rs1_value.is_multiple_of(4) {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::MisalignedWrite {
+                        address: PackedAddress::new(u64::from(rs1_value)),
+                    });
+                }
                 let success = env.reservation() == Some(rs1_value);
                 env.clear_reservation();
 
