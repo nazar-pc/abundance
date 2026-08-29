@@ -14,6 +14,7 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
+use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZcbInstruction<Reg> where

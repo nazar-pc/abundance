@@ -6,6 +6,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3u8)
@@ -1596,6 +1597,47 @@ fn vnclipu_wi_e8_shift_zero() {
     assert!(vxsat(&state));
 }
 
+// Per spec, a narrowing destination may alias only the low part of the wide source register
+// group (`vd == vs2`); any other overlap (e.g. aliasing only the high part) is reserved.
+#[test]
+fn vnclipu_wi_vd_aliases_vs2_low_part_legal() {
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    write_wide_elem(&mut state, VReg::V4, 0, Vsew::E8, 0x01FF);
+    // vd == vs2: legal alias of the low part
+    exec(
+        &mut state,
+        ZveXxFixedPointInstruction::VnclipuWi {
+            vd: VReg::V4,
+            vs2: VReg::V4,
+            imm: 0,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 255);
+}
+
+#[test]
+fn vnclipu_wi_vd_aliases_vs2_high_part_illegal() {
+    // vs2 occupies {V4,V5} (2*SEW=16-bit source, group_regs=1 -> wide_group_regs=2); vd=V5
+    // aliases only the high part of that group, which is reserved
+    let mut state = setup_with_vxrm(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
+    let result = exec(
+        &mut state,
+        ZveXxFixedPointInstruction::VnclipuWi {
+            vd: VReg::V5,
+            vs2: VReg::V4,
+            imm: 0,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
 #[test]
 fn vnclipu_e64_illegal() {
     // Narrowing with dest SEW=64 requires source SEW=128 which exceeds ELEN=64; must fault
@@ -1611,10 +1653,7 @@ fn vnclipu_e64_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1654,10 +1693,7 @@ fn vnclipu_lmul8_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1674,10 +1710,7 @@ fn vnclip_lmul8_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vnclip
@@ -1824,10 +1857,7 @@ fn vnclip_e64_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // masking (vm=false)
@@ -1881,10 +1911,7 @@ fn vsaddu_masked_vd_overlap_v0_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1967,10 +1994,7 @@ fn vsaddu_vector_not_allowed_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1988,10 +2012,7 @@ fn vsmul_vector_not_allowed_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2009,10 +2030,7 @@ fn vnclip_vector_not_allowed_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vtype = None (vill=1) faults
@@ -2032,10 +2050,7 @@ fn vsaddu_vtype_none_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2053,10 +2068,7 @@ fn vssrl_vtype_none_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // register alignment checks
@@ -2077,10 +2089,7 @@ fn vsaddu_vd_misaligned_m2_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2097,10 +2106,7 @@ fn vsaddu_vs2_misaligned_m2_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2118,10 +2124,7 @@ fn vnclipu_vs2_misaligned_m1_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2190,10 +2193,7 @@ fn vnclip_vs2_misaligned_m2_faults() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]

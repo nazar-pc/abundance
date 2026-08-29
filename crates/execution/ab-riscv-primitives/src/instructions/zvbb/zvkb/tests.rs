@@ -117,11 +117,22 @@ fn opmvv_vbrev_vs1_not_claimed_by_zvkb() {
     assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
 }
 
-// OPIVI with funct6=0b010101 must not decode (no vrol.vi in Zvkb).
+// OPIVI with funct6=0b010101 decodes as `vror.vi` with imm[5]=1 (uimm=39), not `vrol.vi` - Zvkb
+// has no immediate form of vrol; this funct6 value is shared with vror.vi's extended immediate.
 #[test]
-fn vrol_has_no_immediate_form() {
+fn opivi_funct6_010101_is_vror_vi_not_vrol() {
     let inst = make_vop(0b01_0101, 0, 4, 7, OPIVI, 2);
-    assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        Some(ZvkbInstruction::VrorVi {
+            vd: VReg::V2,
+            vs2: VReg::V4,
+            uimm: 39,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }),
+    );
 }
 
 // OPIVI with funct6=0b000001 must not decode (no vandn.vi in Zvkb).
@@ -589,6 +600,60 @@ fn vror_vi_vm_bit_independent_of_immediate() {
             vd: VReg::V2,
             vs2: VReg::V8,
             uimm: 7,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }),
+    );
+}
+
+// funct6=0b01_0101 (imm[5]=1, the low funct6 bit): forms the upper half of the 6-bit immediate,
+// needed for SEW=64 rotate amounts (32-63). Not to be confused with vrol.vv/vx, which use the
+// same funct6 value but only for OPIVV/OPIVX (funct3 disambiguates).
+#[test]
+fn vror_vi_imm_bit5_set_smallest() {
+    // imm[5]=1, imm[4:0]=0 -> uimm=32
+    let inst = make_vop(0b01_0101, 0, 8, 0b00000, OPIVI, 4);
+    assert_eq!(
+        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        Some(ZvkbInstruction::VrorVi {
+            vd: VReg::V4,
+            vs2: VReg::V8,
+            uimm: 32,
+            vm: false,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }),
+    );
+}
+
+#[test]
+fn vror_vi_imm_bit5_set_max() {
+    // imm[5]=1, imm[4:0]=0b11111 -> uimm=63, the largest possible 6-bit rotate amount
+    let inst = make_vop(0b01_0101, 1, 6, 0b11111, OPIVI, 2);
+    assert_eq!(
+        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        Some(ZvkbInstruction::VrorVi {
+            vd: VReg::V2,
+            vs2: VReg::V6,
+            uimm: 63,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        }),
+    );
+}
+
+#[test]
+fn vror_vi_imm_bit5_set_mid() {
+    // imm[5]=1, imm[4:0]=0b01001=9 -> uimm=41
+    let inst = make_vop(0b01_0101, 1, 12, 0b01001, OPIVI, 3);
+    assert_eq!(
+        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        Some(ZvkbInstruction::VrorVi {
+            vd: VReg::V3,
+            vs2: VReg::V12,
+            uimm: 41,
             vm: true,
             rs1: Reg::Zero,
             rs2: Reg::Zero,

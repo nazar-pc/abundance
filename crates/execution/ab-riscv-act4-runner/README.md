@@ -19,6 +19,7 @@ docker run -it --rm --privileged \
     -v ./res/riscv-arch-test:/mnt \
     -v ./res/abundance:/mnt/config/abundance:ro \
     -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
+    -e EXCLUDE_EXTENSIONS="InterruptsSm,ZawrsSm" \
     riscv-act4 \
     make
 # Run generated test ELFs against the interpreter

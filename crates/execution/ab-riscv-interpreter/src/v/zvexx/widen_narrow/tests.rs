@@ -5,6 +5,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
@@ -1174,6 +1175,48 @@ fn vnsra_wi_e8_m1_immediate() {
     assert_eq!(read_elem(&state, VReg::V2, 1, Vsew::E8), 0x00u64);
 }
 
+// Per spec, a narrowing destination may alias only the low part of the wide source register
+// group (`vd == vs2`); any other overlap (e.g. aliasing only the high part) is reserved.
+#[test]
+fn vnsra_wi_vd_aliases_vs2_low_part_legal() {
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V8, 0, Vsew::E16, 0x8000u64);
+    write_elem(&mut state, VReg::V8, 1, Vsew::E16, 0x0080u64);
+    // vd == vs2: legal alias of the low part
+    exec(
+        &mut state,
+        ZveXxWidenNarrowInstruction::VnsraWi {
+            vd: VReg::V8,
+            vs2: VReg::V8,
+            uimm: 8,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E8), 0x80u64);
+}
+
+#[test]
+fn vnsra_wi_vd_aliases_vs2_high_part_illegal() {
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
+    // vs2 occupies {V8,V9} (2*SEW=16-bit source, group_regs=1 -> wide_group_regs=2); vd=V9
+    // aliases only the high part of that group, which is reserved
+    let result = exec(
+        &mut state,
+        ZveXxWidenNarrowInstruction::VnsraWi {
+            vd: VReg::V9,
+            vs2: VReg::V8,
+            uimm: 8,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
 // vzext.vf2
 
 #[test]
@@ -1610,10 +1653,7 @@ fn vwaddu_vv_e64_m1_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1630,10 +1670,7 @@ fn vwadd_vv_e64_m1_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1650,10 +1687,7 @@ fn vwsubu_vv_e64_m1_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1671,10 +1705,7 @@ fn vnsrl_e64_m1_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1691,10 +1722,7 @@ fn vnsra_e64_m1_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Illegal: SEW too small for extension factor
@@ -1713,10 +1741,7 @@ fn vzext_vf4_e16_illegal_sew_too_small() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1732,10 +1757,7 @@ fn vsext_vf4_e16_illegal_sew_too_small() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1752,10 +1774,7 @@ fn vzext_vf8_e32_illegal_sew_too_small() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1771,10 +1790,7 @@ fn vsext_vf8_e32_illegal_sew_too_small() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1791,10 +1807,7 @@ fn vzext_vf2_e8_illegal_sew_too_small() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Illegal: vm=false and vd=v0
@@ -1814,10 +1827,7 @@ fn vwaddu_vv_masked_vd_v0_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1834,10 +1844,7 @@ fn vnsrl_masked_vd_v0_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1853,10 +1860,7 @@ fn vzext_vf2_masked_vd_v0_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Illegal: vtype not set (vill)
@@ -1877,10 +1881,7 @@ fn vwaddu_vv_vtype_not_set_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1898,10 +1899,7 @@ fn vnsrl_vtype_not_set_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Illegal: vector instructions not allowed
@@ -1921,10 +1919,7 @@ fn vwaddu_vv_not_allowed_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1941,10 +1936,7 @@ fn vsext_vf2_not_allowed_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Illegal: vd alignment / overlap
@@ -1964,10 +1956,7 @@ fn vwaddu_vv_vd_misaligned_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1985,10 +1974,7 @@ fn vwaddu_vv_vd_overlaps_vs2_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2006,10 +1992,7 @@ fn vwaddu_vv_vd_overlaps_vs1_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2026,10 +2009,7 @@ fn vzext_vf2_vd_overlaps_vs2_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // LMUL>1: multi-register groups
@@ -2294,10 +2274,7 @@ fn vwsubu_wv_e32_m1_vd_overlaps_vs1_low_part_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Extension destination overlapping the highest-numbered part of a narrow source
@@ -2379,10 +2356,7 @@ fn vsext_vf2_e16_m2_vs2_low_part_overlap_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2400,8 +2374,5 @@ fn vzext_vf4_e32_m8_vs2_non_high_part_overlap_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }

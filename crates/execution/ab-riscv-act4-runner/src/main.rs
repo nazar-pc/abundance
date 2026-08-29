@@ -235,16 +235,87 @@ where
     where
         RT: RegType + BasicInt,
     {
+        // `tohost` is always an 8-byte-wide HTIF field regardless of XLEN (RV32 writes it as two
+        // 32-bit stores; RV64 as one 64-bit store). Its upper 32 bits carry the HTIF `device`/`cmd`
+        // tag: zero for a plain pass/fail exit code (`1` for pass, `(n << 1) | 1` for fail),
+        // nonzero for a device command such as console I/O (e.g. `RVMODEL_IO_WRITE_STR`'s
+        // `device=1,cmd=1` character-output writes). Only a zero-tagged write is test
+        // completion - a device write must not be mistaken for one, or the interpreter
+        // would stop mid-test on the first character a failure message prints, rather than
+        // actually reaching `RVMODEL_HALT_PASS`/ `_FAIL`.
         let raw_value = self
-            .read::<RT>(tohost_addr)
+            .read::<u64>(tohost_addr)
             .context("Failed to read `tohost`")?;
 
-        Ok(if raw_value.as_u64() == 0 {
-            None
-        } else {
-            Some(raw_value)
-        })
+        if raw_value == 0 || (raw_value >> 32) != 0 {
+            return Ok(None);
+        }
+
+        let raw_value = RT::truncate_from_u64(raw_value);
+
+        Ok(Some(raw_value))
     }
+}
+
+/// Checks whether `tohost` holds a confirmed test-completion value.
+///
+/// `tohost` completion is checked after every single instruction, but a completion-shaped write
+/// (untagged, i.e. its upper 32 bits are 0 - see [`ToHost::tohost_value`]) can be *transient*: both
+/// `RVMODEL_HALT_PASS`/`_FAIL` and `RVMODEL_IO_WRITE_STR` (console output) write `tohost` as two
+/// separate stores - the payload (low word) first, the HTIF `device`/`cmd` tag (high word) second,
+/// with an unrelated instruction (loading the tag constant) in between. Checking right after just
+/// the first store of an `RVMODEL_IO_WRITE_STR` character (low word = the character, high word not
+/// yet updated) can transiently look exactly like a plain, untagged completion write, if the high
+/// word previously held 0 (i.e. this is the very first `tohost` write of the whole test). A real
+/// HTIF host only samples `tohost` asynchronously and would never observe that torn intermediate
+/// state.
+///
+/// So a completion-shaped reading is only trusted once it has also been seen, unchanged, on the
+/// immediately preceding call (tracked via `pending_tohost`, which the caller carries across calls
+/// for the lifetime of one test run): the real halt sequence writes the same value on every one of
+/// its (`sw`, `sw`, `jal` back to the start) loop iterations forever, so it is always eventually
+/// confirmed on some later pair of consecutive calls, while a transient torn read is overwritten by
+/// the tag word within a single intervening instruction and so never repeats.
+fn check_tohost(
+    memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
+    tohost_addr: u64,
+    pending_tohost: &mut Option<u64>,
+) -> anyhow::Result<bool> {
+    let raw_tohost = memory
+        .read::<u64>(tohost_addr)
+        .context("Failed to read `tohost`")?;
+
+    let completion_shaped = raw_tohost != 0 && (raw_tohost >> 32) == 0;
+    if !completion_shaped {
+        *pending_tohost = None;
+        return Ok(false);
+    }
+
+    let confirmed = *pending_tohost == Some(raw_tohost);
+    *pending_tohost = Some(raw_tohost);
+
+    Ok(confirmed)
+}
+
+/// Read the raw encoding of an (illegal) instruction at `address`, for use as `mtval`.
+///
+/// Must not blindly read 4 bytes: with Zca, `address` only needs to be 2-byte aligned, and a
+/// 32-bit-wide read starting there would pull in the low halfword of the *next*, unrelated
+/// instruction whenever `address` isn't also 4-byte aligned. Reads the low halfword first and
+/// only widens to the full word when its low bits (`0b11`) say this is a 32-bit encoding -
+/// matching the same check the interpreter's own decoder uses to size an instruction, and what
+/// `REPORT_ENCODING_IN_MTVAL_ON_ILLEGAL_INSTRUCTION` expects `mtval` to reflect for a compressed
+/// illegal instruction: the zero-extended halfword, not 32 bits of partly foreign encoding.
+fn read_raw_instruction<const RAM_BASE: u64, const RAM_SIZE: usize>(
+    memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
+    address: u64,
+) -> Result<u32, VirtualMemoryError> {
+    let low = memory.read::<u16>(address)?;
+    if (low & 0b11) != 0b11 {
+        return Ok(u32::from(low));
+    }
+    let high = memory.read::<u16>(address + 2)?;
+    Ok(u32::from(low) | (u32::from(high) << 16))
 }
 
 fn read_cstring<const RAM_BASE: u64, const RAM_SIZE: usize>(
@@ -332,6 +403,46 @@ where
     ))
 }
 
+/// Resolves the result of `BasicInstructionFetcher::set_pc[_relative]()` into the `ControlFlow` it
+/// signals.
+///
+/// `set_pc[_relative]()` rejects a misaligned target with `ExecutionError::UnalignedInstruction`
+/// instead of moving the program counter there. That is an instruction-address-misaligned
+/// exception on real hardware, not a hard interpreter error - dispatch through the trap handler
+/// exactly like the illegal-instruction case in [`run_test()`]. Per
+/// `REPORT_VA_IN_MTVAL_ON_INSTRUCTION_MISALIGNED` (`false`) in the DUT config, `mtval` is left at
+/// zero rather than the address. The recursive `set_pc()` call for the trap handler's own entry
+/// point can't itself be misaligned (`mtvec` is masked to `MTVEC_BASE_ALIGNMENT_DIRECT` on every
+/// write), so it's fine to propagate its result with a bare `?`.
+fn resolve_pc_result<I, const ELEN: Elen, const VLEN: Vlen>(
+    result: Result<ControlFlow<()>, ExecutionError<RegisterType<I>>>,
+    env: &mut TestEnv<I::Reg, ELEN, VLEN>,
+    memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
+    instruction_fetcher: &mut BasicInstructionFetcher<I>,
+) -> Result<ControlFlow<()>, TestError<RegisterType<I>>>
+where
+    I: Instruction<Reg: BasicRegister<Type: BasicInt>>,
+    TestEnv<I::Reg, ELEN, VLEN>: VectorRegistersExt<I::Reg>,
+{
+    match result {
+        Ok(control_flow) => Ok(control_flow),
+        Err(ExecutionError::UnalignedInstruction { address }) => {
+            let address = address.get();
+            let trap_pc = env
+                .take_trap(
+                    MCauseException::InstructionAddressMisaligned,
+                    address,
+                    RegisterType::<I>::default(),
+                )
+                .ok_or(ExecutionError::UnalignedInstruction {
+                    address: PackedAddress::new(address),
+                })?;
+            Ok(instruction_fetcher.set_pc(memory, trap_pc)?)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
 fn run_test<I, const ELEN: Elen, const VLEN: Vlen>(
     elf_path: &Path,
 ) -> Result<(), TestError<RegisterType<I>>>
@@ -358,13 +469,36 @@ where
         env: TestEnv::new(),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<I>::new(
-            // Not used, setting to something that is unlikely to be used
-            RegisterType::<I>::default(),
+            // Not used by this harness (termination is always via `tohost`), so this only needs
+            // to be a value no test will ever actually jump to. `0` doesn't qualify: it is
+            // `RVMODEL_ACCESS_FAULT_ADDRESS` (see rvmodel_macros.h), the conventional "guaranteed
+            // to fault" address ACT4 tests deliberately jump to (e.g. ExceptionsSm's instruction-
+            // access-fault coverpoint) - hitting it must produce a real access fault, not silently
+            // stop the interpreter. Use all-ones instead, since ACT4 conventionally targets low
+            // addresses like `0` as "guaranteed bad", never the top of the address space.
+            !RegisterType::<I>::default(),
             elf.entry,
         ),
     };
 
+    // Carried across `check_tohost()` calls for the lifetime of this test run - see its doc comment
+    let mut pending_tohost = None;
+
+    let ab_trace = std::env::var_os("AB_TRACE").is_some();
     loop {
+        // Checked unconditionally every iteration (not just after a `Continue`/`ContinueNoWrite`
+        // execution result): the final halt loop is sometimes a pure `jal x0, self` spin with no
+        // further memory writes, which never lands in either of those two arms below.
+        if check_tohost(&state.memory, elf.tohost_addr, &mut pending_tohost)? {
+            break;
+        }
+        if ab_trace {
+            let pc =
+                ProgramCounter::<RegisterType<I>, Box<BasicMemory<RAM_BASE, RAM_SIZE>>>::get_pc(
+                    &state.instruction_fetcher,
+                );
+            eprintln!("pc={:#x}", pc.as_u64());
+        }
         let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::Break => {
@@ -379,16 +513,16 @@ where
                 let address = address.get();
                 // Check for mret before treating as a trap - mret is a privileged instruction the
                 // interpreter doesn't implement, so it arrives here as an illegal instruction
-                let raw_instruction = state
-                    .memory
-                    .read::<u32>(address.as_u64())
+                let raw_instruction = read_raw_instruction(&state.memory, address.as_u64())
                     .map_err(ExecutionError::from)?;
                 if raw_instruction == MRET_INSTRUCTION {
-                    let mepc = state
-                        .env
-                        .read_csr(MCsr::Mepc as u16)
-                        .map_err(ExecutionError::from)?;
-                    match state.instruction_fetcher.set_pc(&state.memory, mepc)? {
+                    let mepc = state.env.return_from_trap();
+                    match resolve_pc_result::<I, ELEN, VLEN>(
+                        state.instruction_fetcher.set_pc(&state.memory, mepc),
+                        &mut state.env,
+                        &state.memory,
+                        &mut state.instruction_fetcher,
+                    )? {
                         ControlFlow::Continue(()) => {
                             continue;
                         }
@@ -409,7 +543,40 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(address),
                     })?;
-                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
+                match resolve_pc_result::<I, ELEN, VLEN>(
+                    state.instruction_fetcher.set_pc(&state.memory, trap_pc),
+                    &mut state.env,
+                    &state.memory,
+                    &mut state.instruction_fetcher,
+                )? {
+                    ControlFlow::Continue(()) => {
+                        continue;
+                    }
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
+            }
+            // Out-of-bounds instruction fetch (e.g. a jump to an address outside RAM, such as
+            // ACT4's conventional `RVMODEL_ACCESS_FAULT_ADDRESS`) is an instruction access fault
+            // on real hardware, not a hard interpreter error - dispatch through the trap handler.
+            // `mtval` carries the faulting address per
+            // `REPORT_VA_IN_MTVAL_ON_INSTRUCTION_ACCESS_FAULT=true` in the DUT config.
+            FetchInstructionResult::Err(ExecutionError::OutOfBoundsRead { address }) => {
+                let address = address.get();
+                let epc = RegisterType::<I>::truncate_from_u64(address);
+                let trap_pc = state
+                    .env
+                    .take_trap(MCauseException::InstructionAccessFault, epc, epc)
+                    .ok_or(ExecutionError::OutOfBoundsRead {
+                        address: PackedAddress::new(address),
+                    })?;
+                match resolve_pc_result::<I, ELEN, VLEN>(
+                    state.instruction_fetcher.set_pc(&state.memory, trap_pc),
+                    &mut state.env,
+                    &state.memory,
+                    &mut state.instruction_fetcher,
+                )? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }
@@ -419,11 +586,7 @@ where
                 }
             }
             FetchInstructionResult::Err(error) => {
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
-                    .is_some()
-                {
+                if check_tohost(&state.memory, elf.tohost_addr, &mut pending_tohost)? {
                     break;
                 }
                 return Err(error.into());
@@ -449,28 +612,25 @@ where
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
-                    .is_some()
-                {
+                if check_tohost(&state.memory, elf.tohost_addr, &mut pending_tohost)? {
                     break;
                 }
             }
             ExecutionResult::ContinueNoWrite => {
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
-                    .is_some()
-                {
+                if check_tohost(&state.memory, elf.tohost_addr, &mut pending_tohost)? {
                     break;
                 }
             }
             ExecutionResult::Branch { offset } => {
-                match state.instruction_fetcher.set_pc_relative(
+                match resolve_pc_result::<I, ELEN, VLEN>(
+                    state.instruction_fetcher.set_pc_relative(
+                        &state.memory,
+                        instruction.size(),
+                        offset,
+                    ),
+                    &mut state.env,
                     &state.memory,
-                    instruction.size(),
-                    offset,
+                    &mut state.instruction_fetcher,
                 )? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
@@ -479,7 +639,12 @@ where
                 }
             }
             ExecutionResult::Jump { target } => {
-                match state.instruction_fetcher.set_pc(&state.memory, target)? {
+                match resolve_pc_result::<I, ELEN, VLEN>(
+                    state.instruction_fetcher.set_pc(&state.memory, target),
+                    &mut state.env,
+                    &state.memory,
+                    &mut state.instruction_fetcher,
+                )? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;
@@ -519,9 +684,7 @@ where
                         &state.instruction_fetcher, instruction.size()
                     ),
                 };
-                let raw_instruction = state
-                    .memory
-                    .read::<u32>(address.as_u64())
+                let raw_instruction = read_raw_instruction(&state.memory, address.as_u64())
                     .map_err(ExecutionError::from)?;
                 let trap_pc = state
                     .env
@@ -533,7 +696,12 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(address),
                     })?;
-                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
+                match resolve_pc_result::<I, ELEN, VLEN>(
+                    state.instruction_fetcher.set_pc(&state.memory, trap_pc),
+                    &mut state.env,
+                    &state.memory,
+                    &mut state.instruction_fetcher,
+                )? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;
@@ -585,7 +753,12 @@ where
                         instruction.size(),
                     );
                 let trap_pc = state.env.take_trap(cause, epc, tval).ok_or(error)?;
-                match state.instruction_fetcher.set_pc(&state.memory, trap_pc)? {
+                match resolve_pc_result::<I, ELEN, VLEN>(
+                    state.instruction_fetcher.set_pc(&state.memory, trap_pc),
+                    &mut state.env,
+                    &state.memory,
+                    &mut state.instruction_fetcher,
+                )? {
                     ControlFlow::Continue(()) => {}
                     ControlFlow::Break(()) => {
                         break;
@@ -593,11 +766,7 @@ where
                 }
             }
             ExecutionResult::Err(error) => {
-                if state
-                    .memory
-                    .tohost_value::<RegisterType<I>>(elf.tohost_addr)?
-                    .is_some()
-                {
+                if check_tohost(&state.memory, elf.tohost_addr, &mut pending_tohost)? {
                     break;
                 }
                 return Err(error.into());

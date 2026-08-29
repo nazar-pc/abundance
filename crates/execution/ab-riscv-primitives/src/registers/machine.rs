@@ -16,6 +16,8 @@ pub enum MCsr {
     Mimpid = 0xF13,
     /// Hart ID register (MRO)
     Mhartid = 0xF14,
+    /// Pointer to the configuration data structure (MRO)
+    Mconfigptr = 0xF15,
 
     /// Machine status register (MRW)
     Mstatus = 0x300,
@@ -25,10 +27,18 @@ pub enum MCsr {
     Mie = 0x304,
     /// Machine trap-vector base address register (MRW)
     Mtvec = 0x305,
+    /// Machine environment configuration register (MRW)
+    Menvcfg = 0x30A,
     /// Additional machine status register, RV32 only (MRW)
     Mstatush = 0x310,
+    /// Upper 32 bits of `menvcfg`, RV32 only (MRW)
+    Menvcfgh = 0x31A,
     /// Machine count-inhibit register (MRW)
     Mcountinhibit = 0x320,
+    /// Machine security configuration register (MRW)
+    Mseccfg = 0x747,
+    /// Upper 32 bits of `mseccfg`, RV32 only (MRW)
+    Mseccfgh = 0x757,
 
     /// Machine scratch register (MRW)
     Mscratch = 0x340,
@@ -40,6 +50,15 @@ pub enum MCsr {
     Mtval = 0x343,
     /// Machine interrupt pending (MRW)
     Mip = 0x344,
+
+    /// Machine cycle counter (MRW)
+    Mcycle = 0xB00,
+    /// Machine instructions-retired counter (MRW)
+    Minstret = 0xB02,
+    /// Upper 32 bits of `mcycle`, RV32 only (MRW)
+    Mcycleh = 0xB80,
+    /// Upper 32 bits of `minstret`, RV32 only (MRW)
+    Minstreth = 0xB82,
 }
 
 impl MCsr {
@@ -51,17 +70,26 @@ impl MCsr {
             0xF12 => Some(Self::Marchid),
             0xF13 => Some(Self::Mimpid),
             0xF14 => Some(Self::Mhartid),
+            0xF15 => Some(Self::Mconfigptr),
             0x300 => Some(Self::Mstatus),
             0x301 => Some(Self::Misa),
             0x304 => Some(Self::Mie),
             0x305 => Some(Self::Mtvec),
+            0x30A => Some(Self::Menvcfg),
             0x310 => Some(Self::Mstatush),
+            0x31A => Some(Self::Menvcfgh),
             0x320 => Some(Self::Mcountinhibit),
+            0x747 => Some(Self::Mseccfg),
+            0x757 => Some(Self::Mseccfgh),
             0x340 => Some(Self::Mscratch),
             0x341 => Some(Self::Mepc),
             0x342 => Some(Self::Mcause),
             0x343 => Some(Self::Mtval),
             0x344 => Some(Self::Mip),
+            0xB00 => Some(Self::Mcycle),
+            0xB02 => Some(Self::Minstret),
+            0xB80 => Some(Self::Mcycleh),
+            0xB82 => Some(Self::Minstreth),
             _ => None,
         }
     }

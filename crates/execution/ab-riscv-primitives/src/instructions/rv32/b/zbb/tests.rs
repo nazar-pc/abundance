@@ -222,6 +222,17 @@ fn test_rori() {
     );
 }
 
+/// Unlike RV64 (which needs a 6-bit shamt and legitimately treats bit[25] as shamt[5]), RV32's
+/// `rori` shamt is only 5 bits: the full 7-bit funct7 (bits[31:25]) is the opcode selector, and
+/// bit[25]=1 is a reserved encoding, not an alternate `rori` form.
+#[test]
+fn test_rori_bit25_set_is_reserved() {
+    // Same as test_rori but with bit[25] additionally set (funct7 = 0b0110001 instead of
+    // 0b0110000)
+    let inst = make_i_type_with_shamt(0b001_0011, 1, 0b101, 2, 5, 0b01_1000) | (1 << 25u8);
+    assert_eq!(Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst), None);
+}
+
 #[test]
 fn test_zext_h() {
     // RV32 zext.h: OP (0b011_0011), funct3=100, funct7=000_0100, rs2=0

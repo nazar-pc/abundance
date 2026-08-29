@@ -46,6 +46,7 @@
 //! * (experimental) Zcmp (version 1.0.0)
 //! * Zicond (version 2.0)
 //! * Zicsr (version 2.0)
+//! * Zifencei (version 2.0)
 //! * Zkn (version 1.0.1)
 //! * Zknd (version 1.0.1)
 //! * Zkne (version 1.0.1)
@@ -58,6 +59,7 @@
 //! * Zvkb (version 1.0.0)
 //! * Zvl*b (version 1.0.0), where `*` is anything allowed by the specification like Zvl128b or
 //!   Zvl512b
+//! * Ssstrict
 //!
 //! All extensions except experimental pass all relevant RISC-V Architectural Certification Tests
 //! (ACTs) using the ACT4 framework.
@@ -194,6 +196,7 @@ pub mod v;
 pub mod zawrs;
 pub mod zicond;
 pub mod zicsr;
+pub mod zifencei;
 pub mod zkr;
 pub mod zvbb;
 pub mod zvbc;
@@ -924,17 +927,22 @@ where
         program_counter: &mut PC,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>>;
 
-    /// Handle an `ebreak` instruction.
-    ///
-    /// NOTE: the program counter here is the current value, meaning it is already incremented past
-    /// the instruction itself.
+    /// Handle an `ebreak` (or compressed `c.ebreak`) instruction
     #[inline(always)]
-    fn handle_ebreak(&mut self, regs: &mut Regs, memory: &mut Memory, pc: Reg::Type) {
+    fn handle_ebreak(
+        &mut self,
+        regs: &mut Regs,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+        instruction_size: u8,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &Regs = regs;
         let _: &mut Memory = memory;
-        let _: Reg::Type = pc;
+        let _: &mut PC = program_counter;
+        let _: u8 = instruction_size;
         // NOP by default
+        Ok(ControlFlow::Continue(()))
     }
 }
 
@@ -965,8 +973,14 @@ where
     }
 
     #[inline(always)]
-    fn handle_ebreak(&mut self, regs: &mut Regs, memory: &mut Memory, pc: Reg::Type) {
-        T::handle_ebreak(self, regs, memory, pc);
+    fn handle_ebreak(
+        &mut self,
+        regs: &mut Regs,
+        memory: &mut Memory,
+        program_counter: &mut PC,
+        instruction_size: u8,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+        T::handle_ebreak(self, regs, memory, program_counter, instruction_size)
     }
 }
 

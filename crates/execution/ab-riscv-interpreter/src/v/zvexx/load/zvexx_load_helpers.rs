@@ -170,7 +170,9 @@ where
     let group_regs = u32::from(group_regs.get());
     let nf = u32::from(nf.fields_per_segment());
     let vd_idx = u32::from(vd.to_bits());
-    if vd_idx % group_regs != 0 || vd_idx + nf * group_regs > 32 {
+    // Per spec, `NFIELDS * EMUL` must not exceed 8 for segment loads/stores, regardless of whether
+    // the field groups would otherwise fit within the 32 vector registers
+    if vd_idx % group_regs != 0 || nf * group_regs > 8 || vd_idx + nf * group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

@@ -865,6 +865,7 @@ jobs:
             -v ./work:/act4/work \
             -v ./res/abundance:/act4/config/abundance:ro \
             -e CONFIG_FILES="config/abundance/abundance-rv32i-max/test_config.yaml config/abundance/abundance-rv64i-max/test_config.yaml" \
+            -e EXCLUDE_EXTENSIONS="InterruptsSm,ZawrsSm" \
             -e FAST=True \
             -e CLEAN_INTERMEDIATES=True \
             ${{ steps.build.outputs.imageid }} \

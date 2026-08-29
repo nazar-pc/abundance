@@ -1510,6 +1510,8 @@ where
                     program_counter,
                     vd,
                     group_regs,
+                    vs2,
+                    wide_group_regs,
                 )?;
                 zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
@@ -1598,6 +1600,8 @@ where
                     program_counter,
                     vd,
                     group_regs,
+                    vs2,
+                    wide_group_regs,
                 )?;
                 zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
@@ -1677,6 +1681,8 @@ where
                     program_counter,
                     vd,
                     group_regs,
+                    vs2,
+                    wide_group_regs,
                 )?;
                 zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
@@ -1755,6 +1761,8 @@ where
                     program_counter,
                     vd,
                     group_regs,
+                    vs2,
+                    wide_group_regs,
                 )?;
                 zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
@@ -1843,6 +1851,8 @@ where
                     program_counter,
                     vd,
                     group_regs,
+                    vs2,
+                    wide_group_regs,
                 )?;
                 zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,
@@ -1922,6 +1932,8 @@ where
                     program_counter,
                     vd,
                     group_regs,
+                    vs2,
+                    wide_group_regs,
                 )?;
                 zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
                     program_counter,

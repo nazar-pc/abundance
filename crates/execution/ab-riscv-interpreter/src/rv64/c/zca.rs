@@ -12,6 +12,7 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
+use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZcaInstruction<Reg> where
@@ -210,8 +211,10 @@ where
                 value: rs2_value,
             },
             Self::CEbreak => {
-                env.handle_ebreak(regs, memory, program_counter.get_pc());
-                ExecutionResult::ContinueNoWrite
+                match env.handle_ebreak(regs, memory, program_counter, size_of::<u16>() as u8)? {
+                    ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
+                    ControlFlow::Break(()) => ExecutionResult::Break,
+                }
             }
             Self::CJalr { rs1: _ } => {
                 let target = rs1_value & !1;

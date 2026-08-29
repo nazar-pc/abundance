@@ -173,11 +173,13 @@ where
     Ok(())
 }
 
-/// Check that a narrowing destination `vd` is aligned to `group_regs` and fits
-/// within `[0, 32)`.
+/// Check that a narrowing destination `vd` is aligned to `group_regs`, fits within `[0, 32)`, and
+/// only overlaps the wide source `vs2` (which occupies `wide_group_regs` registers starting at
+/// `vs2`) in a manner permitted by the spec.
 ///
-/// No overlap check against `vs2` is performed here because narrowing instructions
-/// permit `vd` to alias the low half of the wide `vs2` register group per spec §11.7.
+/// Per spec §11.7, narrowing instructions permit `vd` to alias the *low* half of the wide `vs2`
+/// register group (i.e. `vd == vs2`) - any other overlap (e.g. `vd` aliasing only the high part of
+/// `vs2`'s group) is illegal.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -185,6 +187,8 @@ pub fn check_vd_narrow_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     group_regs: NonZeroU8,
+    vs2: VReg,
+    wide_group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -192,7 +196,12 @@ where
 {
     let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
-    if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+    let vs2_idx = vs2.to_bits();
+    let overlaps = ranges_overlap(vd_idx, group_regs, vs2_idx, wide_group_regs.get());
+    if !vd_idx.is_multiple_of(group_regs)
+        || vd_idx + group_regs > 32
+        || (overlaps && vd_idx != vs2_idx)
+    {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

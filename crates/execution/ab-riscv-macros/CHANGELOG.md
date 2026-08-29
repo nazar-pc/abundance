@@ -1,3 +1,10 @@
+# 0.1.1
+
+Improvements:
+
+* Always use `extern "C"` for indirect threading handlers on non-x86_64 targets
+* Suppress warnings generated for extensions with a single instruction
+
 # 0.1.0
 
 Breaking changes:

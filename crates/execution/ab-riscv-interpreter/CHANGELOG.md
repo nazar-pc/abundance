@@ -1,3 +1,37 @@
+# 0.2.0
+
+Breaking changes:
+
+* `SystemInstructionHandler::handle_ebreak()` now takes `program_counter: &mut PC` (replacing the previous by-value
+  `pc`) and an `instruction_size`, and returns `Result<ControlFlow<()>, ExecutionError<Reg::Type>>`, matching
+  `handle_ecall()` - needed so an implementation can dispatch a Breakpoint trap (redirect `program_counter`) instead of
+  only observing where the breakpoint fired
+
+New features:
+
+* Implemented new extensions (pass all ACT4 tests):
+    * Zifencei
+    * Ssstrict
+
+Fixes:
+
+* Ssstrict fixes:
+    * Reject unaligned addresses in Zalrsc implementation
+    * Reject AMOs whose misaligned access crosses the atomicity granule
+    * AMO instructions (`Zaamo`, `Zabha`, `Zacas`) now report a Store/AMO fault instead of a Load fault when their read
+      half faults out of bounds - the two halves of an AMO's read-modify-write access are a single atomic operation and
+      must be classified identically regardless of which physical half a fault surfaces on
+    * `sc`/`sc.d` now check their target address for a Store/AMO access fault even when the reservation check itself
+      fails, matching a successful `sc`'s own fault behavior - only the write is skipped on failure, not the fault check
+    * Segment vector loads/stores (`vlseg*`/`vsseg*` and their strided/indexed/fault-only-first variants) now reject
+      encodings where `NFIELDS * EMUL > 8`, per spec - previously only the `vd`/`vs3` register-group-fits-in-32 bound
+      was checked, silently accepting reserved encodings that exceed the maximum allowed field-group size
+    * Zvbc's `vclmul`/`vclmulh` now reject any SEW other than 64 - per spec these carry-less multiply instructions are
+      only defined at SEW=64, and any other SEW is a reserved encoding
+    * Narrowing shift/clip instructions (`vnsra`/`vnsrl`/`vnclip`/`vnclipu`) now reject a destination that overlaps only
+      the high part of the wide source register group - only aliasing the low part (`vd == vs2`) is legal per spec; any
+      other overlap was previously accepted instead of rejected as reserved
+
 # 0.1.0
 
 Breaking changes:

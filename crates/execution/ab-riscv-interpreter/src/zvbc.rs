@@ -102,6 +102,16 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
+                // Per spec, Zvbc's carry-less multiply is only defined at SEW=64; any other SEW is
+                // a reserved encoding
+                if sew != Vsew::E64 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
                 // SAFETY: alignments checked above
                 unsafe {
                     zvbc_helpers::execute_vclmul::<Reg, _>(
@@ -156,6 +166,16 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
+                // Per spec, Zvbc's carry-less multiply is only defined at SEW=64; any other SEW is
+                // a reserved encoding
+                if sew != Vsew::E64 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {
@@ -212,6 +232,16 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
+                // Per spec, Zvbc's carry-less multiply is only defined at SEW=64; any other SEW is
+                // a reserved encoding
+                if sew != Vsew::E64 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
                 // SAFETY: alignments checked above
                 unsafe {
                     zvbc_helpers::execute_vclmulh::<Reg, _>(
@@ -266,6 +296,16 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
+                // Per spec, Zvbc's carry-less multiply is only defined at SEW=64; any other SEW is
+                // a reserved encoding
+                if sew != Vsew::E64 {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignments checked above
                 unsafe {

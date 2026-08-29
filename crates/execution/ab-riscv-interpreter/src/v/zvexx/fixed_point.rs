@@ -1609,6 +1609,8 @@ where
                     vs2,
                     vtype.vlmul(),
                     sew,
+                    vd,
+                    group_regs,
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
@@ -1674,6 +1676,8 @@ where
                     vs2,
                     vtype.vlmul(),
                     sew,
+                    vd,
+                    group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1729,6 +1733,8 @@ where
                     vs2,
                     vtype.vlmul(),
                     sew,
+                    vd,
+                    group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1785,6 +1791,8 @@ where
                     vs2,
                     vtype.vlmul(),
                     sew,
+                    vd,
+                    group_regs,
                 )?;
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1849,6 +1857,8 @@ where
                     vs2,
                     vtype.vlmul(),
                     sew,
+                    vd,
+                    group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1904,6 +1914,8 @@ where
                     vs2,
                     vtype.vlmul(),
                     sew,
+                    vd,
+                    group_regs,
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();

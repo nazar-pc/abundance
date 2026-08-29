@@ -421,6 +421,9 @@
     "Zicsr": {
       "supported": true
     },
+    "Zifencei": {
+      "supported": true
+    },
     "Zkn": {
       "supported": true
     },
@@ -621,9 +624,6 @@
       "supported": false
     },
     "Zicntr": {
-      "supported": false
-    },
-    "Zifencei": {
       "supported": false
     },
     "Zihintntl": {

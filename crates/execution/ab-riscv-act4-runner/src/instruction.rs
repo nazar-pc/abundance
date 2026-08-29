@@ -3,16 +3,6 @@ use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use std::fmt;
 
-/// First `mhpmeventN` CSR index (`N` starts at 3, the first non-reserved HPM event selector).
-pub(crate) const MHPMEVENT3_CSR_INDEX: u16 = 0x323;
-/// Last `mhpmeventN` CSR index.
-pub(crate) const MHPMEVENT31_CSR_INDEX: u16 = 0x33F;
-
-/// Whether `csr_index` is one of the `mhpmevent3..31` CSRs.
-pub(crate) const fn is_mhpmevent(csr_index: u16) -> bool {
-    csr_index >= MHPMEVENT3_CSR_INDEX && csr_index <= MHPMEVENT31_CSR_INDEX
-}
-
 /// Placeholder implementation for machine mode, which the interpreter doesn't support directly
 #[instruction(
     inherit = [ZicsrInstruction],
@@ -57,6 +47,7 @@ impl<Reg> ExecutableInstructionOperands for MachineModePlaceholder<Reg> where Re
 impl<Reg, Env> ExecutableInstructionCsr<Env> for MachineModePlaceholder<Reg>
 where
     Reg: Register,
+    Env: Csrs<Reg>,
 {
     fn prepare_csr_read(
         _env: &Env,
@@ -68,7 +59,11 @@ where
         if matches!(
             MCsr::from_index(csr_index),
             Some(
-                MCsr::Mstatus
+                MCsr::Mvendorid
+                    | MCsr::Marchid
+                    | MCsr::Mimpid
+                    | MCsr::Mhartid
+                    | MCsr::Mstatus
                     | MCsr::Misa
                     | MCsr::Mie
                     | MCsr::Mtvec
@@ -79,9 +74,11 @@ where
                     | MCsr::Mcause
                     | MCsr::Mtval
                     | MCsr::Mip
+                    | MCsr::Mconfigptr
+                    | MCsr::Mseccfg
+                    | MCsr::Mseccfgh
             )
-        ) || crate::instruction::is_mhpmevent(csr_index)
-        {
+        ) {
             *output_value = raw_value;
             Ok(true)
         } else {
@@ -90,24 +87,30 @@ where
     }
 
     fn prepare_csr_write(
-        _env: &mut Env,
+        env: &mut Env,
         csr_index: u16,
         write_value: Reg::Type,
         output_value: &mut Reg::Type,
     ) -> Result<bool, CsrError> {
         match MCsr::from_index(csr_index) {
-            Some(
-                MCsr::Mstatus
-                | MCsr::Mie
-                | MCsr::Mtvec
-                | MCsr::Mstatush
-                | MCsr::Mcountinhibit
-                | MCsr::Mscratch
-                | MCsr::Mcause
-                | MCsr::Mtval
-                | MCsr::Mip,
-            ) => {
+            Some(MCsr::Mscratch | MCsr::Mcause | MCsr::Mtval) => {
                 *output_value = write_value;
+                Ok(true)
+            }
+            Some(MCsr::Mcountinhibit) => {
+                *output_value = crate::interpreter::mask_mcountinhibit::<Reg>(write_value);
+                Ok(true)
+            }
+            Some(MCsr::Mtvec) => {
+                // MTVEC_MODES is [0] (Direct only) for this core, and MTVEC_BASE_ALIGNMENT_DIRECT
+                // is 4, so the low 2 (MODE) bits must always read back 0. Per
+                // MTVEC_ILLEGAL_WRITE_BEHAVIOR ("retain"), a write with any other MODE value
+                // doesn't just get those bits cleared - the whole CSR keeps its previous value.
+                if write_value & Reg::Type::from(0b11u32) == Reg::Type::default() {
+                    *output_value = write_value;
+                } else {
+                    *output_value = env.read_csr(csr_index)?;
+                }
                 Ok(true)
             }
             Some(MCsr::Mepc) => {
@@ -115,19 +118,37 @@ where
                 Ok(true)
             }
             Some(MCsr::Misa) => {
-                // MISA_CSR_IMPLEMENTED is false for this core: misa is hardwired to 0 and writes
-                // are WARL-ignored rather than illegal
+                // MISA_CSR_IMPLEMENTED is false for this core: misa isn't writable, so every write
+                // is WARL-ignored - but it still reads back MXL and each implemented single-letter
+                // extension's bit accurately, see `misa_value()`.
+                *output_value = crate::interpreter::misa_value::<Reg>();
+                Ok(true)
+            }
+            Some(MCsr::Mstatus) => {
+                *output_value = crate::interpreter::mask_mstatus::<Reg>(write_value);
+                Ok(true)
+            }
+            Some(MCsr::Mstatush) => {
+                // mstatush only carries MBE/SBE (endianness); this core is fixed little-endian
+                // (M_MODE_ENDIANNESS) with no S-mode, so it's hardwired to 0 like misa above
                 *output_value = Reg::Type::from(0u32);
                 Ok(true)
             }
-            _ => {
-                if crate::instruction::is_mhpmevent(csr_index) {
-                    *output_value = write_value;
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
+            Some(MCsr::Mseccfg | MCsr::Mseccfgh) => {
+                // Smepmp (MML/MMWP/RLB) isn't implemented, and SSEED/USEED have no S/U mode to
+                // grant seed-CSR access to, so every field of both halves is hardwired to 0
+                *output_value = Reg::Type::from(0u32);
+                Ok(true)
             }
+            Some(MCsr::Mie) => {
+                *output_value = crate::interpreter::mask_mie::<Reg>(write_value);
+                Ok(true)
+            }
+            Some(MCsr::Mip) => {
+                *output_value = crate::interpreter::mask_mip::<Reg>(write_value);
+                Ok(true)
+            }
+            _ => Ok(false),
         }
     }
 }

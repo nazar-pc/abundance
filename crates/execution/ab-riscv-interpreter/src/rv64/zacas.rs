@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::rv32::a::amo_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
@@ -64,7 +65,7 @@ where
                 }
                 // Ignore the upper bits of `rd` when comparing, per spec
                 let compare = regs.read(rd) as u32;
-                let old = memory.read::<i32>(addr)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, addr)?;
                 if old.cast_unsigned() == compare {
                     memory.write(addr, rs2_value as u32)?;
                 }
@@ -90,7 +91,7 @@ where
                     });
                 }
                 let compare = regs.read(rd);
-                let old = memory.read::<u64>(addr)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, addr)?;
                 if old == compare {
                     memory.write(addr, rs2_value)?;
                 }
@@ -125,8 +126,8 @@ where
                 } else {
                     regs.read(rs2_hi)
                 };
-                let old_lo = memory.read::<u64>(addr)?;
-                let old_hi = memory.read::<u64>(addr + 8)?;
+                let old_lo = amo_helpers::amo_read::<u64, _, _>(memory, addr)?;
+                let old_hi = amo_helpers::amo_read::<u64, _, _>(memory, addr + 8)?;
                 if old_lo == compare_lo && old_hi == compare_hi {
                     memory.write(addr, rs2_value)?;
                     memory.write(addr + 8, swap_hi)?;

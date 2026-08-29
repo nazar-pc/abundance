@@ -265,6 +265,11 @@ pub(super) fn generate_threaded_fns(
                 let rs1_value = regs.read(rs1);
                 let rs2_value = regs.read(rs2);
 
+                #[expect(clippy::allow_attributes, reason = "Attribute below")]
+                #[allow(
+                    irrefutable_let_patterns,
+                    reason = "True for extensions with a single instruction"
+                )]
                 let #enum_name::#variant_ident { #pat_fields } = instruction else {
                     // SAFETY: A handler is only ever reached through the dispatch arm for its own
                     // variant

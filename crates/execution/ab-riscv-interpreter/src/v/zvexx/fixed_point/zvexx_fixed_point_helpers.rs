@@ -12,6 +12,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
+use core::num::NonZeroU8;
 
 /// Compute the rounding increment for a right shift of `val` by `shift` bits.
 ///
@@ -577,7 +578,8 @@ where
 }
 
 /// Check that the double-width source `vs2` of a narrowing instruction is aligned to its register
-/// group and fits in `[0, 32)`.
+/// group, fits in `[0, 32)`, and only overlaps the narrow destination `vd` (which occupies
+/// `group_regs` registers) in a manner permitted by the spec.
 ///
 /// The source operand has `EEW = 2*SEW`, so its `EMUL = 2*LMUL`. Per v-spec §5.2 the group must be
 /// aligned to `EMUL` registers, and `EMUL` outside the legal range `[1/8, 8]` (e.g. `LMUL=8`, which
@@ -585,6 +587,9 @@ where
 /// register with no alignment constraint for fractional `LMUL` (where `2*LMUL <= 1`).
 ///
 /// `sew` is the destination (narrow) SEW; it must be at most 32 (see [`check_narrowing_sew()`]).
+///
+/// Per spec §11.7, `vd` may alias only the *low* part of `vs2`'s wider register group (i.e.
+/// `vd == vs2`) - any other overlap (e.g. `vd` aliasing only the high part) is illegal.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -593,6 +598,8 @@ pub fn check_vs2_narrowing_alignment<Reg, Memory, PC>(
     vs2: VReg,
     vlmul: Vlmul,
     sew: Vsew,
+    vd: VReg,
+    group_regs: NonZeroU8,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -620,7 +627,13 @@ where
     };
     let wide_group = wide_group.get();
     let vs2_idx = vs2.to_bits();
-    if !vs2_idx.is_multiple_of(wide_group) || vs2_idx + wide_group > 32 {
+    let vd_idx = vd.to_bits();
+    let group_regs = group_regs.get();
+    let overlaps = vd_idx < vs2_idx + wide_group && vs2_idx < vd_idx + group_regs;
+    if !vs2_idx.is_multiple_of(wide_group)
+        || vs2_idx + wide_group > 32
+        || (overlaps && vd_idx != vs2_idx)
+    {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
