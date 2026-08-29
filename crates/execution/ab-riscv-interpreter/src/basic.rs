@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::zawrs::WrsHandler;
+use crate::zifencei::FenceIHandler;
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
@@ -607,3 +608,5 @@ where
 }
 
 const impl WrsHandler for IllegalEcallSystemInstructionHandler {}
+
+const impl FenceIHandler for IllegalEcallSystemInstructionHandler {}

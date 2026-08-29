@@ -907,7 +907,7 @@ fn test_fence_valid() {
 
 #[test]
 fn test_fence_invalid() {
-    // FENCE.I (funct3=1) - we explicitly reject it
+    // FENCE.I (funct3=1) belongs to the separate Zifencei extension, not the base ISA
     let inst = 0x0000_100f_u32;
     assert!(Rv32Instruction::<Reg<u32>>::try_decode(inst).is_none());
 

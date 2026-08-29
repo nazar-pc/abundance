@@ -169,7 +169,13 @@ where
                         let vs2 = VReg::from_bits(vs2_bits)?;
                         Some(Self::Viota { vd, vs2, vm })
                     }
-                    0b1_0001 => Some(Self::Vid { vd, vm }),
+                    0b1_0001 => {
+                        // `vid.v` has no `vs2` operand; the field is reserved and must be zero.
+                        if vs2_bits != 0 {
+                            None?;
+                        }
+                        Some(Self::Vid { vd, vm })
+                    }
                     _ => None,
                 }
             }

@@ -3,6 +3,7 @@ extern crate alloc;
 use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::rv32::a::ReservationSet;
 use crate::zawrs::WrsHandler;
+use crate::zifencei::FenceIHandler;
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
@@ -319,6 +320,8 @@ where
 }
 
 impl WrsHandler for Env {}
+
+impl FenceIHandler for Env {}
 
 pub(crate) type TestInterpreterState<Instruction> = BasicInterpreterState<
     BasicRegisters<Reg<u32>, false>,

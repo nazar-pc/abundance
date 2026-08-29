@@ -246,6 +246,12 @@ where
             0b01_0111 => match funct3 {
                 // OPIVV: vmerge.vvm / vmv.v.v
                 0b000 => {
+                    // When unmasked (vm=1), this is `vmv.v.v`, which has no mask/second source
+                    // operand: `vs2` is fixed to `v0` by the encoding, and any other value is
+                    // reserved
+                    if vm && vs2_bits != 0 {
+                        None?;
+                    }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     let vs1 = VReg::from_bits(vs1_bits)?;
@@ -263,6 +269,11 @@ where
                 }
                 // OPIVI: vmerge.vim / vmv.v.i
                 0b011 => {
+                    // When unmasked (vm=1), this is `vmv.v.i`: `vs2` is fixed to `v0` by the
+                    // encoding, and any other value is reserved
+                    if vm && vs2_bits != 0 {
+                        None?;
+                    }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     // sign-extend 5-bit
@@ -271,6 +282,11 @@ where
                 }
                 // OPIVX: vmerge.vxm / vmv.v.x
                 0b100 => {
+                    // When unmasked (vm=1), this is `vmv.v.x`: `vs2` is fixed to `v0` by the
+                    // encoding, and any other value is reserved
+                    if vm && vs2_bits != 0 {
+                        None?;
+                    }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     let rs1 = Reg::from_bits(vs1_bits)?;

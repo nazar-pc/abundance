@@ -107,11 +107,11 @@ fn set_mask_bit(
 
 #[test]
 fn vclmul_vv_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xBEEF);
-        write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFF00);
-        write_elem(&mut state, VReg::V1, i, Vsew::E16, 0x00FF);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xBEEF);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFF00);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x00FF);
     }
     for i in 0..4 {
         set_mask_bit(&mut state, VReg::V0, i, false);
@@ -130,7 +130,7 @@ fn vclmul_vv_masked_v0_zeroes_undisturbed() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E16),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0xBEEF,
             "elem {i}: masked element should be undisturbed"
         );
@@ -139,10 +139,10 @@ fn vclmul_vv_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vclmul_vx_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xDEAD);
-        write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFF00);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xDEAD);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFF00);
     }
     state.regs.write(Reg::A0, 0x00FF);
     for i in 0..4 {
@@ -161,7 +161,7 @@ fn vclmul_vx_masked_v0_zeroes_undisturbed() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E16),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0xDEAD,
             "elem {i}"
         );
@@ -170,11 +170,11 @@ fn vclmul_vx_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vclmulh_vv_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xCAFE);
-        write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFFFF);
-        write_elem(&mut state, VReg::V1, i, Vsew::E16, 0x8000);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xCAFE);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFFFF);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x8000);
     }
     for i in 0..4 {
         set_mask_bit(&mut state, VReg::V0, i, false);
@@ -193,7 +193,7 @@ fn vclmulh_vv_masked_v0_zeroes_undisturbed() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E16),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0xCAFE,
             "elem {i}"
         );
@@ -202,10 +202,10 @@ fn vclmulh_vv_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vclmulh_vx_masked_v0_zeroes_undisturbed() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E16, 0x1234);
-        write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFFFF);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0x1234);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFFFF);
     }
     state.regs.write(Reg::A1, 0x8000);
     for i in 0..4 {
@@ -224,7 +224,7 @@ fn vclmulh_vx_masked_v0_zeroes_undisturbed() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E16),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0x1234,
             "elem {i}"
         );
@@ -235,12 +235,12 @@ fn vclmulh_vx_masked_v0_zeroes_undisturbed() {
 
 #[test]
 fn vclmul_vv_partial_mask_alternating() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xAA);
         // clmul(0x09, 0x09) = 0x41 at E8 (x^3+1 squared = x^6+1)
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x09);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x09);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x09);
     }
     // Elements 0,2 active; elements 1,3 masked off
     set_mask_bit(&mut state, VReg::V0, 0, true);
@@ -259,20 +259,20 @@ fn vclmul_vv_partial_mask_alternating() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0x41);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 0x41);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0xAA);
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0x41);
+    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E64), 0xAA);
+    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E64), 0x41);
+    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E64), 0xAA);
 }
 
 // vm=true ignores v0 entirely
 
 #[test]
 fn vclmul_vv_vm_true_ignores_v0() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..2 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x09);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x09);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x09);
         // v0 = all zeros: irrelevant for unmasked execution
         set_mask_bit(&mut state, VReg::V0, i as u32, false);
     }
@@ -289,7 +289,7 @@ fn vclmul_vv_vm_true_ignores_v0() {
     )
     .unwrap();
     for i in 0..2 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x41, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0x41, "elem {i}");
     }
 }
 
@@ -299,10 +299,10 @@ fn vclmul_vv_vm_true_ignores_v0() {
 // Verifies the squaring identity and the basic product at E8.
 #[test]
 fn vclmul_vv_e8_squaring_polynomial() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x09);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x09);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x09);
     }
     exec(
         &mut state,
@@ -317,7 +317,7 @@ fn vclmul_vv_e8_squaring_polynomial() {
     )
     .unwrap();
     for i in 0..4 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x41, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0x41, "elem {i}");
     }
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
@@ -326,10 +326,10 @@ fn vclmul_vv_e8_squaring_polynomial() {
 // Multiplying by the identity polynomial (1 = 0x01) must return vs2 unchanged.
 #[test]
 fn vclmul_vv_e8_multiply_by_one_is_identity() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xB7);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x01);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xB7);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x01);
     }
     exec(
         &mut state,
@@ -344,17 +344,17 @@ fn vclmul_vv_e8_multiply_by_one_is_identity() {
     )
     .unwrap();
     for i in 0..4 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xB7, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0xB7, "elem {i}");
     }
 }
 
 // Multiplying any element by zero gives zero.
 #[test]
 fn vclmul_vv_e16_multiply_by_zero_gives_zero() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xABCD);
-        write_elem(&mut state, VReg::V1, i, Vsew::E16, 0x0000);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xABCD);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x0000);
     }
     exec(
         &mut state,
@@ -370,7 +370,7 @@ fn vclmul_vv_e16_multiply_by_zero_gives_zero() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E16),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0x0000,
             "elem {i}"
         );
@@ -382,9 +382,9 @@ fn vclmul_vv_e16_multiply_by_zero_gives_zero() {
 fn vclmul_vv_e32_commutative() {
     let a = 0x1234_5678;
     let b = 0xABCD_EF01;
-    let mut state_ab = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
-    write_elem(&mut state_ab, VReg::V2, 0, Vsew::E32, a);
-    write_elem(&mut state_ab, VReg::V1, 0, Vsew::E32, b);
+    let mut state_ab = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_ab, VReg::V2, 0, Vsew::E64, a);
+    write_elem(&mut state_ab, VReg::V1, 0, Vsew::E64, b);
     exec(
         &mut state_ab,
         ZvbcInstruction::VclmulVv {
@@ -397,10 +397,10 @@ fn vclmul_vv_e32_commutative() {
         },
     )
     .unwrap();
-    let result_ab = read_elem(&state_ab, VReg::V4, 0, Vsew::E32);
-    let mut state_ba = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::M1);
-    write_elem(&mut state_ba, VReg::V2, 0, Vsew::E32, b);
-    write_elem(&mut state_ba, VReg::V1, 0, Vsew::E32, a);
+    let result_ab = read_elem(&state_ab, VReg::V4, 0, Vsew::E64);
+    let mut state_ba = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_ba, VReg::V2, 0, Vsew::E64, b);
+    write_elem(&mut state_ba, VReg::V1, 0, Vsew::E64, a);
     exec(
         &mut state_ba,
         ZvbcInstruction::VclmulVv {
@@ -413,7 +413,7 @@ fn vclmul_vv_e32_commutative() {
         },
     )
     .unwrap();
-    let result_ba = read_elem(&state_ba, VReg::V4, 0, Vsew::E32);
+    let result_ba = read_elem(&state_ba, VReg::V4, 0, Vsew::E64);
     assert_eq!(result_ab, result_ba);
 }
 
@@ -448,9 +448,9 @@ fn vclmul_vv_e64_high_bit_product_is_zero_in_low_half() {
 // clmul(0x09, 0x09) = 0x41 via scalar source gives the same result as VV form.
 #[test]
 fn vclmul_vx_basic_e8() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x09);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
     }
     state.regs.write(Reg::A0, 0x09);
     exec(
@@ -465,7 +465,7 @@ fn vclmul_vx_basic_e8() {
     )
     .unwrap();
     for i in 0..4 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x41, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0x41, "elem {i}");
     }
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
@@ -476,9 +476,9 @@ fn vclmul_vx_basic_e8() {
 fn vclmul_vv_and_vx_agree_on_same_operand() {
     let a = 0x1234;
     let b = 0x5678;
-    let mut state_vv = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
-    write_elem(&mut state_vv, VReg::V2, 0, Vsew::E16, a);
-    write_elem(&mut state_vv, VReg::V1, 0, Vsew::E16, b);
+    let mut state_vv = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_vv, VReg::V2, 0, Vsew::E64, a);
+    write_elem(&mut state_vv, VReg::V1, 0, Vsew::E64, b);
     exec(
         &mut state_vv,
         ZvbcInstruction::VclmulVv {
@@ -491,9 +491,9 @@ fn vclmul_vv_and_vx_agree_on_same_operand() {
         },
     )
     .unwrap();
-    let vv_result = read_elem(&state_vv, VReg::V4, 0, Vsew::E16);
-    let mut state_vx = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
-    write_elem(&mut state_vx, VReg::V2, 0, Vsew::E16, a);
+    let vv_result = read_elem(&state_vv, VReg::V4, 0, Vsew::E64);
+    let mut state_vx = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_vx, VReg::V2, 0, Vsew::E64, a);
     state_vx.regs.write(Reg::A0, b);
     exec(
         &mut state_vx,
@@ -506,57 +506,20 @@ fn vclmul_vv_and_vx_agree_on_same_operand() {
         },
     )
     .unwrap();
-    let vx_result = read_elem(&state_vx, VReg::V4, 0, Vsew::E16);
+    let vx_result = read_elem(&state_vx, VReg::V4, 0, Vsew::E64);
     assert_eq!(vv_result, vx_result);
-}
-
-// Bits above SEW in the scalar register are discarded; only the lower SEW bits participate.
-#[test]
-fn vclmul_vx_upper_scalar_bits_ignored() {
-    let mut state_clean = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    write_elem(&mut state_clean, VReg::V2, 0, Vsew::E8, 0x09);
-    state_clean.regs.write(Reg::A0, 0x09);
-    exec(
-        &mut state_clean,
-        ZvbcInstruction::VclmulVx {
-            vd: VReg::V4,
-            vs2: VReg::V2,
-            rs1: Reg::A0,
-            vm: true,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap();
-    let result_clean = read_elem(&state_clean, VReg::V4, 0, Vsew::E8);
-    // Same operation but scalar has garbage in bits 63:8; lower 8 bits are identical
-    let mut state_dirty = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    write_elem(&mut state_dirty, VReg::V2, 0, Vsew::E8, 0x09);
-    state_dirty.regs.write(Reg::A0, 0xFFFF_FFFF_FFFF_0009);
-    exec(
-        &mut state_dirty,
-        ZvbcInstruction::VclmulVx {
-            vd: VReg::V4,
-            vs2: VReg::V2,
-            rs1: Reg::A0,
-            vm: true,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap();
-    let result_dirty = read_elem(&state_dirty, VReg::V4, 0, Vsew::E8);
-    assert_eq!(result_clean, result_dirty);
 }
 
 // vclmulh.vv: mathematical correctness
 
-// clmulh(0xFF, 0x80) = upper 8 bits of (0xFF * x^7) = 0x7F.
-// Full product: 0xFF << 7 = 0x7F80; lower byte = 0x80, upper byte = 0x7F.
+// clmulh(0xFF00000000000000, 0x80) = upper 64 bits of the 128-bit carry-less product, which
+// straddles the SEW=64 boundary: lower half = 0x8000000000000000, upper half = 0x7F.
 #[test]
 fn vclmulh_vv_e8_nontrivial_upper_bits() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x80);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFF00_0000_0000_0000);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x80);
     }
     exec(
         &mut state,
@@ -571,7 +534,7 @@ fn vclmulh_vv_e8_nontrivial_upper_bits() {
     )
     .unwrap();
     for i in 0..4 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x7F, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0x7F, "elem {i}");
     }
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
@@ -581,10 +544,10 @@ fn vclmulh_vv_e8_nontrivial_upper_bits() {
 // clmul(0x09, 0x09) = 0x41 (7 bits, fits in E8); upper 8 bits = 0.
 #[test]
 fn vclmulh_vv_e8_product_fits_in_sew_gives_zero() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x09);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x09);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x09);
     }
     exec(
         &mut state,
@@ -599,18 +562,18 @@ fn vclmulh_vv_e8_product_fits_in_sew_gives_zero() {
     )
     .unwrap();
     for i in 0..4 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x00, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0x00, "elem {i}");
     }
 }
 
-// clmulh(0xFFFF, 0x8000) = upper 16 bits of (0xFFFF << 15) = 0x7FFF.
-// Full product: 0x7FFF8000; lower 16 bits = 0x8000, upper 16 bits = 0x7FFF.
+// clmulh(0xFFFF000000000000, 0x8000) = upper 64 bits of the 128-bit carry-less product, which
+// straddles the SEW=64 boundary: lower half = 0x8000000000000000, upper half = 0x7FFF.
 #[test]
 fn vclmulh_vv_e16_nontrivial_upper_bits() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..2 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E16, 0xFFFF);
-        write_elem(&mut state, VReg::V1, i, Vsew::E16, 0x8000);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFFFF_0000_0000_0000);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x8000);
     }
     exec(
         &mut state,
@@ -626,7 +589,7 @@ fn vclmulh_vv_e16_nontrivial_upper_bits() {
     .unwrap();
     for i in 0..2 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E16),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0x7FFF,
             "elem {i}"
         );
@@ -663,12 +626,13 @@ fn vclmulh_vv_e64_high_bit_product_in_upper_half() {
 }
 
 // vclmul and vclmulh together reconstruct the full 2*SEW product.
-// At E8: clmul(0xFF, 0x80) = 0x80, clmulh(0xFF, 0x80) = 0x7F -> product = 0x7F80.
+// clmul(0xFF00000000000000, 0x80) = 0x8000000000000000, clmulh(...) = 0x7F -> the 128-bit
+// product (hi:lo) = 0x7F8000000000000000.
 #[test]
 fn vclmul_and_vclmulh_reconstruct_full_product_e8() {
-    let mut state_lo = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    write_elem(&mut state_lo, VReg::V2, 0, Vsew::E8, 0xFF);
-    write_elem(&mut state_lo, VReg::V1, 0, Vsew::E8, 0x80);
+    let mut state_lo = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_lo, VReg::V2, 0, Vsew::E64, 0xFF00_0000_0000_0000);
+    write_elem(&mut state_lo, VReg::V1, 0, Vsew::E64, 0x80);
     exec(
         &mut state_lo,
         ZvbcInstruction::VclmulVv {
@@ -681,10 +645,10 @@ fn vclmul_and_vclmulh_reconstruct_full_product_e8() {
         },
     )
     .unwrap();
-    let lo = read_elem(&state_lo, VReg::V4, 0, Vsew::E8);
-    let mut state_hi = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    write_elem(&mut state_hi, VReg::V2, 0, Vsew::E8, 0xFF);
-    write_elem(&mut state_hi, VReg::V1, 0, Vsew::E8, 0x80);
+    let lo = read_elem(&state_lo, VReg::V4, 0, Vsew::E64);
+    let mut state_hi = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_hi, VReg::V2, 0, Vsew::E64, 0xFF00_0000_0000_0000);
+    write_elem(&mut state_hi, VReg::V1, 0, Vsew::E64, 0x80);
     exec(
         &mut state_hi,
         ZvbcInstruction::VclmulhVv {
@@ -697,21 +661,24 @@ fn vclmul_and_vclmulh_reconstruct_full_product_e8() {
         },
     )
     .unwrap();
-    let hi = read_elem(&state_hi, VReg::V4, 0, Vsew::E8);
-    assert_eq!(lo, 0x80);
+    let hi = read_elem(&state_hi, VReg::V4, 0, Vsew::E64);
+    assert_eq!(lo, 0x8000_0000_0000_0000);
     assert_eq!(hi, 0x7F);
-    // The 16-bit product (hi:lo) must equal 0x7F80
-    assert_eq!((hi << 8) | lo, 0x7F80);
+    // The 128-bit product (hi:lo) must equal clmul128(0xFF00000000000000, 0x80)
+    assert_eq!(
+        (u128::from(hi) << 64) | u128::from(lo),
+        (0x7Fu128 << 64) | 0x8000_0000_0000_0000u128
+    );
 }
 
 // vclmulh.vx
 
-// clmulh(0xFF, 0x80) = 0x7F via scalar source; same as VV form.
+// clmulh(0xFF00000000000000, 0x80) = 0x7F via scalar source; same as VV form.
 #[test]
 fn vclmulh_vx_basic_e8() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0xFF);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0xFF00_0000_0000_0000);
     }
     state.regs.write(Reg::A0, 0x80);
     exec(
@@ -726,7 +693,7 @@ fn vclmulh_vx_basic_e8() {
     )
     .unwrap();
     for i in 0..4 {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0x7F, "elem {i}");
+        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E64), 0x7F, "elem {i}");
     }
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
@@ -737,9 +704,9 @@ fn vclmulh_vx_basic_e8() {
 fn vclmulh_vv_and_vx_agree_on_same_operand() {
     let a = 0xFFFF;
     let b = 0x8000;
-    let mut state_vv = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
-    write_elem(&mut state_vv, VReg::V2, 0, Vsew::E16, a);
-    write_elem(&mut state_vv, VReg::V1, 0, Vsew::E16, b);
+    let mut state_vv = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_vv, VReg::V2, 0, Vsew::E64, a);
+    write_elem(&mut state_vv, VReg::V1, 0, Vsew::E64, b);
     exec(
         &mut state_vv,
         ZvbcInstruction::VclmulhVv {
@@ -752,9 +719,9 @@ fn vclmulh_vv_and_vx_agree_on_same_operand() {
         },
     )
     .unwrap();
-    let vv_result = read_elem(&state_vv, VReg::V4, 0, Vsew::E16);
-    let mut state_vx = setup(Vl::new(1).unwrap(), Vsew::E16, Vlmul::M1);
-    write_elem(&mut state_vx, VReg::V2, 0, Vsew::E16, a);
+    let vv_result = read_elem(&state_vv, VReg::V4, 0, Vsew::E64);
+    let mut state_vx = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::M1);
+    write_elem(&mut state_vx, VReg::V2, 0, Vsew::E64, a);
     state_vx.regs.write(Reg::A0, b);
     exec(
         &mut state_vx,
@@ -767,7 +734,7 @@ fn vclmulh_vv_and_vx_agree_on_same_operand() {
         },
     )
     .unwrap();
-    let vx_result = read_elem(&state_vx, VReg::V4, 0, Vsew::E16);
+    let vx_result = read_elem(&state_vx, VReg::V4, 0, Vsew::E64);
     assert_eq!(vv_result, vx_result);
 }
 
@@ -775,11 +742,11 @@ fn vclmulh_vv_and_vx_agree_on_same_operand() {
 
 #[test]
 fn vclmul_vv_vstart_skips_earlier_elements() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x09);
-        write_elem(&mut state, VReg::V1, i, Vsew::E8, 0x09);
-        write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
+        write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
+        write_elem(&mut state, VReg::V1, i, Vsew::E64, 0x09);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xAA);
     }
     state.env.set_vstart(Vstart::from(2));
     exec(
@@ -795,11 +762,11 @@ fn vclmul_vv_vstart_skips_earlier_elements() {
     )
     .unwrap();
     // Elements 0,1: undisturbed (below vstart=2)
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 0xAA);
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0xAA);
+    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E64), 0xAA);
     // Elements 2,3: clmul(0x09, 0x09) = 0x41
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 0x41);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0x41);
+    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E64), 0x41);
+    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E64), 0x41);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
@@ -807,9 +774,9 @@ fn vclmul_vv_vstart_skips_earlier_elements() {
 
 #[test]
 fn vclmul_vv_vl_zero_no_writes() {
-    let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD_BEEF);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xDEAD_BEEF);
     }
     exec(
         &mut state,
@@ -825,7 +792,7 @@ fn vclmul_vv_vl_zero_no_writes() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E32),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0xDEAD_BEEF,
             "elem {i}"
         );
@@ -836,9 +803,9 @@ fn vclmul_vv_vl_zero_no_writes() {
 
 #[test]
 fn vclmulh_vv_vl_zero_no_writes() {
-    let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
-        write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xCAFE_BABE);
+        write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xCAFE_BABE);
     }
     exec(
         &mut state,
@@ -854,7 +821,7 @@ fn vclmulh_vv_vl_zero_no_writes() {
     .unwrap();
     for i in 0..4 {
         assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E32),
+            read_elem(&state, VReg::V4, i, Vsew::E64),
             0xCAFE_BABE,
             "elem {i}"
         );
@@ -866,7 +833,7 @@ fn vclmulh_vv_vl_zero_no_writes() {
 
 #[test]
 fn error_vector_not_allowed() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     state.env.set_vector_allowed(false);
     let result = exec(
         &mut state,
@@ -904,7 +871,7 @@ fn error_vill_vtype() {
 
 #[test]
 fn error_misaligned_vd_lmul_m2() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M2);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulVv {
@@ -921,7 +888,7 @@ fn error_misaligned_vd_lmul_m2() {
 
 #[test]
 fn error_misaligned_vs2_lmul_m4() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M4);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M4);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulhVv {
@@ -938,7 +905,7 @@ fn error_misaligned_vs2_lmul_m4() {
 
 #[test]
 fn error_misaligned_vs1_lmul_m2() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M2);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulVv {
@@ -955,7 +922,7 @@ fn error_misaligned_vs1_lmul_m2() {
 
 #[test]
 fn error_vclmulh_misaligned_vd_lmul_m2() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M2);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulhVv {
@@ -975,7 +942,7 @@ fn error_vclmulh_misaligned_vd_lmul_m2() {
 
 #[test]
 fn error_vclmul_vv_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulVv {
@@ -992,7 +959,7 @@ fn error_vclmul_vv_masked_dest_v0() {
 
 #[test]
 fn error_vclmul_vx_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulVx {
@@ -1008,7 +975,7 @@ fn error_vclmul_vx_masked_dest_v0() {
 
 #[test]
 fn error_vclmulh_vv_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulhVv {
@@ -1025,7 +992,7 @@ fn error_vclmulh_vv_masked_dest_v0() {
 
 #[test]
 fn error_vclmulh_vx_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E16, Vlmul::M1);
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     let result = exec(
         &mut state,
         ZvbcInstruction::VclmulhVx {

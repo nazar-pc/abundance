@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::rv32::a::amo_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
@@ -53,7 +54,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, rs2_value as u8)?;
                 ExecutionResult::Continue {
                     rd,
@@ -75,7 +76,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, rs2_value as u16)?;
                 ExecutionResult::Continue {
                     rd,
@@ -89,7 +90,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned().wrapping_add(rs2_value as u8);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -112,7 +113,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned().wrapping_add(rs2_value as u16);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -127,7 +128,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() ^ (rs2_value as u8);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -150,7 +151,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() ^ (rs2_value as u16);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -165,7 +166,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() & (rs2_value as u8);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -188,7 +189,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() & (rs2_value as u16);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -203,7 +204,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() | (rs2_value as u8);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -226,7 +227,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() | (rs2_value as u16);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -241,7 +242,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = if old < (rs2_value as u8).cast_signed() {
                     old.cast_unsigned()
                 } else {
@@ -268,7 +269,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = if old < (rs2_value as u16).cast_signed() {
                     old.cast_unsigned()
                 } else {
@@ -287,7 +288,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = if old > (rs2_value as u8).cast_signed() {
                     old.cast_unsigned()
                 } else {
@@ -314,7 +315,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = if old > (rs2_value as u16).cast_signed() {
                     old.cast_unsigned()
                 } else {
@@ -333,7 +334,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = if old.cast_unsigned() < (rs2_value as u8) {
                     old.cast_unsigned()
                 } else {
@@ -360,7 +361,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = if old.cast_unsigned() < (rs2_value as u16) {
                     old.cast_unsigned()
                 } else {
@@ -379,7 +380,7 @@ where
                 aq: _,
                 rl: _,
             } => {
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 let new = if old.cast_unsigned() > (rs2_value as u8) {
                     old.cast_unsigned()
                 } else {
@@ -406,7 +407,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 let new = if old.cast_unsigned() > (rs2_value as u16) {
                     old.cast_unsigned()
                 } else {
@@ -426,7 +427,7 @@ where
                 rl: _,
             } => {
                 let compare = regs.read(rd) as u8;
-                let old = memory.read::<i8>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i8, _, _>(memory, rs1_value)?;
                 if old.cast_unsigned() == compare {
                     memory.write(rs1_value, rs2_value as u8)?;
                 }
@@ -451,7 +452,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i16>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i16, _, _>(memory, rs1_value)?;
                 if old.cast_unsigned() == compare {
                     memory.write(rs1_value, rs2_value as u16)?;
                 }

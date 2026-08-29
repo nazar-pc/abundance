@@ -48,6 +48,7 @@
 //! * (experimental) Zcmp (version 1.0.0)
 //! * Zicond (version 2.0)
 //! * Zicsr (version 2.0)
+//! * Zifencei (version 2.0)
 //! * Zkn (version 1.0.1)
 //! * Zknd (version 1.0.1)
 //! * Zkne (version 1.0.1)
@@ -60,6 +61,7 @@
 //! * Zvkb (version 1.0.0)
 //! * Zvl*b (version 1.0.0), where `*` is anything allowed by the specification like Zvl128b or
 //!   Zvl512b
+//! * Ssstrict
 //!
 //! All extensions except experimental pass all relevant RISC-V Architectural Certification Tests
 //! (ACTs) using the ACT4 framework.

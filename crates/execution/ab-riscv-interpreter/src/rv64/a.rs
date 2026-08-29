@@ -3,7 +3,7 @@
 pub mod zaamo;
 pub mod zalrsc;
 
-use crate::rv32::a::ReservationSet;
+use crate::rv32::a::{ReservationSet, amo_helpers};
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,

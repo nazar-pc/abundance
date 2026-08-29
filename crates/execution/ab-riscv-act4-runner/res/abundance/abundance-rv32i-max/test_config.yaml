@@ -10,12 +10,32 @@
 #   Run `sail_riscv_sim --help` to verify the binary name on your system;
 #   some distros install it as `riscv_sim_RV32`.
 #
-# include_priv_tests: false because this core only implements M-mode (no S/U, no PMP,
-#   no CLINT-backed timer interrupts) - most of the priv/ suite exercises those. The core
-#   does implement a real M-mode trap handler (mtvec is writable, ecall/illegal-instruction
-#   dispatch through it; see STANDARD_SM_SUPPORTED in rvmodel_macros.h), so extensions whose
-#   tests happen to live under priv/ despite only needing M-mode (e.g. Zkr) can still be run
-#   individually via EXTENSIONS=... without flipping this on for the whole suite.
+# include_priv_tests: true because this core implements a real M-mode trap handler
+#   (mtvec is writable, ecall/illegal-instruction dispatch through it; see
+#   STANDARD_SM_SUPPORTED in rvmodel_macros.h) and needs the priv/ suites gated on the
+#   "Sm" required-extension (Sm, SsstrictSm, ExceptionsSm, ExceptionsZaamo, ExceptionsZalrsc,
+#   ExceptionsZc, InterruptsSm, ZawrsSm, ...) - `select_tests` only exempts extensions from
+#   this flag when they don't require Sm/S/U at all (e.g. Zkr), which isn't the case here.
+#   This core has no S/U mode, no PMP, and no CLINT-backed timer interrupts, so the rest of
+#   the priv/ suite (anything requiring S or U) is still excluded automatically: `abundance-
+#   rv32i-max.yaml` doesn't declare S/U/Sscofpmf/Sstc/etc, so `select_tests`'s implemented-
+#   extensions subset check filters those tests out regardless of this flag.
+#
+# Ssstrict (see abundance-rv32i-max.yaml) enables SsstrictSm - the deterministic-reserved-
+# encoding test suite discussed in https://github.com/riscv/riscv-arch-test/discussions/1251
+# and https://github.com/riscv/riscv-arch-test/issues/1633. SsstrictS/SsstrictU are excluded
+# the same way as the rest of the S/U-only suite, since this core has no S/U mode.
+#
+# InterruptsSm and ZawrsSm are excluded via EXCLUDE_EXTENSIONS (see README.md / rust.yml) rather
+# than by this flag: both pull in testgen/asm/interrupts.py helpers that arm a CLINT-mapped
+# mtimecmp/msip register to make an interrupt fire (InterruptsSm directly; ZawrsSm to test
+# wrs.sto's timeout/resume-on-pending-interrupt bins), which this core doesn't implement, so
+# their self-checking handler faults trying to write MMIO that isn't backed by anything. The
+# remaining Sm-only suites (Sm, ExceptionsSm, ExceptionsZaamo, ExceptionsZalrsc, ExceptionsZc,
+# SmV, SmVF, SsstrictSm) don't touch that helper module.
+# TODO: revisit once/if the interpreter grows a CLINT-style mtimecmp/msip device (even a fake one
+#   backed by plain memory, matching how rvmodel_macros.h already stubs RVMODEL_SET_MSW_INT etc.
+#   as no-ops) - that would let InterruptsSm and ZawrsSm's timer-interrupt bins run too.
 
 name: abundance-rv32i-max
 compiler_exe: clang-22
@@ -24,4 +44,4 @@ ref_model_exe: sail_riscv_sim
 udb_config: abundance-rv32i-max.yaml
 linker_script: link.ld
 dut_include_dir: .
-include_priv_tests: false
+include_priv_tests: true

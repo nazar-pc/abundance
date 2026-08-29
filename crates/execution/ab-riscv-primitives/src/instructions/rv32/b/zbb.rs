@@ -49,7 +49,6 @@ where
         let rs1_bits = ((instruction >> 15) & 0x1f) as u8;
         let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
-        let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
         // For I-type: bits [25:20]
         let low5 = ((instruction >> 20) & 0x1f) as u8;
         let funct12 = ((instruction >> 20) & 0xfff) as u16;
@@ -78,12 +77,13 @@ where
                     0b101 => {
                         // orc.b: funct12 = 0b0010_1000_0111
                         // rev8 for RV32: funct12 = 0b0110_1001_1000
-                        // rori: funct6 = 0b01_1000, shamt in bits [24:20]
+                        // rori: funct7 = 0b0110000, shamt in bits [24:20] (RV32 has no shamt[5] -
+                        // unlike RV64, all 7 funct7 bits are the opcode selector, not just 6)
                         if funct12 == 0b0010_1000_0111 {
                             Some(Self::Orcb { rd, rs1 })
                         } else if funct12 == 0b0110_1001_1000 {
                             Some(Self::Rev8 { rd, rs1 })
-                        } else if funct6 == 0b01_1000 {
+                        } else if funct7 == 0b011_0000 {
                             Some(Self::Rori {
                                 rd,
                                 rs1,

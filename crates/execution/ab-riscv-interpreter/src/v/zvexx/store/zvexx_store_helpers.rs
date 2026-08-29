@@ -65,9 +65,11 @@ where
         cold_path();
         return Err(error);
     }
-    let total =
-        u32::from(vs3.to_bits()) + u32::from(nf.fields_per_segment()) * u32::from(group_regs.get());
-    if total > 32 {
+    let nf_group_regs = u32::from(nf.fields_per_segment()) * u32::from(group_regs.get());
+    let total = u32::from(vs3.to_bits()) + nf_group_regs;
+    // Per spec, `NFIELDS * EMUL` must not exceed 8 for segment loads/stores, regardless of whether
+    // the field groups would otherwise fit within the 32 vector registers
+    if nf_group_regs > 8 || total > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

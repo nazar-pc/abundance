@@ -4,6 +4,7 @@ use crate::basic::{BasicInterpreterState, BasicRegisters};
 use crate::rv32::a::ReservationSet;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
 use crate::zawrs::WrsHandler;
+use crate::zifencei::FenceIHandler;
 use crate::zkr::{ZkrSeedPoll, ZkrSeedSource};
 use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, ExecutionResult,
@@ -436,6 +437,8 @@ where
 }
 
 impl WrsHandler for Env {}
+
+impl FenceIHandler for Env {}
 
 impl_vector_registers_for_mut_ref!(Env, Reg<u64>);
 

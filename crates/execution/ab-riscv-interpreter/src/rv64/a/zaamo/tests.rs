@@ -4,6 +4,28 @@ use ab_riscv_primitives::prelude::*;
 use core::assert_matches;
 
 #[test]
+fn test_amoswap_w_raises_store_access_fault_out_of_bounds() {
+    let mut state = initialize_state([Rv64ZaamoInstruction::Amoswap {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A1,
+        aq: false,
+        rl: false,
+    }]);
+    // 4-byte aligned but outside `TestMemory`'s bounds
+    let addr = TEST_BASE_ADDR + 0x0010_0000;
+    state.regs.write(Reg::A0, addr);
+    state.regs.write(Reg::A1, 42);
+
+    // The read half of a 32-bit-width AMO's atomic read-modify-write cycle must still be
+    // reported as a Store/AMO fault, never a Load fault (see `amo_helpers::amo_read`)
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    );
+}
+
+#[test]
 fn test_amoswap_w_sign_extends() {
     let mut state = initialize_state([Rv64ZaamoInstruction::Amoswap {
         rd: Reg::A2,

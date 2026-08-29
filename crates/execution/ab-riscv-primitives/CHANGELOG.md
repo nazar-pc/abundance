@@ -1,3 +1,28 @@
+# 0.2.0
+
+New features:
+
+* Implemented new extensions (pass all ACT4 tests):
+    * Zifencei
+    * Ssstrict
+* Added `MCsr::Mconfigptr`, `Mcycle`, `Minstret`, `Mcycleh`, `Minstreth`, `Menvcfg`, `Menvcfgh`, `Mseccfg` and
+  `Mseccfgh` constants (mandatory M-mode CSRs previously missing from `MCsr`)
+
+Fixes:
+
+* Ssstrict fixes:
+    * Reject `vmv.v.v`/`vmv.v.i`/`vmv.v.x` encodings with a nonzero `vs2` - per spec `vs2` is fixed to `v0` for these
+      (the unmasked forms of `vmerge.vvm`/`vmerge.vim`/`vmerge.vxm`), and any other value is reserved
+    * `vror.vi` now decodes its full 6-bit immediate (0-63, needed for SEW=64 rotate amounts) - the low bit of funct6
+      extends the 5-bit field in `vs1`, but was previously required to be zero, incorrectly rejecting half of the valid
+      encoding space as illegal instead of decoding it
+    * Reject `vid.v` encodings with a nonzero `vs2` - the field is reserved (must be `v0`) since `vid.v` has no source
+      vector operand, and any other value is reserved
+    * RV32 `rori` now correctly requires the full 7-bit funct7 (`0b0110000`) instead of only its top 6 bits - unlike
+      RV64 (which legitimately needs a 6-bit shamt, with bit 25 as shamt[5]), RV32's shamt is only 5 bits, so bit 25
+      isn't part of the immediate and must be checked; this fixed a copy-paste bug from the RV64 decoder that accepted a
+      range of reserved encodings as `rori`
+
 # 0.1.0
 
 Breaking changes:

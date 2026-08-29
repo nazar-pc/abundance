@@ -29,6 +29,7 @@ implemented_extensions:
   - { name: Zcmp,     version: "= 1.0.0" }
   - { name: Zicond,   version: "= 1.0.0" }
   - { name: Zicsr,    version: "= 2.0" }
+  - { name: Zifencei, version: "= 2.0" }
   - { name: Zkn,      version: "= 1.0.1" }
   - { name: Zknd,     version: "= 1.0.1" }
   - { name: Zkne,     version: "= 1.0.1" }
@@ -47,6 +48,7 @@ implemented_extensions:
   - { name: Zvl512b,  version: "= 1.0.0" }
   - { name: Zvl1024b, version: "= 1.0.0" }
   - { name: Sm,       version: "= 1.13.0" }
+  - { name: Ssstrict, version: "= 1.0.0" }
 
 params:
   # --- Base ---

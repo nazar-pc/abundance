@@ -164,6 +164,28 @@ fn test_lr_rejects_misaligned_access() {
 }
 
 #[test]
+fn test_sc_raises_store_access_fault_on_failure_out_of_bounds() {
+    let mut state = initialize_state([Rv32ZalrscInstruction::Sc {
+        rd: Reg::A2,
+        rs1: Reg::A0,
+        rs2: Reg::A3,
+        aq: false,
+        rl: false,
+    }]);
+    // 4-byte aligned but outside `TestMemory`'s bounds
+    let addr = TEST_BASE_ADDR + 0x0010_0000;
+    state.regs.write(Reg::A0, addr);
+    state.regs.write(Reg::A3, 42);
+
+    // No prior `lr`, so this `sc` fails on the reservation check - but it must still probe its
+    // target address for an access fault, and report it as Store/AMO (not Load)
+    assert_matches!(
+        execute(&mut state),
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    );
+}
+
+#[test]
 fn test_sc_rejects_misaligned_access() {
     let mut state = initialize_state([Rv32ZalrscInstruction::Sc {
         rd: Reg::A2,

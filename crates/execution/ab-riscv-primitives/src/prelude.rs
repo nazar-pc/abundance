@@ -71,6 +71,7 @@ pub use crate::instructions::v::{
 pub use crate::instructions::zawrs::ZawrsInstruction;
 pub use crate::instructions::zicond::ZicondInstruction;
 pub use crate::instructions::zicsr::ZicsrInstruction;
+pub use crate::instructions::zifencei::ZifenceiInstruction;
 pub use crate::instructions::zkr::{SEED_CSR_INDEX, ZkrInstruction};
 pub use crate::instructions::zvbb::ZvbbInstruction;
 pub use crate::instructions::zvbb::zvkb::ZvkbInstruction;

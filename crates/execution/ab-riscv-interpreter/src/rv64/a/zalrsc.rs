@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::rv32::a::ReservationSet;
+use crate::rv32::a::{ReservationSet, amo_helpers};
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
@@ -87,6 +87,12 @@ where
                     memory.write(rs1_value, rs2_value as u32)?;
                     ExecutionResult::Continue { rd, value: 0 }
                 } else {
+                    // A failing `sc` (lost/no reservation) still checks its target address for a
+                    // Store/AMO access fault, exactly as a successful one would - only the actual
+                    // write is skipped. `amo_read` (not a plain `memory.read`) both probes the
+                    // same address range a write would use, side-effect-free, and classifies any
+                    // fault as Store/AMO rather than Load, matching a real `sc`'s own fault cause.
+                    amo_helpers::amo_read::<u32, _, _>(memory, rs1_value)?;
                     ExecutionResult::Continue { rd, value: 1 }
                 }
             }
@@ -126,6 +132,8 @@ where
                     memory.write(rs1_value, rs2_value)?;
                     ExecutionResult::Continue { rd, value: 0 }
                 } else {
+                    // See the comment in the `Sc` (32-bit) arm above.
+                    amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                     ExecutionResult::Continue { rd, value: 1 }
                 }
             }

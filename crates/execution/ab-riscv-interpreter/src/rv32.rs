@@ -348,8 +348,10 @@ where
                 ControlFlow::Break(()) => ExecutionResult::Break,
             },
             Self::Ebreak => {
-                env.handle_ebreak(regs, memory, program_counter.get_pc());
-                ExecutionResult::ContinueNoWrite
+                match env.handle_ebreak(regs, memory, program_counter, size_of::<u32>() as u8)? {
+                    ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
+                    ControlFlow::Break(()) => ExecutionResult::Break,
+                }
             }
 
             Self::Unimp => {

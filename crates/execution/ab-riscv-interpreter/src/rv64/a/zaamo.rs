@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::rv32::a::amo_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
@@ -61,7 +62,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, rs2_value as u32)?;
                 ExecutionResult::Continue {
                     rd,
@@ -83,7 +84,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = (old.cast_unsigned()).wrapping_add(rs2_value as u32);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -106,7 +107,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() ^ (rs2_value as u32);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -129,7 +130,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() & (rs2_value as u32);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -152,7 +153,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = old.cast_unsigned() | (rs2_value as u32);
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue {
@@ -175,7 +176,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = if old < (rs2_value as u32).cast_signed() {
                     old.cast_unsigned()
                 } else {
@@ -202,7 +203,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = if old > (rs2_value as u32).cast_signed() {
                     old.cast_unsigned()
                 } else {
@@ -229,7 +230,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = if old.cast_unsigned() < (rs2_value as u32) {
                     old.cast_unsigned()
                 } else {
@@ -256,7 +257,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<i32>(rs1_value)?;
+                let old = amo_helpers::amo_read::<i32, _, _>(memory, rs1_value)?;
                 let new = if old.cast_unsigned() > (rs2_value as u32) {
                     old.cast_unsigned()
                 } else {
@@ -284,7 +285,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
             }
@@ -303,7 +304,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, old.wrapping_add(rs2_value))?;
                 ExecutionResult::Continue { rd, value: old }
             }
@@ -322,7 +323,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, old ^ rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
             }
@@ -341,7 +342,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, old & rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
             }
@@ -360,7 +361,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 memory.write(rs1_value, old | rs2_value)?;
                 ExecutionResult::Continue { rd, value: old }
             }
@@ -379,7 +380,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 let new = if old.cast_signed() < rs2_value.cast_signed() {
                     old
                 } else {
@@ -403,7 +404,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 let new = if old.cast_signed() > rs2_value.cast_signed() {
                     old
                 } else {
@@ -427,7 +428,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 let new = if old < rs2_value { old } else { rs2_value };
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue { rd, value: old }
@@ -447,7 +448,7 @@ where
                         address: PackedAddress::new(rs1_value),
                     });
                 }
-                let old = memory.read::<u64>(rs1_value)?;
+                let old = amo_helpers::amo_read::<u64, _, _>(memory, rs1_value)?;
                 let new = if old > rs2_value { old } else { rs2_value };
                 memory.write(rs1_value, new)?;
                 ExecutionResult::Continue { rd, value: old }

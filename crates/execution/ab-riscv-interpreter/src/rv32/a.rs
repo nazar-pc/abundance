@@ -1,5 +1,6 @@
 //! RV32 A extension
 
+pub mod amo_helpers;
 pub mod zaamo;
 pub mod zalrsc;
 

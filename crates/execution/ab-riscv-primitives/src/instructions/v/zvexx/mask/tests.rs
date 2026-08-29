@@ -413,6 +413,13 @@ fn test_vid_masked() {
     );
 }
 
+// `vid.v` has no `vs2` operand; the field is reserved and must be zero, else illegal.
+#[test]
+fn test_vid_nonzero_vs2_not_decoded() {
+    let inst = make_vop(0b01_0100, 1, 14, 0b1_0001, 0b010, 3);
+    assert_eq!(ZveXxMaskInstruction::<Reg<u64>>::try_decode(inst), None);
+}
+
 // Negative tests
 
 #[test]

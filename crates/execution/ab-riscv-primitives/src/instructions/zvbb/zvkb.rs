@@ -32,8 +32,10 @@ use core::fmt;
 /// - `vrev8.v`:       funct6=0b010010, OPMVV, vs1=0b01001; `vm` controls masking
 /// - `vrol.[vv,vx]`:  funct6=0b010101, OPIVV/OPIVX; `vm` controls masking
 /// - `vror.[vv,vx]`:  funct6=0b010100, OPIVV/OPIVX; `vm` controls masking
-/// - `vror.vi`:       funct6=0b010100, OPIVI; 5-bit unsigned immediate in bits\[19:15] (0-31);
-///   bit\[25] is the standard `vm` field, independent of the immediate
+/// - `vror.vi`:       funct6=0b01010_u, OPIVI, where `u` (bit\[26], the low bit of funct6) is
+///   immediate bit\[5]; combined with the 5-bit field in bits\[19:15] (immediate bits\[4:0]) this
+///   forms a 6-bit unsigned immediate (0-63), wide enough for SEW=64 rotate amounts. `vm` at
+///   bit\[25] is unaffected and controls masking as usual.
 ///
 /// For instructions with a `vm` field: `vm=true` means unmasked (process all body elements);
 /// `vm=false` means masked by v0 (skip elements where v0\[i]=0, leaving them undisturbed).
@@ -70,14 +72,15 @@ pub enum ZvkbInstruction<Reg> {
     VrolVx  { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
 
     // vror: rotate right
-    // vror.vi has a 5-bit unsigned immediate in vs1[19:15]; bit[25] is the standard `vm`
-    // mask-control bit
+    // vror.vi has a 6-bit unsigned immediate: bits[4:0] from vs1[19:15], bit[5] from funct6's low
+    // bit (bit[26]). `vm` at bit[25] is the standard mask-control bit, independent of the
+    // immediate.
 
     /// `vror.vv vd, vs2, vs1, vm`
     VrorVv  { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vror.vx vd, vs2, rs1, vm`
     VrorVx  { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
-    /// `vror.vi vd, vs2, uimm, vm` - `uimm` is 5-bit unsigned (0..=31); `vm` is the
+    /// `vror.vi vd, vs2, uimm, vm` - `uimm` is 6-bit unsigned (0..=63); `vm` is the
     /// standard mask-control bit at bit\[25], orthogonal to the immediate.
     VrorVi  { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
 }
@@ -130,15 +133,13 @@ where
                     _ => None,
                 }
             }
-            // OPIVI: vror.vi only - 5-bit unsigned immediate in vs1[19:15]; bit[25] is the standard
-            // vm mask-control bit
+            // OPIVI: vror.vi only - 6-bit unsigned immediate: bits[4:0] from vs1[19:15], bit[5]
+            // from funct6's low bit (bit[26]); `vm` at bit[25] is unaffected
             0b011 => {
-                if funct6 != 0b01_0100 {
+                if funct6 >> 1 != 0b0_1010 {
                     None?;
                 }
-                // vm_bit here is imm[5]; reconstruct 6-bit unsigned immediate
-                // uimm is 5-bit (0-31); bit[25] is a standard vm field, not imm[5]
-                let uimm = vs1_bits;
+                let uimm = vs1_bits | ((funct6 & 1) << 5);
                 Some(Self::VrorVi { vd, vs2, uimm, vm })
             }
             // OPMVV: vbrev8.v and vrev8.v - unary, vs1 encodes the sub-operation
