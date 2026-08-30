@@ -37,7 +37,7 @@ helpers that would otherwise have to be reimplemented, and nicer APIs around uni
 particularly controversial or on its way out beats reimplementing it or checking at runtime what can be proven at
 compile time.
 
-Baseline that must succeed with zero warnings:
+Baseline that must be executed and produce zero warnings:
 
 ```bash
 cargo fmt
