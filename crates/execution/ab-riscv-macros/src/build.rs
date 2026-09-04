@@ -71,7 +71,7 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
         state.insert_known_original_enum_execution_impl(item_impl, source)?;
     }
 
-    for maybe_rust_file in rust_files_in(Path::new(&manifest_dir).join("src")) {
+    for maybe_rust_file in rust_files_in(PathBuf::from(&manifest_dir)) {
         let rust_file = maybe_rust_file.context("Failed to collect Rust files")?;
         process_rust_file(&rust_file, out_dir, &mut state)
             .with_context(|| format!("Failed to process Rust file `{}`", rust_file.display()))?;

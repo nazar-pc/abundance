@@ -1,3 +1,9 @@
+# Unreleased
+
+Improvements:
+
+* Support instruction macros in non-src directories (tests, examples, etc.)
+
 # 0.1.1
 
 Improvements:
