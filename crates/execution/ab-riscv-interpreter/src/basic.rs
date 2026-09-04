@@ -247,6 +247,11 @@ impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
 /// allocation it'll need to be boxed (zero-initialized is fine) or a custom implementation to be
 /// used.
 ///
+/// `BASE_ADDR + SIZE` must fit into `u64`, meaning the memory region can't wrap around or end at
+/// the very end of the address space, which is checked at compile time. This is what allows an
+/// address below `BASE_ADDR` to be recognized by the bounds check that follows the subtraction of
+/// the base address rather than by a check of its own.
+///
 /// This implementation is intentionally basic and correct, but not the most performant. It is
 /// possible to have a more efficient implementation that skips certain checks by placing additional
 /// constraints on the program.
@@ -267,10 +272,7 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
     where
         T: BasicInt,
     {
-        let Some(offset) = address.checked_sub(BASE_ADDR) else {
-            cold_path();
-            return Err(VirtualMemoryError::OutOfBoundsRead { address });
-        };
+        let offset = Self::offset(address);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
             cold_path();
@@ -307,10 +309,7 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
 
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
-        let Some(offset) = address.checked_sub(BASE_ADDR) else {
-            cold_path();
-            return Err(VirtualMemoryError::OutOfBoundsRead { address });
-        };
+        let offset = Self::offset(address);
 
         if offset > self.data.len() as u64 {
             cold_path();
@@ -325,10 +324,7 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
 
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
-        let Some(offset) = address.checked_sub(BASE_ADDR) else {
-            cold_path();
-            return &[];
-        };
+        let offset = Self::offset(address);
 
         if offset > self.data.len() as u64 {
             cold_path();
@@ -345,10 +341,7 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
     where
         T: BasicInt,
     {
-        let Some(offset) = address.checked_sub(BASE_ADDR) else {
-            cold_path();
-            return Err(VirtualMemoryError::OutOfBoundsWrite { address });
-        };
+        let offset = Self::offset(address);
 
         if offset.saturating_add(size_of::<T>() as u64) > self.data.len() as u64 {
             cold_path();
@@ -369,10 +362,7 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
 
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
-        let Some(offset) = address.checked_sub(BASE_ADDR) else {
-            cold_path();
-            return Err(VirtualMemoryError::OutOfBoundsWrite { address });
-        };
+        let offset = Self::offset(address);
 
         if offset > self.data.len() as u64 {
             cold_path();
@@ -403,6 +393,25 @@ impl<const BASE_ADDR: u64, const SIZE: usize> Default for BasicMemory<BASE_ADDR,
 }
 
 impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
+    /// Offset of `address` within this memory region.
+    ///
+    /// Subtraction wraps rather than being checked: an address below `BASE_ADDR` produces an offset
+    /// so large that the bounds check every caller does next rejects it, which is one comparison
+    /// instead of two on every memory access.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    const fn offset(address: u64) -> u64 {
+        const {
+            assert!(
+                BASE_ADDR.checked_add(SIZE as u64).is_some(),
+                "`BasicMemory` must not wrap around the end of the address space, or an address \
+                below its base address could wrap into it"
+            );
+        }
+
+        address.wrapping_sub(BASE_ADDR)
+    }
+
     #[cfg(feature = "alloc")]
     pub fn new_boxed() -> Box<Self> {
         // SAFETY: Zeroed memory is a valid invariant

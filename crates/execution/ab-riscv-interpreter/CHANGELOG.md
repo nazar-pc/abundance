@@ -5,6 +5,13 @@ New features:
 * `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature): a high-performance generic
   instruction fetcher that decodes the whole program upfront into a single heap allocation
 
+Improvements:
+
+* `BasicMemory` resolves an address into an offset with a wrapping rather than checked subtraction, which folds the
+  below-the-base-address case into the bounds check that follows it instead of branching on it separately - one
+  comparison instead of two on every memory access, with identical behavior as long as the memory region doesn't reach
+  the end of the address space, which is now asserted at compile time (`BASE_ADDR + SIZE` must fit into `u64`)
+
 Fixes:
 
 * Forward all `VectorRegistersExt` methods in `impl_vector_registers_for_mut_ref` macro
