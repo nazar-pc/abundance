@@ -1,3 +1,9 @@
+# Unreleased
+
+Fixes:
+
+* Forward all `VectorRegistersExt` methods in `impl_vector_registers_for_mut_ref` macro
+
 # 0.2.0
 
 Breaking changes:
