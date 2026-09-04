@@ -1,5 +1,10 @@
 # Unreleased
 
+New features:
+
+* `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature): a high-performance generic
+  instruction fetcher that decodes the whole program upfront into a single heap allocation
+
 Fixes:
 
 * Forward all `VectorRegistersExt` methods in `impl_vector_registers_for_mut_ref` macro

@@ -1,8 +1,14 @@
 //! Basic implementations of various interpreter traits
 
+#[cfg(feature = "alloc")]
+mod eager_instruction_fetcher;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "alloc")]
+pub use crate::basic::eager_instruction_fetcher::{
+    BasicEagerInstructionFetcher, BasicEagerInstructions,
+};
 use crate::zawrs::WrsHandler;
 use crate::zifencei::FenceIHandler;
 use crate::{
@@ -15,6 +21,7 @@ use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::hint::cold_path;
+use core::mem;
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
@@ -46,7 +53,7 @@ where
     #[inline(always)]
     fn offset(self) -> u8 {
         // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { core::mem::transmute::<Self, u8>(self) }
+        unsafe { mem::transmute::<Self, u8>(self) }
     }
 }
 
@@ -60,7 +67,7 @@ where
     #[inline(always)]
     fn offset(self) -> u8 {
         // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { core::mem::transmute::<Self, u8>(self) }
+        unsafe { mem::transmute::<Self, u8>(self) }
     }
 }
 
