@@ -1,15 +1,19 @@
-//! Tests for [`EagerTestInstructionFetcher`]'s relative branch handling.
+//! Tests for what the decoded instruction stream contains and for
+//! [`BasicEagerInstructionFetcher`]'s relative branch handling.
 //!
 //! [`ProgramCounter::set_pc_relative()`] moves within the decoded instruction stream rather than
 //! resolving an address and converting it back, and its fast path deliberately skips the checks
-//! [`ProgramCounter::set_pc()`] does. These tests pin down that the cases it skips are still
-//! handled: the return trap, branches past the end of the stream, branches off its start and
+//! [`ProgramCounter::set_pc()`] does. Most of the tests below pin down that the cases it skips are
+//! still handled: the return trap, branches past the end of the stream, branches off its start and
 //! unaligned targets.
 
-use ab_riscv_benchmarks::host_utils::{
-    EagerTestInstructionFetcher, EagerTestInstructions, TestMemory,
+use crate::basic::BasicMemory;
+use crate::basic::eager_instruction_fetcher::{
+    BasicEagerInstructionFetcher, BasicEagerInstructions,
 };
-use ab_riscv_interpreter::prelude::*;
+use crate::{ExecutionError, ProgramCounter};
+use ab_riscv_primitives::prelude::*;
+use alloc::vec::Vec;
 use core::ops::ControlFlow;
 
 const MEMORY_BASE_ADDRESS: u64 = 0x1000;
@@ -17,12 +21,13 @@ const MEMORY_SIZE: usize = 4 * 1024;
 /// Address of the first instruction of [`code()`]
 const BASE_ADDR: u64 = MEMORY_BASE_ADDRESS;
 
-type Memory = TestMemory<MEMORY_BASE_ADDRESS, MEMORY_SIZE>;
+type I = Rv64Instruction<Reg<u64>>;
+type Memory = BasicMemory<MEMORY_BASE_ADDRESS, MEMORY_SIZE>;
 
 /// `addi x0, x0, 0`, the canonical `nop`
 const NOP: u32 = 0x0000_0013;
-/// `jalr x0, 0(x1)`, the canonical `ret`, so that the stream ends with a jump as the constructor
-/// requires
+/// `jalr x0, 0(x1)`, the canonical `ret`, so that the stream ends with a jump as the
+/// constructor requires
 const RET: u32 = 0x0000_8067;
 
 /// Five 4-byte instructions at `BASE_ADDR`, `BASE_ADDR + 4`, ... `BASE_ADDR + 16`
@@ -36,23 +41,51 @@ fn code() -> Vec<u8> {
 /// Address one past the last instruction
 const END_ADDR: u64 = BASE_ADDR + 5 * 4;
 
+/// Stored in slots whose bytes do not decode
+const FALLBACK: I = Rv64Instruction::Unimp {
+    rs1: Reg::ZERO,
+    rs2: Reg::ZERO,
+};
+
 /// Decode [`code()`], which [`new_fetcher()`] then walks
-fn new_instructions(return_trap_address: u64) -> EagerTestInstructions {
-    // SAFETY: The instruction stream ends with a jump
-    unsafe { EagerTestInstructions::decode(&code(), return_trap_address, BASE_ADDR) }
+fn new_instructions(return_trap_address: u64) -> BasicEagerInstructions<I> {
+    // SAFETY: The instruction stream ends with a jump, the return trap is outside of it and
+    // the base address is aligned
+    unsafe { BasicEagerInstructions::decode(&code(), FALLBACK, return_trap_address, BASE_ADDR) }
 }
 
-/// Build a fetcher whose program counter sits just after the instruction at `BASE_ADDR + 4`, which
-/// is the state relative branches are resolved from: the program counter is advanced during
-/// instruction fetching, so `set_pc_relative(_, 4, offset)` branches from `BASE_ADDR + 4`
-fn new_fetcher(instructions: &EagerTestInstructions) -> EagerTestInstructionFetcher<'_> {
+#[test]
+fn every_halfword_of_guest_code_owns_a_slot() {
+    let code = code();
+
+    // Including guest code that ends in the middle of an instruction, which decodes as far as
+    // whole halfwords go and leaves the odd byte out
+    for len in 0..=code.len() {
+        // SAFETY: Nothing is executed here, only the decoded stream is inspected, so what
+        // execution may reach doesn't come into play
+        let instructions =
+            unsafe { BasicEagerInstructions::<I>::decode(&code[..len], FALLBACK, 0, BASE_ADDR) };
+
+        assert_eq!(
+            instructions.instructions_len(),
+            len / size_of::<u16>(),
+            "{len} bytes of guest code"
+        );
+    }
+}
+
+/// Build a fetcher whose program counter sits just after the instruction at `BASE_ADDR + 4`,
+/// which is the state relative branches are resolved from: the program counter is advanced
+/// during instruction fetching, so `set_pc_relative(_, 4, offset)` branches from
+/// `BASE_ADDR + 4`
+fn new_fetcher(instructions: &BasicEagerInstructions<I>) -> BasicEagerInstructionFetcher<'_, I> {
     // SAFETY: Program counter is valid and aligned
     unsafe { instructions.fetcher(BASE_ADDR + 8) }
 }
 
 /// Branch by `offset` from the instruction at `BASE_ADDR + 4`
 fn branch(
-    fetcher: &mut EagerTestInstructionFetcher<'_>,
+    fetcher: &mut BasicEagerInstructionFetcher<'_, I>,
     offset: i32,
 ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
     let memory = Memory::default();
@@ -149,15 +182,33 @@ fn branch_off_the_start_of_the_stream_is_out_of_bounds() {
 
 #[test]
 fn branch_to_an_unaligned_target_is_rejected() {
-    // Branch immediates encode a halfword count, so the decoder cannot produce an odd offset and
-    // this is not reachable through instruction execution. It is still the rule `set_pc()` applies,
-    // and the fast path must not quietly round such a target to a slot boundary instead.
+    // Branch immediates encode a halfword count, so the decoder cannot produce an odd offset
+    // and this is not reachable through instruction execution. It is still the rule `set_pc()`
+    // applies, and the fast path must not quietly round such a target to a slot boundary
+    // instead.
     let instructions = new_instructions(0);
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 3).unwrap_err();
     assert!(
         matches!(error, ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 7),
+        "Unexpected error {error:?}"
+    );
+}
+
+#[test]
+fn branch_into_the_middle_of_an_instruction_is_rejected() {
+    // The decoded stream has a slot per halfword of guest code, but this instruction set has
+    // no compressed instructions, so a halfword-aligned target lands between two instructions
+    // and must be refused rather than executed as whatever those bytes decoded to
+    assert_eq!(I::alignment(), size_of::<u32>() as u8);
+
+    let instructions = new_instructions(0);
+    let mut fetcher = new_fetcher(&instructions);
+
+    let error = branch(&mut fetcher, 2).unwrap_err();
+    assert!(
+        matches!(error, ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 6),
         "Unexpected error {error:?}"
     );
 }

@@ -15,7 +15,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-riscv-interpreter = { workspace = true }
+ab-riscv-interpreter = { workspace = true, features = ["alloc"] }
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
 anyhow = { workspace = true }

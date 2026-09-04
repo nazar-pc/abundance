@@ -1,6 +1,5 @@
 #![expect(incomplete_features, reason = "explicit_tail_calls")]
 #![feature(
-    const_block_items,
     const_cmp,
     const_trait_impl,
     const_try,
@@ -13,14 +12,12 @@
 
 mod elf;
 mod instruction;
-mod interpreter;
 mod time_csr;
 
 use crate::elf::{LoadedElf, load_elf};
 use crate::instruction::CoremarkInstruction;
-use crate::interpreter::{EagerInstructions, GuestMemory};
 use crate::time_csr::TimeCsrState;
-use ab_riscv_interpreter::basic::BasicRegisters;
+use ab_riscv_interpreter::basic::{BasicEagerInstructions, BasicMemory, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
@@ -61,7 +58,7 @@ fn main() -> anyhow::Result<()> {
         ));
     }
 
-    let mut memory = GuestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
+    let mut memory = BasicMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
     let LoadedElf {
         entry_point,
         global_pointer,
@@ -90,8 +87,19 @@ fn main() -> anyhow::Result<()> {
     regs.write(Reg::A0, 1);
     regs.write(Reg::A1, argv_addr);
 
-    // SAFETY: ELF was produced by a trusted compiler
-    let instructions = unsafe { EagerInstructions::decode(text_data, TRAP_ADDRESS, text_addr) };
+    // SAFETY: ELF was produced by a trusted compiler, `.text` section is loaded at `text_addr`
+    // and ends with a jump, and the trap address is outside of it
+    let instructions = unsafe {
+        BasicEagerInstructions::decode(
+            text_data,
+            CoremarkInstruction::Unimp {
+                rs1: Reg::ZERO,
+                rs2: Reg::ZERO,
+            },
+            TRAP_ADDRESS,
+            text_addr,
+        )
+    };
     // SAFETY: `entry_point` is valid and aligned
     let instruction_fetcher = unsafe { instructions.fetcher(entry_point) };
 

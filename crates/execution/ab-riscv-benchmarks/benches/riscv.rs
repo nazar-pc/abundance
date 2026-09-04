@@ -4,10 +4,13 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, EagerTestInstructions, Ed25519VerifyInternalArgs,
-    LazyInstructionFetcher, RISCV_CONTRACT_BYTES, TestMemory,
+    Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, LazyInstructionFetcher,
+    RISCV_CONTRACT_BYTES, UNDECODABLE_INSTRUCTION,
 };
-use ab_riscv_interpreter::basic::{BasicInterpreterState, IllegalEcallSystemInstructionHandler};
+use ab_riscv_interpreter::basic::{
+    BasicEagerInstructions, BasicInterpreterState, BasicMemory,
+    IllegalEcallSystemInstructionHandler,
+};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::Register;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -76,8 +79,9 @@ fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 // SAFETY: All instructions are valid and contract ends with a jump
                 let instructions = unsafe {
-                    EagerTestInstructions::decode(
+                    BasicEagerInstructions::decode(
                         code,
+                        UNDECODABLE_INSTRUCTION,
                         TRAP_ADDRESS,
                         MEMORY_BASE_ADDRESS
                             + u64::from(contract_file.header().read_only_section_memory_size),
@@ -88,7 +92,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
     }
 
-    let mut memory = TestMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
+    let mut memory = BasicMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
     let contract_memory_size = contract_file.contract_memory_size();
     if !contract_file.initialize_contract_memory({
@@ -124,8 +128,9 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     // SAFETY: All instructions are valid and contract ends with a jump
     let instructions = unsafe {
-        EagerTestInstructions::decode(
+        BasicEagerInstructions::decode(
             contract_file.get_code(),
+            UNDECODABLE_INSTRUCTION,
             TRAP_ADDRESS,
             MEMORY_BASE_ADDRESS + u64::from(contract_file.header().read_only_section_memory_size),
         )
