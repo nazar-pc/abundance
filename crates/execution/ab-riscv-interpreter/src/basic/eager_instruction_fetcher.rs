@@ -31,6 +31,13 @@ where
 {
     /// Number of decoded instructions stored right after this header
     instructions_len: usize,
+    /// Size of the decoded instructions stored right after this header, in bytes.
+    ///
+    /// The same information as `instructions_len`, kept in the unit a relative branch measures
+    /// its target in, so that the bounds check on every taken branch is a single comparison
+    /// rather than a multiplication and a comparison. Deriving either from the other at run time
+    /// would cost an instruction on a hot path, hence both are stored.
+    instructions_size: usize,
     /// Guest address that corresponds to the first decoded instruction
     base_addr: Address<I>,
     /// Guest address at which execution stops gracefully
@@ -205,8 +212,8 @@ where
             // SAFETY: Guaranteed by function contract, meaning `instruction_offset` is within
             // bounds of the decoded stream
             next_instruction: unsafe { self.instructions().add(instruction_offset) },
-            state: self.state,
-            instructions: PhantomData,
+            instructions: self.instructions(),
+            _instructions: PhantomData,
         }
     }
 
@@ -261,6 +268,8 @@ where
         unsafe {
             state.write(BasicEagerInstructionFetcherState {
                 instructions_len,
+                // Does not overflow, the layout above was just computed from it
+                instructions_size: instructions_len * size_of::<I>(),
                 base_addr,
                 return_trap_address,
             });
@@ -332,10 +341,15 @@ where
     /// retain this in a native register instead of recomputing it from an offset on every
     /// fetch.
     next_instruction: NonNull<I>,
-    /// Everything else the fetcher needs, borrowed from [`BasicEagerInstructions`]
-    state: NonNull<BasicEagerInstructionFetcherState<I>>,
+    /// The first decoded instruction, borrowed from [`BasicEagerInstructions`].
+    ///
+    /// This points at the instructions rather than at the state header in front of them because
+    /// the instructions are what every branch and jump measures its target against, while the
+    /// header is read at a constant offset that the addressing mode absorbs. Pointing at the
+    /// header instead costs the taken path of every branch an addition to find the instructions.
+    instructions: NonNull<I>,
     /// Fetcher borrows the decoded instructions it walks
-    instructions: PhantomData<&'a BasicEagerInstructions<I>>,
+    _instructions: PhantomData<&'a BasicEagerInstructions<I>>,
 }
 
 impl<I> fmt::Debug for BasicEagerInstructionFetcher<'_, I>
@@ -364,7 +378,7 @@ where
             .next_instruction
             .as_ptr()
             .addr()
-            .wrapping_sub(self.instructions().as_ptr().addr());
+            .wrapping_sub(self.instructions.as_ptr().addr());
 
         Address::<I>::truncate_from_u64(
             self.base_addr().as_u64()
@@ -407,14 +421,14 @@ where
 
         let decoded_instruction_byte_offset = new_next_instruction
             .addr()
-            .wrapping_sub(self.instructions().as_ptr().addr());
+            .wrapping_sub(self.instructions.as_ptr().addr());
 
         // A target that does not land on a decoded instruction sits between two guest
         // instructions, which makes it an unaligned instruction rather than something to round to
         // the start of one. That rule lives in `set_pc()`, so rather than restating it here, where
         // it could drift, such a target simply fails to qualify, as does one past the end of the
         // decoded stream, which a backwards branch that ran off its start wraps around into.
-        decoded_instruction_byte_offset < self.instructions_len() * size_of::<I>()
+        decoded_instruction_byte_offset < self.instructions_size()
             && decoded_instruction_byte_offset.is_multiple_of(size_of::<I>())
     }
 
@@ -433,7 +447,7 @@ where
             .next_instruction
             .as_ptr()
             .addr()
-            .wrapping_sub(self.instructions().as_ptr().addr())
+            .wrapping_sub(self.instructions.as_ptr().addr())
             .cast_signed();
         // Every alignment step of guest code owns one decoded instruction, and the position is
         // always a whole number of them from the start of the stream, so this is exact
@@ -483,7 +497,7 @@ where
         }
 
         // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded stream
-        self.next_instruction = unsafe { self.instructions().add(instruction_offset) };
+        self.next_instruction = unsafe { self.instructions.add(instruction_offset) };
 
         Ok(ControlFlow::Continue(()))
     }
@@ -544,43 +558,46 @@ impl<I> BasicEagerInstructionFetcher<'_, I>
 where
     I: Instruction,
 {
-    /// Pointer to the first decoded instruction
+    /// State header that [`BasicEagerInstructions`] keeps in front of the decoded instructions
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn instructions(&self) -> NonNull<I> {
-        // SAFETY: Decoded instructions are stored at this offset of the same allocation as the
-        // state
+    fn state(&self) -> &BasicEagerInstructionFetcherState<I> {
+        // SAFETY: Decoded instructions are stored at this offset from the state in the same
+        // allocation, which `BasicEagerInstructions` initialized and this fetcher borrows for as
+        // long as it is alive
         unsafe {
-            self.state
-                .byte_add(BasicEagerInstructions::<I>::INSTRUCTIONS_OFFSET)
+            self.instructions
+                .byte_sub(BasicEagerInstructions::<I>::INSTRUCTIONS_OFFSET)
+                .cast::<BasicEagerInstructionFetcherState<I>>()
+                .as_ref()
         }
-        .cast::<I>()
     }
 
     /// Number of decoded instructions
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn instructions_len(&self) -> usize {
-        // SAFETY: State is initialized by `BasicEagerInstructions` and borrowed for as long as
-        // `self` is alive
-        unsafe { (*self.state.as_ptr()).instructions_len }
+        self.state().instructions_len
+    }
+
+    /// Size of the decoded instructions in bytes
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    fn instructions_size(&self) -> usize {
+        self.state().instructions_size
     }
 
     /// Guest address that corresponds to the first decoded instruction
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn base_addr(&self) -> Address<I> {
-        // SAFETY: State is initialized by `BasicEagerInstructions` and borrowed for as long as
-        // `self` is alive
-        unsafe { (*self.state.as_ptr()).base_addr }
+        self.state().base_addr
     }
 
     /// Guest address at which execution stops gracefully
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn return_trap_address(&self) -> Address<I> {
-        // SAFETY: State is initialized by `BasicEagerInstructions` and borrowed for as long as
-        // `self` is alive
-        unsafe { (*self.state.as_ptr()).return_trap_address }
+        self.state().return_trap_address
     }
 }
