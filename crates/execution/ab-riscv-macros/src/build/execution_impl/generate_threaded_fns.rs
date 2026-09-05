@@ -96,14 +96,6 @@ pub(super) fn generate_threaded_fns(
     let entry_fn_name = format_ident!("execute_{enum_snake_case}_threaded");
     let dispatch_result_name = format_ident!("{enum_name}ThreadedDispatchResult");
     let branch_failed_fn_name = format_ident!("{enum_snake_case}_threaded_branch_failed");
-    // What handlers return: the outcome serialized into a shape the target returns in registers
-    let handler_result_ty: Type = parse_quote! {
-        OpaqueThreadedExecutionResult<#self_ty>
-    };
-    // What execution as a whole returns, once the chain is over
-    let result_ty: Type = parse_quote! {
-        ThreadedExecutionResult<#self_ty>
-    };
 
     let mut generated_items = Vec::with_capacity(variants.len() + 3);
     let mut dispatch_arms = Vec::with_capacity(variants.len());
@@ -112,11 +104,11 @@ pub(super) fn generate_threaded_fns(
     // without the `Continue` variant, which dispatch resolves while fetching rather than passing
     // on. It never escapes the dispatch step it is created in, so it never materializes.
     generated_items.push(parse_quote! {
-        enum #dispatch_result_name<I, Handler>
+        enum #dispatch_result_name<I, Peeked, Handler>
         where
             I: Instruction,
         {
-            Next { instruction: I, handler: Handler },
+            Next { instruction: Peeked, handler: Handler },
             Break,
             Err(ExecutionError<<I::Reg as Register>::Type>),
         }
@@ -142,12 +134,12 @@ pub(super) fn generate_threaded_fns(
         #[inline(never)]
         #target_feature
         unsafe #abi fn #branch_failed_fn_name<#generic_params>(
-            _instruction: #self_ty,
+            _instruction: PC::Peeked,
             mut instruction_fetcher: PC,
             regs: &mut Regs,
             env: Env,
             memory: &mut Memory,
-        ) -> #handler_result_ty
+        ) -> OpaqueThreadedExecutionResult<#self_ty>
             #where_clause
         {
             // SAFETY: Only reached from a handler whose `try_set_pc_relative()` returned `false`,
@@ -253,14 +245,19 @@ pub(super) fn generate_threaded_fns(
             #[rustc_align(64)]
             #target_feature
             unsafe #abi fn #handler_fn_name<#generic_params>(
-                instruction: #self_ty,
+                peeked_instruction: PC::Peeked,
                 mut instruction_fetcher: PC,
                 regs: &mut Regs,
                 mut env: Env,
                 memory: &mut Memory,
-            ) -> #handler_result_ty
+            ) -> OpaqueThreadedExecutionResult<#self_ty>
                 #where_clause
             {
+                // Everything the handler needs from the instruction is read through this
+                // reference: when it points into a decoded stream, each operand is a single load
+                // at a constant offset rather than a shift and a mask on a register
+                let instruction = instruction_fetcher.peeked_instruction(&peeked_instruction);
+
                 let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
                 let rs1_value = regs.read(rs1);
                 let rs2_value = regs.read(rs2);
@@ -270,24 +267,26 @@ pub(super) fn generate_threaded_fns(
                     irrefutable_let_patterns,
                     reason = "True for extensions with a single instruction"
                 )]
-                let #enum_name::#variant_ident { #pat_fields } = instruction else {
+                let #enum_name::#variant_ident { #pat_fields } = *instruction else {
                     // SAFETY: A handler is only ever reached through the dispatch arm for its own
                     // variant
                     unsafe {
                         ::core::hint::unreachable_unchecked();
                     }
                 };
+                // Folds to a constant, since the variant is known here, and is taken before the
+                // fetcher is touched again because the instruction may be borrowed from it
+                let instruction_size = Instruction::size(instruction);
 
                 // Dispatch leaves the program counter on the instruction it read, and this is what
-                // moves it past it - by a size the compiler folds to a constant, since the variant
-                // is known here. Doing it during the fetch instead makes the address of the next
+                // moves it past it. Doing it during the fetch instead makes the address of the next
                 // instruction depend on decoding the current one, which is a load-to-load
                 // dependency in the middle of every dispatch step.
                 //
                 // SAFETY: Dispatch has just peeked this instruction successfully, and this is the
                 // only place that moves past it
                 unsafe {
-                    instruction_fetcher.advance(Instruction::size(&instruction));
+                    instruction_fetcher.advance(instruction_size);
                 }
 
                 let execution_result = #variant_fn_name::<#generic_params>(
@@ -312,10 +311,7 @@ pub(super) fn generate_threaded_fns(
                         // SAFETY: A refused target goes straight to the continuation below, which
                         // is what calls `failed_branch()` on it
                         if unsafe {
-                            instruction_fetcher.try_set_pc_relative(
-                                Instruction::size(&instruction),
-                                offset,
-                            )
+                            instruction_fetcher.try_set_pc_relative(instruction_size, offset)
                         } {
                             Ok(::core::ops::ControlFlow::Continue(()))
                         } else {
@@ -324,7 +320,7 @@ pub(super) fn generate_threaded_fns(
                             // place
                             unsafe {
                                 become #branch_failed_fn_name::<#generic_params>(
-                                    instruction,
+                                    peeked_instruction,
                                     instruction_fetcher,
                                     regs,
                                     env,
@@ -451,13 +447,14 @@ pub(super) fn generate_threaded_fns(
             memory: &Memory,
         ) -> #dispatch_result_name<
             #self_ty,
+            PC::Peeked,
             unsafe #abi fn(
-                #self_ty,
+                PC::Peeked,
                 PC,
                 &mut Regs,
                 Env,
                 &mut Memory,
-            ) -> #handler_result_ty,
+            ) -> OpaqueThreadedExecutionResult<#self_ty>,
         >
             #where_clause
         {
@@ -480,11 +477,19 @@ pub(super) fn generate_threaded_fns(
                 }
             };
 
+            // TODO: Remove copy once fixed in LLVM:
+            //  https://github.com/llvm/llvm-project/issues/221426
+            // Matched as a copy rather than in place on purpose: the discriminant of an
+            // instruction read in place comes with its value range attached, which lets LLVM
+            // narrow the selection to a byte, and past 127 variants the byte values it then
+            // sorts by are negative, so every dispatch pays an extra instruction to offset the
+            // index into the jump table. A copy carries no such range and is selected on as is.
+            let instruction_copy = *instruction_fetcher.peeked_instruction(&instruction);
             #[expect(
                 clippy::rest_pattern_accessible_field,
                 reason = "Dispatch selects a handler by variant and never looks at any field"
             )]
-            let handler = match instruction {
+            let handler = match instruction_copy {
                 #( #dispatch_arms )*
             };
 
@@ -511,7 +516,7 @@ pub(super) fn generate_threaded_fns(
             regs: &mut Regs,
             env: Env,
             memory: &mut Memory,
-        ) -> #result_ty
+        ) -> ThreadedExecutionResult<#self_ty>
             #where_clause
         {
             let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
@@ -573,7 +578,7 @@ pub(super) fn generate_threaded_fns(
                 regs: &mut Regs,
                 env: Env,
                 memory: &mut Memory,
-            ) -> #result_ty {
+            ) -> ThreadedExecutionResult<#self_ty> {
                 if !OpaqueThreadedExecutionResult::<#self_ty>::platform_supported() {
                     ::core::hint::cold_path();
                     return ThreadedExecutionResult::failed(

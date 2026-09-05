@@ -776,7 +776,7 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-interpreter"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ab-riscv-macros",
  "ab-riscv-primitives",
@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-macros"
-version = "0.1.1"
+version = "0.3.0"
 dependencies = [
  "ab-riscv-macros-common",
  "ab-riscv-macros-impl",
@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "ab-riscv-primitives"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ab-riscv-macros",
  "no-panic-const",

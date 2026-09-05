@@ -1,9 +1,10 @@
-# Unreleased
+# 0.3.0
 
 Breaking changes:
 
 * `#[instruction]` now takes instruction alignment from an `ALIGNMENT` associated constant instead of an `alignment()`
   method
+* Execution changes mirror API changes in `ab-riscv-interpreter`
 
 Improvements:
 

@@ -1,4 +1,8 @@
-# Unreleased
+# 0.3.0
+
+Breaking changes:
+
+* Minor changes in `InstructionFetcher` API for improved performance of threaded execution
 
 New features:
 
