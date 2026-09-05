@@ -11,7 +11,7 @@ use crate::basic::BasicMemory;
 use crate::basic::eager_instruction_fetcher::{
     BasicEagerInstructionFetcher, BasicEagerInstructions,
 };
-use crate::{ExecutionError, ProgramCounter};
+use crate::{ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
@@ -75,6 +75,26 @@ fn every_alignment_step_of_guest_code_owns_a_slot() {
             len / usize::from(I::ALIGNMENT),
             "{len} bytes of guest code"
         );
+    }
+}
+
+#[test]
+fn every_slot_holds_the_instruction_its_bytes_decode_to() {
+    let instructions = new_instructions(END_ADDR);
+    let memory = Memory::default();
+    // SAFETY: This is the address of the first instruction of `code()`
+    let mut fetcher = unsafe { instructions.fetcher(BASE_ADDR) };
+
+    for encoded_instruction in [NOP, NOP, NOP, NOP, RET] {
+        let expected = I::try_decode(encoded_instruction).expect("Valid instruction; qed");
+
+        let FetchInstructionResult::Instruction(instruction) =
+            InstructionFetcher::<I, Memory>::fetch_instruction(&mut fetcher, &memory)
+        else {
+            panic!("Expected an instruction");
+        };
+
+        assert_eq!(instruction, expected);
     }
 }
 
