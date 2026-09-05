@@ -106,6 +106,8 @@ const impl<Reg> Instruction for Rv32ZkndInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -139,11 +141,6 @@ where
             0b1_0111 => Some(Self::Aes32Dsmi { rd, rs1, rs2, bs }),
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

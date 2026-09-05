@@ -84,6 +84,8 @@ const impl<Reg> Instruction for Rv32ZcaInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
+    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -462,11 +464,6 @@ where
             // Quadrant 11 = 32-bit instructions
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u16>() as u8
     }
 
     #[inline(always)]

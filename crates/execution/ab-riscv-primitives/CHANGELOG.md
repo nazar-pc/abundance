@@ -1,3 +1,9 @@
+# Unreleased
+
+Breaking changes:
+
+* `Instruction::alignment()` is replaced by the `Instruction::ALIGNMENT` associated constant
+
 # 0.2.0
 
 New features:

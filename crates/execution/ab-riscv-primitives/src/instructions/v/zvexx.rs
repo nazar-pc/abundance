@@ -72,17 +72,14 @@ const impl<Reg> Instruction for ZveXxInstruction<Reg>
 where
     Reg: [const] Register,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
         None
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

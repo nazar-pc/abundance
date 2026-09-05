@@ -95,6 +95,8 @@ const impl<Reg> Instruction for Rv32Instruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -285,11 +287,6 @@ where
             }
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

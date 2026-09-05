@@ -201,7 +201,7 @@ fn branch_into_the_middle_of_an_instruction_is_rejected() {
     // The decoded stream has a slot per halfword of guest code, but this instruction set has
     // no compressed instructions, so a halfword-aligned target lands between two instructions
     // and must be refused rather than executed as whatever those bytes decoded to
-    assert_eq!(I::alignment(), size_of::<u32>() as u8);
+    assert_eq!(I::ALIGNMENT, size_of::<u32>() as u8);
 
     let instructions = new_instructions(0);
     let mut fetcher = new_fetcher(&instructions);

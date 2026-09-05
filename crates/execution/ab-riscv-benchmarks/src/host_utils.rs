@@ -167,7 +167,7 @@ where
 
         pc != self.return_trap_address
             && pc.is_multiple_of(u64::from(
-                ContractInstruction::<ContractRegister>::alignment(),
+                ContractInstruction::<ContractRegister>::ALIGNMENT,
             ))
     }
 
@@ -190,7 +190,7 @@ where
         }
 
         if !pc.is_multiple_of(u64::from(
-            ContractInstruction::<ContractRegister>::alignment(),
+            ContractInstruction::<ContractRegister>::ALIGNMENT,
         )) {
             cold_path();
             return Err(ExecutionError::UnalignedInstruction {

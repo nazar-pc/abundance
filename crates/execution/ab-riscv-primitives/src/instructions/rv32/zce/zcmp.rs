@@ -318,17 +318,14 @@ const impl<Reg> Instruction for Rv32ZcmpInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
+    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
         None
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u16>() as u8
     }
 
     #[inline(always)]
@@ -392,6 +389,8 @@ const impl<Reg> Instruction for Rv32ZcmpOnlyInstruction<Reg>
 where
     Reg: [const] ZcmpRegister<Type = u32>,
 {
+    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -467,11 +466,6 @@ where
             // funct2_12_11 values 0b00 and 0b10 are not defined by Zcmp
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u16>() as u8
     }
 
     #[inline(always)]

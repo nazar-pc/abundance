@@ -49,16 +49,13 @@ impl<Reg> Instruction for TestZicsr<Reg>
 where
     Reg: Register,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         None
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

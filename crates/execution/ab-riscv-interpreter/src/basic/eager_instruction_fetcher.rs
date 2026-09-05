@@ -195,7 +195,7 @@ where
     /// # Safety
     /// `pc` must be the address of one of the instructions [`Self::decode()`] was given, meaning
     /// it is within `base_addr..base_addr + instructions.len()` and is a multiple of
-    /// [`Instruction::alignment()`], with `base_addr` and `instructions` being what that call
+    /// [`Instruction::ALIGNMENT`], with `base_addr` and `instructions` being what that call
     /// received.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -249,7 +249,7 @@ where
     /// * `return_trap_address` must not fall inside the instructions. Instruction fetching does not
     ///   compare against the return trap, so an address inside them would stop execution when
     ///   jumped to, but not when reached by falling through.
-    /// * `base_addr` must be a multiple of [`Instruction::alignment()`], since it is the address of
+    /// * `base_addr` must be a multiple of [`Instruction::ALIGNMENT`], since it is the address of
     ///   the first decoded instruction, and every position within the decoded stream is resolved
     ///   relative to it.
     /// * `base_addr + instructions.len()` must not overflow the address space, which is what makes
@@ -444,7 +444,7 @@ where
 
         let address = pc.as_u64();
 
-        if !address.is_multiple_of(u64::from(I::alignment())) {
+        if !address.is_multiple_of(u64::from(I::ALIGNMENT)) {
             cold_path();
             return Err(ExecutionError::UnalignedInstruction {
                 address: PackedAddress::new(pc),
@@ -529,7 +529,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn alignment_byte_step() -> usize {
-        usize::from(I::alignment()) / size_of::<u16>() * size_of::<I>()
+        usize::from(I::ALIGNMENT) / size_of::<u16>() * size_of::<I>()
     }
 
     /// Pointer to the first decoded instruction

@@ -29,14 +29,14 @@ pub const trait Instruction:
     /// specified explicitly (and if done, will cause conflicts at compile time).
     const IMPLEMENTED_EXTENSIONS: &'static [TypeId];
 
+    /// Instruction alignment in bytes, also known as `IALIGN`
+    const ALIGNMENT: u8;
+
     /// A register type used by the instruction
     type Reg: [const] Register;
 
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
-
-    /// Instruction alignment in bytes
-    fn alignment() -> u8;
 
     /// Instruction size in bytes
     fn size(&self) -> u8;
