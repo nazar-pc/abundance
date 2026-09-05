@@ -194,6 +194,13 @@ impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
     I: Instruction<Reg = Reg<u32>>,
 {
+    type Peeked = I;
+
+    #[inline(always)]
+    fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
+        peeked
+    }
+
     #[inline]
     fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {

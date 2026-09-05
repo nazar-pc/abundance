@@ -527,6 +527,14 @@ where
     I: [const] Instruction,
     Memory: [const] VirtualMemory,
 {
+    type Peeked = I;
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
+        peeked
+    }
+
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {

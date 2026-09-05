@@ -755,14 +755,18 @@ where
     }
 }
 
-/// Result of [`InstructionFetcher::fetch_instruction()`] call
+/// Result of [`InstructionFetcher::fetch_instruction()`] and
+/// [`InstructionFetcher::peek_instruction()`] calls.
+///
+/// `Peeked` is the instruction itself when fetching, and whatever
+/// [`InstructionFetcher::Peeked`] is when peeking.
 #[derive(Debug)]
-pub enum FetchInstructionResult<I>
+pub enum FetchInstructionResult<I, Peeked = I>
 where
     I: Instruction,
 {
     /// Instruction to execute
-    Instruction(I),
+    Instruction(Peeked),
     /// Nothing to execute here, carry on from wherever the program counter now points
     Continue,
     /// Stop execution
@@ -785,6 +789,18 @@ where
     Self: ProgramCounter<Address<I>, Memory>,
     I: Instruction,
 {
+    /// What [`Self::peek_instruction()`] returns an instruction as, which is whatever
+    /// [`Self::peeked_instruction()`] needs besides the fetcher to get back to the instruction.
+    ///
+    /// A fetcher that decodes on the fly has nothing but the instruction itself to hand over,
+    /// while one that walks a decoded stream still has the instruction where it was decoded, so it
+    /// hands over nothing at all. The difference matters to threaded dispatch, which passes this
+    /// to the handler by value: an instruction takes a register, and each operand then costs a
+    /// shift and a mask to extract from it, while `()` takes no register at all, and the handler
+    /// loads each operand it uses from the decoded stream at a constant offset, one instruction
+    /// each.
+    type Peeked;
+
     /// Read the instruction at the current position, leaving the program counter on it.
     ///
     /// [`Self::advance()`] is what moves past it, and the two are separate because of what deriving
@@ -792,7 +808,18 @@ where
     /// *next* instruction depend on decoding the current one. In threaded dispatch caller already
     /// knows which variant it is holding and advances by a constant instead, allowing the next load
     /// to be issued immediately.
-    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
+    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, Self::Peeked>;
+
+    /// The instruction that [`Self::peek_instruction()`] returned `peeked` for.
+    ///
+    /// Only meaningful until the program counter moves, since `peeked` may be nothing more than a
+    /// promise that the instruction is still at the current position.
+    ///
+    /// A reference rather than a copy on purpose, even though callers destructure it right away:
+    /// destructuring through a reference into a decoded stream loads each field on its own, while
+    /// a copy is loaded whole and its fields are then extracted from a register with a shift and a
+    /// mask each.
+    fn peeked_instruction<'a>(&'a self, peeked: &'a Self::Peeked) -> &'a I;
 
     /// Move the program counter past an instruction of `instruction_size` bytes that
     /// [`Self::peek_instruction()`] has just returned.
@@ -807,9 +834,10 @@ where
     /// Fetch a single instruction at a specified address and advance the program counter on
     /// successful fetch.
     ///
-    /// This is [`Self::peek_instruction()`] followed by [`Self::advance()`] and exists for callers
-    /// that do not know what they are about to fetch, which is every caller that dispatches
-    /// through a `match` rather than through per-variant handlers.
+    /// This is effectively [`Self::peek_instruction()`] followed by [`Self::peeked_instruction()`]
+    /// and [`Self::advance()`]. It exists for callers that do not know what they are about to
+    /// fetch, which is every caller that dispatches through a `match` rather than through
+    /// per-variant handlers.
     fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
 }
 
@@ -1019,7 +1047,11 @@ where
     ///
     /// Returns zero register for `rs1`/`rs2` that were missing in the original instruction
     /// definition.
-    fn get_rs1_rs2_operands(self) -> Rs1Rs2Operands<Self::Reg>;
+    ///
+    /// Takes `&self` so that an instruction read through a reference into memory has the two
+    /// registers loaded from there, a byte each, rather than copied out whole and extracted with
+    /// a shift and a mask each, see [`InstructionFetcher::peeked_instruction()`].
+    fn get_rs1_rs2_operands(&self) -> Rs1Rs2Operands<Self::Reg>;
 }
 
 pub const trait ExecutableInstructionCsr<Env>

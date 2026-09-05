@@ -508,15 +508,24 @@ where
     I: Instruction,
     Memory: VirtualMemory,
 {
+    /// Nothing, the decoded stream is where the instruction stays and the position is the
+    /// fetcher's own, so a threaded handler loads each operand it uses straight from there
+    type Peeked = ();
+
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn peek_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I> {
+    fn peek_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I, ()> {
+        FetchInstructionResult::Instruction(())
+    }
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    fn peeked_instruction<'a>(&'a self, (): &'a ()) -> &'a I {
         // SAFETY: `BasicEagerInstructions::decode()` guarantees that the last instruction is a
         // jump, which means going through `Self::set_pc()` method does the necessary bounds check,
-        // so the position always points at a decoded instruction.
-        let instruction = unsafe { self.next_instruction.read() };
-
-        FetchInstructionResult::Instruction(instruction)
+        // so the position always points at a decoded instruction, which is borrowed for as long
+        // as `self` is
+        unsafe { self.next_instruction.as_ref() }
     }
 
     #[inline(always)]
@@ -539,18 +548,18 @@ where
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
-        let result = InstructionFetcher::<I, Memory>::peek_instruction(self, memory);
+    fn fetch_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I> {
+        // SAFETY: The position always points at a decoded instruction, see
+        // `Self::peeked_instruction()`
+        let instruction = unsafe { self.next_instruction.read() };
 
-        if let FetchInstructionResult::Instruction(instruction) = result {
-            // SAFETY: The instruction was just peeked successfully, and this is the only place that
-            // moves past it
-            unsafe {
-                InstructionFetcher::<I, Memory>::advance(self, instruction.size());
-            }
+        // SAFETY: The instruction was just read successfully, and this is the only place that
+        // moves past it
+        unsafe {
+            InstructionFetcher::<I, Memory>::advance(self, instruction.size());
         }
 
-        result
+        FetchInstructionResult::Instruction(instruction)
     }
 }
 

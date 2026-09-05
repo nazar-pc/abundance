@@ -216,6 +216,16 @@ impl<Memory> InstructionFetcher<ContractInstruction, Memory> for LazyInstruction
 where
     Memory: VirtualMemory,
 {
+    type Peeked = ContractInstruction;
+
+    #[inline(always)]
+    fn peeked_instruction<'a>(
+        &'a self,
+        peeked: &'a ContractInstruction,
+    ) -> &'a ContractInstruction {
+        peeked
+    }
+
     #[inline]
     fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<ContractInstruction> {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
