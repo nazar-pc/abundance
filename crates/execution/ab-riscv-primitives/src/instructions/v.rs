@@ -893,16 +893,13 @@ where
 {
     const IMPLEMENTED_EXTENSIONS: &'static [TypeId] = &[];
 
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(_instruction: u32) -> Option<Self> {
         None
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

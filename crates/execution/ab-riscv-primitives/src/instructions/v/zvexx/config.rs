@@ -40,6 +40,8 @@ const impl<Reg> Instruction for ZveXxConfigInstruction<Reg>
 where
     Reg: [const] Register,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -95,11 +97,6 @@ where
                 Some(Self::Vsetvl { rd, rs1, rs2 })
             }
         }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

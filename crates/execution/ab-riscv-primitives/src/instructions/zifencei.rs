@@ -22,6 +22,8 @@ const impl<Reg> Instruction for ZifenceiInstruction<Reg>
 where
     Reg: [const] Register,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -38,11 +40,6 @@ where
         // `rd`, `rs1` and the immediate are all reserved and must be ignored by implementations
         // rather than checked, so any encoding with funct3=001 in this opcode is a valid `fence.i`
         Some(Self::FenceI)
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

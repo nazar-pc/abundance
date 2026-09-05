@@ -24,6 +24,8 @@ const impl<Reg> Instruction for ZawrsInstruction<Reg>
 where
     Reg: [const] Register,
 {
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
     type Reg = Reg;
 
     #[inline(always)]
@@ -40,11 +42,6 @@ where
             (0b111_0011, 0b000, 0, 0, 0x01d) => Some(Self::WrsSto),
             _ => None,
         }
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        align_of::<u32>() as u8
     }
 
     #[inline(always)]

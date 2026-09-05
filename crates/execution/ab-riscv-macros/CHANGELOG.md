@@ -1,5 +1,10 @@
 # Unreleased
 
+Breaking changes:
+
+* `#[instruction]` now takes instruction alignment from an `ALIGNMENT` associated constant instead of an `alignment()`
+  method
+
 Improvements:
 
 * Support instruction macros in non-src directories (tests, examples, etc.)

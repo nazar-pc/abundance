@@ -70,13 +70,13 @@ pub(super) fn collect_original_enum_decoding_impls_from_dependencies()
 
 pub(super) struct InstructionImplBlocks<'a> {
     try_decode: &'a Block,
-    alignment: &'a Block,
+    alignment: &'a Expr,
     size: &'a Block,
 }
 
 pub(super) struct InstructionImplBlocksMut<'a> {
     try_decode: &'a mut Block,
-    alignment: &'a mut Block,
+    alignment: &'a mut Expr,
     size: &'a mut Block,
 }
 
@@ -88,13 +88,17 @@ fn extract_instruction_blocks_from_impl(
     let mut size = None;
 
     for item in impl_items {
-        if let ImplItem::Fn(impl_item_fn) = item {
-            match impl_item_fn.sig.ident.to_string().as_str() {
+        match item {
+            ImplItem::Const(impl_item_const) => {
+                if impl_item_const.ident == "ALIGNMENT" {
+                    alignment.replace(&impl_item_const.expr);
+                } else {
+                    // Something else
+                }
+            }
+            ImplItem::Fn(impl_item_fn) => match impl_item_fn.sig.ident.to_string().as_str() {
                 "try_decode" => {
                     try_decode.replace(&impl_item_fn.block);
-                }
-                "alignment" => {
-                    alignment.replace(&impl_item_fn.block);
                 }
                 "size" => {
                     size.replace(&impl_item_fn.block);
@@ -102,6 +106,9 @@ fn extract_instruction_blocks_from_impl(
                 _ => {
                     // Something else
                 }
+            },
+            _ => {
+                // Something else
             }
         }
     }
@@ -121,13 +128,17 @@ fn extract_instruction_blocks_from_impl_mut(
     let mut size = None;
 
     for item in impl_items {
-        if let ImplItem::Fn(impl_item_fn) = item {
-            match impl_item_fn.sig.ident.to_string().as_str() {
+        match item {
+            ImplItem::Const(impl_item_const) => {
+                if impl_item_const.ident == "ALIGNMENT" {
+                    alignment.replace(&mut impl_item_const.expr);
+                } else {
+                    // Something else
+                }
+            }
+            ImplItem::Fn(impl_item_fn) => match impl_item_fn.sig.ident.to_string().as_str() {
                 "try_decode" => {
                     try_decode.replace(&mut impl_item_fn.block);
-                }
-                "alignment" => {
-                    alignment.replace(&mut impl_item_fn.block);
                 }
                 "size" => {
                     size.replace(&mut impl_item_fn.block);
@@ -135,6 +146,9 @@ fn extract_instruction_blocks_from_impl_mut(
                 _ => {
                     // Something else
                 }
+            },
+            _ => {
+                // Something else
             }
         }
     }
@@ -275,8 +289,8 @@ pub(super) fn process_enum_decoding_impl(
 
     let Some(blocks) = extract_instruction_blocks_from_impl_mut(&mut item_impl.items) else {
         return Err(anyhow::anyhow!(
-            "Expected `#[instruction] impl Instruction for {}` to contain `try_decode`, \
-            `alignment`, and `size` methods, but at least one was not found",
+            "Expected `#[instruction] impl Instruction for {}` to contain an `ALIGNMENT` constant \
+            and `try_decode` and `size` methods, but at least one was not found",
             item_impl.self_ty.to_token_stream()
         ));
     };
@@ -416,9 +430,10 @@ pub(super) fn process_enum_decoding_impl(
 
     add_missing_rs_fields(try_decode_block);
 
-    // Process `alignment()` method: combine all unique bodies with `.min(...)` calls, keeping
-    // the own block last. Bodies that are token-identical are deduplicated to avoid redundant
-    // comparisons at runtime.
+    // Process `ALIGNMENT` constant: the instruction set can start an instruction wherever any of
+    // the instruction sets it is composed of can, which is the smallest alignment of all of them.
+    // Initializers that are token-identical are deduplicated, and comparisons are spelled out
+    // rather than done with `Ord::min()`, which is not usable in a constant.
     if !all_dependency_alignment_blocks.is_empty() {
         let own_tokens = alignment_block.to_token_stream().to_string();
 
@@ -430,13 +445,16 @@ pub(super) fn process_enum_decoding_impl(
 
         if unique_dep_blocks.peek().is_some() {
             *alignment_block = parse_quote! {{
-                #[expect(clippy::allow_attributes, reason = "Attribute below")]
-                #[allow(
-                    unused_braces,
-                    reason = "Combining blocks often results in `.min({expr})`, where `{expr}` is \
-                    very simple, which makes `{}` redundant"
-                )]
-                { #alignment_block #( .min(#unique_dep_blocks) )* }
+                let mut alignment = #alignment_block;
+                #(
+                    {
+                        let dependency_alignment = #unique_dep_blocks;
+                        if dependency_alignment < alignment {
+                            alignment = dependency_alignment;
+                        }
+                    }
+                )*
+                alignment
             }};
         }
     }
@@ -513,12 +531,17 @@ pub(super) fn process_enum_decoding_impl(
                     .then_some(dependency_enum_name)
             });
 
-    item_impl.items.push(parse_quote! {
-        const IMPLEMENTED_EXTENSIONS: &'static [::core::any::TypeId] = &[
-            ::core::any::TypeId::of::<Self>(),
-            #( ::core::any::TypeId::of::<#implemented_extensions<Reg>>(), )*
-        ];
-    });
+    // Associated constants come before everything else in an implementation, and the constant
+    // taken from the implementation being processed is already the first item in it
+    item_impl.items.insert(
+        0,
+        parse_quote! {
+            const IMPLEMENTED_EXTENSIONS: &'static [::core::any::TypeId] = &[
+                ::core::any::TypeId::of::<Self>(),
+                #( ::core::any::TypeId::of::<#implemented_extensions<Reg>>(), )*
+            ];
+        },
+    );
 
     output_processed_enum_decoding_impl(&enum_name, original_item_impl, item_impl, out_dir, state)
 }

@@ -482,7 +482,7 @@ where
         // nothing else is allowed to look at it
         self.pc = pc;
 
-        pc != self.return_trap_address && pc.as_u64().is_multiple_of(u64::from(I::alignment()))
+        pc != self.return_trap_address && pc.as_u64().is_multiple_of(u64::from(I::ALIGNMENT))
     }
 
     #[cold]
@@ -509,7 +509,7 @@ where
             return Ok(ControlFlow::Break(()));
         }
 
-        if !pc.as_u64().is_multiple_of(u64::from(I::alignment())) {
+        if !pc.as_u64().is_multiple_of(u64::from(I::ALIGNMENT)) {
             cold_path();
             return Err(ExecutionError::UnalignedInstruction {
                 address: PackedAddress::new(pc),
