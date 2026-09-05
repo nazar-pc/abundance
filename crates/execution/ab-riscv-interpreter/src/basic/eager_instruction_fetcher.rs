@@ -9,7 +9,6 @@ use crate::{
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::alloc::{alloc, dealloc, handle_alloc_error};
-use alloc::vec::Vec;
 use core::alloc::Layout;
 use core::hint::cold_path;
 use core::marker::PhantomData;
@@ -127,51 +126,18 @@ where
     /// `instructions_len` decoded instructions
     fn allocation_layout(instructions_len: usize) -> Layout {
         let (layout, instructions_offset) = Layout::new::<BasicEagerInstructionFetcherState<I>>()
-            .extend(
-                Layout::array::<I>(instructions_len)
-                    .expect("Decoded instructions fit into memory, they were just allocated; qed"),
-            )
-            .expect("Decoded instructions fit into memory, they were just allocated; qed");
+            .extend(Layout::array::<I>(instructions_len).expect(
+                "Decoded stream that doesn't fit into the address space can't be allocated \
+                anyway; qed",
+            ))
+            .expect(
+                "Decoded stream that doesn't fit into the address space can't be allocated \
+                anyway; qed",
+            );
 
         debug_assert_eq!(instructions_offset, Self::INSTRUCTIONS_OFFSET);
 
         layout.pad_to_align()
-    }
-
-    fn instantiate(
-        instructions: &[I],
-        base_addr: Address<I>,
-        return_trap_address: Address<I>,
-    ) -> Self {
-        let instructions_len = instructions.len();
-        let layout = Self::allocation_layout(instructions_len);
-        // SAFETY: The state itself is always there, so the layout has non-zero size
-        let state = unsafe { alloc(layout) }.cast::<BasicEagerInstructionFetcherState<I>>();
-        let Some(state) = NonNull::new(state) else {
-            handle_alloc_error(layout);
-        };
-
-        // SAFETY: Freshly allocated for exactly this type, correctly aligned
-        unsafe {
-            state.write(BasicEagerInstructionFetcherState {
-                instructions_len,
-                base_addr,
-                return_trap_address,
-            });
-        }
-
-        let instance = Self { state };
-
-        // SAFETY: The allocation was made for exactly this many instructions and is distinct from
-        // the ones being copied in
-        unsafe {
-            instance.instructions().copy_from_nonoverlapping(
-                NonNull::from(instructions).cast::<I>(),
-                instructions_len,
-            );
-        }
-
-        instance
     }
 
     /// Pointer to the first decoded instruction
@@ -281,49 +247,72 @@ where
         return_trap_address: Address<I>,
         base_addr: Address<I>,
     ) -> Self {
-        // Exactly as many slots as there are alignment steps of guest code, which is what the
-        // capacity below is, so this never grows the allocation
-        let mut decoded_instructions =
-            Vec::<I>::with_capacity(instructions.len() / Self::GUEST_BYTES_PER_SLOT);
+        // Exactly as many slots as there are whole alignment steps of guest code, trailing bytes
+        // that do not make up one have nothing to decode into
+        let instructions_len = instructions.len() / Self::GUEST_BYTES_PER_SLOT;
+        let layout = Self::allocation_layout(instructions_len);
+        // SAFETY: The state itself is always there, so the layout has non-zero size
+        let state = unsafe { alloc(layout) }.cast::<BasicEagerInstructionFetcherState<I>>();
+        let Some(state) = NonNull::new(state) else {
+            handle_alloc_error(layout);
+        };
 
-        let mut offset = 0;
-        while let Some(instruction) = Self::decode_instruction(instructions, offset, fallback) {
-            decoded_instructions.push(instruction);
-            offset += Self::GUEST_BYTES_PER_SLOT;
+        // SAFETY: Freshly allocated for exactly this type, correctly aligned
+        unsafe {
+            state.write(BasicEagerInstructionFetcherState {
+                instructions_len,
+                base_addr,
+                return_trap_address,
+            });
         }
 
-        Self::instantiate(&decoded_instructions, base_addr, return_trap_address)
+        // The decoded instructions are uninitialized until the loop below writes every one of them,
+        // and nothing reads them in between. Instructions are `Copy`, so even dropping the instance
+        // in that state would just deallocate.
+        let instance = Self { state };
+        let decoded_instructions = instance.instructions();
+
+        for slot_index in 0..instructions_len {
+            let offset = slot_index * Self::GUEST_BYTES_PER_SLOT;
+            let instruction = Self::decode_instruction(instructions, offset, fallback);
+
+            // SAFETY: The allocation was made for exactly `instructions_len` instructions, and
+            // this writes each of them once
+            unsafe {
+                decoded_instructions.add(slot_index).write(instruction);
+            }
+        }
+
+        instance
     }
 
-    /// Decode the instruction that the decoded stream's slot at `offset` bytes into `instructions`
-    /// holds, returning `None` once there is no whole alignment step of guest code left there for
-    /// a slot to correspond to.
+    /// Decode the instruction that the decoded stream's slot starting `offset` bytes into
+    /// `instructions` holds.
+    ///
+    /// The caller iterates over exactly the slots that whole alignment steps of guest code make up,
+    /// so there is always at least one such step left at `offset`.
     ///
     /// This is where all of the decoding lives, so that what remains of [`Self::decode()`] is the
     /// allocation, which is the only part of it that can't be proven panic-free.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn decode_instruction(instructions: &[u8], offset: usize, fallback: I) -> Option<I> {
-        let instruction_bytes = instructions.get(offset..)?;
-
-        if instruction_bytes.len() < Self::GUEST_BYTES_PER_SLOT {
-            return None;
-        }
-
-        let instruction = match instruction_bytes {
-            [byte_0, byte_1, byte_2, byte_3, ..] => {
+    fn decode_instruction(instructions: &[u8], offset: usize, fallback: I) -> I {
+        let instruction = match instructions.get(offset..) {
+            Some([byte_0, byte_1, byte_2, byte_3, ..]) => {
                 u32::from_le_bytes([*byte_0, *byte_1, *byte_2, *byte_3])
             }
             // Only reachable where instructions may be compressed: the last halfword of guest code
             // has nothing following it to read, so it is zero-extended into a word, which decodes
             // only if it is a compressed instruction
-            [byte_0, byte_1, ..] => u32::from_le_bytes([*byte_0, *byte_1, 0, 0]),
+            Some([byte_0, byte_1, ..]) => u32::from_le_bytes([*byte_0, *byte_1, 0, 0]),
+            // Not reachable through the above, and a slot with less than a halfword of guest code
+            // has nothing that could decode anyway
             _ => {
-                return None;
+                return fallback;
             }
         };
 
-        Some(I::try_decode(instruction).unwrap_or(fallback))
+        I::try_decode(instruction).unwrap_or(fallback)
     }
 }
 
