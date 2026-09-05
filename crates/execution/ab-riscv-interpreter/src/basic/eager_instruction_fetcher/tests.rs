@@ -55,11 +55,15 @@ fn new_instructions(return_trap_address: u64) -> BasicEagerInstructions<I> {
 }
 
 #[test]
-fn every_halfword_of_guest_code_owns_a_slot() {
+fn every_alignment_step_of_guest_code_owns_a_slot() {
+    // This instruction set has no compressed instructions, so its slots are words rather than
+    // halfwords and there is nothing to decode in the middle of an instruction
+    assert_eq!(I::ALIGNMENT, size_of::<u32>() as u8);
+
     let code = code();
 
     // Including guest code that ends in the middle of an instruction, which decodes as far as
-    // whole halfwords go and leaves the odd byte out
+    // whole alignment steps go and leaves the trailing bytes out
     for len in 0..=code.len() {
         // SAFETY: Nothing is executed here, only the decoded stream is inspected, so what
         // execution may reach doesn't come into play
@@ -68,7 +72,7 @@ fn every_halfword_of_guest_code_owns_a_slot() {
 
         assert_eq!(
             instructions.instructions_len(),
-            len / size_of::<u16>(),
+            len / usize::from(I::ALIGNMENT),
             "{len} bytes of guest code"
         );
     }
@@ -198,9 +202,8 @@ fn branch_to_an_unaligned_target_is_rejected() {
 
 #[test]
 fn branch_into_the_middle_of_an_instruction_is_rejected() {
-    // The decoded stream has a slot per halfword of guest code, but this instruction set has
-    // no compressed instructions, so a halfword-aligned target lands between two instructions
-    // and must be refused rather than executed as whatever those bytes decoded to
+    // This instruction set has no compressed instructions, so a halfword-aligned target lands
+    // between two instructions and must be refused rather than rounded to one
     assert_eq!(I::ALIGNMENT, size_of::<u32>() as u8);
 
     let instructions = new_instructions(0);

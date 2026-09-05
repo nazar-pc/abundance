@@ -45,11 +45,13 @@ where
 /// decoded program in memory and of not seeing writes the program makes to the memory it was
 /// decoded from.
 ///
-/// The decoded stream has one slot per [`size_of::<u16>()`](size_of) bytes of guest code, which is
-/// the granularity at which RISC-V instructions can start. The second half of a 32-bit instruction
-/// gets a slot of its own that is only ever reached by jumping into the middle of an instruction,
-/// which [`BasicEagerInstructionFetcher`] refuses on instruction sets where such an address is not
-/// aligned, and which executes whatever those bytes decode to on instruction sets where it is.
+/// The decoded stream has one slot per [`Instruction::ALIGNMENT`] bytes of guest code, which is
+/// the granularity at which an instruction of this instruction set can start, and what makes an
+/// address a position within the stream and back. With compressed instructions that is a halfword,
+/// so the second half of a 32-bit instruction gets a slot of its own, holding whatever those bytes
+/// decode to, which is only ever reached by jumping into the middle of an instruction. Without
+/// them, no address in the middle of an instruction is aligned in the first place, so there is
+/// nothing to hold a slot for and the stream is half the size.
 ///
 /// Ownership of the allocation lives here rather than in the fetcher because the fetcher is moved
 /// through tail-called instruction handlers by value. A destructor on it would make every handler
@@ -105,6 +107,21 @@ where
     /// [`Self::state`] points at
     const INSTRUCTIONS_OFFSET: usize =
         size_of::<BasicEagerInstructionFetcherState<I>>().next_multiple_of(align_of::<I>());
+    /// Bytes of guest code that one slot of the decoded stream corresponds to.
+    ///
+    /// This is what turns a guest address into a position within the decoded stream and back, so
+    /// an instruction set whose slot is not a whole number of alignment steps has no such mapping
+    /// and is refused right here, at compile time.
+    const GUEST_BYTES_PER_SLOT: usize = {
+        assert!(
+            size_of::<I>().is_multiple_of(usize::from(I::ALIGNMENT)),
+            "Decoded instruction size must be a multiple of instruction alignment"
+        );
+
+        usize::from(I::ALIGNMENT)
+    };
+    /// Bytes of the decoded stream that one byte of guest code covers
+    const STREAM_BYTES_PER_GUEST_BYTE: usize = size_of::<I>() / Self::GUEST_BYTES_PER_SLOT;
 
     /// Layout of the allocation holding [`BasicEagerInstructionFetcherState`] followed by
     /// `instructions_len` decoded instructions
@@ -216,7 +233,7 @@ where
         }
 
         let instruction_offset =
-            (pc.as_u64() - self.base_addr().as_u64()) as usize / size_of::<u16>();
+            (pc.as_u64() - self.base_addr().as_u64()) as usize / Self::GUEST_BYTES_PER_SLOT;
 
         BasicEagerInstructionFetcher {
             // SAFETY: Guaranteed by function contract, meaning `instruction_offset` is within
@@ -232,11 +249,11 @@ where
     /// `base_addr` is the guest address of the first instruction and `return_trap_address` is the
     /// address at which the interpreter will stop execution (gracefully).
     ///
-    /// Every halfword of guest code owns a slot of the decoded stream, including the second half
-    /// of a 32-bit instruction, which is only ever reached by jumping into the middle of one. Such
-    /// a slot may or may not decode into a valid instruction on its own, and `fallback` is what is
-    /// stored when it doesn't, so it only has to fail when executed (`unimp` is the canonical
-    /// choice).
+    /// Every [`Instruction::ALIGNMENT`] bytes of guest code own a slot of the decoded stream,
+    /// including, where instructions may be compressed, the second half of a 32-bit instruction,
+    /// which is only ever reached by jumping into the middle of one. Such a slot may or may not
+    /// decode into a valid instruction on its own, and `fallback` is what is stored when it
+    /// doesn't, so it only has to fail when executed (`unimp` is the canonical choice).
     ///
     /// # Safety
     /// Execution of the resulting instruction stream skips the checks that
@@ -264,34 +281,42 @@ where
         return_trap_address: Address<I>,
         base_addr: Address<I>,
     ) -> Self {
-        // Exactly as many slots as there are halfwords of guest code, which is what the capacity
-        // below is, so this never grows the allocation
+        // Exactly as many slots as there are alignment steps of guest code, which is what the
+        // capacity below is, so this never grows the allocation
         let mut decoded_instructions =
-            Vec::<I>::with_capacity(instructions.len() / size_of::<u16>());
+            Vec::<I>::with_capacity(instructions.len() / Self::GUEST_BYTES_PER_SLOT);
 
         let mut offset = 0;
         while let Some(instruction) = Self::decode_instruction(instructions, offset, fallback) {
             decoded_instructions.push(instruction);
-            offset += size_of::<u16>();
+            offset += Self::GUEST_BYTES_PER_SLOT;
         }
 
         Self::instantiate(&decoded_instructions, base_addr, return_trap_address)
     }
 
     /// Decode the instruction that the decoded stream's slot at `offset` bytes into `instructions`
-    /// holds, returning `None` once `offset` is past the last halfword of guest code.
+    /// holds, returning `None` once there is no whole alignment step of guest code left there for
+    /// a slot to correspond to.
     ///
     /// This is where all of the decoding lives, so that what remains of [`Self::decode()`] is the
     /// allocation, which is the only part of it that can't be proven panic-free.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn decode_instruction(instructions: &[u8], offset: usize, fallback: I) -> Option<I> {
-        let instruction = match instructions.get(offset..)? {
+        let instruction_bytes = instructions.get(offset..)?;
+
+        if instruction_bytes.len() < Self::GUEST_BYTES_PER_SLOT {
+            return None;
+        }
+
+        let instruction = match instruction_bytes {
             [byte_0, byte_1, byte_2, byte_3, ..] => {
                 u32::from_le_bytes([*byte_0, *byte_1, *byte_2, *byte_3])
             }
-            // A halfword at the very end of the guest code has nothing following it to read, so it
-            // is zero-extended into a word, which only decodes if it is a compressed instruction
+            // Only reachable where instructions may be compressed: the last halfword of guest code
+            // has nothing following it to read, so it is zero-extended into a word, which decodes
+            // only if it is a compressed instruction
             [byte_0, byte_1, ..] => u32::from_le_bytes([*byte_0, *byte_1, 0, 0]),
             _ => {
                 return None;
@@ -354,8 +379,9 @@ where
 
         Address::<I>::truncate_from_u64(
             self.base_addr().as_u64()
-                + decoded_instruction_byte_offset as u64 * size_of::<u16>() as u64
-                    / size_of::<I>() as u64,
+                + (decoded_instruction_byte_offset
+                    / BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE)
+                    as u64,
         )
     }
 
@@ -374,9 +400,10 @@ where
         // is advanced during instruction fetching, so that instruction starts `instruction_size`
         // bytes back.
         let offset = (offset as isize).wrapping_sub(isize::from(instruction_size));
-        // Every `size_of::<u16>()` of guest code owns one decoded instruction, so the target is
+        // Every alignment step of guest code owns one decoded instruction, so the target is
         // reached by moving within the decoded stream
-        let byte_delta = offset * (size_of::<I>() / size_of::<u16>()).cast_signed();
+        let byte_delta =
+            offset * BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.cast_signed();
         // This may land outside the decoded stream (including before its start), which is fine:
         // `wrapping_byte_offset()` only computes an address, it never dereferences the pointer, and
         // the bounds check below rejects such a target before it is ever used
@@ -399,7 +426,7 @@ where
         // it could drift, such a target simply fails to qualify, as does one past the end of the
         // decoded stream, which a backwards branch that ran off its start wraps around into.
         decoded_instruction_byte_offset < self.instructions_len() * size_of::<I>()
-            && decoded_instruction_byte_offset.is_multiple_of(Self::alignment_byte_step())
+            && decoded_instruction_byte_offset.is_multiple_of(size_of::<I>())
     }
 
     /// Turns the refused target back into an address and hands it to [`Self::set_pc()`], which is
@@ -419,12 +446,13 @@ where
             .addr()
             .wrapping_sub(self.instructions().as_ptr().addr())
             .cast_signed();
-        // Every `size_of::<u16>()` of guest code owns one decoded instruction, and the position is
-        // always that many bytes from the start of the stream, so this is exact
+        // Every alignment step of guest code owns one decoded instruction, and the position is
+        // always a whole number of them from the start of the stream, so this is exact
         let address =
             Address::<I>::truncate_from_u64(self.base_addr().as_u64().wrapping_add_signed(
                 (decoded_instruction_byte_offset
-                    / (size_of::<I>() / size_of::<u16>()).cast_signed()) as i64,
+                    / BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.cast_signed())
+                    as i64,
             ));
 
         self.set_pc(memory, address)
@@ -457,7 +485,8 @@ where
                 address: PackedAddress::new(address),
             });
         };
-        let instruction_offset = offset as usize / size_of::<u16>();
+        let instruction_offset =
+            offset as usize / BasicEagerInstructions::<I>::GUEST_BYTES_PER_SLOT;
 
         if instruction_offset >= self.instructions_len() {
             cold_path();
@@ -490,7 +519,8 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     unsafe fn advance(&mut self, instruction_size: u8) {
-        let byte_advance = usize::from(instruction_size) / size_of::<u16>() * size_of::<I>();
+        let byte_advance = usize::from(instruction_size)
+            * BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE;
         // Wrapping because nothing here dereferences the pointer: the contract of this method is
         // what makes the resulting position a decoded instruction, and the bounds check that
         // matters lives in `set_pc()`
@@ -525,13 +555,6 @@ impl<I> BasicEagerInstructionFetcher<'_, I>
 where
     I: Instruction,
 {
-    /// Distance within the decoded stream that one instruction alignment step of guest code covers
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn alignment_byte_step() -> usize {
-        usize::from(I::ALIGNMENT) / size_of::<u16>() * size_of::<I>()
-    }
-
     /// Pointer to the first decoded instruction
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
