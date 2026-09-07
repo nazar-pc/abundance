@@ -118,7 +118,7 @@ jobs:
             name: Install kache
             uses: kunobi-ninja/kache-action@78ff455251aa37139061201a39113a1924994035 # v1 is a moving target
             with:
-              version: v0.16.0
+              version: v0.17.0
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               cache-executables: 'true'
