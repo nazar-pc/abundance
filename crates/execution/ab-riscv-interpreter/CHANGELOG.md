@@ -8,6 +8,7 @@ New features:
 
 * `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature): a high-performance generic
   instruction fetcher that decodes the whole program upfront into a single heap allocation
+* Several examples with various levels of complexity
 
 Improvements:
 

@@ -16,6 +16,23 @@
 //! Does not require a standard library (`no_std`) or an allocator, never panics, almost 100% of the
 //! API abstractions are usable in const, including several extensions beyond base ISA.
 //!
+//! ## Examples
+//!
+//! `examples` directory contains runnable examples, in increasing order of complexity. Each of them
+//! executes a small program written in ordinary safe Rust and compiled for a bare-metal RISC-V
+//! target, see `examples/guests/README.md`:
+//! * `hello` is the smallest configuration that runs a real program: RV32I with no extensions and
+//!   no `unsafe` anywhere
+//! * `checksum` composes RV64IMAC with the `#[instruction]` macro, together with an execution
+//!   environment that provides what those extensions ask for, including handling of the guest's
+//!   syscalls
+//! * `vector-sum` runs a vectorized guest and shows the vector CSRs and register file an execution
+//!   environment has to provide for it
+//! * `dot-product` (needs the `alloc` feature) is the same thing built for speed: an environment
+//!   that keeps those CSRs decoded, eagerly decoded instructions and threaded dispatch
+//!
+//! For example, `cargo run --release --example dot-product --features alloc`.
+//!
 //! ## Supported ISA variants and extensions
 //!
 //! ISA variants:
