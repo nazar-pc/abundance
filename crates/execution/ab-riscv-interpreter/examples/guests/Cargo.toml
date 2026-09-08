@@ -1,0 +1,18 @@
+[workspace]
+# Deliberately not a member of the repository workspace: these are guest programs compiled for RISC-V
+
+[package]
+name = "ab-riscv-interpreter-guests"
+description = "Guest programs executed by `ab-riscv-interpreter` examples"
+license = "0BSD"
+version = "0.0.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+publish = false
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+strip = true
+

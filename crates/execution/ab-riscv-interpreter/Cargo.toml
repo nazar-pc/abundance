@@ -10,6 +10,7 @@ version = "0.3.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
+    "/examples",
     "/src",
     "/build.rs",
     "/Cargo.toml",
@@ -21,6 +22,10 @@ links = "ab-riscv-interpreter"
 [package.metadata.docs.rs]
 all-features = false
 
+[[example]]
+name = "dot-product"
+required-features = ["alloc"]
+
 [dependencies]
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
@@ -31,6 +36,10 @@ thiserror = { workspace = true }
 
 [target.'cfg(all(target_arch = "x86_64", not(target_feature = "avx")))'.dependencies]
 cpufeatures = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+object = { workspace = true, features = ["elf", "read_core"] }
 
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }
