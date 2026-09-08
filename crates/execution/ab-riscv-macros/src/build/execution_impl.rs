@@ -21,8 +21,8 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter};
 use syn::{
-    FnArg, Ident, ImplItem, ImplItemFn, Item, ItemFn, ItemImpl, Member, Pat, PatType, Token,
-    parse_file, parse_quote, parse_str,
+    Attribute, FnArg, Ident, ImplItem, ImplItemFn, Item, ItemFn, ItemImpl, Member, Pat, PatType,
+    Token, parse_file, parse_quote, parse_str,
 };
 
 const ORIGINAL_ENUM_EXECUTION_IMPL_ENV_VAR_SUFFIX: &str =
@@ -87,6 +87,11 @@ pub(super) fn collect_original_enum_execution_impls_from_dependencies()
 
         Some(result)
     })
+}
+
+/// Whether an attribute is the `no_panic` one that low-level implementations carry
+fn is_no_panic_attr(attr: &Attribute) -> bool {
+    attr.path().is_ident("cfg_attr") && attr.to_token_stream().to_string().contains("no_panic")
 }
 
 fn extract_prepare_csr_read_fn(item_impl: &ItemImpl) -> Option<&ImplItemFn> {
@@ -526,6 +531,10 @@ pub(super) fn process_enum_csr_impl(
             .iter()
             .map(|impl_item_fn| &impl_item_fn.block);
         let mut base_fn = first_prepare_csr_read_fn.clone();
+        // An implementation opts into the `no_panic` check by carrying the attribute on the method
+        // it defines, and this one defines no method at all, so the attribute of whichever
+        // dependency the method was cloned from does not carry over
+        base_fn.attrs.retain(|attr| !is_no_panic_attr(attr));
         base_fn.block = parse_quote! {{
             let mut accepted_by_at_least_one = false;
             #( if #all_prepare_csr_read_blocks? { accepted_by_at_least_one = true; } )*
@@ -566,6 +575,10 @@ pub(super) fn process_enum_csr_impl(
             .iter()
             .map(|impl_item_fn| &impl_item_fn.block);
         let mut base_fn = first_prepare_csr_write_fn.clone();
+        // An implementation opts into the `no_panic` check by carrying the attribute on the method
+        // it defines, and this one defines no method at all, so the attribute of whichever
+        // dependency the method was cloned from does not carry over
+        base_fn.attrs.retain(|attr| !is_no_panic_attr(attr));
         base_fn.block = parse_quote! {{
             let mut accepted_by_at_least_one = false;
             #( if #all_prepare_csr_write_blocks? { accepted_by_at_least_one = true; } )*
@@ -648,9 +661,7 @@ pub(super) fn process_enum_execution_impl(
 
     // Support for `no_panic` macro, which is moved from the method to each extracted instruction
     // execution function
-    let no_panic_attr_index = execute_fn.attrs.iter().position(|attr| {
-        attr.path().is_ident("cfg_attr") && attr.to_token_stream().to_string().contains("no_panic")
-    });
+    let no_panic_attr_index = execute_fn.attrs.iter().position(is_no_panic_attr);
     let no_panic_attr = no_panic_attr_index.map(|index| execute_fn.attrs.remove(index));
 
     let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
