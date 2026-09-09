@@ -5,7 +5,7 @@ pub mod zvexx;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::{RegType, Register};
 use core::any::TypeId;
-use core::hint::cold_path;
+use core::hint::{assert_unchecked, cold_path};
 use core::marker::ConstParamTy;
 use core::num::NonZeroU8;
 use core::ops::RangeInclusive;
@@ -576,23 +576,37 @@ impl Vsew {
     /// Element width in bits
     #[inline(always)]
     pub const fn bits_width(self) -> u8 {
-        match self {
+        let bits: u8 = match self {
             Self::E8 => 8,
             Self::E16 => 16,
             Self::E32 => 32,
             Self::E64 => 64,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bits.is_power_of_two());
         }
+        bits
     }
 
     /// Element width in bytes
     #[inline(always)]
     pub const fn bytes_width(self) -> u8 {
-        match self {
+        let bytes: u8 = match self {
             Self::E8 => 1,
             Self::E16 => 2,
             Self::E32 => 4,
             Self::E64 => 8,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bytes.is_power_of_two());
         }
+        bytes
     }
 
     /// Convert to the corresponding `Eew` variant.
@@ -670,12 +684,19 @@ impl Eew {
     /// Element width in bits
     #[inline(always)]
     pub const fn bits_width(self) -> u8 {
-        match self {
+        let bits: u8 = match self {
             Self::E8 => 8,
             Self::E16 => 16,
             Self::E32 => 32,
             Self::E64 => 64,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bits.is_power_of_two());
         }
+        bits
     }
 
     /// Element width in bytes.
