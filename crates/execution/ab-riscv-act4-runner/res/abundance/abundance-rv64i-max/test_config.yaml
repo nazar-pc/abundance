@@ -1,10 +1,7 @@
 # ACT4 framework top-level config for the abundance RV64I-max core.
 #
-# compiler_exe: clang, targeting riscv64 (lp64 ABI, no F/D) via --target=riscv64/-fuse-ld=lld,
-#   which the framework adds automatically once "clang" is detected in compiler_exe.
+# compiler_exe: riscv64-unknown-elf-gcc on $PATH, targeting lp64 ABI (no F/D).
 #   The march string must match the extensions in abundance-rv64i-max.yaml.
-#
-# objdump_exe: llvm-objdump, matching the Clang/LLVM toolchain (llvm-nm is derived from it).
 #
 # ref_model_exe: sail_riscv_sim on $PATH.
 #   Run `sail_riscv_sim --help` to verify the binary name on your system;
@@ -38,8 +35,8 @@
 #   as no-ops) - that would let InterruptsSm and ZawrsSm's timer-interrupt bins run too.
 
 name: abundance-rv64i-max
-compiler_exe: clang-22
-objdump_exe: llvm-objdump-22
+compiler_exe: riscv64-unknown-elf-gcc
+objdump_exe: riscv64-unknown-elf-objdump
 ref_model_exe: sail_riscv_sim
 udb_config: abundance-rv64i-max.yaml
 linker_script: link.ld

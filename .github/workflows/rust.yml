@@ -791,7 +791,7 @@ jobs:
 
   act4:
     env:
-      ACT4_REPO_REVISION: f7ba06c3d1a01428b172fe851ab56931a0624fee
+      ACT4_RELEASE: sha-6e8a45123f14cebfb3df151a0e7b849b4389b33b # 4.1.0
 
     strategy:
       matrix:
@@ -815,7 +815,7 @@ jobs:
             | xargs -0 sha256sum \
             | sha256sum \
             | cut -d' ' -f1)
-          COMBINED=$(printf '%s\n%s\n' "${ACT4_REPO_REVISION}" "${RES_HASH}" \
+          COMBINED=$(printf '%s\n%s\n' "${ACT4_RELEASE}" "${RES_HASH}" \
             | sha256sum \
             | cut -d' ' -f1)
           echo "value=${COMBINED}" >> $GITHUB_OUTPUT
@@ -832,32 +832,9 @@ jobs:
       - name: Download toolchain
         run: rustc --version
 
-      - name: Clone ACT4 repo
-        run: |
-          git clone --depth 1 --revision="${ACT4_REPO_REVISION}" \
-            https://github.com/riscv/riscv-arch-test \
-            riscv-arch-test
-        if: steps.restore-cache.outputs.cache-hit != 'true'
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # 4.3.0
-        if: steps.restore-cache.outputs.cache-hit != 'true'
-
-      # TODO: Use official image once it is available: https://github.com/riscv/riscv-arch-test/pull/1161
-      - name: Build act4-build image
-        id: build
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # 7.3.0
-        with:
-          context: riscv-arch-test
-          file: crates/execution/ab-riscv-act4-runner/res/Dockerfile
-          cache-from: type=gha,scope=act4-build-${{ runner.arch }}
-          # Only save on `main` branch
-          cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=min,scope=act4-build-{0}', runner.arch) || '' }}
-          load: true
-        if: steps.restore-cache.outputs.cache-hit != 'true'
-
       - name: Build ELFs
         working-directory: crates/execution/ab-riscv-act4-runner
+        # TODO: Remove `make vector-tests` once enabled by default
         run: |
           mkdir -p work
           docker run --rm \
@@ -868,8 +845,8 @@ jobs:
             -e EXCLUDE_EXTENSIONS="InterruptsSm,ZawrsSm" \
             -e FAST=True \
             -e CLEAN_INTERMEDIATES=True \
-            ${{ steps.build.outputs.imageid }} \
-            make
+            ghcr.io/riscv/act4:${{ env.ACT4_RELEASE }} \
+            sh -c 'make vector-tests && make'
         if: steps.restore-cache.outputs.cache-hit != 'true'
 
       - parallel:
