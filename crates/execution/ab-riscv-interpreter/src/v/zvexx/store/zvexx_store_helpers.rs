@@ -8,7 +8,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Interpret `buf[..index_eew.bytes()]` as a little-endian unsigned integer and return it as
 /// `u64`. Used to convert a packed index element into a byte offset.
@@ -52,7 +51,7 @@ fn write_mem_element(
 pub fn validate_segment_store_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vs3: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -102,7 +101,7 @@ pub unsafe fn execute_unit_stride_store<Reg, Env, Memory>(
     vm: bool,
     base: u64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -180,7 +179,7 @@ pub unsafe fn execute_strided_store<Reg, Env, Memory>(
     base: u64,
     stride: i64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -253,7 +252,7 @@ pub unsafe fn execute_indexed_store<Reg, Env, Memory>(
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
-    data_group_regs: NonZeroU8,
+    data_group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where

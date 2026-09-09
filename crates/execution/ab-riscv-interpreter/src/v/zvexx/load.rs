@@ -63,7 +63,7 @@ where
                         ),
                     });
                 }
-                if !vd.to_bits().is_multiple_of(nreg) {
+                if !vd.is_group_aligned(nreg) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -72,7 +72,7 @@ where
                     });
                 }
                 let base = rs1_value.as_u64();
-                for reg_off in 0..nreg {
+                for reg_off in 0..nreg.get() {
                     // SAFETY: the decoder guarantees nreg in {1,2,4,8} and vd is nreg-aligned
                     // (checked above), so vd.to_bits() + nreg - 1 <= 31.
                     let reg = unsafe { VReg::from_bits(vd.to_bits() + reg_off).unwrap_unchecked() };
@@ -169,7 +169,7 @@ where
                         vd,
                         group_regs,
                         VReg::V0,
-                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                        VRegGroupSize::R1,
                     )
                 {
                     ::core::hint::cold_path();
@@ -242,7 +242,7 @@ where
                         vd,
                         group_regs,
                         VReg::V0,
-                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                        VRegGroupSize::R1,
                     )
                 {
                     ::core::hint::cold_path();
@@ -309,7 +309,7 @@ where
                         vd,
                         group_regs,
                         VReg::V0,
-                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                        VRegGroupSize::R1,
                     )
                 {
                     ::core::hint::cold_path();
@@ -411,7 +411,7 @@ where
                         vd,
                         data_group_regs,
                         VReg::V0,
-                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                        VRegGroupSize::R1,
                     )
                 {
                     ::core::hint::cold_path();
@@ -516,7 +516,7 @@ where
                         vd,
                         data_group_regs,
                         VReg::V0,
-                        ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                        VRegGroupSize::R1,
                     )
                 {
                     ::core::hint::cold_path();

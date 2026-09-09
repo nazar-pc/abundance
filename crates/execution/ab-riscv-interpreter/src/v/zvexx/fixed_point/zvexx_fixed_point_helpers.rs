@@ -12,7 +12,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Compute the rounding increment for a right shift of `val` by `shift` bits.
 ///
@@ -599,7 +598,7 @@ pub fn check_vs2_narrowing_alignment<Reg, Memory, PC>(
     vlmul: Vlmul,
     sew: Vsew,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -625,15 +624,13 @@ where
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     };
+    let aligned = vs2.is_group_aligned(wide_group);
     let wide_group = wide_group.get();
     let vs2_idx = vs2.to_bits();
     let vd_idx = vd.to_bits();
     let group_regs = group_regs.get();
     let overlaps = vd_idx < vs2_idx + wide_group && vs2_idx < vd_idx + group_regs;
-    if !vs2_idx.is_multiple_of(wide_group)
-        || vs2_idx + wide_group > 32
-        || (overlaps && vd_idx != vs2_idx)
-    {
+    if !aligned || vs2_idx + wide_group > 32 || (overlaps && vd_idx != vs2_idx) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

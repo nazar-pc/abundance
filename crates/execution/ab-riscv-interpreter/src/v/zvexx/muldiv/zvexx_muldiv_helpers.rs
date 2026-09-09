@@ -11,7 +11,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Whether a widening operation is representable for the given `SEW` and `ELEN`.
 ///
@@ -28,42 +27,6 @@ use core::num::NonZeroU8;
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn widening_eew_supported(sew: Vsew, elen: Elen) -> bool {
     u32::from(sew.bits_width()) * 2 <= u32::from(elen)
-}
-
-/// Compute the destination register count for a widening operation (`EMUL = 2 × LMUL`).
-///
-/// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`, i.e. when
-/// `LMUL` is already `M8` (EMUL would be 16) or the caller asks for a multiplication factor that
-/// pushes the fraction past the legal lower bound.
-///
-/// The register count returned is `max(1, EMUL)`: fractional EMUL values (1/2, 1/4) still occupy
-/// exactly one physical register.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn widening_dest_register_count(vlmul: Vlmul) -> Option<NonZeroU8> {
-    let (lmul_num, lmul_den) = vlmul.as_fraction();
-    // EMUL = 2 × LMUL = (2 * lmul_num) / lmul_den
-    let Some(emul_num) = 2u8.checked_mul(lmul_num.get()) else {
-        cold_path();
-        return None;
-    };
-    let emul_den = lmul_den.get();
-    // Reduce the fraction by GCD (both are powers of two so min works as GCD)
-    let g = emul_num.min(emul_den);
-    let (n, d) = (emul_num / g, emul_den / g);
-    // Legal EMUL fractions: 1/8, 1/4, 1/2, 1, 2, 4, 8
-    #[expect(clippy::unnested_or_patterns, reason = "Readability")]
-    let legal = matches!(
-        (n, d),
-        (1, 8) | (1, 4) | (1, 2) | (1, 1) | (2, 1) | (4, 1) | (8, 1)
-    );
-    if !legal {
-        cold_path();
-        return None;
-    }
-    // Register count: max(1, n/d) = n when d==1, else 1
-    Some(NonZeroU8::new(if d > 1 { 1 } else { n }).expect("Not zero; qed"))
 }
 
 /// Check that a narrower source register group does not *illegally* overlap the wider destination
@@ -91,8 +54,8 @@ pub fn check_no_widening_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     vs: VReg,
-    dest_group_regs: NonZeroU8,
-    src_group_regs: NonZeroU8,
+    dest_group_regs: VRegGroupSize,
+    src_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,

@@ -470,9 +470,8 @@ where
                         ),
                     });
                 }
-                let group_regs = vtype.vlmul().register_count().get();
-                let vd_idx = vd.to_bits();
-                if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+                let group_regs = vtype.vlmul().register_count();
+                if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -483,7 +482,7 @@ where
                 // vd must not overlap vs2; vs2 is always a single mask register (group size 1).
                 let vd_start = u32::from(vd.to_bits());
                 let vs2_start = u32::from(vs2.to_bits());
-                if vd_start < vs2_start + 1 && vs2_start < vd_start + u32::from(group_regs) {
+                if vd_start < vs2_start + 1 && vs2_start < vd_start + u32::from(group_regs.get()) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -527,9 +526,8 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count().get();
-                let vd_idx = vd.to_bits();
-                if !vd_idx.is_multiple_of(group_regs) || vd_idx + group_regs > 32 {
+                let group_regs = vtype.vlmul().register_count();
+                if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

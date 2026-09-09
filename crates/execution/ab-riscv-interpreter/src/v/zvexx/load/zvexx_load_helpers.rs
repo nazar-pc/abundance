@@ -6,7 +6,6 @@ use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, Virtua
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Return whether mask bit `i` is set in the mask byte slice.
 ///
@@ -59,7 +58,7 @@ pub(in super::super) unsafe fn snapshot_mask<const VLEN: Vlen>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn groups_overlap(a: VReg, a_regs: NonZeroU8, b: VReg, b_regs: NonZeroU8) -> bool {
+pub fn groups_overlap(a: VReg, a_regs: VRegGroupSize, b: VReg, b_regs: VRegGroupSize) -> bool {
     let (a, b) = (a.to_bits(), b.to_bits());
     a < b + b_regs.get() && b < a + a_regs.get()
 }
@@ -90,9 +89,9 @@ pub fn groups_overlap(a: VReg, a_regs: NonZeroU8, b: VReg, b_regs: NonZeroU8) ->
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn indexed_load_overlap_allowed(
     vd: VReg,
-    data_regs: NonZeroU8,
+    data_regs: VRegGroupSize,
     vs2: VReg,
-    index_regs: NonZeroU8,
+    index_regs: VRegGroupSize,
     index_eew: Eew,
     sew: Vsew,
     vlmul: Vlmul,
@@ -112,10 +111,9 @@ pub fn indexed_load_overlap_allowed(
         // whole-register EMUL from a fractional one clamped to a single register, so the EMUL is
         // recomputed here as `(index_eew / sew) * LMUL >= 1`.
         Ordering::Greater => {
-            let (lmul_num, lmul_den) = vlmul.as_fraction();
-            let index_emul_at_least_one = u16::from(index_eew.bits_width())
-                * u16::from(lmul_num.get())
-                >= u16::from(sew.bits_width()) * u16::from(lmul_den.get());
+            let index_emul_at_least_one = vlmul
+                .emul(index_eew, sew)
+                .is_some_and(|index_emul| !index_emul.is_fractional());
             let (vd, vs2) = (vd.to_bits(), vs2.to_bits());
             index_emul_at_least_one && vd + data_regs.get() == vs2 + index_regs.get()
         }
@@ -131,15 +129,13 @@ pub fn indexed_load_overlap_allowed(
 pub fn check_register_group_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let group_regs = group_regs.get();
-    let vd = vd.to_bits();
-    if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
+    if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -160,19 +156,20 @@ pub fn validate_segment_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     vm: bool,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vd.is_group_aligned(group_regs);
     let group_regs = u32::from(group_regs.get());
     let nf = u32::from(nf.fields_per_segment());
     let vd_idx = u32::from(vd.to_bits());
     // Per spec, `NFIELDS * EMUL` must not exceed 8 for segment loads/stores, regardless of whether
     // the field groups would otherwise fit within the 32 vector registers
-    if vd_idx % group_regs != 0 || nf * group_regs > 8 || vd_idx + nf * group_regs > 32 {
+    if !aligned || nf * group_regs > 8 || vd_idx + nf * group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -311,7 +308,7 @@ pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, Env, M
     vm: bool,
     base: u64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -438,7 +435,7 @@ pub unsafe fn execute_strided_load<Reg, Env, Memory>(
     base: u64,
     stride: i64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -530,7 +527,7 @@ pub unsafe fn execute_indexed_load<Reg, Env, Memory>(
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
-    data_group_regs: NonZeroU8,
+    data_group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where

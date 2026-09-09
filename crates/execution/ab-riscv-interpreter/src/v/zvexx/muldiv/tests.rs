@@ -1,15 +1,12 @@
 use crate::prelude::VLENB_USIZE;
 use crate::rv64::test_utils::{Env, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
-use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{
-    mulh_ss, mulhsu_su, mulhu_uu, widening_dest_register_count,
-};
+use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{mulh_ss, mulhsu_su, mulhu_uu};
 use crate::{
     ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
-use core::num::NonZeroU8;
 
 // With TEST_VLEN=256, VLENB=32:
 //   E8/M1  -> VLMAX=32, 1 reg
@@ -2347,41 +2344,4 @@ fn set_mask_bit_helper_works() {
             i * 2 + 1
         );
     }
-}
-
-#[test]
-fn widening_dest_register_count_values() {
-    // EMUL = 2 * LMUL:
-    // Mf8 (1/8) -> 2/8 = 1/4 -> 1 reg
-    // Mf4 (1/4) -> 2/4 = 1/2 -> 1 reg
-    // Mf2 (1/2) -> 2/2 = 1   -> 1 reg
-    // M1 (1)    -> 2/1 = 2   -> 2 regs
-    // M2 (2)    -> 4/1 = 4   -> 4 regs
-    // M4 (4)    -> 8/1 = 8   -> 8 regs
-    // M8 (8)    -> 16/1 = 16 -> None (illegal)
-    assert_eq!(
-        widening_dest_register_count(Vlmul::Mf8),
-        Some(NonZeroU8::new(1).unwrap())
-    );
-    assert_eq!(
-        widening_dest_register_count(Vlmul::Mf4),
-        Some(NonZeroU8::new(1).unwrap())
-    );
-    assert_eq!(
-        widening_dest_register_count(Vlmul::Mf2),
-        Some(NonZeroU8::new(1).unwrap())
-    );
-    assert_eq!(
-        widening_dest_register_count(Vlmul::M1),
-        Some(NonZeroU8::new(2).unwrap())
-    );
-    assert_eq!(
-        widening_dest_register_count(Vlmul::M2),
-        Some(NonZeroU8::new(4).unwrap())
-    );
-    assert_eq!(
-        widening_dest_register_count(Vlmul::M4),
-        Some(NonZeroU8::new(8).unwrap())
-    );
-    assert_eq!(widening_dest_register_count(Vlmul::M8), None);
 }

@@ -903,7 +903,7 @@ where
                     program_counter,
                     vd,
                     vs1,
-                    ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    VRegGroupSize::R1,
                 )?;
                 let sew = vtype.vsew();
                 let vl = env.vl();

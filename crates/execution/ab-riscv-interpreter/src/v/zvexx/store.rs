@@ -63,7 +63,7 @@ where
                         ),
                     });
                 }
-                if !vs3.to_bits().is_multiple_of(nreg) {
+                if !vs3.is_group_aligned(nreg) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -72,7 +72,7 @@ where
                     });
                 }
                 let vlenb = u64::from(Env::VLEN.bytes());
-                let evl = u64::from(nreg) * vlenb;
+                let evl = u64::from(nreg.get()) * vlenb;
                 let vstart = env.vstart();
                 if u64::from(u16::from(vstart)) < evl {
                     let base = rs1_value.as_u64();

@@ -7,7 +7,6 @@ use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Check that a widening destination `vd` is aligned to `wide_group_regs` and fits within
 /// `[0,32)`, without any source overlap check
@@ -17,15 +16,13 @@ use core::num::NonZeroU8;
 pub fn check_vd_widen_no_src_check<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    wide_group_regs: NonZeroU8,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let wide_group_regs = wide_group_regs.get();
-    let vd_idx = vd.to_bits();
-    if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
+    if !vd.is_group_aligned(wide_group_regs) || vd.to_bits() + wide_group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -48,18 +45,19 @@ where
 pub fn check_vs_ext_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs2: VReg,
-    src_group_regs: NonZeroU8,
+    src_group_regs: VRegGroupSize,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vs2.is_group_aligned(src_group_regs);
     let src_group_regs = src_group_regs.get();
     let group_regs = group_regs.get();
     let vs2_idx = vs2.to_bits();
-    if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
+    if !aligned || vs2_idx + src_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -96,17 +94,18 @@ pub fn check_vd_widen_alignment<Reg, Memory, PC>(
     vd: VReg,
     vs_a: VReg,
     vs_b_opt: Option<VReg>,
-    group_regs: NonZeroU8,
-    wide_group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vd.is_group_aligned(wide_group_regs);
     let wide_group_regs = wide_group_regs.get();
     let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
-    if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
+    if !aligned || vd_idx + wide_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -156,15 +155,13 @@ fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_
 pub fn check_vs_wide_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs: VReg,
-    wide_group_regs: NonZeroU8,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let wide_group_regs = wide_group_regs.get();
-    let vs_idx = vs.to_bits();
-    if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
+    if !vs.is_group_aligned(wide_group_regs) || vs.to_bits() + wide_group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -186,22 +183,20 @@ where
 pub fn check_vd_narrow_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     vs2: VReg,
-    wide_group_regs: NonZeroU8,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vd.is_group_aligned(group_regs);
     let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
     let vs2_idx = vs2.to_bits();
     let overlaps = ranges_overlap(vd_idx, group_regs, vs2_idx, wide_group_regs.get());
-    if !vd_idx.is_multiple_of(group_regs)
-        || vd_idx + group_regs > 32
-        || (overlaps && vd_idx != vs2_idx)
-    {
+    if !aligned || vd_idx + group_regs > 32 || (overlaps && vd_idx != vs2_idx) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

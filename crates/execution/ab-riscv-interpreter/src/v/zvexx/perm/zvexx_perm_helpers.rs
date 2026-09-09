@@ -8,7 +8,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
 ///
@@ -21,7 +20,7 @@ pub fn check_no_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     a: VReg,
     b: VReg,
-    count: NonZeroU8,
+    count: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -53,9 +52,9 @@ where
 pub fn check_no_overlap_asymmetric<Reg, Memory, PC>(
     program_counter: &PC,
     a: VReg,
-    a_count: NonZeroU8,
+    a_count: VRegGroupSize,
     b: VReg,
-    b_count: NonZeroU8,
+    b_count: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -474,7 +473,7 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
     vm: bool,
     sew: Vsew,
     vlmax: Vl,
-    index_group_regs: NonZeroU8,
+    index_group_regs: VRegGroupSize,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,

@@ -6,7 +6,6 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
@@ -15,15 +14,13 @@ use core::num::NonZeroU8;
 pub fn check_vreg_group_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vreg: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let group_regs = group_regs.get();
-    let vreg_idx = vreg.to_bits();
-    if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
+    if !vreg.is_group_aligned(group_regs) || vreg.to_bits() + group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -53,7 +50,7 @@ pub fn check_mask_dest_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     src_base: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,

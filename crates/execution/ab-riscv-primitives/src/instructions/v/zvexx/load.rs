@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::v::{Eew, V};
+use crate::instructions::v::{Eew, V, VRegGroupSize};
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -139,8 +139,13 @@ impl LoadStoreNreg {
 
     /// Get the number of registers
     #[inline(always)]
-    pub const fn num_registers(&self) -> u8 {
-        *self as u8
+    pub const fn num_registers(&self) -> VRegGroupSize {
+        match self {
+            Self::N1 => VRegGroupSize::R1,
+            Self::N2 => VRegGroupSize::R2,
+            Self::N4 => VRegGroupSize::R4,
+            Self::N8 => VRegGroupSize::R8,
+        }
     }
 }
 
