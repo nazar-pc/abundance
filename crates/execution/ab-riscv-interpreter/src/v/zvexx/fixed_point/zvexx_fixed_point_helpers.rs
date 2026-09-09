@@ -1,11 +1,9 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
     OpSrc, check_vreg_group_alignment, sew_mask,
-};
-use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    read_element_u64, sign_extend, write_element_u64,
 };
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
@@ -387,42 +385,6 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
     }
 }
 
-/// Read a 2*SEW-wide element as `u64` from the double-width source register group of a narrowing
-/// instruction.
-///
-/// For narrowing instructions `vs2` holds elements of width `2*SEW`. The register group size is
-/// `2 * group_regs`. Element `i` of width `2*SEW` is located in the same way as a SEW-wide
-/// element of width `2*SEW` (i.e., treating `2*SEW` as the element width). For `SEW = 32` this
-/// reads 64-bit elements; for `SEW <= 16` it reads narrower elements but zero-extends to `u64`.
-///
-/// # Safety
-/// - `2*SEW <= 64` (Zve64x constraint: only valid for SEW <= 32; caller must verify)
-/// - `base_reg + elem_i / (VLEN.bytes() / (2*sew_bytes)) < 32`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn read_wide_element_u64<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    sew: Vsew,
-) -> u64 {
-    let double_sew_bytes = u32::from(sew.bytes_width()) * 2;
-    let elems_per_reg = VLEN.bytes() / double_sew_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * double_sew_bytes;
-    // SAFETY: caller guarantees bounds
-    let reg = unsafe {
-        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + double_sew_bytes <= VLEN.bytes()`
-    let src =
-        unsafe { reg.get_unchecked(byte_off as usize..(byte_off + double_sew_bytes) as usize) };
-    let mut buf = [0u8; 8];
-    // SAFETY: `double_sew_bytes <= 8` (SEW <= 32 for Zve64x narrowing)
-    unsafe { buf.get_unchecked_mut(..double_sew_bytes as usize) }.copy_from_slice(src);
-    u64::from_le_bytes(buf)
-}
-
 /// Execute a single-width fixed-point arithmetic operation that may set `vxsat`.
 ///
 /// `op` receives `(vs2_elem, src_elem, sew, vxrm)` and returns `(result, saturated)`.
@@ -463,18 +425,18 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
             continue;
         }
         // SAFETY: alignment and bounds checked by caller
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
         let result = op(a, b, sew, vxrm, &mut any_sat);
         // SAFETY: alignment and bounds checked by caller
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     if any_sat {
@@ -517,6 +479,8 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
+    // SAFETY: `2 * SEW <= ELEN` is a precondition, so the double width exists
+    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
     let vl = env.vl();
     let vstart = env.vstart();
     let vxrm = env.vxrm();
@@ -531,11 +495,11 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
         }
         // Read 2*SEW-wide source element
         // SAFETY: `vs2` double-width alignment checked by caller
-        let wide_a = unsafe { read_wide_element_u64(env.read_vregs(), vs2, i, sew) };
+        let wide_a = unsafe { env.read_vregs().read_element(vs2, i, wide_sew) };
         let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: vs1 SEW-wide alignment checked by caller
-                let raw = unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) };
+                let raw = unsafe { env.read_vregs().read_element(vs1_base, i, sew) };
                 (raw & shamt_mask) as u32
             }
             OpSrc::Scalar(val) => (val & shamt_mask) as u32,
@@ -543,7 +507,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
         let result = op(wide_a, shamt, sew, vxrm, &mut any_sat);
         // SAFETY: `vd` alignment checked by caller
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     if any_sat {

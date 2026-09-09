@@ -4,9 +4,7 @@ use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
     OpSrc, check_mask_dest_overlap, check_vreg_group_alignment,
 };
-use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    read_element_u64, sew_mask, write_element_u64, write_mask_bit,
-};
+use crate::v::zvexx::arith::zvexx_arith_helpers::{sew_mask, write_mask_bit};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
 
@@ -59,13 +57,13 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -82,7 +80,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
 
@@ -113,13 +111,13 @@ where
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -131,7 +129,7 @@ where
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
 
@@ -176,13 +174,13 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -240,13 +238,13 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds:
                 // `vs1_base + i / elems_per_reg < 32`
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };

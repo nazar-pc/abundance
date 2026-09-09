@@ -187,79 +187,6 @@ where
     Ok(())
 }
 
-/// Read element `elem_i` from register group `[base_reg, base_reg + group_regs)` into a
-/// `[u8; Eew::MAX_BYTES]` buffer.
-///
-/// The in-register position of element `elem_i` is:
-///   - register `base_reg + elem_i / (VLEN.bytes() / eew.bytes())`
-///   - byte offset `(elem_i % (VLEN.bytes() / eew.bytes())) * eew.bytes()`
-///
-/// The result is placed in `buf[..eew.bytes()]`; the remaining bytes are zero.
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / eew.bytes())` must be less than 32, i.e. `elem_i` must be
-/// a valid element index within the register group.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) unsafe fn read_group_element<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    eew: Eew,
-) -> [u8; const { usize::from(Eew::MAX_BYTES) }] {
-    let elem_bytes = u32::from(eew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / elem_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * elem_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
-    let reg = unsafe {
-        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + elem_bytes <= VLEN.bytes()`: the maximum `byte_off` is
-    // `(elems_per_reg - 1) * elem_bytes = VLEN.bytes() - elem_bytes`, so
-    // `byte_off + elem_bytes <= VLEN.bytes() - elem_bytes + elem_bytes = VLEN.bytes()`.
-    // `elem_bytes <= Eew::MAX_BYTES`: all `Eew` variants are at most E64.
-    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + elem_bytes) as usize) };
-    let mut buf = [0; _];
-    // SAFETY: `elem_bytes <= Eew::MAX_BYTES` as established above, so `..elem_bytes` is in bounds
-    // for `buf`
-    unsafe { buf.get_unchecked_mut(..elem_bytes as usize) }.copy_from_slice(src);
-    buf
-}
-
-/// Write `eew`-sized data from `buf[..eew.bytes()]` into element `elem_i` of register group
-/// `[base_reg, base_reg + group_regs)`.
-///
-/// The in-register position follows the same layout as [`read_group_element`].
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / eew.bytes())` must be less than 32, i.e. `elem_i` must be
-/// a valid element index within the register group.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn write_group_element<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    eew: Eew,
-    buf: [u8; const { usize::from(Eew::MAX_BYTES) }],
-) {
-    let elem_bytes = u32::from(eew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / elem_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * elem_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
-    let reg = unsafe {
-        vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + elem_bytes <= VLEN.bytes()` and `elem_bytes <= Eew::MAX_BYTES`: same
-    // argument as in `read_group_element`
-    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + elem_bytes) as usize) };
-    // SAFETY: `elem_bytes <= Eew::MAX_BYTES` as established above, so `..elem_bytes` is in bounds
-    // for `buf`
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..elem_bytes as usize) });
-}
-
 /// Read `eew`-sized data from memory at `addr` into a `[u8; Eew::MAX_BYTES]` buffer
 /// (little-endian)
 #[inline(always)]
@@ -397,13 +324,7 @@ where
             // For `field_buf`: `f < nf <= Nf::MAX` (the same argument as in the read loop
             // above), so `f as usize < Nf::MAX = field_buf.len()`.
             unsafe {
-                write_group_element(
-                    env.write_vregs(),
-                    field_base_reg,
-                    i,
-                    eew,
-                    *field_buf.get_unchecked(f as usize),
-                );
+                env.write_vregs().write_element(field_base_reg, i, eew, u64::from_le_bytes(*field_buf.get_unchecked(f as usize)));
             }
         }
     }
@@ -488,7 +409,8 @@ where
             //
             // Therefore, `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
             unsafe {
-                write_group_element(env.write_vregs(), field_base_reg, i, eew, data);
+                env.write_vregs()
+                    .write_element(field_base_reg, i, eew, u64::from_le_bytes(data));
             }
         }
     }
@@ -557,8 +479,11 @@ where
         // `i / (VLEN.bytes() / index_eew.bytes()) < EMUL_index`, and therefore
         // `index_base_reg + i / (VLEN.bytes() / index_eew.bytes()) < index_base_reg + EMUL_index <=
         // 32`.
-        let index_buf =
-            unsafe { read_group_element(env.read_vregs(), index_base_reg, i, index_eew) };
+        let index_buf = unsafe {
+            env.read_vregs()
+                .read_element(index_base_reg, i, index_eew)
+                .to_le_bytes()
+        };
         let offset = u64::from_le_bytes(index_buf);
         let elem_addr = base.wrapping_add(offset);
 
@@ -593,7 +518,12 @@ where
             // Therefore,
             // `field_base_reg + i / data_elems_per_reg < field_base_reg + data_group_regs <= 32`.
             unsafe {
-                write_group_element(env.write_vregs(), field_base_reg, i, data_eew, data);
+                env.write_vregs().write_element(
+                    field_base_reg,
+                    i,
+                    data_eew,
+                    u64::from_le_bytes(data),
+                );
             }
         }
     }

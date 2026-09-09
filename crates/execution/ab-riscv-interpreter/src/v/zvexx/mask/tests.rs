@@ -80,17 +80,13 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let elems_per_reg = 32 / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = state
-        .env
-        .read_vregs()
-        .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
-    let mut buf = [0u8; 8];
-    buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
-    u64::from_le_bytes(buf)
+    // SAFETY: Test elements are always within the register group
+    unsafe {
+        state
+            .env
+            .read_vregs()
+            .read_element(base_reg, u16::try_from(elem_i).unwrap(), sew)
+    }
 }
 
 /// Read mask bit `i` from a vector register

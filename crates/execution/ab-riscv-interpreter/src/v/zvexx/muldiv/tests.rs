@@ -78,17 +78,13 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let elems_per_reg = TEST_VLENB / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = state
-        .env
-        .read_vregs()
-        .get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
-    let mut buf = [0u8; 8];
-    buf[..sew_bytes].copy_from_slice(&reg[byte_off..byte_off + sew_bytes]);
-    u64::from_le_bytes(buf)
+    // SAFETY: Test elements are always within the register group
+    unsafe {
+        state
+            .env
+            .read_vregs()
+            .read_element(base_reg, u16::try_from(elem_i).unwrap(), sew)
+    }
 }
 
 // Wide elements are 2*SEW bytes; a register holds VLENB/wide_bytes of them, matching
@@ -119,16 +115,13 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let elems_per_reg = TEST_VLENB / sew_bytes;
-    let reg_off = elem_i / elems_per_reg;
-    let byte_off = (elem_i % elems_per_reg) * sew_bytes;
-    let reg = state
-        .env
-        .write_vregs()
-        .get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap());
-    let buf = value.to_le_bytes();
-    reg[byte_off..byte_off + sew_bytes].copy_from_slice(&buf[..sew_bytes]);
+    // SAFETY: Test elements are always within the register group
+    unsafe {
+        state
+            .env
+            .write_vregs()
+            .write_element(base_reg, u16::try_from(elem_i).unwrap(), sew, value);
+    }
 }
 
 fn write_wide_elem(

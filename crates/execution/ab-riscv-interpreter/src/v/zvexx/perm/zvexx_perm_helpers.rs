@@ -2,7 +2,6 @@
 
 use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::check_vreg_group_alignment;
-use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
@@ -73,50 +72,6 @@ where
         });
     }
     Ok(())
-}
-
-/// Read element 0 of register `base_reg` as `u64`, zero-extended.
-///
-/// # Safety
-/// `sew.bytes() <= VLEN.bytes()`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn read_element_0_u64<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    sew: Vsew,
-) -> u64 {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let reg = vregs.get(base_reg);
-    let mut buf = [0u8; 8];
-    // SAFETY: `sew_bytes <= VLEN.bytes()` for all legal vtype; `sew_bytes <= 8`
-    unsafe {
-        buf.get_unchecked_mut(..sew_bytes)
-            .copy_from_slice(reg.get_unchecked(..sew_bytes));
-    }
-    u64::from_le_bytes(buf)
-}
-
-/// Write element 0 of register `base_reg` from the low `sew_bytes` of `value`.
-///
-/// # Safety
-/// `sew.bytes() <= VLEN.bytes()`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn write_element_0_u64<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    sew: Vsew,
-    value: u64,
-) {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let buf = value.to_le_bytes();
-    let reg = vregs.get_mut(base_reg);
-    // SAFETY: `sew_bytes <= VLEN.bytes()`; `sew_bytes <= 8`
-    unsafe {
-        reg.get_unchecked_mut(..sew_bytes)
-            .copy_from_slice(buf.get_unchecked(..sew_bytes));
-    }
 }
 
 /// Sign-extend the low `sew.bits_width()` of `val` to the register type width.
@@ -195,10 +150,10 @@ pub unsafe fn execute_slideup<Reg, Env>(
         }
         let src_idx = i - offset.saturating_truncate::<u16>();
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
-        let val = unsafe { read_element_u64(env.read_vregs(), vs2, src_idx, sew) };
+        let val = unsafe { env.read_vregs().read_element(vs2, src_idx, sew) };
         // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -243,13 +198,13 @@ pub unsafe fn execute_slidedown<Reg, Env>(
             && src_idx < u64::from(vlmax)
         {
             // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
-            unsafe { read_element_u64(env.read_vregs(), vs2, src_idx as u16, sew) }
+            unsafe { env.read_vregs().read_element(vs2, src_idx as u16, sew) }
         } else {
             0
         };
         // SAFETY: i < vl <= vlmax <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -293,11 +248,11 @@ pub unsafe fn execute_slide1up<Reg, Env>(
             scalar
         } else {
             // SAFETY: i - 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(env.read_vregs(), vs2, i - 1, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i - 1, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -344,13 +299,13 @@ pub unsafe fn execute_slide1down<Reg, Env>(
         }
         let val = if i < *range.end() {
             // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(env.read_vregs(), vs2, i + 1, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i + 1, sew) }
         } else {
             scalar
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -388,16 +343,16 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-        let index = unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) };
+        let index = unsafe { env.read_vregs().read_element(vs1, i, sew) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
+            unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -433,7 +388,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-        unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
+        unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
     } else {
         0u64
     };
@@ -443,7 +398,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -500,16 +455,16 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
         // Read 16-bit index from vs1; EEW=16 always.
         // SAFETY: i < vl <= index_capacity = index_group_regs * (VLEN.bytes() / 2), so element i
         // fits within the index register group.
-        let index = unsafe { read_element_u64(env.read_vregs(), vs1, i, Vsew::E16) };
+        let index = unsafe { env.read_vregs().read_element(vs1, i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
+            unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -550,15 +505,15 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-            unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) }
+            unsafe { env.read_vregs().read_element(vs1, i, sew) }
         } else {
             // mask_set=false only reachable when vm=false (vmerge path).
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -600,11 +555,11 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
             scalar
         } else {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -651,10 +606,10 @@ pub unsafe fn execute_compress<Reg, Env>(
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg
-        let val = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let val = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
         unsafe {
-            write_element_u64(env.write_vregs(), vd, out_idx, sew, val);
+            env.write_vregs().write_element(vd, out_idx, sew, val);
         }
         out_idx += 1;
     }

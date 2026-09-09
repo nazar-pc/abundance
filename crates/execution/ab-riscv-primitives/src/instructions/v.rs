@@ -567,14 +567,21 @@ impl VsewFactor {
     /// Return the numeric divisor used to scale down a [`Vsew`] bit-width
     #[inline(always)]
     pub const fn factor(self) -> u8 {
-        self as u8
+        let factor = self as u8;
+        // TODO: Remove once rustc tells LLVM which values an enum can have rather than their
+        //  range, which hides the power of two: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(factor.is_power_of_two());
+        }
+        factor
     }
 }
 
 /// Selected element width (SEW).
 ///
 /// Encoded in `vtype[5:3]` as `vsew`. `SEW = 8 * 2^vsew`.
-#[derive(Debug, Clone, Copy)]
+#[derive(ConstParamTy, Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Vsew {
@@ -731,8 +738,10 @@ impl fmt::Display for Vsew {
     }
 }
 
-/// Effective element width for vector memory operations
-#[derive(Debug, Clone, Copy)]
+/// Effective element width of a vector operand.
+///
+/// Memory operands carry it in the instruction, register operands derive it from `SEW`.
+#[derive(ConstParamTy, Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Eew {
@@ -799,12 +808,26 @@ impl Eew {
     /// Guaranteed to be `<= Self::MAX_BYTES`.
     #[inline(always)]
     pub const fn bytes_width(self) -> u8 {
-        match self {
+        let bytes: u8 = match self {
             Self::E8 => 1,
             Self::E16 => 2,
             Self::E32 => 4,
             Self::E64 => 8,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bytes.is_power_of_two());
         }
+        bytes
+    }
+}
+
+const impl From<Vsew> for Eew {
+    #[inline(always)]
+    fn from(sew: Vsew) -> Self {
+        sew.as_eew()
     }
 }
 

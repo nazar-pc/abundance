@@ -2,7 +2,6 @@
 
 use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
-use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
 
@@ -35,7 +34,7 @@ where
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // `elem` is zero-extended from SEW bits to u64; reverse_bits() on the primitive type
         // of exactly SEW width naturally handles the upper zero bits from zero-extension
         let result = match sew {
@@ -46,7 +45,7 @@ where
         };
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -79,14 +78,14 @@ where
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // `elem` is zero-extended from SEW bits to u64; `leading_zeros()` on a u64 therefore counts
         // the extra (64 - SEW) upper zero bits introduced by zero-extension. Subtracting them gives
         // the count within the SEW-wide field.
         let clz = elem.leading_zeros() - (64 - sew_bits);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(clz));
+            env.write_vregs().write_element(vd, i, sew, u64::from(clz));
         }
     }
     env.mark_vs_dirty();
@@ -119,14 +118,14 @@ where
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // For non-zero `elem`, `trailing_zeros()` on the zero-extended u64 value is correct: the
         // upper zero bits do not affect the trailing count. For zero, `trailing_zeros()` returns
         // 64, but the spec result is SEW; cap at `sew_bits` handles both cases.
         let ctz = elem.trailing_zeros().min(sew_bits);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(ctz));
+            env.write_vregs().write_element(vd, i, sew, u64::from(ctz));
         }
     }
     env.mark_vs_dirty();
@@ -157,13 +156,13 @@ where
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // `elem` is zero-extended from SEW bits; upper bits are already zero, so `count_ones()`
         // directly gives the population count within the SEW-wide field
         let cpop = elem.count_ones();
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(cpop));
+            env.write_vregs().write_element(vd, i, sew, u64::from(cpop));
         }
     }
     env.mark_vs_dirty();
@@ -213,22 +212,22 @@ pub unsafe fn execute_vwsll<Reg, Env>(
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let amount = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
-        let shift = (amount & (double_sew_bits - 1)) as u32;
+        let shift = (amount % double_sew_bits) as u32;
         // `a` is zero-extended from SEW bits; `shift < double_sew_bits <= 64`, so this never shifts
         // by >= 64. The caller guarantees SEW <= E32, hence `double_sew_bits <= 64`.
         let result = a << shift;
         // SAFETY: `vd % dest_group_regs == 0` and `vd + dest_group_regs <= 32`; `i < vl`;
         // `write_element_u64` with `double_sew` writes exactly 2*SEW bits of `result`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, double_sew, result);
+            env.write_vregs().write_element(vd, i, double_sew, result);
         }
     }
     env.mark_vs_dirty();
