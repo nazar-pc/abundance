@@ -7,6 +7,9 @@ use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 
+/// Effective element width of a register operand at `SEW`
+const SEW_EEW<const SEW: Vsew>: Eew = SEW.as_eew();
+
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
 #[doc(hidden)]
@@ -136,34 +139,76 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    // Dispatch on the element width once, so that the loop below is compiled for each width
+    // separately, with element loads and stores of a constant size
+    //
+    // SAFETY: Guaranteed by the caller's precondition
+    unsafe {
+        match sew {
+            Vsew::E8 => {
+                execute_arith_op_const::<{ Vsew::E8 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+            Vsew::E16 => {
+                execute_arith_op_const::<{ Vsew::E16 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+            Vsew::E32 => {
+                execute_arith_op_const::<{ Vsew::E32 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+            Vsew::E64 => {
+                execute_arith_op_const::<{ Vsew::E64 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+        }
+    }
+}
+
+/// [`execute_arith_op()`] with the element width known at compile time
+///
+/// # Safety
+/// Same as [`execute_arith_op()`]
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
+    env: &mut Env,
+    vd: VReg,
+    vs2: VReg,
+    src: OpSrc,
+    vm: bool,
+    op: F,
+) where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    F: Fn(u64, u64, Vsew) -> u64,
+{
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN.bytes()`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vregs = env.write_vregs();
 
     for i in vstart.range_to(vl) {
-        if !mask_bit(&mask_buf, i) {
+        // `vd` never overlaps `v0` when masked, so the mask can be read in place rather than
+        // snapshotted, no write below can modify it
+        if !vm && !mask_bit(vregs.get(VReg::V0), i) {
             continue;
         }
 
         // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let a = unsafe { vregs.read_element_const::<{ SEW_EEW::<SEW> }>(vs2, i) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
+                unsafe { vregs.read_element_const::<{ SEW_EEW::<SEW> }>(vs1_base, i) }
             }
             OpSrc::Scalar(val) => val,
         };
 
-        let result = op(a, b, sew);
+        let result = op(a, b, SEW);
 
         // SAFETY: `vd % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
+            vregs.write_element_const::<{ SEW_EEW::<SEW> }>(vd, i, result);
         }
     }
 
