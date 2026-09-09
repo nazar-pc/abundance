@@ -7,6 +7,7 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
+use core::ptr;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
 ///
@@ -137,14 +138,37 @@ pub unsafe fn execute_slideup<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     // The active range starts at max(vstart, offset).
-    for i in vstart
-        .max(Vstart::from(offset.saturating_truncate::<u16>()))
-        .range_to(vl)
-    {
+    let first = vstart.max(Vstart::from(offset.saturating_truncate::<u16>()));
+    let range = first.range_to(vl);
+
+    // Unmasked slide is a copy of a contiguous element range between two contiguous register
+    // groups
+    if vm && !range.is_empty() {
+        let len = range.len() * usize::from(sew.bytes_width());
+        // `first >= offset`, hence the truncation is lossless
+        let src_first = *range.start() - offset.saturating_truncate::<u16>();
+        let src = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs2, src_first, sew);
+        let dst = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, *range.start(), sew);
+        let bytes = env.write_vregs().as_bytes_mut().as_flattened_mut();
+        // SAFETY: Elements `first..vl` of `vd` and `first - offset..vl - offset` of `vs2` lie
+        // within their register groups, which end within the register file (precondition), so
+        // both ranges are within `bytes`. Overlapping ranges are fine for `ptr::copy()`. Both
+        // pointers derive from the same mutable one, a separate shared one would be invalidated
+        // by it.
+        unsafe {
+            let bytes = bytes.as_mut_ptr();
+            ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), len);
+        }
+        env.mark_vs_dirty();
+        env.reset_vstart();
+        return;
+    }
+
+    // SAFETY: `vl <= VLEN`
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    for i in range {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -186,9 +210,48 @@ pub unsafe fn execute_slidedown<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
+
+    let range = vstart.range_to(vl);
+
+    // Unmasked slide is a copy of a contiguous element range between two contiguous register
+    // groups (or within one), followed by zeroing of the elements whose source is beyond `vlmax`
+    if vm && !range.is_empty() {
+        let elem_bytes = usize::from(sew.bytes_width());
+        let first = *range.start();
+        // Elements `i` with `i + offset < vlmax` have a source, the rest are zeroed
+        let with_source = u64::from(vlmax)
+            .saturating_sub(offset)
+            .saturating_sub(u64::from(first));
+        let copied = usize::try_from(with_source)
+            .map_or(range.len(), |with_source| with_source.min(range.len()));
+        let copied_len = copied * elem_bytes;
+        let len = range.len() * elem_bytes;
+        let dst = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, first, sew);
+        let bytes = env.write_vregs().as_bytes_mut().as_flattened_mut();
+        // SAFETY: Elements `first..vl` of `vd` lie within its register group, which ends within
+        // the register file (precondition), so `dst..dst + len` is within `bytes`. So do elements
+        // `first + offset..vlmax` of `vs2` when there are any to copy: `copied > 0` implies
+        // `first + offset < vlmax`, hence the truncation of `offset` is lossless and
+        // `src..src + copied_len` is within the group. Overlapping ranges are fine for
+        // `ptr::copy()`. Both pointers derive from the same mutable one, a separate shared one
+        // would be invalidated by it.
+        unsafe {
+            if copied > 0 {
+                let src_first = first + offset.saturating_truncate::<u16>();
+                let src = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs2, src_first, sew);
+                let bytes = bytes.as_mut_ptr();
+                ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), copied_len);
+            }
+            bytes.get_unchecked_mut(dst + copied_len..dst + len).fill(0);
+        }
+        env.mark_vs_dirty();
+        env.reset_vstart();
+        return;
+    }
+
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
-    for i in vstart.range_to(vl) {
+    for i in range {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
