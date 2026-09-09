@@ -248,12 +248,45 @@ where
     let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
+
+    let range = vstart.range_to(vl);
+
+    // Unmasked non-segment load is a plain copy of a contiguous memory range into the contiguous
+    // element range of the register group, as long as the whole range is readable. If it is not,
+    // the element-wise path below is what determines the faulting element and everything before
+    // it, exactly as if the copy was never attempted (nothing was written).
+    if vm && nf.fields_per_segment() == 1 && !range.is_empty() {
+        let first = *range.start();
+        let len = range.len() * usize::from(elem_bytes);
+        let addr = base.wrapping_add(u64::from(first) * u64::from(elem_bytes));
+        let read_result = memory.read_slice(
+            addr,
+            u32::try_from(len).expect("At most 8 registers worth of bytes; qed"),
+        );
+        if let Ok(bytes) = read_result {
+            let offset = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, first, eew);
+            // SAFETY: Elements `vstart..vl` all lie within the register group, which ends within
+            // the register file (precondition), so `offset + len <= 32 * VLEN.bytes()`
+            unsafe {
+                env.write_vregs()
+                    .as_bytes_mut()
+                    .as_flattened_mut()
+                    .get_unchecked_mut(offset..offset + len)
+                    .copy_from_slice(bytes);
+            }
+            env.mark_vs_dirty();
+            env.reset_vstart();
+            return Ok(());
+        }
+        cold_path();
+    }
+
     let segment_stride = u64::from(nf.fields_per_segment()) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
 
-    for i in vstart.range_to(vl) {
+    for i in range {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -324,7 +357,12 @@ where
             // For `field_buf`: `f < nf <= Nf::MAX` (the same argument as in the read loop
             // above), so `f as usize < Nf::MAX = field_buf.len()`.
             unsafe {
-                env.write_vregs().write_element(field_base_reg, i, eew, u64::from_le_bytes(*field_buf.get_unchecked(f as usize)));
+                env.write_vregs().write_element(
+                    field_base_reg,
+                    i,
+                    eew,
+                    u64::from_le_bytes(*field_buf.get_unchecked(f as usize)),
+                );
             }
         }
     }
