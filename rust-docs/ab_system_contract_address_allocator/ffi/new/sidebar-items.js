@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["address_allocator_new"],"struct":["AddressAllocatorNewArgs","InternalArgs"]};

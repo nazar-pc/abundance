@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_METADATA_CAPACITY"],"enum":["IoTypeMetadataKind"],"fn":["concat_metadata_sources"],"struct":["IoTypeDetails"]};

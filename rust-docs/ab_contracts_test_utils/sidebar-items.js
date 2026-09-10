@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["dummy_wallet","transaction_builder"]};
