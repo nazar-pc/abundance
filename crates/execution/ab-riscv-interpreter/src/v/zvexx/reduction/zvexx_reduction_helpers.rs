@@ -1,8 +1,6 @@
 //! Opaque helpers for ZveXx extension
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    read_element_u64, sign_extend, write_element_u64,
-};
+use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
@@ -42,7 +40,7 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
         return;
     }
     // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { read_element_u64(env.read_vregs(), vs1, 0, sew) };
+    let init = unsafe { env.read_vregs().read_element(vs1, 0, sew) };
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let mut acc = init;
@@ -51,12 +49,12 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         acc = op(acc, elem, sew);
     }
     // SAFETY: element 0 always fits within register vd
     unsafe {
-        write_element_u64(env.write_vregs(), vd, 0, sew, acc);
+        env.write_vregs().write_element(vd, 0, sew, acc);
     }
     env.mark_vs_dirty();
     env.reset_vstart();
@@ -99,7 +97,7 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
         return;
     }
     // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { read_element_u64(env.read_vregs(), vs1, 0, wide_sew) };
+    let init = unsafe { env.read_vregs().read_element(vs1, 0, wide_sew) };
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     let mut acc = init;
@@ -108,7 +106,7 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
             continue;
         }
         // SAFETY: same bounds argument as `execute_reduce_op`
-        let raw = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let raw = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let elem = if SIGN_EXTEND_SRC {
             sign_extend(raw, sew).cast_unsigned()
         } else {
@@ -118,7 +116,7 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
     }
     // SAFETY: element 0 always fits within register vd
     unsafe {
-        write_element_u64(env.write_vregs(), vd, 0, wide_sew, acc);
+        env.write_vregs().write_element(vd, 0, wide_sew, acc);
     }
     env.mark_vs_dirty();
     env.reset_vstart();

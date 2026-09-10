@@ -2,8 +2,11 @@
 
 use crate::Csrs;
 use ab_riscv_primitives::prelude::*;
+use core::marker::Destruct;
 
 pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
+/// Element width in bytes as `usize`
+const EEW_BYTES<const EEW: Eew>: usize = EEW.bytes_width() as usize;
 
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
@@ -22,7 +25,7 @@ const impl<const VLEN: Vlen> Default for VectorRegisterFile<VLEN> {
 impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Get reference to a vector register
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
@@ -30,10 +33,143 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
 
     /// Get mutable reference to a vector register
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
         // SAFETY: Always in-range
         unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
+    }
+
+    /// All vector registers as one contiguous array of bytes.
+    ///
+    /// Register `v` occupies bytes `[v * VLENB, (v + 1) * VLENB)` of the flattened array, so a
+    /// register group is a contiguous range and its elements are at [`Self::element_offset()`].
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &[[u8; VLENB_USIZE::<VLEN>]; 32] {
+        &self.0
+    }
+
+    /// All vector registers as one contiguous mutable array of bytes, see [`Self::as_bytes()`]
+    #[inline(always)]
+    pub const fn as_bytes_mut(&mut self) -> &mut [[u8; VLENB_USIZE::<VLEN>]; 32] {
+        &mut self.0
+    }
+
+    /// Byte offset within flattened [`Self::as_bytes()`] of element `elem_i` in the register
+    /// group starting at `base_reg`, with `eew`-wide elements.
+    ///
+    /// Element widths divide `VLENB`, so elements never straddle registers and a register group
+    /// is one contiguous array of elements.
+    #[inline(always)]
+    pub const fn element_offset<W>(base_reg: VReg, elem_i: u16, eew: W) -> usize
+    where
+        W: [const] Into<Eew>,
+    {
+        usize::from(base_reg.to_bits()) * VLENB_USIZE::<VLEN>
+            + usize::from(elem_i) * usize::from(eew.into().bytes_width())
+    }
+
+    /// Read element `elem_i` of the register group starting at `base_reg`, with `eew`-wide
+    /// elements, zero-extended.
+    ///
+    /// # Safety
+    /// The element must lie within the register file, which holds for any `elem_i < vl` of a
+    /// register group `[base_reg, base_reg + group_regs)` that ends within the register file,
+    /// since `vl <= group_regs * VLENB / eew.bytes_width()`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const unsafe fn read_element<W>(&self, base_reg: VReg, elem_i: u16, eew: W) -> u64
+    where
+        W: [const] Into<Eew> + [const] Destruct,
+    {
+        // SAFETY: Guaranteed by the caller's precondition
+        unsafe {
+            match eew.into() {
+                Eew::E8 => self.read_element_const::<{ Eew::E8 }>(base_reg, elem_i),
+                Eew::E16 => self.read_element_const::<{ Eew::E16 }>(base_reg, elem_i),
+                Eew::E32 => self.read_element_const::<{ Eew::E32 }>(base_reg, elem_i),
+                Eew::E64 => self.read_element_const::<{ Eew::E64 }>(base_reg, elem_i),
+            }
+        }
+    }
+
+    /// Write the low `eew.bytes_width()` bytes of `value` into element `elem_i` of the register
+    /// group starting at `base_reg`, with `eew`-wide elements.
+    ///
+    /// # Safety
+    /// Same as [`Self::read_element()`]
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const unsafe fn write_element<W>(&mut self, base_reg: VReg, elem_i: u16, eew: W, value: u64)
+    where
+        W: [const] Into<Eew> + [const] Destruct,
+    {
+        // SAFETY: Guaranteed by the caller's precondition
+        unsafe {
+            match eew.into() {
+                Eew::E8 => self.write_element_const::<{ Eew::E8 }>(base_reg, elem_i, value),
+                Eew::E16 => self.write_element_const::<{ Eew::E16 }>(base_reg, elem_i, value),
+                Eew::E32 => self.write_element_const::<{ Eew::E32 }>(base_reg, elem_i, value),
+                Eew::E64 => self.write_element_const::<{ Eew::E64 }>(base_reg, elem_i, value),
+            }
+        }
+    }
+
+    /// [`Self::read_element()`] with the element width known at compile time, which makes the
+    /// access a fixed-size load
+    ///
+    /// # Safety
+    /// Same as [`Self::read_element()`]
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const unsafe fn read_element_const<const EEW: Eew>(
+        &self,
+        base_reg: VReg,
+        elem_i: u16,
+    ) -> u64 {
+        let offset = Self::element_offset(base_reg, elem_i, EEW);
+        // SAFETY: `offset + EEW.bytes_width() <= 32 * VLENB` by the caller's precondition
+        let element = unsafe {
+            self.as_bytes()
+                .as_flattened()
+                .get_unchecked(offset..)
+                .first_chunk::<{ EEW_BYTES::<EEW> }>()
+                .unwrap_unchecked()
+        };
+        let mut bytes = 0u64.to_le_bytes();
+        if let Some((low, _)) = bytes.split_first_chunk_mut::<{ EEW_BYTES::<EEW> }>() {
+            *low = *element;
+        }
+        u64::from_le_bytes(bytes)
+    }
+
+    /// [`Self::write_element()`] with the element width known at compile time, which makes the
+    /// access a fixed-size store
+    ///
+    /// # Safety
+    /// Same as [`Self::read_element()`]
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const unsafe fn write_element_const<const EEW: Eew>(
+        &mut self,
+        base_reg: VReg,
+        elem_i: u16,
+        value: u64,
+    ) {
+        let offset = Self::element_offset(base_reg, elem_i, EEW);
+        // SAFETY: `offset + EEW.bytes_width() <= 32 * VLENB` by the caller's precondition
+        let element = unsafe {
+            self.as_bytes_mut()
+                .as_flattened_mut()
+                .get_unchecked_mut(offset..)
+                .first_chunk_mut::<{ EEW_BYTES::<EEW> }>()
+                .unwrap_unchecked()
+        };
+        if let Some((low, _)) = value
+            .to_le_bytes()
+            .split_first_chunk::<{ EEW_BYTES::<EEW> }>()
+        {
+            *element = *low;
+        }
     }
 }
 

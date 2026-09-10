@@ -2,13 +2,12 @@
 
 use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::check_vreg_group_alignment;
-use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
+use core::ptr;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
 ///
@@ -21,7 +20,7 @@ pub fn check_no_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     a: VReg,
     b: VReg,
-    count: NonZeroU8,
+    count: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -53,9 +52,9 @@ where
 pub fn check_no_overlap_asymmetric<Reg, Memory, PC>(
     program_counter: &PC,
     a: VReg,
-    a_count: NonZeroU8,
+    a_count: VRegGroupSize,
     b: VReg,
-    b_count: NonZeroU8,
+    b_count: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -74,50 +73,6 @@ where
         });
     }
     Ok(())
-}
-
-/// Read element 0 of register `base_reg` as `u64`, zero-extended.
-///
-/// # Safety
-/// `sew.bytes() <= VLEN.bytes()`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn read_element_0_u64<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    sew: Vsew,
-) -> u64 {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let reg = vregs.get(base_reg);
-    let mut buf = [0u8; 8];
-    // SAFETY: `sew_bytes <= VLEN.bytes()` for all legal vtype; `sew_bytes <= 8`
-    unsafe {
-        buf.get_unchecked_mut(..sew_bytes)
-            .copy_from_slice(reg.get_unchecked(..sew_bytes));
-    }
-    u64::from_le_bytes(buf)
-}
-
-/// Write element 0 of register `base_reg` from the low `sew_bytes` of `value`.
-///
-/// # Safety
-/// `sew.bytes() <= VLEN.bytes()`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn write_element_0_u64<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    sew: Vsew,
-    value: u64,
-) {
-    let sew_bytes = usize::from(sew.bytes_width());
-    let buf = value.to_le_bytes();
-    let reg = vregs.get_mut(base_reg);
-    // SAFETY: `sew_bytes <= VLEN.bytes()`; `sew_bytes <= 8`
-    unsafe {
-        reg.get_unchecked_mut(..sew_bytes)
-            .copy_from_slice(buf.get_unchecked(..sew_bytes));
-    }
 }
 
 /// Sign-extend the low `sew.bits_width()` of `val` to the register type width.
@@ -183,23 +138,46 @@ pub unsafe fn execute_slideup<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     // The active range starts at max(vstart, offset).
-    for i in vstart
-        .max(Vstart::from(offset.saturating_truncate::<u16>()))
-        .range_to(vl)
-    {
+    let first = vstart.max(Vstart::from(offset.saturating_truncate::<u16>()));
+    let range = first.range_to(vl);
+
+    // Unmasked slide is a copy of a contiguous element range between two contiguous register
+    // groups
+    if vm && !range.is_empty() {
+        let len = range.len() * usize::from(sew.bytes_width());
+        // `first >= offset`, hence the truncation is lossless
+        let src_first = *range.start() - offset.saturating_truncate::<u16>();
+        let src = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs2, src_first, sew);
+        let dst = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, *range.start(), sew);
+        let bytes = env.write_vregs().as_bytes_mut().as_flattened_mut();
+        // SAFETY: Elements `first..vl` of `vd` and `first - offset..vl - offset` of `vs2` lie
+        // within their register groups, which end within the register file (precondition), so
+        // both ranges are within `bytes`. Overlapping ranges are fine for `ptr::copy()`. Both
+        // pointers derive from the same mutable one, a separate shared one would be invalidated
+        // by it.
+        unsafe {
+            let bytes = bytes.as_mut_ptr();
+            ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), len);
+        }
+        env.mark_vs_dirty();
+        env.reset_vstart();
+        return;
+    }
+
+    // SAFETY: `vl <= VLEN`
+    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    for i in range {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         let src_idx = i - offset.saturating_truncate::<u16>();
         // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
-        let val = unsafe { read_element_u64(env.read_vregs(), vs2, src_idx, sew) };
+        let val = unsafe { env.read_vregs().read_element(vs2, src_idx, sew) };
         // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -232,9 +210,48 @@ pub unsafe fn execute_slidedown<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
+
+    let range = vstart.range_to(vl);
+
+    // Unmasked slide is a copy of a contiguous element range between two contiguous register
+    // groups (or within one), followed by zeroing of the elements whose source is beyond `vlmax`
+    if vm && !range.is_empty() {
+        let elem_bytes = usize::from(sew.bytes_width());
+        let first = *range.start();
+        // Elements `i` with `i + offset < vlmax` have a source, the rest are zeroed
+        let with_source = u64::from(vlmax)
+            .saturating_sub(offset)
+            .saturating_sub(u64::from(first));
+        let copied = usize::try_from(with_source)
+            .map_or(range.len(), |with_source| with_source.min(range.len()));
+        let copied_len = copied * elem_bytes;
+        let len = range.len() * elem_bytes;
+        let dst = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, first, sew);
+        let bytes = env.write_vregs().as_bytes_mut().as_flattened_mut();
+        // SAFETY: Elements `first..vl` of `vd` lie within its register group, which ends within
+        // the register file (precondition), so `dst..dst + len` is within `bytes`. So do elements
+        // `first + offset..vlmax` of `vs2` when there are any to copy: `copied > 0` implies
+        // `first + offset < vlmax`, hence the truncation of `offset` is lossless and
+        // `src..src + copied_len` is within the group. Overlapping ranges are fine for
+        // `ptr::copy()`. Both pointers derive from the same mutable one, a separate shared one
+        // would be invalidated by it.
+        unsafe {
+            if copied > 0 {
+                let src_first = first + offset.saturating_truncate::<u16>();
+                let src = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs2, src_first, sew);
+                let bytes = bytes.as_mut_ptr();
+                ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), copied_len);
+            }
+            bytes.get_unchecked_mut(dst + copied_len..dst + len).fill(0);
+        }
+        env.mark_vs_dirty();
+        env.reset_vstart();
+        return;
+    }
+
     // SAFETY: `vl <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
-    for i in vstart.range_to(vl) {
+    for i in range {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -244,13 +261,13 @@ pub unsafe fn execute_slidedown<Reg, Env>(
             && src_idx < u64::from(vlmax)
         {
             // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
-            unsafe { read_element_u64(env.read_vregs(), vs2, src_idx as u16, sew) }
+            unsafe { env.read_vregs().read_element(vs2, src_idx as u16, sew) }
         } else {
             0
         };
         // SAFETY: i < vl <= vlmax <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -294,11 +311,11 @@ pub unsafe fn execute_slide1up<Reg, Env>(
             scalar
         } else {
             // SAFETY: i - 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(env.read_vregs(), vs2, i - 1, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i - 1, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -345,13 +362,13 @@ pub unsafe fn execute_slide1down<Reg, Env>(
         }
         let val = if i < *range.end() {
             // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
-            unsafe { read_element_u64(env.read_vregs(), vs2, i + 1, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i + 1, sew) }
         } else {
             scalar
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -389,16 +406,16 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-        let index = unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) };
+        let index = unsafe { env.read_vregs().read_element(vs1, i, sew) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
+            unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -434,7 +451,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-        unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
+        unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
     } else {
         0u64
     };
@@ -444,7 +461,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -474,7 +491,7 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
     vm: bool,
     sew: Vsew,
     vlmax: Vl,
-    index_group_regs: NonZeroU8,
+    index_group_regs: VRegGroupSize,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
@@ -501,16 +518,16 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
         // Read 16-bit index from vs1; EEW=16 always.
         // SAFETY: i < vl <= index_capacity = index_group_regs * (VLEN.bytes() / 2), so element i
         // fits within the index register group.
-        let index = unsafe { read_element_u64(env.read_vregs(), vs1, i, Vsew::E16) };
+        let index = unsafe { env.read_vregs().read_element(vs1, i, Vsew::E16) };
         let val = if index < u64::from(vlmax) {
             // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, index as u16, sew) }
+            unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
         } else {
             0u64
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -551,15 +568,15 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-            unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) }
+            unsafe { env.read_vregs().read_element(vs1, i, sew) }
         } else {
             // mask_set=false only reachable when vm=false (vmerge path).
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -601,11 +618,11 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
             scalar
         } else {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) }
+            unsafe { env.read_vregs().read_element(vs2, i, sew) }
         };
         // SAFETY: i < vl <= group_regs * elems_per_reg for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, val);
+            env.write_vregs().write_element(vd, i, sew, val);
         }
     }
     env.mark_vs_dirty();
@@ -652,10 +669,10 @@ pub unsafe fn execute_compress<Reg, Env>(
             continue;
         }
         // SAFETY: i < vl <= group_regs * elems_per_reg
-        let val = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let val = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
         unsafe {
-            write_element_u64(env.write_vregs(), vd, out_idx, sew, val);
+            env.write_vregs().write_element(vd, out_idx, sew, val);
         }
         out_idx += 1;
     }

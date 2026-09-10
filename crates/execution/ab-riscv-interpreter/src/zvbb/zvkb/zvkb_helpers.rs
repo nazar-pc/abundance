@@ -1,8 +1,8 @@
 //! Opaque helpers for Zvkb extension
 
 use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::zvexx::arith::zvexx_arith_helpers::sew_mask;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
-use crate::v::zvexx::arith::zvexx_arith_helpers::{read_element_u64, sew_mask, write_element_u64};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
 
@@ -42,12 +42,12 @@ pub unsafe fn execute_vandn<Reg, Env>(
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: caller verified that the vs1 register group satisfies the same alignment
                 // constraint as vs2; the index argument is identical, so the same bound holds
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -58,7 +58,7 @@ pub unsafe fn execute_vandn<Reg, Env>(
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -91,7 +91,7 @@ where
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // Decompose into bytes (LE = index 0 is least-significant), reverse bits within each active
         // byte, then reassemble; bytes beyond sew_bytes are already zero because `read_element_u64`
         // zero-extends to u64
@@ -102,7 +102,7 @@ where
         let result = u64::from_le_bytes(bytes);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -134,7 +134,7 @@ where
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         // Reverse the byte slice covering exactly the SEW-wide element; bytes beyond sew_bytes are
         // zero (from zero-extension) and are left untouched
         let mut bytes = elem.to_le_bytes();
@@ -142,7 +142,7 @@ where
         let result = u64::from_le_bytes(bytes);
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -181,11 +181,11 @@ pub unsafe fn execute_vrol<Reg, Env>(
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let amount = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -198,7 +198,7 @@ pub unsafe fn execute_vrol<Reg, Env>(
         let result = hi | lo;
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -239,11 +239,11 @@ pub unsafe fn execute_vror<Reg, Env>(
             continue;
         }
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let amount = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };
@@ -256,7 +256,7 @@ pub unsafe fn execute_vror<Reg, Env>(
         let result = lo | hi;
         // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();

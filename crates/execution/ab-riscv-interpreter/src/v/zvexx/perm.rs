@@ -71,8 +71,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: element 0 is always within register vs2, byte offset 0;
                 // VLEN.bytes() >= sew.bytes() for all legal vtype configurations.
-                let raw =
-                    unsafe { zvexx_perm_helpers::read_element_0_u64(env.read_vregs(), vs2, sew) };
+                let raw = unsafe { env.read_vregs().read_element(vs2, 0, sew) };
                 let sign_extended = zvexx_perm_helpers::sign_extend_to_reg::<Reg>(raw, sew);
                 env.mark_vs_dirty();
                 env.reset_vstart();
@@ -111,7 +110,7 @@ where
                     let scalar = rs1_value.as_i64().cast_unsigned();
                     // SAFETY: element 0 always fits.
                     unsafe {
-                        zvexx_perm_helpers::write_element_0_u64(env.write_vregs(), vd, sew, scalar);
+                        env.write_vregs().write_element(vd, 0, sew, scalar);
                     }
                 }
                 env.mark_vs_dirty();
@@ -903,7 +902,7 @@ where
                     program_counter,
                     vd,
                     vs1,
-                    ::core::num::NonZeroU8::new(1).expect("Not zero; qed"),
+                    VRegGroupSize::R1,
                 )?;
                 let sew = vtype.vsew();
                 let vl = env.vl();

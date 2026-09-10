@@ -3,6 +3,7 @@
 Breaking changes:
 
 * `Instruction::alignment()` is replaced by the `Instruction::ALIGNMENT` associated constant
+* Changed APIs around vector extensions for better type safety and performance
 
 # 0.2.0
 

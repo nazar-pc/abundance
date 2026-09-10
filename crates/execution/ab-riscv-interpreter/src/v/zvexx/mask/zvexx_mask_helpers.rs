@@ -1,7 +1,7 @@
 //! Opaque helpers for ZveXx extension
 
 use crate::v::vector_registers::VectorRegistersExt;
-use crate::v::zvexx::arith::zvexx_arith_helpers::{write_element_u64, write_mask_bit};
+use crate::v::zvexx::arith::zvexx_arith_helpers::write_mask_bit;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
 
@@ -313,7 +313,7 @@ pub unsafe fn execute_viota<Reg, Env>(
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, prefix_count);
+            env.write_vregs().write_element(vd, i, sew, prefix_count);
         }
         if mask_bit(&vs2_snap, i) {
             prefix_count += 1;
@@ -352,7 +352,7 @@ where
         }
         // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, u64::from(i));
+            env.write_vregs().write_element(vd, i, sew, u64::from(i));
         }
     }
     env.mark_vs_dirty();

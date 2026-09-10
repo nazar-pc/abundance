@@ -1,13 +1,14 @@
 //! V extension
 
+#[cfg(test)]
+mod tests;
 pub mod zvexx;
 
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::{RegType, Register};
 use core::any::TypeId;
-use core::hint::cold_path;
+use core::hint::{assert_unchecked, cold_path};
 use core::marker::ConstParamTy;
-use core::num::NonZeroU8;
 use core::ops::RangeInclusive;
 use core::{cmp, fmt};
 
@@ -366,36 +367,96 @@ impl Vlmul {
     /// Integer `LMUL` values occupy 1, 2, 4, or 8 registers respectively.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn register_count(self) -> NonZeroU8 {
-        let register_count = match self {
-            Self::Mf8 | Self::Mf4 | Self::Mf2 | Self::M1 => 1,
-            Self::M2 => 2,
-            Self::M4 => 4,
-            Self::M8 => 8,
-        };
-        NonZeroU8::new(register_count).expect("Not zero; qed")
+    pub const fn register_count(self) -> VRegGroupSize {
+        match self {
+            Self::Mf8 | Self::Mf4 | Self::Mf2 | Self::M1 => VRegGroupSize::R1,
+            Self::M2 => VRegGroupSize::R2,
+            Self::M4 => VRegGroupSize::R4,
+            Self::M8 => VRegGroupSize::R8,
+        }
     }
 
-    /// LMUL as a `(numerator, denominator)` fraction where `LMUL = num / den`.
-    ///
-    /// Both values are powers of two with exactly one equal to `1`. Useful for computing
-    /// `EMUL = (EEW / SEW) * LMUL` without floating-point arithmetic.
+    /// Whether this is a fractional multiplier, so a register group is a part of one register
     #[inline(always)]
-    pub const fn as_fraction(self) -> (NonZeroU8, NonZeroU8) {
-        let (numerator, denominator) = match self {
-            Self::Mf8 => (1, 8),
-            Self::Mf4 => (1, 4),
-            Self::Mf2 => (1, 2),
-            Self::M1 => (1, 1),
-            Self::M2 => (2, 1),
-            Self::M4 => (4, 1),
-            Self::M8 => (8, 1),
-        };
+    pub const fn is_fractional(self) -> bool {
+        matches!(self, Self::Mf8 | Self::Mf4 | Self::Mf2)
+    }
 
-        (
-            NonZeroU8::new(numerator).expect("Not zero; qed"),
-            NonZeroU8::new(denominator).expect("Not zero; qed"),
-        )
+    /// Twice this multiplier, `None` above `M8`
+    #[inline(always)]
+    pub const fn double(self) -> Option<Self> {
+        match self {
+            Self::Mf8 => Some(Self::Mf4),
+            Self::Mf4 => Some(Self::Mf2),
+            Self::Mf2 => Some(Self::M1),
+            Self::M1 => Some(Self::M2),
+            Self::M2 => Some(Self::M4),
+            Self::M4 => Some(Self::M8),
+            Self::M8 => {
+                cold_path();
+                None
+            }
+        }
+    }
+
+    /// `LMUL` in eighths, so that fractional multipliers are integers too
+    #[inline(always)]
+    const fn eighths(self) -> u32 {
+        let eighths: u32 = match self {
+            Self::Mf8 => 1,
+            Self::Mf4 => 2,
+            Self::Mf2 => 4,
+            Self::M1 => 8,
+            Self::M2 => 16,
+            Self::M4 => 32,
+            Self::M8 => 64,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(eighths.is_power_of_two());
+        }
+        eighths
+    }
+
+    /// Inverse of [`Self::eighths()`], `None` outside the legal range `[1/8, 8]`
+    #[inline(always)]
+    const fn from_eighths(eighths: u32) -> Option<Self> {
+        match eighths {
+            1 => Some(Self::Mf8),
+            2 => Some(Self::Mf4),
+            4 => Some(Self::Mf2),
+            8 => Some(Self::M1),
+            16 => Some(Self::M2),
+            32 => Some(Self::M4),
+            64 => Some(Self::M8),
+            _ => {
+                cold_path();
+                None
+            }
+        }
+    }
+
+    /// Effective multiplier `EMUL = LMUL * EEW / SEW` of an operand with element width `eew`
+    /// under this `LMUL` and `sew`.
+    ///
+    /// Returns `None` when `EMUL` falls outside the legal range `[1/8, 8]`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn emul(self, eew: Eew, sew: Vsew) -> Option<Self> {
+        let eighths = self.eighths() * u32::from(eew.bits_width()) / u32::from(sew.bits_width());
+        Self::from_eighths(eighths)
+    }
+
+    /// Number of vector registers occupied by the destination group of a widening instruction,
+    /// whose `EMUL = 2 * LMUL`.
+    ///
+    /// Returns `None` for `M8`, where `EMUL` would be `16`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn widening_register_count(self) -> Option<VRegGroupSize> {
+        Some(self.double()?.register_count())
     }
 
     /// Compute `EMUL` for an indexed load: `EMUL = (index_eew / sew) * LMUL`.
@@ -404,25 +465,8 @@ impl Vlmul {
     /// outside the legal range `[1/8, 8]`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
-        let (lmul_num, lmul_den) = self.as_fraction();
-        let num = u16::from(index_eew.bits_width()) * u16::from(lmul_num.get());
-        let den = u16::from(sew.bits_width()) * u16::from(lmul_den.get());
-        // Both are products of powers of two; GCD equals the smaller value.
-        let g = if num < den { num } else { den };
-        let (n, d) = (num / g, den / g);
-        // Legal EMUL fractions: 1/8, 1/4, 1/2, 1, 2, 4, 8
-        #[expect(clippy::unnested_or_patterns, reason = "Readability")]
-        let legal = matches!(
-            (n, d),
-            (1, 8) | (1, 4) | (1, 2) | (1, 1) | (2, 1) | (4, 1) | (8, 1)
-        );
-        if !legal {
-            cold_path();
-            return None;
-        }
-        // Register count is max(1, n/d) = n when d==1, else 1
-        Some(NonZeroU8::new(if d > 1 { 1 } else { n as u8 }).expect("Not zero; qed"))
+    pub const fn index_register_count(self, index_eew: Eew, sew: Vsew) -> Option<VRegGroupSize> {
+        Some(self.emul(index_eew, sew)?.register_count())
     }
 
     /// Compute EMUL for a data operand of a memory instruction with a given effective element
@@ -436,7 +480,7 @@ impl Vlmul {
     /// Returns `None` when the resulting EMUL falls outside the legal range `[1/8, 8]`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<NonZeroU8> {
+    pub const fn data_register_count(self, eew: Eew, sew: Vsew) -> Option<VRegGroupSize> {
         self.index_register_count(eew, sew)
     }
 }
@@ -452,6 +496,57 @@ impl fmt::Display for Vlmul {
             Self::Mf4 => write!(f, "mf4"),
             Self::Mf2 => write!(f, "mf2"),
         }
+    }
+}
+
+/// Number of vector registers in a register group.
+///
+/// Register groups always consist of a power of two number of registers, whether from
+/// `LMUL`, `EMUL` of a memory operand or a whole-register move.
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+#[repr(u8)]
+pub enum VRegGroupSize {
+    /// A single register
+    R1 = 1,
+    /// Two registers
+    R2 = 2,
+    /// Four registers
+    R4 = 4,
+    /// Eight registers
+    R8 = 8,
+}
+
+impl VRegGroupSize {
+    /// Number of registers in the group
+    #[inline(always)]
+    pub const fn get(self) -> u8 {
+        let count = self as u8;
+        // TODO: Remove once rustc tells LLVM which values an enum can have rather than their
+        //  range, which hides the power of two: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(count.is_power_of_two());
+        }
+        count
+    }
+
+    /// Size of a group with `factor` times fewer registers, at least one.
+    ///
+    /// This is the source group of a `vzext`/`vsext`, whose `EMUL = LMUL / factor`.
+    #[inline(always)]
+    pub const fn divide_by_factor(self, factor: VsewFactor) -> Self {
+        match self.get() / factor.factor() {
+            2 => Self::R2,
+            4 => Self::R4,
+            _ => Self::R1,
+        }
+    }
+}
+
+impl fmt::Display for VRegGroupSize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.get())
     }
 }
 
@@ -472,14 +567,21 @@ impl VsewFactor {
     /// Return the numeric divisor used to scale down a [`Vsew`] bit-width
     #[inline(always)]
     pub const fn factor(self) -> u8 {
-        self as u8
+        let factor = self as u8;
+        // TODO: Remove once rustc tells LLVM which values an enum can have rather than their
+        //  range, which hides the power of two: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(factor.is_power_of_two());
+        }
+        factor
     }
 }
 
 /// Selected element width (SEW).
 ///
 /// Encoded in `vtype[5:3]` as `vsew`. `SEW = 8 * 2^vsew`.
-#[derive(Debug, Clone, Copy)]
+#[derive(ConstParamTy, Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Vsew {
@@ -576,23 +678,37 @@ impl Vsew {
     /// Element width in bits
     #[inline(always)]
     pub const fn bits_width(self) -> u8 {
-        match self {
+        let bits: u8 = match self {
             Self::E8 => 8,
             Self::E16 => 16,
             Self::E32 => 32,
             Self::E64 => 64,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bits.is_power_of_two());
         }
+        bits
     }
 
     /// Element width in bytes
     #[inline(always)]
     pub const fn bytes_width(self) -> u8 {
-        match self {
+        let bytes: u8 = match self {
             Self::E8 => 1,
             Self::E16 => 2,
             Self::E32 => 4,
             Self::E64 => 8,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bytes.is_power_of_two());
         }
+        bytes
     }
 
     /// Convert to the corresponding `Eew` variant.
@@ -622,8 +738,10 @@ impl fmt::Display for Vsew {
     }
 }
 
-/// Effective element width for vector memory operations
-#[derive(Debug, Clone, Copy)]
+/// Effective element width of a vector operand.
+///
+/// Memory operands carry it in the instruction, register operands derive it from `SEW`.
+#[derive(ConstParamTy, Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[repr(u8)]
 pub enum Eew {
@@ -670,12 +788,19 @@ impl Eew {
     /// Element width in bits
     #[inline(always)]
     pub const fn bits_width(self) -> u8 {
-        match self {
+        let bits: u8 = match self {
             Self::E8 => 8,
             Self::E16 => 16,
             Self::E32 => 32,
             Self::E64 => 64,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bits.is_power_of_two());
         }
+        bits
     }
 
     /// Element width in bytes.
@@ -683,12 +808,26 @@ impl Eew {
     /// Guaranteed to be `<= Self::MAX_BYTES`.
     #[inline(always)]
     pub const fn bytes_width(self) -> u8 {
-        match self {
+        let bytes: u8 = match self {
             Self::E8 => 1,
             Self::E16 => 2,
             Self::E32 => 4,
             Self::E64 => 8,
+        };
+        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
+        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
+        // SAFETY: Every variant is a power of two
+        unsafe {
+            assert_unchecked(bytes.is_power_of_two());
         }
+        bytes
+    }
+}
+
+const impl From<Vsew> for Eew {
+    #[inline(always)]
+    fn from(sew: Vsew) -> Self {
+        sew.as_eew()
     }
 }
 

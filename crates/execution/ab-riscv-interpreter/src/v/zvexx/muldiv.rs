@@ -1074,14 +1074,13 @@ where
                 }
                 let group_regs = vtype.vlmul().register_count();
                 // dest_group_regs encodes EMUL=2*LMUL; None means EMUL>8, which is illegal
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -1170,14 +1169,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -1250,14 +1248,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -1347,14 +1344,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -1429,14 +1425,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -1526,14 +1521,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -2062,14 +2056,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 // vd holds the 2*SEW accumulator
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2159,14 +2152,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -2239,14 +2231,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -2336,14 +2327,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -2417,14 +2407,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -2514,14 +2503,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -2604,14 +2592,13 @@ where
                     });
                 }
                 let group_regs = vtype.vlmul().register_count();
-                let dest_group_regs = zvexx_muldiv_helpers::widening_dest_register_count(
-                    vtype.vlmul(),
-                )
-                .ok_or(ExecutionError::IllegalInstruction {
-                    address: PackedAddress::new(
-                        program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                    ),
-                })?;
+                let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
+                    ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    },
+                )?;
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,

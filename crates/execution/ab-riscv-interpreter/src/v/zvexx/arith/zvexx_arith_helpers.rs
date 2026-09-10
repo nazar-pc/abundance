@@ -6,7 +6,9 @@ use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
+
+/// Effective element width of a register operand at `SEW`
+const SEW_EEW<const SEW: Vsew>: Eew = SEW.as_eew();
 
 /// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
 #[inline(always)]
@@ -15,15 +17,13 @@ use core::num::NonZeroU8;
 pub fn check_vreg_group_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vreg: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let group_regs = group_regs.get();
-    let vreg_idx = vreg.to_bits();
-    if !vreg_idx.is_multiple_of(group_regs) || vreg_idx + group_regs > 32 {
+    if !vreg.is_group_aligned(group_regs) || vreg.to_bits() + group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -53,7 +53,7 @@ pub fn check_mask_dest_overlap<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     src_base: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -71,69 +71,6 @@ where
         }
     }
     Ok(())
-}
-
-/// Read a SEW-wide element from register group `[base_reg, base_reg + group_regs)` as `u64`.
-///
-/// Element `elem_i` occupies bytes at:
-///   - register `base_reg + elem_i / elems_per_reg`
-///   - byte offset `(elem_i % elems_per_reg) * sew_bytes`
-///
-/// The value is zero-extended to `u64`.
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / sew_bytes) < 32` must hold.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(crate) unsafe fn read_element_u64<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    sew: Vsew,
-) -> u64 {
-    let sew_bytes = u32::from(sew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / sew_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = vregs
-        .get(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
-    // SAFETY: `byte_off + sew_bytes <= VLEN.bytes()` because `byte_off` is at most
-    // `(elems_per_reg - 1) * sew_bytes = VLEN.bytes() - sew_bytes`
-    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + sew_bytes) as usize) };
-    let mut buf = [0u8; 8];
-    // SAFETY: `sew_bytes <= 8` for all `Vsew` variants
-    unsafe { buf.get_unchecked_mut(..sew_bytes as usize) }.copy_from_slice(src);
-    u64::from_le_bytes(buf)
-}
-
-/// Write a SEW-wide element (low `sew_bytes` of `value`) into register group
-/// `[base_reg, base_reg + group_regs)` at element index `elem_i`.
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / sew_bytes) < 32` must hold.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(crate) unsafe fn write_element_u64<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    sew: Vsew,
-    value: u64,
-) {
-    let sew_bytes = u32::from(sew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / sew_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
-    let buf = value.to_le_bytes();
-    // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = vregs
-        .get_mut(unsafe { VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked() });
-    // SAFETY: `byte_off + sew_bytes <= VLEN.bytes()` - same argument as `read_element_u64`.
-    // `sew_bytes <= 8` for all `Vsew` variants.
-    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + sew_bytes) as usize) };
-    // SAFETY: `sew_bytes <= 8` for all `Vsew` variants
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes as usize) });
 }
 
 /// Write one mask bit (the comparison result for element `elem_i`) into register `vd`.
@@ -202,34 +139,76 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
+    // Dispatch on the element width once, so that the loop below is compiled for each width
+    // separately, with element loads and stores of a constant size
+    //
+    // SAFETY: Guaranteed by the caller's precondition
+    unsafe {
+        match sew {
+            Vsew::E8 => {
+                execute_arith_op_const::<{ Vsew::E8 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+            Vsew::E16 => {
+                execute_arith_op_const::<{ Vsew::E16 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+            Vsew::E32 => {
+                execute_arith_op_const::<{ Vsew::E32 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+            Vsew::E64 => {
+                execute_arith_op_const::<{ Vsew::E64 }, _, _, _>(env, vd, vs2, src, vm, op);
+            }
+        }
+    }
+}
+
+/// [`execute_arith_op()`] with the element width known at compile time
+///
+/// # Safety
+/// Same as [`execute_arith_op()`]
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
+    env: &mut Env,
+    vd: VReg,
+    vs2: VReg,
+    src: OpSrc,
+    vm: bool,
+    op: F,
+) where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    F: Fn(u64, u64, Vsew) -> u64,
+{
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`, so `vl.div_ceil(8) <= VLEN.bytes()`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let vregs = env.write_vregs();
 
     for i in vstart.range_to(vl) {
-        if !mask_bit(&mask_buf, i) {
+        // `vd` never overlaps `v0` when masked, so the mask can be read in place rather than
+        // snapshotted, no write below can modify it
+        if !vm && !mask_bit(vregs.get(VReg::V0), i) {
             continue;
         }
 
         // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { vregs.read_element_const::<{ SEW_EEW::<SEW> }>(vs2, i) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { vregs.read_element_const::<{ SEW_EEW::<SEW> }>(vs1_base, i) }
             }
             OpSrc::Scalar(val) => val,
         };
 
-        let result = op(a, b, sew);
+        let result = op(a, b, SEW);
 
         // SAFETY: `vd % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
         // `vd + i / elems_per_reg < vd + group_regs <= 32`
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            vregs.write_element_const::<{ SEW_EEW::<SEW> }>(vd, i, result);
         }
     }
 
@@ -280,12 +259,12 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
         }
 
         // SAFETY: same argument as in `execute_arith_op`
-        let a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
 
         let b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) }
+                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
             }
             OpSrc::Scalar(val) => val,
         };

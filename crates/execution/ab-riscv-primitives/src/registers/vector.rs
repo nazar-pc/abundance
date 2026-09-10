@@ -1,5 +1,6 @@
 //! RISC-V vector registers
 
+use crate::instructions::v::VRegGroupSize;
 use core::fmt;
 
 /// RISC-V vector register (v0-v31)
@@ -118,6 +119,14 @@ impl VReg {
     #[inline(always)]
     pub const fn to_bits(self) -> u8 {
         self as u8
+    }
+
+    /// Whether this register can be the base of a register group of `group` registers.
+    ///
+    /// The base of a register group must be a multiple of the group size.
+    #[inline(always)]
+    pub const fn is_group_aligned(self, group: VRegGroupSize) -> bool {
+        self.to_bits().is_multiple_of(group.get())
     }
 }
 

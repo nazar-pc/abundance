@@ -1,13 +1,13 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
+use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Check that a widening destination `vd` is aligned to `wide_group_regs` and fits within
 /// `[0,32)`, without any source overlap check
@@ -17,15 +17,13 @@ use core::num::NonZeroU8;
 pub fn check_vd_widen_no_src_check<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    wide_group_regs: NonZeroU8,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let wide_group_regs = wide_group_regs.get();
-    let vd_idx = vd.to_bits();
-    if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
+    if !vd.is_group_aligned(wide_group_regs) || vd.to_bits() + wide_group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -48,18 +46,19 @@ where
 pub fn check_vs_ext_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs2: VReg,
-    src_group_regs: NonZeroU8,
+    src_group_regs: VRegGroupSize,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vs2.is_group_aligned(src_group_regs);
     let src_group_regs = src_group_regs.get();
     let group_regs = group_regs.get();
     let vs2_idx = vs2.to_bits();
-    if !vs2_idx.is_multiple_of(src_group_regs) || vs2_idx + src_group_regs > 32 {
+    if !aligned || vs2_idx + src_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -96,17 +95,18 @@ pub fn check_vd_widen_alignment<Reg, Memory, PC>(
     vd: VReg,
     vs_a: VReg,
     vs_b_opt: Option<VReg>,
-    group_regs: NonZeroU8,
-    wide_group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vd.is_group_aligned(wide_group_regs);
     let wide_group_regs = wide_group_regs.get();
     let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
-    if !vd_idx.is_multiple_of(wide_group_regs) || vd_idx + wide_group_regs > 32 {
+    if !aligned || vd_idx + wide_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -156,15 +156,13 @@ fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_
 pub fn check_vs_wide_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs: VReg,
-    wide_group_regs: NonZeroU8,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let wide_group_regs = wide_group_regs.get();
-    let vs_idx = vs.to_bits();
-    if !vs_idx.is_multiple_of(wide_group_regs) || vs_idx + wide_group_regs > 32 {
+    if !vs.is_group_aligned(wide_group_regs) || vs.to_bits() + wide_group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -186,22 +184,20 @@ where
 pub fn check_vd_narrow_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     vs2: VReg,
-    wide_group_regs: NonZeroU8,
+    wide_group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vd.is_group_aligned(group_regs);
     let group_regs = group_regs.get();
     let vd_idx = vd.to_bits();
     let vs2_idx = vs2.to_bits();
     let overlaps = ranges_overlap(vd_idx, group_regs, vs2_idx, wide_group_regs.get());
-    if !vd_idx.is_multiple_of(group_regs)
-        || vd_idx + group_regs > 32
-        || (overlaps && vd_idx != vs2_idx)
-    {
+    if !aligned || vd_idx + group_regs > 32 || (overlaps && vd_idx != vs2_idx) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -215,98 +211,6 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn ranges_overlap(a_start: u8, a_len: u8, b_start: u8, b_len: u8) -> bool {
     a_start < b_start + b_len && b_start < a_start + a_len
-}
-
-/// Return whether mask bit `i` is set in the mask byte slice (LSB-first within each byte).
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn mask_bit(mask: &[u8], i: u16) -> bool {
-    mask.get(usize::from(i / u8::BITS as u16))
-        .is_some_and(|b| (b >> (i % u8::BITS as u16)) & 1 != 0)
-}
-
-/// Snapshot the mask register into a stack buffer.
-///
-/// When `vm=true` (unmasked), all bytes are `0xff`.
-///
-/// # Safety
-/// `vl <= VLEN` must hold
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn snapshot_mask<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    vm: bool,
-    vl: Vl,
-) -> [u8; VLENB_USIZE::<VLEN>] {
-    let mut buf = [0u8; _];
-    if vm {
-        buf = [0xffu8; _];
-    } else {
-        let mask_bytes = usize::from(vl.bytes());
-        // SAFETY: `mask_bytes <= VLEN.bytes()` by precondition
-        unsafe {
-            buf.get_unchecked_mut(..mask_bytes)
-                .copy_from_slice(vregs.get(VReg::V0).get_unchecked(..mask_bytes));
-        }
-    }
-    buf
-}
-
-/// Read the low `sew.bytes_width()` of the element `elem_i` from the register group `base_reg`,
-/// zero-extended to `u64`.
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / sew.bytes_width()) < 32`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn read_element_u64<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    sew: Vsew,
-) -> u64 {
-    let sew_bytes = u32::from(sew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / sew_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe {
-        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + sew_bytes <= VLEN.bytes()`
-    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + sew_bytes) as usize) };
-    let mut buf = [0u8; 8];
-    // SAFETY: `sew_bytes <= 8`
-    unsafe { buf.get_unchecked_mut(..sew_bytes as usize) }.copy_from_slice(src);
-    u64::from_le_bytes(buf)
-}
-
-/// Write the low `sew.bytes_width()` of `value` into element `elem_i` in register group `base_reg`.
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / sew.bytes_width()) < 32`
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn write_element_u64<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    sew: Vsew,
-    value: u64,
-) {
-    let sew_bytes = u32::from(sew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / sew_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * sew_bytes;
-    let buf = value.to_le_bytes();
-    // SAFETY: `base_reg + reg_off < 32` by caller's precondition
-    let reg = unsafe {
-        vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + sew_bytes <= VLEN.bytes()`
-    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + sew_bytes) as usize) };
-    // SAFETY: `sew_bytes <= 8`
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..sew_bytes as usize) });
 }
 
 /// Sign-extend the low `sew.bits_width()` of `val` to `i64`.
@@ -419,7 +323,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
         }
         // SAFETY: `vs2` aligned to `group_regs`;
         // `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())`
-        let raw_a = unsafe { read_element_u64(env.read_vregs(), vs2, i, sew) };
+        let raw_a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
         let wide_a = if ZERO_EXTEND_AB {
             raw_a
         } else {
@@ -428,7 +332,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
         let wide_b = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: same argument as vs2
-                let raw_b = unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) };
+                let raw_b = unsafe { env.read_vregs().read_element(vs1_base, i, sew) };
                 if ZERO_EXTEND_AB {
                     raw_b
                 } else {
@@ -449,7 +353,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
         // `i < 2*group_regs * (VLEN.bytes() / wide_sew.bytes_width())` - element fits in the wide
         // group
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, wide_sew, result);
+            env.write_vregs().write_element(vd, i, wide_sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -499,13 +403,13 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
         }
         // vs2 is already 2×SEW; read at wide width
         // SAFETY: `vs2` aligned to `2*group_regs`; element `i` fits within it
-        let wide_a = unsafe { read_element_u64(env.read_vregs(), vs2, i, wide_sew) };
+        let wide_a = unsafe { env.read_vregs().read_element(vs2, i, wide_sew) };
         let wide_b = match src {
             OpSrc::Vreg(vs1) => {
                 // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
                 // verified by caller; `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw_b = unsafe { read_element_u64(env.read_vregs(), vs1, i, sew) };
+                let raw_b = unsafe { env.read_vregs().read_element(vs1, i, sew) };
                 if ZERO_EXTEND_B {
                     raw_b
                 } else {
@@ -523,7 +427,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
         let result = op(wide_a, wide_b);
         // SAFETY: same as `execute_widen_op` for vd
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, wide_sew, result);
+            env.write_vregs().write_element(vd, i, wide_sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -575,13 +479,13 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
             continue;
         }
         // SAFETY: `vs2` is the wide source group
-        let wide_val = unsafe { read_element_u64(env.read_vregs(), vs2, i, wide_sew) };
+        let wide_val = unsafe { env.read_vregs().read_element(vs2, i, wide_sew) };
         let shamt = match src {
             OpSrc::Vreg(vs1_base) => {
                 // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
                 // verified by caller; `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())`,
                 // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw = unsafe { read_element_u64(env.read_vregs(), vs1_base, i, sew) };
+                let raw = unsafe { env.read_vregs().read_element(vs1_base, i, sew) };
                 raw & shamt_mask
             }
             // Scalar shift amount: only the low log2(2*SEW) bits are used per spec
@@ -599,7 +503,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
         let result = result_wide & ((1u64 << sew.bits_width()) - 1);
         // SAFETY: `vd` is the narrow destination group
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();
@@ -648,7 +552,7 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
             continue;
         }
         // SAFETY: vs2 group covers `vl` narrow elements
-        let raw = unsafe { read_element_u64(env.read_vregs(), vs2, i, src_sew) };
+        let raw = unsafe { env.read_vregs().read_element(vs2, i, src_sew) };
         let result = if SIGN {
             sign_extend_bits(raw, src_sew).cast_unsigned()
         } else {
@@ -656,7 +560,7 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
         };
         // SAFETY: vd group covers `vl` wide elements
         unsafe {
-            write_element_u64(env.write_vregs(), vd, i, sew, result);
+            env.write_vregs().write_element(vd, i, sew, result);
         }
     }
     env.mark_vs_dirty();

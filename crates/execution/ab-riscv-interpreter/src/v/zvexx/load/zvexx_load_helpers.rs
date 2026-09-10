@@ -6,7 +6,6 @@ use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, Virtua
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Return whether mask bit `i` is set in the mask byte slice.
 ///
@@ -59,7 +58,7 @@ pub(in super::super) unsafe fn snapshot_mask<const VLEN: Vlen>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn groups_overlap(a: VReg, a_regs: NonZeroU8, b: VReg, b_regs: NonZeroU8) -> bool {
+pub fn groups_overlap(a: VReg, a_regs: VRegGroupSize, b: VReg, b_regs: VRegGroupSize) -> bool {
     let (a, b) = (a.to_bits(), b.to_bits());
     a < b + b_regs.get() && b < a + a_regs.get()
 }
@@ -90,9 +89,9 @@ pub fn groups_overlap(a: VReg, a_regs: NonZeroU8, b: VReg, b_regs: NonZeroU8) ->
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn indexed_load_overlap_allowed(
     vd: VReg,
-    data_regs: NonZeroU8,
+    data_regs: VRegGroupSize,
     vs2: VReg,
-    index_regs: NonZeroU8,
+    index_regs: VRegGroupSize,
     index_eew: Eew,
     sew: Vsew,
     vlmul: Vlmul,
@@ -112,10 +111,9 @@ pub fn indexed_load_overlap_allowed(
         // whole-register EMUL from a fractional one clamped to a single register, so the EMUL is
         // recomputed here as `(index_eew / sew) * LMUL >= 1`.
         Ordering::Greater => {
-            let (lmul_num, lmul_den) = vlmul.as_fraction();
-            let index_emul_at_least_one = u16::from(index_eew.bits_width())
-                * u16::from(lmul_num.get())
-                >= u16::from(sew.bits_width()) * u16::from(lmul_den.get());
+            let index_emul_at_least_one = vlmul
+                .emul(index_eew, sew)
+                .is_some_and(|index_emul| !index_emul.is_fractional());
             let (vd, vs2) = (vd.to_bits(), vs2.to_bits());
             index_emul_at_least_one && vd + data_regs.get() == vs2 + index_regs.get()
         }
@@ -131,15 +129,13 @@ pub fn indexed_load_overlap_allowed(
 pub fn check_register_group_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let group_regs = group_regs.get();
-    let vd = vd.to_bits();
-    if !vd.is_multiple_of(group_regs) || vd + group_regs > 32 {
+    if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -160,19 +156,20 @@ pub fn validate_segment_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
     vm: bool,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let aligned = vd.is_group_aligned(group_regs);
     let group_regs = u32::from(group_regs.get());
     let nf = u32::from(nf.fields_per_segment());
     let vd_idx = u32::from(vd.to_bits());
     // Per spec, `NFIELDS * EMUL` must not exceed 8 for segment loads/stores, regardless of whether
     // the field groups would otherwise fit within the 32 vector registers
-    if vd_idx % group_regs != 0 || nf * group_regs > 8 || vd_idx + nf * group_regs > 32 {
+    if !aligned || nf * group_regs > 8 || vd_idx + nf * group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -188,79 +185,6 @@ where
         });
     }
     Ok(())
-}
-
-/// Read element `elem_i` from register group `[base_reg, base_reg + group_regs)` into a
-/// `[u8; Eew::MAX_BYTES]` buffer.
-///
-/// The in-register position of element `elem_i` is:
-///   - register `base_reg + elem_i / (VLEN.bytes() / eew.bytes())`
-///   - byte offset `(elem_i % (VLEN.bytes() / eew.bytes())) * eew.bytes()`
-///
-/// The result is placed in `buf[..eew.bytes()]`; the remaining bytes are zero.
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / eew.bytes())` must be less than 32, i.e. `elem_i` must be
-/// a valid element index within the register group.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) unsafe fn read_group_element<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    eew: Eew,
-) -> [u8; const { usize::from(Eew::MAX_BYTES) }] {
-    let elem_bytes = u32::from(eew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / elem_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * elem_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
-    let reg = unsafe {
-        vregs.get(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + elem_bytes <= VLEN.bytes()`: the maximum `byte_off` is
-    // `(elems_per_reg - 1) * elem_bytes = VLEN.bytes() - elem_bytes`, so
-    // `byte_off + elem_bytes <= VLEN.bytes() - elem_bytes + elem_bytes = VLEN.bytes()`.
-    // `elem_bytes <= Eew::MAX_BYTES`: all `Eew` variants are at most E64.
-    let src = unsafe { reg.get_unchecked(byte_off as usize..(byte_off + elem_bytes) as usize) };
-    let mut buf = [0; _];
-    // SAFETY: `elem_bytes <= Eew::MAX_BYTES` as established above, so `..elem_bytes` is in bounds
-    // for `buf`
-    unsafe { buf.get_unchecked_mut(..elem_bytes as usize) }.copy_from_slice(src);
-    buf
-}
-
-/// Write `eew`-sized data from `buf[..eew.bytes()]` into element `elem_i` of register group
-/// `[base_reg, base_reg + group_regs)`.
-///
-/// The in-register position follows the same layout as [`read_group_element`].
-///
-/// # Safety
-/// `base_reg + elem_i / (VLEN.bytes() / eew.bytes())` must be less than 32, i.e. `elem_i` must be
-/// a valid element index within the register group.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn write_group_element<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
-    base_reg: VReg,
-    elem_i: u16,
-    eew: Eew,
-    buf: [u8; const { usize::from(Eew::MAX_BYTES) }],
-) {
-    let elem_bytes = u32::from(eew.bytes_width());
-    let elems_per_reg = VLEN.bytes() / elem_bytes;
-    let reg_off = u32::from(elem_i) / elems_per_reg;
-    let byte_off = (u32::from(elem_i) % elems_per_reg) * elem_bytes;
-    // SAFETY: `base_reg + reg_off < 32` by the caller's precondition
-    let reg = unsafe {
-        vregs.get_mut(VReg::from_bits(base_reg.to_bits() + reg_off as u8).unwrap_unchecked())
-    };
-    // SAFETY: `byte_off + elem_bytes <= VLEN.bytes()` and `elem_bytes <= Eew::MAX_BYTES`: same
-    // argument as in `read_group_element`
-    let dst = unsafe { reg.get_unchecked_mut(byte_off as usize..(byte_off + elem_bytes) as usize) };
-    // SAFETY: `elem_bytes <= Eew::MAX_BYTES` as established above, so `..elem_bytes` is in bounds
-    // for `buf`
-    dst.copy_from_slice(unsafe { buf.get_unchecked(..elem_bytes as usize) });
 }
 
 /// Read `eew`-sized data from memory at `addr` into a `[u8; Eew::MAX_BYTES]` buffer
@@ -311,7 +235,7 @@ pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, Env, M
     vm: bool,
     base: u64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -324,12 +248,45 @@ where
     let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
+
+    let range = vstart.range_to(vl);
+
+    // Unmasked non-segment load is a plain copy of a contiguous memory range into the contiguous
+    // element range of the register group, as long as the whole range is readable. If it is not,
+    // the element-wise path below is what determines the faulting element and everything before
+    // it, exactly as if the copy was never attempted (nothing was written).
+    if vm && nf.fields_per_segment() == 1 && !range.is_empty() {
+        let first = *range.start();
+        let len = range.len() * usize::from(elem_bytes);
+        let addr = base.wrapping_add(u64::from(first) * u64::from(elem_bytes));
+        let read_result = memory.read_slice(
+            addr,
+            u32::try_from(len).expect("At most 8 registers worth of bytes; qed"),
+        );
+        if let Ok(bytes) = read_result {
+            let offset = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, first, eew);
+            // SAFETY: Elements `vstart..vl` all lie within the register group, which ends within
+            // the register file (precondition), so `offset + len <= 32 * VLEN.bytes()`
+            unsafe {
+                env.write_vregs()
+                    .as_bytes_mut()
+                    .as_flattened_mut()
+                    .get_unchecked_mut(offset..offset + len)
+                    .copy_from_slice(bytes);
+            }
+            env.mark_vs_dirty();
+            env.reset_vstart();
+            return Ok(());
+        }
+        cold_path();
+    }
+
     let segment_stride = u64::from(nf.fields_per_segment()) * u64::from(elem_bytes);
 
     // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
 
-    for i in vstart.range_to(vl) {
+    for i in range {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -400,12 +357,11 @@ where
             // For `field_buf`: `f < nf <= Nf::MAX` (the same argument as in the read loop
             // above), so `f as usize < Nf::MAX = field_buf.len()`.
             unsafe {
-                write_group_element(
-                    env.write_vregs(),
+                env.write_vregs().write_element(
                     field_base_reg,
                     i,
                     eew,
-                    *field_buf.get_unchecked(f as usize),
+                    u64::from_le_bytes(*field_buf.get_unchecked(f as usize)),
                 );
             }
         }
@@ -438,7 +394,7 @@ pub unsafe fn execute_strided_load<Reg, Env, Memory>(
     base: u64,
     stride: i64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -491,7 +447,8 @@ where
             //
             // Therefore, `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
             unsafe {
-                write_group_element(env.write_vregs(), field_base_reg, i, eew, data);
+                env.write_vregs()
+                    .write_element(field_base_reg, i, eew, u64::from_le_bytes(data));
             }
         }
     }
@@ -530,7 +487,7 @@ pub unsafe fn execute_indexed_load<Reg, Env, Memory>(
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
-    data_group_regs: NonZeroU8,
+    data_group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -560,8 +517,11 @@ where
         // `i / (VLEN.bytes() / index_eew.bytes()) < EMUL_index`, and therefore
         // `index_base_reg + i / (VLEN.bytes() / index_eew.bytes()) < index_base_reg + EMUL_index <=
         // 32`.
-        let index_buf =
-            unsafe { read_group_element(env.read_vregs(), index_base_reg, i, index_eew) };
+        let index_buf = unsafe {
+            env.read_vregs()
+                .read_element(index_base_reg, i, index_eew)
+                .to_le_bytes()
+        };
         let offset = u64::from_le_bytes(index_buf);
         let elem_addr = base.wrapping_add(offset);
 
@@ -596,7 +556,12 @@ where
             // Therefore,
             // `field_base_reg + i / data_elems_per_reg < field_base_reg + data_group_regs <= 32`.
             unsafe {
-                write_group_element(env.write_vregs(), field_base_reg, i, data_eew, data);
+                env.write_vregs().write_element(
+                    field_base_reg,
+                    i,
+                    data_eew,
+                    u64::from_le_bytes(data),
+                );
             }
         }
     }

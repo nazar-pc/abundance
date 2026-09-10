@@ -1,14 +1,13 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{
-    check_register_group_alignment, mask_bit, read_group_element, snapshot_mask,
+    check_register_group_alignment, mask_bit, snapshot_mask,
 };
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-use core::num::NonZeroU8;
 
 /// Interpret `buf[..index_eew.bytes()]` as a little-endian unsigned integer and return it as
 /// `u64`. Used to convert a packed index element into a byte offset.
@@ -52,7 +51,7 @@ fn write_mem_element(
 pub fn validate_segment_store_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vs3: VReg,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -102,7 +101,7 @@ pub unsafe fn execute_unit_stride_store<Reg, Env, Memory>(
     vm: bool,
     base: u64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -115,10 +114,37 @@ where
     let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
+
+    let range = vstart.range_to(vl);
+
+    // Unmasked non-segment store is a plain copy of the contiguous element range of the register
+    // group into a contiguous memory range, as long as the whole range is writable. If it is not,
+    // the element-wise path below is what determines the faulting element and writes everything
+    // before it, which is the same outcome a partially written copy would have.
+    if vm && nf.fields_per_segment() == 1 && !range.is_empty() {
+        let first = *range.start();
+        let len = range.len() * usize::from(elem_bytes);
+        let addr = base.wrapping_add(u64::from(first) * u64::from(elem_bytes));
+        let offset = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs3, first, eew);
+        // SAFETY: Elements `vstart..vl` all lie within the register group, which ends within the
+        // register file (precondition), so `offset + len <= 32 * VLEN.bytes()`
+        let data = unsafe {
+            env.read_vregs()
+                .as_bytes()
+                .as_flattened()
+                .get_unchecked(offset..offset + len)
+        };
+        if memory.write_slice(addr, data).is_ok() {
+            env.reset_vstart();
+            return Ok(());
+        }
+        cold_path();
+    }
+
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     // SAFETY: `vl <= VLMAX <= VLEN`
     let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
-    for i in vstart.range_to(vl) {
+    for i in range {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -141,7 +167,11 @@ where
             //
             // Therefore,
             // `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
-            let data = unsafe { read_group_element(env.read_vregs(), field_base_reg, i, eew) };
+            let data = unsafe {
+                env.read_vregs()
+                    .read_element(field_base_reg, i, eew)
+                    .to_le_bytes()
+            };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
@@ -180,7 +210,7 @@ pub unsafe fn execute_strided_store<Reg, Env, Memory>(
     base: u64,
     stride: i64,
     eew: Eew,
-    group_regs: NonZeroU8,
+    group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -208,7 +238,11 @@ where
             // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
             // i / elems_per_reg < field_base_reg + group_regs <= vs3.to_bits() + nf *
             // group_regs <= 32`.
-            let data = unsafe { read_group_element(env.read_vregs(), field_base_reg, i, eew) };
+            let data = unsafe {
+                env.read_vregs()
+                    .read_element(field_base_reg, i, eew)
+                    .to_le_bytes()
+            };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, eew, data) {
@@ -253,7 +287,7 @@ pub unsafe fn execute_indexed_store<Reg, Env, Memory>(
     base: u64,
     data_eew: Eew,
     index_eew: Eew,
-    data_group_regs: NonZeroU8,
+    data_group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
@@ -275,7 +309,11 @@ where
         // SAFETY: `i < vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()` (precondition),
         // so `vs2.to_bits() + i / (VLEN.bytes() / index_eew.bytes()) <
         //     vs2.to_bits() + index_group_regs <= 32`
-        let index_buf = unsafe { read_group_element(env.read_vregs(), vs2, i, index_eew) };
+        let index_buf = unsafe {
+            env.read_vregs()
+                .read_element(vs2, i, index_eew)
+                .to_le_bytes()
+        };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
         let elem_base = base.wrapping_add(offset);
@@ -287,7 +325,11 @@ where
             // SAFETY: `i < vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()` (precondition),
             // so `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
             //                                    <= vs3.to_bits() + nf * data_group_regs <= 32`.
-            let data = unsafe { read_group_element(env.read_vregs(), field_base_reg, i, data_eew) };
+            let data = unsafe {
+                env.read_vregs()
+                    .read_element(field_base_reg, i, data_eew)
+                    .to_le_bytes()
+            };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element(memory, addr, data_eew, data) {

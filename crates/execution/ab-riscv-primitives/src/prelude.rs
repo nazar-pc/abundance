@@ -65,8 +65,8 @@ pub use crate::instructions::v::zvexx::reduction::ZveXxReductionInstruction;
 pub use crate::instructions::v::zvexx::store::ZveXxStoreInstruction;
 pub use crate::instructions::v::zvexx::widen_narrow::ZveXxWidenNarrowInstruction;
 pub use crate::instructions::v::{
-    Eew, Elen, SUPPORTED_ELEN_VLEN, V, Vl, Vlen, Vlmul, VsStatus, Vsew, VsewFactor, Vstart, Vtype,
-    Vxrm,
+    Eew, Elen, SUPPORTED_ELEN_VLEN, V, VRegGroupSize, Vl, Vlen, Vlmul, VsStatus, Vsew, VsewFactor,
+    Vstart, Vtype, Vxrm,
 };
 pub use crate::instructions::zawrs::ZawrsInstruction;
 pub use crate::instructions::zicond::ZicondInstruction;
