@@ -6,7 +6,7 @@ mod aarch64;
 #[cfg(test)]
 mod tests;
 // TODO: Miri is excluded because AES intrinsics are not implemented there
-#[cfg(all(not(miri), target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 mod x86_64;
 
 use ab_core_primitives::pot::{PotCheckpoints, PotKey, PotOutput, PotSeed};
@@ -19,7 +19,7 @@ use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
     cfg_select! {
-        all(not(miri), target_arch = "x86_64") => {
+        target_arch = "x86_64" => {
             cpufeatures::new!(has_aes, "aes");
             if has_aes::get() {
                 // SAFETY: Checked `aes` feature
@@ -84,7 +84,7 @@ pub(crate) fn verify_sequential(
     assert_eq!(checkpoint_iterations % 2, 0);
 
     cfg_select! {
-        all(not(miri), target_arch = "x86_64") => {
+        target_arch = "x86_64" => {
             // TODO: Remove this guard once this no longer causes problems for compiler
             #[cfg(not(feature = "no-panic"))]
             {
