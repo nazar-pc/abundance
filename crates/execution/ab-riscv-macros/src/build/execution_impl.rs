@@ -422,6 +422,10 @@ pub(super) fn process_enum_operands_impl(
         }
     });
 
+    item_impl
+        .attrs
+        .insert(0, parse_quote! { #[automatically_derived] });
+
     output_processed_enum_operands_impl(&enum_name, item_impl, out_dir)
 }
 
@@ -607,6 +611,9 @@ pub(super) fn process_enum_csr_impl(
             caused by it"
         )] },
     );
+    item_impl
+        .attrs
+        .insert(0, parse_quote! { #[automatically_derived] });
 
     output_processed_enum_csr_impl(&enum_name, item_impl, out_dir, state)
 }
@@ -795,6 +802,10 @@ pub(super) fn process_enum_execution_impl(
             #( #match_arms )*
         }
     }};
+
+    item_impl
+        .attrs
+        .insert(0, parse_quote! { #[automatically_derived] });
 
     output_processed_enum_execution_impl(
         &enum_name,
