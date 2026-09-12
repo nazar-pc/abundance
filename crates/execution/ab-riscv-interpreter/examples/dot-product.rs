@@ -29,12 +29,12 @@
     const_try_residual,
     explicit_tail_calls,
     fn_align,
-    generic_const_args,
+    gca_const_items,
+    gca_macroless_args,
+    gca_min_const_items,
     generic_const_items,
     inherent_associated_types,
     integer_widen_truncate,
-    macroless_generic_const_args,
-    min_generic_const_args,
     signed_bigint_helpers,
     try_blocks
 )]
@@ -345,9 +345,6 @@ impl VectorRegistersExt for Env {
         self.vector_config = vector_config;
     }
 }
-
-// Threaded execution passes the environment as `&mut Env`, and the vector traits are not
-// blanket-implemented for references the way the simpler ones are
 
 impl<Regs, Memory, PC> SystemInstructionHandler<Reg<u64>, Regs, Memory, PC> for Env
 where

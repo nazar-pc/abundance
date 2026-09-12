@@ -6,6 +6,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -23,6 +24,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -40,6 +42,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -57,6 +60,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -74,6 +78,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -91,6 +96,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -108,6 +114,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -125,6 +132,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -142,6 +150,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -159,6 +168,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -176,6 +186,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
@@ -193,6 +204,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |
  ::: src/trivial_type.rs
   |
+  | pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 

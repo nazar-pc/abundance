@@ -6,6 +6,7 @@ error[E0080]: evaluation panicked: Number of array elements must be smaller than
   |
  ::: src/trivial_type.rs
   |
+  |   const SUPPORTED_ARRAY<T, const N: usize>: usize = {
   | /     assert!(
   | |         u32::MAX as usize >= N,
   | |         "Number of array elements must be smaller than 2^32"
@@ -26,6 +27,8 @@ error[E0080]: evaluation panicked: Type size must be smaller than 2^32
   |
  ::: src/trivial_type.rs
   |
+  |   const SUPPORTED_ARRAY<T, const N: usize>: usize = {
+...
   | /     assert!(
   | |         u32::MAX as usize >= size_of::<[T; N]>(),
   | |         "Type size must be smaller than 2^32"

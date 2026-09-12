@@ -67,6 +67,7 @@ scale-codec = [
 ]
 # Enables some APIs
 parallel = [
+    "alloc",
     "blake3/rayon",
     "dep:rayon",
 ]

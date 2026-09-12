@@ -6,6 +6,8 @@ error[E0080]: evaluation panicked: This Merkle Mountain Range must have MAX_N > 
   |
  ::: src/mmr.rs
   |
+  |   const STACK_SIZE<const MAX_N: u64>: usize = {
+...
   | /     assert!(
   | |         MAX_N > 1,
   | |         "This Merkle Mountain Range must have MAX_N > 1 leaves"

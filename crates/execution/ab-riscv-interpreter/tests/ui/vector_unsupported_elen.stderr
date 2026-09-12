@@ -6,6 +6,7 @@ error[E0080]: evaluation panicked: Zve* extensions require `ELEN` of 32 or 64 bi
   |
  ::: src/v/vector_registers.rs
   |
+  |   pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize = {
   | /     assert!(
   | |         matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
   | |         "Zve* extensions require `ELEN` of 32 or 64 bits"
@@ -20,6 +21,7 @@ error[E0080]: evaluation panicked: Zve* extensions require `ELEN` of 32 or 64 bi
   |
  ::: src/v/vector_registers.rs
   |
+  |   pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize = {
   | /     assert!(
   | |         matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
   | |         "Zve* extensions require `ELEN` of 32 or 64 bits"

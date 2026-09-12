@@ -6,6 +6,8 @@ error[E0080]: evaluation panicked: This Sparse Merkle Tree must have more than o
   |
  ::: src/sparse.rs
   |
+  |   const ENSURE_SUPPORTED_BITS<const BITS: u8>: usize = {
+...
   | /     assert!(
   | |         BITS != 0,
   | |         "This Sparse Merkle Tree must have more than one leaf"
@@ -38,6 +40,7 @@ error[E0080]: evaluation panicked: This Sparse Merkle Tree doesn't support more 
   |
  ::: src/sparse.rs
   |
+  |   const ENSURE_SUPPORTED_BITS<const BITS: u8>: usize = {
   | /     assert!(
   | |         BITS <= 128,
   | |         "This Sparse Merkle Tree doesn't support more than 2^128 leaves"
@@ -58,6 +61,7 @@ error[E0080]: evaluation panicked: This Sparse Merkle Tree doesn't support more 
   |
  ::: src/sparse.rs
   |
+  |   const ENSURE_SUPPORTED_BITS<const BITS: u8>: usize = {
   | /     assert!(
   | |         BITS <= 128,
   | |         "This Sparse Merkle Tree doesn't support more than 2^128 leaves"

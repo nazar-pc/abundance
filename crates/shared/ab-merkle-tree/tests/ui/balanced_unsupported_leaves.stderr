@@ -6,6 +6,8 @@ error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of le
   |
  ::: src/balanced.rs
   |
+  |   const TREE_SIZE_WITHOUT_LEAVES<const N: usize>: usize = {
+  |       // Ensuring only supported `N` can be specified for [`BalancedMerkleTree`]
   | /     assert!(
   | |         N.is_power_of_two(),
   | |         "Balanced Merkle Tree must have a number of leaves that is a power of 2"
@@ -20,6 +22,8 @@ error[E0080]: evaluation panicked: This Balanced Merkle Tree must have more than
   |
  ::: src/balanced.rs
   |
+  |   const TREE_SIZE_WITHOUT_LEAVES<const N: usize>: usize = {
+...
   | /     assert!(
   | |         N > 1,
   | |         "This Balanced Merkle Tree must have more than one leaf"
@@ -34,6 +38,8 @@ error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of le
   |
  ::: src/balanced.rs
   |
+  |   const TREE_SIZE_WITHOUT_LEAVES<const N: usize>: usize = {
+  |       // Ensuring only supported `N` can be specified for [`BalancedMerkleTree`]
   | /     assert!(
   | |         N.is_power_of_two(),
   | |         "Balanced Merkle Tree must have a number of leaves that is a power of 2"

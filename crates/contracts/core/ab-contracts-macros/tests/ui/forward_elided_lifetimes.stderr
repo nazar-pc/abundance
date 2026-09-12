@@ -2,7 +2,10 @@ error: lifetime may not live long enough
   --> tests/ui/forward_elided_lifetimes.rs:19:20
    |
 18 |     pub fn forward(#[env] env: &mut Env<'_>, #[output] out: &mut u64) -> Result<(), ContractError> {
-   |                           --- has type `&mut Env<'2>`       - let's call the lifetime of this reference `'1`
+   |                           ---           --                  - let's call the lifetime of this reference `'1`
+   |                           |             |
+   |                           |             lifetime `'2` introduced here
+   |                           has type `&mut Env<'2>`
 19 |         let _out = env.lend_output(out);
    |                    ^^^^^^^^^^^^^^^^^^^^ argument requires that `'1` must outlive `'2`
    |

@@ -9,8 +9,9 @@ error[E0521]: borrowed data escapes outside of function
    | |         |                                            |
    | |_________|____________________________________________`args` escapes the function body here
    |           |                                            argument requires that `'1` must outlive `'static`
-   |           `args` is a reference that is only valid in the function body
+   |           `args` is only valid in the function body
    |           has type `&mut ffi::keep_env::InternalArgs<'1>`
+   |           lifetime `'1` introduced here
    |
    = note: requirement occurs because of the type `Env<'static>`, which makes the generic argument `'static` invariant
    = note: the struct `Env<'a>` is invariant over the parameter `'a`

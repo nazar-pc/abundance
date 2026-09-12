@@ -186,6 +186,7 @@ pub struct GenesisBlockBuilderResult<Block> {
 /// `soft_confirmation_depth` are written to disk. Block details of confirmed blocks are only left
 /// on disk, [`ChainInfo::header_with_details()`] doesn't return them.
 #[derive(Debug, Copy, Clone)]
+#[expect(unevaluated_default_field_value, reason = "Intentional")]
 pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// Write buffer size.
     ///

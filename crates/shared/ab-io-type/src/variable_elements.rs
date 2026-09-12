@@ -83,7 +83,7 @@ where
         metadata_scratch.split_at(*metadata_size).0
     };
 
-    // TODO: Use `[Element; U32_TO_USIZE::<RECOMMENDED_ALLOCATION>]` with `generic_const_args`
+    // TODO: Use `[Element; U32_TO_USIZE::<RECOMMENDED_ALLOCATION>]` with `gca_const_items`
     type PointerType = Element;
 
     type WithLifetime<'b> = VariableElements<'b, Element, RECOMMENDED_ALLOCATION>;

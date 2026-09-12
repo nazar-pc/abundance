@@ -5,17 +5,20 @@
 
 #![cfg_attr(target_arch = "spirv", no_std)]
 #![cfg_attr(
+    target_arch = "spirv",
+    feature(funnel_shifts, generic_const_args, min_generic_const_args)
+)]
+#![cfg_attr(
     not(target_arch = "spirv"),
-    feature(iter_array_chunks, macroless_generic_const_args, portable_simd)
+    feature(
+        iter_array_chunks,
+        gca_const_items,
+        gca_macroless_args,
+        gca_min_const_items,
+        portable_simd
+    )
 )]
-#![feature(
-    funnel_shifts,
-    generic_const_args,
-    generic_const_items,
-    min_generic_const_args,
-    mut_restriction,
-    step_trait
-)]
+#![feature(generic_const_items, mut_restriction, step_trait)]
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![cfg_attr(
     all(test, not(target_arch = "spirv")),

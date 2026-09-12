@@ -8,7 +8,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -23,7 +22,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -38,7 +36,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -58,7 +55,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -78,7 +74,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -98,7 +93,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -113,7 +107,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -128,7 +121,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -148,7 +140,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -168,7 +159,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -183,7 +173,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -198,7 +187,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`
@@ -218,7 +206,6 @@ note: required by a bound in `require`
   --> tests/ui/any_bit_pattern_not_implemented.rs:59:8
    |
 57 | fn require<T>()
-   |    ------- required by a bound in this function
 58 | where
 59 |     T: AnyBitPattern,
    |        ^^^^^^^^^^^^^ required by this bound in `require`

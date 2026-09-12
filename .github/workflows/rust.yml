@@ -66,7 +66,8 @@ jobs:
           - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
           - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc }
           # 32-bit target, see `skip_crates` below for the crates that it doesn't check
-          - { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
+          # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
+          #- { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
         type:
           - together
           - individually
@@ -315,8 +316,9 @@ jobs:
           - &linux-riscv64a23-test-miri
             { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu, miri: true }
           # 32-bit target, see `skip_crates` below for the crates that it doesn't test
-          - &linux-riscv32gc-test-miri
-            { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
+          # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
+          #- &linux-riscv32gc-test-miri
+          #  { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
         type:
           # `together` variant is running in a separate job, see `cargo-test-slow`
           # - together
@@ -327,7 +329,8 @@ jobs:
           - { platform: *linux-x86_64-test, type: guest-feature }
           - { platform: *linux-x86_64-test-miri, type: guest-feature }
           - { platform: *linux-riscv64a23-test-miri, type: guest-feature }
-          - { platform: *linux-riscv32gc-test-miri, type: guest-feature }
+          # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
+          #- { platform: *linux-riscv32gc-test-miri, type: guest-feature }
 
           # TODO: Tests will need custom allocator to work under this target
           # - platform:
@@ -345,7 +348,7 @@ jobs:
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
       command: >-
-        ${{ matrix.platform.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
+        ${{ matrix.platform.miri == true && 'miri test' || 'nextest run --no-tests pass' }}
         ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
       # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
       doc_test_command: >-

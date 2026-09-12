@@ -115,8 +115,9 @@ error[E0277]: the trait bound `TreeSizeHasher: Default` is not satisfied
 note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_only_dynamic_len`
   --> src/unbalanced.rs
    |
+   | impl<H> UnbalancedMerkleTree<H>
+...
    |     pub fn compute_root_only_dynamic_len<'a, const MAX_N: u64, Item, Iter>(
-   |            ----------------------------- required by a bound in this associated function
 ...
    |         H: Default,
    |            ^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_only_dynamic_len`
@@ -138,8 +139,9 @@ error[E0277]: the trait bound `TreeSizeHasher: Default` is not satisfied
 note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_dynamic_len_in`
   --> src/unbalanced.rs
    |
+   | impl<H> UnbalancedMerkleTree<H>
+...
    |     pub fn compute_root_and_proof_dynamic_len_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
-   |            ------------------------------------- required by a bound in this associated function
 ...
    |         H: Default,
    |            ^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_dynamic_len_in`

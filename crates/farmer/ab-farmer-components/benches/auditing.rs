@@ -43,12 +43,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         |_error| env::temp_dir(),
         |base_path| base_path.parse().unwrap(),
     );
-    let pieces_in_sector = env::var("PIECES_IN_SECTOR").map_or_else(
-        |_error| MAX_PIECES_IN_SECTOR,
-        |base_path| base_path.parse().unwrap(),
-    );
-    let persist_sector = env::var("PERSIST_SECTOR")
-        .map_or_else(|_error| false, |persist_sector| persist_sector == "1");
+    let pieces_in_sector = env::var("PIECES_IN_SECTOR")
+        .map_or(MAX_PIECES_IN_SECTOR, |base_path| base_path.parse().unwrap());
+    let persist_sector =
+        env::var("PERSIST_SECTOR").is_ok_and(|persist_sector| persist_sector == "1");
     let sectors_count =
         env::var("SECTORS_COUNT").map_or(10, |sectors_count| sectors_count.parse().unwrap());
 

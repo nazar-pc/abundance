@@ -150,8 +150,8 @@ pub type BlockMerkleMountainRange =
 
 // `MerkleHasher` is implemented for each hasher separately, a generic implementation would need
 // `<Self as MerkleHasher>::OUT_LEN` with generic `Self` in method signatures, which requires
-// `macroless_generic_const_args` that this crate doesn't use
-// TODO: Replace the macro with generic implementations once `macroless_generic_const_args` is
+// `gca_macroless_args` that this crate doesn't use
+// TODO: Replace the macro with generic implementations once `gca_macroless_args` is
 //  enabled in this crate:
 // // `<Self as MerkleHasher>::OUT_LEN` doesn't unify with `OUT_LEN` in generic code, hence
 // // reshaping

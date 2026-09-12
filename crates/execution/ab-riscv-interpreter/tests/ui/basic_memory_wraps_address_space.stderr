@@ -6,6 +6,7 @@ error[E0080]: evaluation panicked: `BasicMemory` must not wrap around the end of
   |
  ::: src/basic.rs
   |
+  |   const NON_WRAPPING_MEMORY<const BASE_ADDR: u64, const SIZE: usize>: usize = {
   | /     assert!(
   | |         BASE_ADDR.checked_add(SIZE as u64).is_some(),
   | |         "`BasicMemory` must not wrap around the end of the address space, or an address below its \

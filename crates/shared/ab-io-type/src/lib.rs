@@ -67,10 +67,10 @@
     const_try,
     derive_const,
     final_associated_functions,
-    generic_const_args,
+    gca_const_items,
+    gca_macroless_args,
+    gca_min_const_items,
     generic_const_items,
-    macroless_generic_const_args,
-    min_generic_const_args,
     mut_restriction,
     ptr_as_uninit
 )]

@@ -20,8 +20,9 @@ error[E0277]: the trait bound `FilterMap<Copied<std::slice::Iter<'_, [u8; 32]>>,
 note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_only`
   --> src/unbalanced.rs
    |
+   | impl<H> UnbalancedMerkleTree<H>
+...
    |     pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(
-   |            ----------------- required by a bound in this associated function
 ...
    |         Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
    |                                                   ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_only`
@@ -53,8 +54,9 @@ error[E0277]: the trait bound `FilterMap<Copied<std::slice::Iter<'_, [u8; 32]>>,
 note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_in`
   --> src/unbalanced.rs
    |
+   | impl<H> UnbalancedMerkleTree<H>
+...
    |     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
-   |            ------------------------- required by a bound in this associated function
 ...
    |         Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
    |                                                   ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_in`

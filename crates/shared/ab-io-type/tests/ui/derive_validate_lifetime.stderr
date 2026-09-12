@@ -1,15 +1,21 @@
 error[E0521]: borrowed data escapes outside of associated function
- --> tests/ui/derive_validate_lifetime.rs:8:27
-  |
-6 | #[derive(Copy, Clone, TrivialType)]
-  |                       ----------- in this derive macro expansion
-7 | #[repr(C)]
-8 | #[trivial_type(validate = Self::is_valid)]
-  |                           -^^^^^^^^^^^^^
-  |                           |
-  |                           `__ab_io_type_value` is a reference that is only valid in the associated function body
-  |                           `__ab_io_type_value` escapes the associated function body here
-  |                           let's call the lifetime of this reference `'1`
-  |                           argument requires that `'1` must outlive `'static`
-  |
-  = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+  --> tests/ui/derive_validate_lifetime.rs:8:27
+   |
+ 6 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- in this derive macro expansion
+ 7 | #[repr(C)]
+ 8 | #[trivial_type(validate = Self::is_valid)]
+   |                           -^^^^^^^^^^^^^
+   |                           |
+   |                           `__ab_io_type_value` is only valid in the associated function body
+   |                           `__ab_io_type_value` escapes the associated function body here
+   |                           let's call the lifetime of this reference `'1`
+   |                           argument requires that `'1` must outlive `'static`
+   |
+note: `'static` lifetime requirement from `NonMax::is_valid` introduced here
+  --> tests/ui/derive_validate_lifetime.rs:14:23
+   |
+13 | impl NonMax {
+14 |     const fn is_valid(&'static self) -> bool {
+   |                       ^^^^^^^^^^^^^ lifetime requirement introduced here
+   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

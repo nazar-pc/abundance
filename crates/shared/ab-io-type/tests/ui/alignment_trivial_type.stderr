@@ -22,8 +22,9 @@ help: the trait `TrivialType` is not implemented for `NotTrivialType`
 note: required by a bound in `ab_io_type::alignment::Alignment::of`
  --> src/alignment.rs
   |
+  | impl Alignment {
+...
   |     pub const fn of<T>() -> Self
-  |                  -- required by a bound in this associated function
   |     where
   |         T: TrivialType,
   |            ^^^^^^^^^^^ required by this bound in `Alignment::of`

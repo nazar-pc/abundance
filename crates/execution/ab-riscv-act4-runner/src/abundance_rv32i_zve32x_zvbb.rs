@@ -84,10 +84,6 @@ impl<Reg, Hart> ExecutableInstructionOperands for AbundanceRv32IZve32xZvbbInstru
 }
 
 #[instruction_execution]
-#[expect(
-    clippy::useless_conversion,
-    reason = "https://github.com/rust-lang/rust-clippy/issues/17083"
-)]
 impl<Reg, Hart, Env> ExecutableInstructionCsr<Env>
     for AbundanceRv32IZve32xZvbbInstructionPrototype<Hart>
 where

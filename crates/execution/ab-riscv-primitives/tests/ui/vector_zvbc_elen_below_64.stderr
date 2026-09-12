@@ -6,6 +6,9 @@ error[E0080]: evaluation panicked: Zvbc requires `ELEN >= 64`
   |
  ::: $OUT_DIR[ab-riscv-primitives]/ZvbcInstruction_decoding_impl.rs
   |
+  |   const  impl<Reg, Hart> Instruction for ZvbcInstruction<Hart>
+...
+  |       const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = {
   | /         assert!(
   | |             Hart::VECTOR_LENGTHS.elen.supports(Eew::E64),
   | |             "Zvbc requires `ELEN >= 64`",

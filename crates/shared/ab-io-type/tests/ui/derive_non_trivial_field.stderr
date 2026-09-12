@@ -44,8 +44,6 @@ note: required for `WithUsize` to implement `TrivialType`
 7 | #[repr(C)]
 8 | struct WithUsize {
   |        ^^^^^^^^^
-  = help: consider manually implementing `TrivialType` to avoid undesired bounds caused by "imperfect derives"
-  = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
 
 error[E0277]: the trait bound `usize: TrivialType` is not satisfied
  --> tests/ui/derive_non_trivial_field.rs:9:12

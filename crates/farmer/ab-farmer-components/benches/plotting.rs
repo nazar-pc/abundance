@@ -27,10 +27,8 @@ const MAX_PIECES_IN_SECTOR: u16 = 1000;
 
 fn criterion_benchmark(c: &mut Criterion) {
     println!("Initializing...");
-    let pieces_in_sector = env::var("PIECES_IN_SECTOR").map_or_else(
-        |_error| MAX_PIECES_IN_SECTOR,
-        |base_path| base_path.parse().unwrap(),
-    );
+    let pieces_in_sector = env::var("PIECES_IN_SECTOR")
+        .map_or(MAX_PIECES_IN_SECTOR, |base_path| base_path.parse().unwrap());
 
     let public_key = Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();

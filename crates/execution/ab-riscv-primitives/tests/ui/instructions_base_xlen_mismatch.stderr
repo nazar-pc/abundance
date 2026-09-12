@@ -9,7 +9,6 @@ note: required by a bound in `instruction_set`
   --> tests/ui/instructions_base_xlen_mismatch.rs:9:8
    |
  7 | fn instruction_set<I>()
-   |    --------------- required by a bound in this function
  8 | where
  9 |     I: Instruction,
    |        ^^^^^^^^^^^ required by this bound in `instruction_set`
@@ -25,7 +24,6 @@ note: required by a bound in `instruction_set`
   --> tests/ui/instructions_base_xlen_mismatch.rs:9:8
    |
  7 | fn instruction_set<I>()
-   |    --------------- required by a bound in this function
  8 | where
  9 |     I: Instruction,
    |        ^^^^^^^^^^^ required by this bound in `instruction_set`

@@ -53,28 +53,21 @@ impl fmt::Debug for SectorPlottingProgress {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SectorPlottingProgress::Downloading => fmt::Formatter::write_str(f, "Downloading"),
-            SectorPlottingProgress::Downloaded(time) => {
-                f.debug_tuple_field1_finish("Downloaded", &time)
-            }
-            SectorPlottingProgress::Encoding => fmt::Formatter::write_str(f, "Encoding"),
-            SectorPlottingProgress::Encoded(time) => f.debug_tuple_field1_finish("Encoded", &time),
-            SectorPlottingProgress::Finished {
+            Self::Downloading => f.write_str("Downloading"),
+            Self::Downloaded(time) => f.debug_tuple("Downloaded").field(time).finish(),
+            Self::Encoding => f.write_str("Encoding"),
+            Self::Encoded(time) => f.debug_tuple("Encoded").field(time).finish(),
+            Self::Finished {
                 plotted_sector,
                 time,
                 sector: _,
-            } => f.debug_struct_field3_finish(
-                "Finished",
-                "plotted_sector",
-                plotted_sector,
-                "time",
-                time,
-                "sector",
-                &"<stream>",
-            ),
-            SectorPlottingProgress::Error { error } => {
-                f.debug_struct_field1_finish("Error", "error", &error)
-            }
+            } => f
+                .debug_struct("Finished")
+                .field("plotted_sector", plotted_sector)
+                .field("time", time)
+                .field("sector", &format_args!("<stream>"))
+                .finish(),
+            Self::Error { error } => f.debug_struct("Error").field("error", error).finish(),
         }
     }
 }
