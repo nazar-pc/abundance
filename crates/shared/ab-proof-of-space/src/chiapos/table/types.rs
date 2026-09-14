@@ -218,3 +218,13 @@ impl From<R> for usize {
         Self::from(value.0)
     }
 }
+
+impl R {
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub(super) const fn array_from_repr<const N: usize>(array: [u16; N]) -> [Self; N] {
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
+        // SAFETY: `R` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute_copy(&array) }
+    }
+}

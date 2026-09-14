@@ -9,8 +9,6 @@ mod tests;
 use crate::PosProofs;
 use crate::chiapos::constants::NUM_TABLES;
 #[cfg(feature = "alloc")]
-pub use crate::chiapos::table::TablesCache;
-#[cfg(feature = "alloc")]
 use crate::chiapos::table::types::Position;
 use crate::chiapos::table::types::{Metadata, X, Y};
 #[cfg(feature = "alloc")]
@@ -136,14 +134,14 @@ where
     /// There is also `Self::create_parallel()` that can achieve higher performance and lower
     /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
-    pub fn create(seed: Seed, cache: &TablesCache) -> Self {
+    pub fn create(seed: Seed) -> Self {
         let table_1 = Table::<K, 1>::create(seed);
-        let (table_2, _) = Table::<K, 2>::create(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
-        let (table_7, table_6) = Table::<K, 7>::create(table_6, cache);
+        let (table_2, _) = Table::<K, 2>::create(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create(table_5);
+        let (table_7, table_6) = Table::<K, 7>::create(table_6);
 
         Self {
             table_2,
@@ -162,14 +160,14 @@ where
     /// There is also `Self::create_proofs_parallel()` that can achieve higher performance and lower
     /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(feature = "alloc")]
-    pub fn create_proofs(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>> {
+    pub fn create_proofs(seed: Seed) -> Box<Proofs<K>> {
         let table_1 = Table::<K, 1>::create(seed);
-        let (table_2, _) = Table::<K, 2>::create(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
-        let (table_6_proof_targets, table_6) = Table::<K, 7>::create_proof_targets(table_6, cache);
+        let (table_2, _) = Table::<K, 2>::create(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create(table_5);
+        let (table_6_proof_targets, table_6) = Table::<K, 7>::create_proof_targets(table_6);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
@@ -234,14 +232,14 @@ where
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(all(feature = "parallel", any(feature = "full-chiapos", test)))]
-    pub fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
+    pub fn create_parallel(seed: Seed) -> Self {
         let table_1 = Table::<K, 1>::create_parallel(seed);
-        let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
-        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6, cache);
+        let (table_2, _) = Table::<K, 2>::create_parallel(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5);
+        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6);
 
         Self {
             table_2,
@@ -256,15 +254,15 @@ where
     /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(feature = "parallel")]
-    pub fn create_proofs_parallel(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>> {
+    pub fn create_proofs_parallel(seed: Seed) -> Box<Proofs<K>> {
         let table_1 = Table::<K, 1>::create_parallel(seed);
-        let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
+        let (table_2, _) = Table::<K, 2>::create_parallel(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5);
         let (table_6_proof_targets, table_6) =
-            Table::<K, 7>::create_proof_targets_parallel(table_6, cache);
+            Table::<K, 7>::create_proof_targets_parallel(table_6);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();

@@ -8,8 +8,6 @@ use crate::PosProofs;
 #[cfg(feature = "alloc")]
 use crate::TableGenerator;
 use crate::chiapos::Tables;
-#[cfg(feature = "alloc")]
-use crate::chiapos::TablesCache;
 use crate::{PosTableType, Table};
 use ab_core_primitives::pos::{PosProof, PosSeed};
 use ab_core_primitives::sectors::SBucket;
@@ -23,19 +21,17 @@ const K: u8 = PosProof::K;
 /// Chia implementation.
 #[derive(Debug, Default, Clone)]
 #[cfg(feature = "alloc")]
-pub struct ChiaTableGenerator {
-    tables_cache: TablesCache,
-}
+pub struct ChiaTableGenerator;
 
 #[cfg(feature = "alloc")]
 impl TableGenerator<ChiaTable> for ChiaTableGenerator {
     fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
-        Tables::<K>::create_proofs((*seed).into(), &self.tables_cache).into()
+        Tables::<K>::create_proofs((*seed).into()).into()
     }
 
     #[cfg(feature = "parallel")]
     fn create_proofs_parallel(&self, seed: &PosSeed) -> Box<PosProofs> {
-        Tables::<K>::create_proofs_parallel((*seed).into(), &self.tables_cache).into()
+        Tables::<K>::create_proofs_parallel((*seed).into()).into()
     }
 }
 

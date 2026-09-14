@@ -1,3 +1,5 @@
+#[cfg(feature = "alloc")]
+mod left_targets;
 #[cfg(any(feature = "alloc", test))]
 mod rmap;
 #[cfg(test)]
@@ -6,6 +8,8 @@ pub(super) mod types;
 
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::left_targets::LeftTargets;
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::rmap::Rmap;
 use crate::chiapos::table::types::{Metadata, X, Y};
@@ -28,17 +32,11 @@ use core::array;
 #[cfg(feature = "parallel")]
 use core::cell::SyncUnsafeCell;
 #[cfg(feature = "alloc")]
-use core::mem;
-#[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 #[cfg(any(feature = "alloc", test))]
 use core::simd::prelude::*;
 #[cfg(feature = "parallel")]
 use core::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(feature = "alloc")]
-use derive_more::Deref;
-#[cfg(feature = "alloc")]
-use rclite::Arc;
 #[cfg(any(feature = "alloc", test))]
 use seq_macro::seq;
 
@@ -252,70 +250,11 @@ where
     unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
 }
 
-#[cfg(feature = "alloc")]
-#[derive(Debug, Copy, Clone, Deref)]
-#[repr(align(64))]
-struct CacheLineAligned<T>(T);
-
-/// Mapping from `parity` to `r` to `m`
-#[cfg(feature = "alloc")]
-type LeftTargets =
-    [[CacheLineAligned<[R; const { usize::from(PARAM_M) }]>; const { usize::from(PARAM_BC) }]; 2];
-
-#[cfg(feature = "alloc")]
-fn calculate_left_targets() -> Arc<LeftTargets> {
-    let mut left_targets = Arc::<LeftTargets>::new_uninit();
-    // SAFETY: Same layout and uninitialized in both cases
-    let left_targets_slice = unsafe {
-        mem::transmute::<
-            &mut MaybeUninit<LeftTargets>,
-            &mut [[MaybeUninit<CacheLineAligned<[R; const { usize::from(PARAM_M) }]>>; const {
-                     usize::from(PARAM_BC)
-                 }]; 2],
-        >(Arc::get_mut_unchecked(&mut left_targets))
-    };
-
-    for parity in 0..=1 {
-        for r in 0..PARAM_BC {
-            let c = r / PARAM_C;
-
-            let arr = array::from_fn(|m| {
-                let m = m as u16;
-                R::from(
-                    ((c + m) % PARAM_B) * PARAM_C
-                        + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C),
-                )
-            });
-            left_targets_slice[usize::from(parity)][usize::from(r)].write(CacheLineAligned(arr));
-        }
-    }
-
-    // SAFETY: Initialized all entries
-    unsafe { left_targets.assume_init() }
-}
-
 fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
     let param_b = u32::from(PARAM_B);
     let param_c = u32::from(PARAM_C);
 
     ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
-}
-
-/// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
-#[cfg(feature = "alloc")]
-#[derive(Debug, Clone)]
-pub struct TablesCache {
-    left_targets: Arc<LeftTargets>,
-}
-
-#[cfg(feature = "alloc")]
-impl Default for TablesCache {
-    /// Create a new instance
-    fn default() -> Self {
-        Self {
-            left_targets: calculate_left_targets(),
-        }
-    }
 }
 
 #[cfg(feature = "alloc")]
@@ -421,7 +360,6 @@ unsafe fn find_matches_in_buckets<'a>(
     // `PARAM_M * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + usize::from(PARAM_M) * 2],
-    left_targets: &LeftTargets,
 ) -> &'a [Match] {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
     let right_base = left_base + u32::from(PARAM_BC);
@@ -440,8 +378,7 @@ unsafe fn find_matches_in_buckets<'a>(
         }
     }
 
-    let parity = left_base % 2;
-    let left_targets_parity = &left_targets[parity as usize];
+    let left_targets = LeftTargets::new(left_base % 2 == 1);
     let mut next_match_index = 0;
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
@@ -455,10 +392,8 @@ unsafe fn find_matches_in_buckets<'a>(
         }
 
         let r = R::from((u32::from(y) - left_base) as u16);
-        // SAFETY: `r` is within a bucket and exists by definition
-        let left_targets_r = unsafe { left_targets_parity.get_unchecked(usize::from(r)) };
 
-        for &r_target in left_targets_r.iter() {
+        for r_target in left_targets.calculate(r) {
             // SAFETY: Targets are always limited to `PARAM_BC`
             let [right_position_a, right_position_b] = unsafe { rmap.get(r_target) };
 
@@ -1081,12 +1016,10 @@ where
     /// better overall performance.
     pub(super) fn create<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
-        cache: &TablesCache,
     ) -> (Self, PrunedTable<K, PARENT_TABLE_NUMBER>)
     where
         Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
     {
-        let left_targets = &*cache.left_targets;
         let mut initialized_elements = 0_usize;
         // SAFETY: Contents is `MaybeUninit`
         let mut ys =
@@ -1108,13 +1041,7 @@ where
             // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
             // values
             let matches = unsafe {
-                find_matches_in_buckets(
-                    left_bucket_index,
-                    left_bucket,
-                    right_bucket,
-                    &mut matches,
-                    left_targets,
-                )
+                find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
             };
             // Throw away some successful matches that are not that necessary
             let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
@@ -1173,7 +1100,6 @@ where
     #[cfg(feature = "parallel")]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
-        cache: &TablesCache,
     ) -> (Self, PrunedTable<K, PARENT_TABLE_NUMBER>)
     where
         Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
@@ -1192,8 +1118,6 @@ where
         };
         let global_results_counts =
             array::from_fn::<_, { NUM_BUCKET_PAIRS::<K> }, _>(|_| SyncUnsafeCell::new(0u16));
-
-        let left_targets = &*cache.left_targets;
 
         let buckets = parent_table.buckets();
         // Iterate over buckets in batches, such that a cache line worth of bytes is taken from
@@ -1225,7 +1149,6 @@ where
                             left_bucket,
                             right_bucket,
                             &mut matches,
-                            left_targets,
                         )
                     };
                     // Throw away some successful matches that are not that necessary
@@ -1334,7 +1257,6 @@ where
     /// [`Record::NUM_S_BUCKETS`].
     pub(super) fn create_proof_targets(
         parent_table: Table<K, 6>,
-        cache: &TablesCache,
     ) -> (
         Box<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>,
         PrunedTable<K, 6>,
@@ -1342,7 +1264,6 @@ where
     where
         Table<K, 6>: NotLastTable,
     {
-        let left_targets = &*cache.left_targets;
         // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut table_6_proof_targets = unsafe {
             Box::<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>::new_zeroed().assume_init()
@@ -1355,13 +1276,7 @@ where
             // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
             // values
             let matches = unsafe {
-                find_matches_in_buckets(
-                    left_bucket_index,
-                    left_bucket,
-                    right_bucket,
-                    &mut matches,
-                    left_targets,
-                )
+                find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
             };
             // Throw away some successful matches that are not that necessary
             let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
@@ -1419,7 +1334,6 @@ where
     #[cfg(feature = "parallel")]
     pub(super) fn create_proof_targets_parallel(
         parent_table: Table<K, 6>,
-        cache: &TablesCache,
     ) -> (
         Box<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>,
         PrunedTable<K, 6>,
@@ -1433,8 +1347,6 @@ where
         };
         let global_results_counts =
             array::from_fn::<_, { NUM_BUCKET_PAIRS::<K> }, _>(|_| SyncUnsafeCell::new(0u16));
-
-        let left_targets = &*cache.left_targets;
 
         let buckets = parent_table.buckets();
         // Iterate over buckets in batches, such that a cache line worth of bytes is taken from
@@ -1466,7 +1378,6 @@ where
                             left_bucket,
                             right_bucket,
                             &mut matches,
-                            left_targets,
                         )
                     };
                     // Throw away some successful matches that are not that necessary
