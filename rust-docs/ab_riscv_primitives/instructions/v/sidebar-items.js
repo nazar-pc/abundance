@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SUPPORTED_ELEN_VLEN"],"enum":["Eew","Elen","VRegGroupSize","Vlen","Vlmul","VsStatus","Vsew","VsewFactor","Vxrm"],"mod":["zvexx"],"struct":["Vl","Vstart","Vtype"]};
