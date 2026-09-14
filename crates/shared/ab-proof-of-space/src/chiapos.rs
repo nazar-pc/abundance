@@ -23,6 +23,8 @@ use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array;
+#[cfg(feature = "alloc")]
+use core::mem;
 use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::mem::offset_of;
@@ -103,6 +105,24 @@ const fn pick_position(
     } else {
         right_position
     }
+}
+
+/// Number of positions after expanding each of `N` positions into a pair
+#[cfg(feature = "alloc")]
+const EXPANDED_POSITIONS<const N: usize>: usize = N * 2;
+
+/// Expand each position into the pair of positions in the parent table it was derived from
+#[cfg(feature = "alloc")]
+#[inline(always)]
+fn expand_positions<const N: usize>(
+    positions: [Position; N],
+    expand: impl Fn(Position) -> [Position; 2],
+) -> [Position; EXPANDED_POSITIONS::<N>] {
+    let expanded = positions.map(expand);
+
+    // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
+    // SAFETY: `[[Position; 2]; N]` has the same layout as `[Position; N * 2]`
+    unsafe { mem::transmute_copy(&expanded) }
 }
 
 /// Collection of Chia tables
@@ -435,30 +455,35 @@ where
     ) -> [u8; PROOF_SIZE::<K>] {
         let mut proof = [0u8; _];
 
-        // TODO: Optimize with SIMD
-        table_6_proof_targets
-            .into_iter()
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_6.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_5.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_4.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_3.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_2.position(position) }
-            })
-            .map(|position| {
+        // Positions are expanded one table at a time rather than by walking the tree of positions
+        // depth-first. All lookups within a single table are independent of each other, which
+        // allows many of these cache misses to be in flight at the same time instead of waiting
+        // for each other. This mirrors [`Self::verify_only_raw()`], which walks the same tree in
+        // the opposite direction a table at a time for the same reason.
+        let positions = expand_positions(table_6_proof_targets, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_6.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_5.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_4.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_3.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_2.position(position) }
+        });
+
+        positions
+            .iter()
+            .map(|&position| {
                 // X matches position
                 X::from(u32::from(position))
             })
