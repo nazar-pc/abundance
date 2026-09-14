@@ -22,12 +22,16 @@ use ab_core_primitives::pos::PosProof;
 use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "parallel")]
+use alloc::vec::Vec;
 use core::array;
 #[cfg(feature = "alloc")]
 use core::mem;
 use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::mem::offset_of;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 #[cfg(any(feature = "full-chiapos", test))]
 use sha2::{Digest, Sha256};
 
@@ -302,38 +306,46 @@ where
                     .as_mut_unchecked()
             };
 
-            let mut num_found_proofs = 0_usize;
+            // Deciding which s-buckets have a proof is cheap, so it is done sequentially, leaving
+            // only the expensive part below to do in parallel
+            let mut targets = Vec::with_capacity(Record::NUM_CHUNKS);
             'outer: for (table_6_proof_targets, found_proofs) in table_6_proof_targets
                 .as_chunks::<{ u8::BITS as usize }>()
                 .0
                 .iter()
                 .zip(found_proofs)
             {
-                // TODO: Find proofs with SIMD
                 for (proof_offset, table_6_proof_targets) in
                     table_6_proof_targets.iter().enumerate()
                 {
                     if table_6_proof_targets != &[Position::ZERO; 2] {
-                        let proof = Self::find_proof_raw_internal(
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &table_5,
-                            &table_6,
-                            *table_6_proof_targets,
-                        );
-
                         *found_proofs |= 1 << proof_offset;
 
-                        proofs[num_found_proofs].write(proof);
-                        num_found_proofs += 1;
+                        targets.push(*table_6_proof_targets);
 
-                        if num_found_proofs == Record::NUM_CHUNKS {
+                        if targets.len() == Record::NUM_CHUNKS {
                             break 'outer;
                         }
                     }
                 }
             }
+
+            let num_found_proofs = targets.len();
+            // Work items here are large enough that `rayon::broadcast()` with manual batching (as
+            // used elsewhere in this crate) measures the same, so the safe version is used
+            proofs[..num_found_proofs]
+                .par_iter_mut()
+                .zip(targets)
+                .for_each(|(proof, table_6_proof_targets)| {
+                    proof.write(Self::find_proof_raw_internal(
+                        &table_2,
+                        &table_3,
+                        &table_4,
+                        &table_5,
+                        &table_6,
+                        table_6_proof_targets,
+                    ));
+                });
 
             // It is statically known to be the case, and there is a test that checks the lower
             // bound
