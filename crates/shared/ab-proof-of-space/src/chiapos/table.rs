@@ -478,7 +478,6 @@ unsafe fn find_matches_in_buckets<'a>(
 
     let mut rmap = Rmap::new();
     for &(right_position, y) in right_bucket {
-        // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         if right_position == Position::SENTINEL {
             break;
         }
@@ -493,10 +492,7 @@ unsafe fn find_matches_in_buckets<'a>(
     let left_targets = LeftTargets::new(left_base % 2 == 1);
     let mut next_match_index = 0;
 
-    // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
-    //  process chunks of the left bucket against one right value for each at a time
     for &(left_position, y) in left_bucket {
-        // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
         if left_position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket
@@ -1061,7 +1057,6 @@ impl<const K: u8> Table<K, 1> {
         let mut ys =
             unsafe { Box::<[MaybeUninit<Y>; MAX_TABLE_SIZE::<K>]>::new_uninit().assume_init() };
 
-        // TODO: Try parallelism here?
         for ((ys, xs_batch_start), partial_ys) in ys
             .as_chunks_mut::<COMPUTE_F1_SIMD_FACTOR>()
             .0
