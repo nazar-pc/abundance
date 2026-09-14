@@ -1,3 +1,5 @@
+#[cfg(feature = "alloc")]
+mod left_targets;
 #[cfg(any(feature = "alloc", test))]
 mod rmap;
 #[cfg(test)]
@@ -6,6 +8,8 @@ pub(super) mod types;
 
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::left_targets::LeftTargets;
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::rmap::Rmap;
 use crate::chiapos::table::types::{Metadata, X, Y};
@@ -28,17 +32,13 @@ use core::array;
 #[cfg(feature = "parallel")]
 use core::cell::SyncUnsafeCell;
 #[cfg(feature = "alloc")]
-use core::mem;
-#[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 #[cfg(any(feature = "alloc", test))]
 use core::simd::prelude::*;
 #[cfg(feature = "parallel")]
 use core::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(feature = "alloc")]
-use derive_more::Deref;
-#[cfg(feature = "alloc")]
-use rclite::Arc;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 #[cfg(any(feature = "alloc", test))]
 use seq_macro::seq;
 
@@ -67,6 +67,34 @@ const {
     debug_assert!(REDUCED_MATCHES_COUNT <= MAX_BUCKET_SIZE);
 }
 
+/// Number of buckets for a given `k`
+#[cfg(feature = "alloc")]
+const NUM_BUCKETS<const K: u8>: usize =
+    2_usize
+        .pow(y_size_bits(K) as u32)
+        .div_ceil(usize::from(PARAM_BC));
+#[cfg(feature = "parallel")]
+const NUM_BUCKET_PAIRS<const K: u8>: usize = NUM_BUCKETS::<K> - 1;
+
+/// Size of the first table and max size for other tables
+#[cfg(feature = "alloc")]
+const MAX_TABLE_SIZE<const K: u8>: usize = 1 << K;
+
+#[cfg(any(feature = "alloc", test))]
+const TABLE_1_YS_BATCH_SIMD<const K: u8>: usize =
+    usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize;
+
+/// Number of bucket pairs one chunk of [`group_by_buckets_from_buckets()`] covers.
+///
+/// Fixed rather than derived from the number of threads, so that the result never depends on how
+/// many threads happen to be available.
+#[cfg(feature = "parallel")]
+const GROUP_BY_BUCKETS_CHUNK_SIZE<const K: u8>: usize = NUM_BUCKET_PAIRS::<K>.div_ceil(64);
+/// Number of chunks [`group_by_buckets_from_buckets()`] splits its input into
+#[cfg(feature = "parallel")]
+const GROUP_BY_BUCKETS_CHUNKS<const K: u8>: usize =
+    NUM_BUCKET_PAIRS::<K>.div_ceil(GROUP_BY_BUCKETS_CHUNK_SIZE::<K>);
+
 /// Compute the size of `y` in bits
 const fn y_size_bits(k: u8) -> usize {
     usize::from(k) + usize::from(PARAM_EXT)
@@ -86,26 +114,21 @@ const fn metadata_size_bits(k: u8, table_number: u8) -> usize {
         }
 }
 
-/// Number of buckets for a given `k`
-#[cfg(feature = "alloc")]
-const NUM_BUCKETS<const K: u8>: usize =
-    2_usize
-        .pow(y_size_bits(K) as u32)
-        .div_ceil(usize::from(PARAM_BC));
-#[cfg(feature = "parallel")]
-const NUM_BUCKET_PAIRS<const K: u8>: usize = NUM_BUCKETS::<K> - 1;
-
-/// Size of the first table and max size for other tables
-#[cfg(feature = "alloc")]
-const MAX_TABLE_SIZE<const K: u8>: usize = 1 << K;
-
-#[cfg(any(feature = "alloc", test))]
-const TABLE_1_YS_BATCH_SIMD<const K: u8>: usize =
-    usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize;
-
 #[cfg(feature = "parallel")]
 #[inline(always)]
 fn strip_sync_unsafe_cell<const N: usize, T>(value: Box<[SyncUnsafeCell<T>; N]>) -> Box<[T; N]> {
+    // SAFETY: `SyncUnsafeCell` has the same layout as `T`
+    unsafe { Box::from_raw(Box::into_raw(value).cast()) }
+}
+
+/// The same as [`strip_sync_unsafe_cell()`], except each element of the inner arrays is wrapped
+/// individually, which is what is needed when different threads write different elements of the
+/// same inner array
+#[cfg(feature = "parallel")]
+#[inline(always)]
+fn strip_sync_unsafe_cell_elements<const N: usize, const M: usize, T>(
+    value: Box<[[SyncUnsafeCell<T>; M]; N]>,
+) -> Box<[[T; M]; N]> {
     // SAFETY: `SyncUnsafeCell` has the same layout as `T`
     unsafe { Box::from_raw(Box::into_raw(value).cast()) }
 }
@@ -209,89 +232,134 @@ fn group_by_buckets<const K: u8>(
 
 /// Similar to [`group_by_buckets()`], but processes buckets instead of a flat list of `y`s.
 ///
+/// Done as a counting sort: the first pass counts how many `y`s each chunk of the input
+/// contributes to each bucket, which after a prefix sum tells every chunk where in each bucket its
+/// `y`s go, so that the second (and by far the most expensive) pass can scatter them in parallel.
+///
+/// Both passes use parallel iterators rather than `rayon::broadcast()` that the rest of this
+/// module prefers. A broadcast has to reach every thread of the pool before it makes progress, and
+/// these two are called six times per set of tables while other sets are typically being built on
+/// the same pool, at which point waiting for the whole pool costs several times more than the
+/// grouping itself.
+///
 /// # Safety
-/// Iterator item is a list of potentially uninitialized `y`s and a number of initialized `y`s. The
-/// number of initialized `y`s must be correct.
+/// `counts` must be the number of initialized `y`s in each entry of `ys`.
 #[cfg(feature = "parallel")]
-unsafe fn group_by_buckets_from_buckets<'a, const K: u8, I>(
-    iter: I,
-) -> Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>]>
-where
-    I: Iterator<Item = (&'a [MaybeUninit<Y>; REDUCED_MATCHES_COUNT], usize)> + 'a,
-{
-    let mut bucket_offsets = [0_u16; NUM_BUCKETS::<K>];
-    // SAFETY: Contents is `MaybeUninit`
-    let mut buckets = unsafe {
-        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>]>::new_uninit()
-            .assume_init()
+unsafe fn group_by_buckets_from_buckets<const K: u8>(
+    ys: &[[MaybeUninit<Y>; REDUCED_MATCHES_COUNT]; NUM_BUCKET_PAIRS::<K>],
+    counts: &[u16; NUM_BUCKET_PAIRS::<K>],
+) -> Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>]> {
+    let chunk_size = GROUP_BY_BUCKETS_CHUNK_SIZE::<K>;
+    // The last chunk is smaller unless bucket pairs divide evenly
+    let chunk_range = |chunk_index: usize| {
+        let start = chunk_index * chunk_size;
+
+        start..(start + chunk_size).min(NUM_BUCKET_PAIRS::<K>)
     };
 
-    for ((ys, count), batch_start) in iter.zip((Position::ZERO..).step_by(REDUCED_MATCHES_COUNT)) {
-        // SAFETY: Function contract guarantees that `y`s are initialized
-        let ys = unsafe { ys[..count].assume_init_ref() };
-        for (&y, position) in ys.iter().zip(batch_start..) {
-            let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+    // A chunk only ever counts a subset of a bucket, and a bucket holds at most
+    // `MAX_BUCKET_SIZE` entries, so counts and the offsets they turn into both fit `u16`
+    // SAFETY: Zeroes are the correct initial counts
+    let mut chunk_offsets = unsafe {
+        Box::<[[u16; NUM_BUCKETS::<K>]; GROUP_BY_BUCKETS_CHUNKS::<K>]>::new_zeroed().assume_init()
+    };
 
-            // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
-            // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
+    chunk_offsets
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(chunk_index, chunk_offsets)| {
+            let chunk_range = chunk_range(chunk_index);
+            let (ys, counts) = (&ys[chunk_range.clone()], &counts[chunk_range]);
 
-            if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
-                bucket[*bucket_offset as usize].write((position, y));
-                *bucket_offset += 1;
+            for (ys, &count) in ys.iter().zip(counts) {
+                // SAFETY: Function contract guarantees that `y`s are initialized
+                let ys = unsafe { ys[..usize::from(count)].assume_init_ref() };
+
+                for &y in ys {
+                    let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+
+                    // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by
+                    // definition
+                    unsafe {
+                        *chunk_offsets.get_unchecked_mut(bucket_index) += 1;
+                    }
+                }
             }
+        });
+
+    // Turn counts into offsets, ending up with the number of `y`s in each bucket
+    let mut bucket_lengths = [0_u16; NUM_BUCKETS::<K>];
+    for chunk_offsets in &mut *chunk_offsets {
+        for (chunk_offset, bucket_length) in chunk_offsets.iter_mut().zip(&mut bucket_lengths) {
+            let offset = *bucket_length;
+            // Buckets are limited to `REDUCED_BUCKET_SIZE`, anything past that is thrown away,
+            // which also keeps offsets within `u16`
+            *bucket_length = (*bucket_length + *chunk_offset).min(REDUCED_BUCKET_SIZE as u16);
+            *chunk_offset = offset;
         }
     }
 
-    for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
-        bucket[usize::from(initialized)..].write_filled((Position::SENTINEL, Y::SENTINEL));
+    // Each element is wrapped individually because chunks that share a bucket write different
+    // elements of it concurrently, and a `&mut` to the whole bucket would claim unique access to
+    // elements belonging to other chunks
+    // SAFETY: Contents is `MaybeUninit`
+    let buckets = unsafe {
+        Box::<
+            [[SyncUnsafeCell<MaybeUninit<(Position, Y)>>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>],
+        >::new_uninit()
+        .assume_init()
+    };
+
+    chunk_offsets
+        .par_iter()
+        .enumerate()
+        .for_each(|(chunk_index, chunk_offsets)| {
+            let chunk_range = chunk_range(chunk_index);
+            let batch_start = Position::from((chunk_range.start * REDUCED_MATCHES_COUNT) as u32);
+            let (ys, counts) = (&ys[chunk_range.clone()], &counts[chunk_range]);
+
+            let mut bucket_offsets = *chunk_offsets;
+
+            for ((ys, &count), batch_start) in ys
+                .iter()
+                .zip(counts)
+                .zip((batch_start..).step_by(REDUCED_MATCHES_COUNT))
+            {
+                // SAFETY: Function contract guarantees that `y`s are initialized
+                let ys = unsafe { ys[..usize::from(count)].assume_init_ref() };
+
+                for (&y, position) in ys.iter().zip(batch_start..) {
+                    let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+
+                    // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by
+                    // definition
+                    let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
+
+                    if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
+                        // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by
+                        // definition, the offset is below `REDUCED_BUCKET_SIZE` as checked above
+                        let entry = unsafe {
+                            buckets
+                                .get_unchecked(bucket_index)
+                                .get_unchecked(usize::from(*bucket_offset))
+                        };
+                        // SAFETY: Offsets of different chunks were made disjoint by the prefix sum
+                        // above, so this is the only place where this entry is accessed
+                        unsafe { &mut *entry.get() }.write((position, y));
+                        *bucket_offset += 1;
+                    }
+                }
+            }
+        });
+
+    let mut buckets = strip_sync_unsafe_cell_elements(buckets);
+
+    for (bucket, bucket_length) in buckets.iter_mut().zip(bucket_lengths) {
+        bucket[usize::from(bucket_length)..].write_filled((Position::SENTINEL, Y::SENTINEL));
     }
 
     // SAFETY: All entries are initialized
     unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
-}
-
-#[cfg(feature = "alloc")]
-#[derive(Debug, Copy, Clone, Deref)]
-#[repr(align(64))]
-struct CacheLineAligned<T>(T);
-
-/// Mapping from `parity` to `r` to `m`
-#[cfg(feature = "alloc")]
-type LeftTargets =
-    [[CacheLineAligned<[R; const { usize::from(PARAM_M) }]>; const { usize::from(PARAM_BC) }]; 2];
-
-#[cfg(feature = "alloc")]
-fn calculate_left_targets() -> Arc<LeftTargets> {
-    let mut left_targets = Arc::<LeftTargets>::new_uninit();
-    // SAFETY: Same layout and uninitialized in both cases
-    let left_targets_slice = unsafe {
-        mem::transmute::<
-            &mut MaybeUninit<LeftTargets>,
-            &mut [[MaybeUninit<CacheLineAligned<[R; const { usize::from(PARAM_M) }]>>; const {
-                     usize::from(PARAM_BC)
-                 }]; 2],
-        >(Arc::get_mut_unchecked(&mut left_targets))
-    };
-
-    for parity in 0..=1 {
-        for r in 0..PARAM_BC {
-            let c = r / PARAM_C;
-
-            let arr = array::from_fn(|m| {
-                let m = m as u16;
-                R::from(
-                    ((c + m) % PARAM_B) * PARAM_C
-                        + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C),
-                )
-            });
-            left_targets_slice[usize::from(parity)][usize::from(r)].write(CacheLineAligned(arr));
-        }
-    }
-
-    // SAFETY: Initialized all entries
-    unsafe { left_targets.assume_init() }
 }
 
 fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
@@ -299,23 +367,6 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
     let param_c = u32::from(PARAM_C);
 
     ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
-}
-
-/// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
-#[cfg(feature = "alloc")]
-#[derive(Debug, Clone)]
-pub struct TablesCache {
-    left_targets: Arc<LeftTargets>,
-}
-
-#[cfg(feature = "alloc")]
-impl Default for TablesCache {
-    /// Create a new instance
-    fn default() -> Self {
-        Self {
-            left_targets: calculate_left_targets(),
-        }
-    }
 }
 
 #[cfg(feature = "alloc")]
@@ -421,7 +472,6 @@ unsafe fn find_matches_in_buckets<'a>(
     // `PARAM_M * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + usize::from(PARAM_M) * 2],
-    left_targets: &LeftTargets,
 ) -> &'a [Match] {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
     let right_base = left_base + u32::from(PARAM_BC);
@@ -440,8 +490,7 @@ unsafe fn find_matches_in_buckets<'a>(
         }
     }
 
-    let parity = left_base % 2;
-    let left_targets_parity = &left_targets[parity as usize];
+    let left_targets = LeftTargets::new(left_base % 2 == 1);
     let mut next_match_index = 0;
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
@@ -455,10 +504,8 @@ unsafe fn find_matches_in_buckets<'a>(
         }
 
         let r = R::from((u32::from(y) - left_base) as u16);
-        // SAFETY: `r` is within a bucket and exists by definition
-        let left_targets_r = unsafe { left_targets_parity.get_unchecked(usize::from(r)) };
 
-        for &r_target in left_targets_r.iter() {
+        for r_target in left_targets.calculate(r) {
             // SAFETY: Targets are always limited to `PARAM_BC`
             let [right_position_a, right_position_b] = unsafe { rmap.get(r_target) };
 
@@ -1081,12 +1128,10 @@ where
     /// better overall performance.
     pub(super) fn create<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
-        cache: &TablesCache,
     ) -> (Self, PrunedTable<K, PARENT_TABLE_NUMBER>)
     where
         Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
     {
-        let left_targets = &*cache.left_targets;
         let mut initialized_elements = 0_usize;
         // SAFETY: Contents is `MaybeUninit`
         let mut ys =
@@ -1108,13 +1153,7 @@ where
             // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
             // values
             let matches = unsafe {
-                find_matches_in_buckets(
-                    left_bucket_index,
-                    left_bucket,
-                    right_bucket,
-                    &mut matches,
-                    left_targets,
-                )
+                find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
             };
             // Throw away some successful matches that are not that necessary
             let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
@@ -1173,7 +1212,6 @@ where
     #[cfg(feature = "parallel")]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
-        cache: &TablesCache,
     ) -> (Self, PrunedTable<K, PARENT_TABLE_NUMBER>)
     where
         Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
@@ -1192,8 +1230,6 @@ where
         };
         let global_results_counts =
             array::from_fn::<_, { NUM_BUCKET_PAIRS::<K> }, _>(|_| SyncUnsafeCell::new(0u16));
-
-        let left_targets = &*cache.left_targets;
 
         let buckets = parent_table.buckets();
         // Iterate over buckets in batches, such that a cache line worth of bytes is taken from
@@ -1225,7 +1261,6 @@ where
                             left_bucket,
                             right_bucket,
                             &mut matches,
-                            left_targets,
                         )
                     };
                     // Throw away some successful matches that are not that necessary
@@ -1270,17 +1305,10 @@ where
         let positions = strip_sync_unsafe_cell(positions);
         let metadatas = strip_sync_unsafe_cell(metadatas);
 
-        // TODO: Try to group buckets in the process of collecting `y`s
+        let global_results_counts = global_results_counts.map(SyncUnsafeCell::into_inner);
+
         // SAFETY: `global_results_counts` corresponds to the number of initialized `ys`
-        let buckets = unsafe {
-            group_by_buckets_from_buckets::<K, _>(
-                ys.iter().zip(
-                    global_results_counts
-                        .into_iter()
-                        .map(|count| usize::from(count.into_inner())),
-                ),
-            )
-        };
+        let buckets = unsafe { group_by_buckets_from_buckets::<K>(&ys, &global_results_counts) };
 
         let table = Self::OtherBuckets {
             positions,
@@ -1334,7 +1362,6 @@ where
     /// [`Record::NUM_S_BUCKETS`].
     pub(super) fn create_proof_targets(
         parent_table: Table<K, 6>,
-        cache: &TablesCache,
     ) -> (
         Box<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>,
         PrunedTable<K, 6>,
@@ -1342,7 +1369,6 @@ where
     where
         Table<K, 6>: NotLastTable,
     {
-        let left_targets = &*cache.left_targets;
         // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut table_6_proof_targets = unsafe {
             Box::<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>::new_zeroed().assume_init()
@@ -1355,13 +1381,7 @@ where
             // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
             // values
             let matches = unsafe {
-                find_matches_in_buckets(
-                    left_bucket_index,
-                    left_bucket,
-                    right_bucket,
-                    &mut matches,
-                    left_targets,
-                )
+                find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
             };
             // Throw away some successful matches that are not that necessary
             let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
@@ -1419,7 +1439,6 @@ where
     #[cfg(feature = "parallel")]
     pub(super) fn create_proof_targets_parallel(
         parent_table: Table<K, 6>,
-        cache: &TablesCache,
     ) -> (
         Box<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>,
         PrunedTable<K, 6>,
@@ -1433,8 +1452,6 @@ where
         };
         let global_results_counts =
             array::from_fn::<_, { NUM_BUCKET_PAIRS::<K> }, _>(|_| SyncUnsafeCell::new(0u16));
-
-        let left_targets = &*cache.left_targets;
 
         let buckets = parent_table.buckets();
         // Iterate over buckets in batches, such that a cache line worth of bytes is taken from
@@ -1466,7 +1483,6 @@ where
                             left_bucket,
                             right_bucket,
                             &mut matches,
-                            left_targets,
                         )
                     };
                     // Throw away some successful matches that are not that necessary

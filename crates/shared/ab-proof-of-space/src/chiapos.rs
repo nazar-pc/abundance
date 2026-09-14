@@ -9,8 +9,6 @@ mod tests;
 use crate::PosProofs;
 use crate::chiapos::constants::NUM_TABLES;
 #[cfg(feature = "alloc")]
-pub use crate::chiapos::table::TablesCache;
-#[cfg(feature = "alloc")]
 use crate::chiapos::table::types::Position;
 use crate::chiapos::table::types::{Metadata, X, Y};
 #[cfg(feature = "alloc")]
@@ -24,10 +22,16 @@ use ab_core_primitives::pos::PosProof;
 use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "parallel")]
+use alloc::vec::Vec;
 use core::array;
+#[cfg(feature = "alloc")]
+use core::mem;
 use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::mem::offset_of;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 #[cfg(any(feature = "full-chiapos", test))]
 use sha2::{Digest, Sha256};
 
@@ -107,6 +111,24 @@ const fn pick_position(
     }
 }
 
+/// Number of positions after expanding each of `N` positions into a pair
+#[cfg(feature = "alloc")]
+const EXPANDED_POSITIONS<const N: usize>: usize = N * 2;
+
+/// Expand each position into the pair of positions in the parent table it was derived from
+#[cfg(feature = "alloc")]
+#[inline(always)]
+fn expand_positions<const N: usize>(
+    positions: [Position; N],
+    expand: impl Fn(Position) -> [Position; 2],
+) -> [Position; EXPANDED_POSITIONS::<N>] {
+    let expanded = positions.map(expand);
+
+    // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
+    // SAFETY: `[[Position; 2]; N]` has the same layout as `[Position; N * 2]`
+    unsafe { mem::transmute_copy(&expanded) }
+}
+
 /// Collection of Chia tables
 #[derive(Debug)]
 pub struct Tables<const K: u8>
@@ -136,14 +158,14 @@ where
     /// There is also `Self::create_parallel()` that can achieve higher performance and lower
     /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
-    pub fn create(seed: Seed, cache: &TablesCache) -> Self {
+    pub fn create(seed: Seed) -> Self {
         let table_1 = Table::<K, 1>::create(seed);
-        let (table_2, _) = Table::<K, 2>::create(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
-        let (table_7, table_6) = Table::<K, 7>::create(table_6, cache);
+        let (table_2, _) = Table::<K, 2>::create(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create(table_5);
+        let (table_7, table_6) = Table::<K, 7>::create(table_6);
 
         Self {
             table_2,
@@ -162,14 +184,14 @@ where
     /// There is also `Self::create_proofs_parallel()` that can achieve higher performance and lower
     /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(feature = "alloc")]
-    pub fn create_proofs(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>> {
+    pub fn create_proofs(seed: Seed) -> Box<Proofs<K>> {
         let table_1 = Table::<K, 1>::create(seed);
-        let (table_2, _) = Table::<K, 2>::create(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
-        let (table_6_proof_targets, table_6) = Table::<K, 7>::create_proof_targets(table_6, cache);
+        let (table_2, _) = Table::<K, 2>::create(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create(table_5);
+        let (table_6_proof_targets, table_6) = Table::<K, 7>::create_proof_targets(table_6);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
@@ -234,14 +256,14 @@ where
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(all(feature = "parallel", any(feature = "full-chiapos", test)))]
-    pub fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
+    pub fn create_parallel(seed: Seed) -> Self {
         let table_1 = Table::<K, 1>::create_parallel(seed);
-        let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
-        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6, cache);
+        let (table_2, _) = Table::<K, 2>::create_parallel(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5);
+        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6);
 
         Self {
             table_2,
@@ -256,15 +278,15 @@ where
     /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(feature = "parallel")]
-    pub fn create_proofs_parallel(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>> {
+    pub fn create_proofs_parallel(seed: Seed) -> Box<Proofs<K>> {
         let table_1 = Table::<K, 1>::create_parallel(seed);
-        let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
-        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);
-        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
-        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
-        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
+        let (table_2, _) = Table::<K, 2>::create_parallel(table_1);
+        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2);
+        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3);
+        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4);
+        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5);
         let (table_6_proof_targets, table_6) =
-            Table::<K, 7>::create_proof_targets_parallel(table_6, cache);
+            Table::<K, 7>::create_proof_targets_parallel(table_6);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
@@ -284,38 +306,46 @@ where
                     .as_mut_unchecked()
             };
 
-            let mut num_found_proofs = 0_usize;
+            // Deciding which s-buckets have a proof is cheap, so it is done sequentially, leaving
+            // only the expensive part below to do in parallel
+            let mut targets = Vec::with_capacity(Record::NUM_CHUNKS);
             'outer: for (table_6_proof_targets, found_proofs) in table_6_proof_targets
                 .as_chunks::<{ u8::BITS as usize }>()
                 .0
                 .iter()
                 .zip(found_proofs)
             {
-                // TODO: Find proofs with SIMD
                 for (proof_offset, table_6_proof_targets) in
                     table_6_proof_targets.iter().enumerate()
                 {
                     if table_6_proof_targets != &[Position::ZERO; 2] {
-                        let proof = Self::find_proof_raw_internal(
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &table_5,
-                            &table_6,
-                            *table_6_proof_targets,
-                        );
-
                         *found_proofs |= 1 << proof_offset;
 
-                        proofs[num_found_proofs].write(proof);
-                        num_found_proofs += 1;
+                        targets.push(*table_6_proof_targets);
 
-                        if num_found_proofs == Record::NUM_CHUNKS {
+                        if targets.len() == Record::NUM_CHUNKS {
                             break 'outer;
                         }
                     }
                 }
             }
+
+            let num_found_proofs = targets.len();
+            // Work items here are large enough that `rayon::broadcast()` with manual batching (as
+            // used elsewhere in this crate) measures the same, so the safe version is used
+            proofs[..num_found_proofs]
+                .par_iter_mut()
+                .zip(targets)
+                .for_each(|(proof, table_6_proof_targets)| {
+                    proof.write(Self::find_proof_raw_internal(
+                        &table_2,
+                        &table_3,
+                        &table_4,
+                        &table_5,
+                        &table_6,
+                        table_6_proof_targets,
+                    ));
+                });
 
             // It is statically known to be the case, and there is a test that checks the lower
             // bound
@@ -437,30 +467,35 @@ where
     ) -> [u8; PROOF_SIZE::<K>] {
         let mut proof = [0u8; _];
 
-        // TODO: Optimize with SIMD
-        table_6_proof_targets
-            .into_iter()
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_6.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_5.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_4.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_3.position(position) }
-            })
-            .flat_map(|position| {
-                // SAFETY: Internally generated positions that come from the parent table
-                unsafe { table_2.position(position) }
-            })
-            .map(|position| {
+        // Positions are expanded one table at a time rather than by walking the tree of positions
+        // depth-first. All lookups within a single table are independent of each other, which
+        // allows many of these cache misses to be in flight at the same time instead of waiting
+        // for each other. This mirrors [`Self::verify_only_raw()`], which walks the same tree in
+        // the opposite direction a table at a time for the same reason.
+        let positions = expand_positions(table_6_proof_targets, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_6.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_5.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_4.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_3.position(position) }
+        });
+        let positions = expand_positions(positions, |position| {
+            // SAFETY: Internally generated positions that come from the parent table
+            unsafe { table_2.position(position) }
+        });
+
+        positions
+            .iter()
+            .map(|&position| {
                 // X matches position
                 X::from(u32::from(position))
             })

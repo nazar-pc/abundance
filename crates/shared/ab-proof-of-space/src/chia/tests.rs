@@ -10,7 +10,7 @@ fn basic() {
         198, 204, 10, 9, 10, 11, 129, 139, 171, 15, 23,
     ]);
 
-    let generator = ChiaTableGenerator::default();
+    let generator = ChiaTableGenerator;
     let proofs = generator.create_proofs(&seed);
     #[cfg(feature = "parallel")]
     let proofs_parallel = generator.create_proofs_parallel(&seed);

@@ -6,14 +6,14 @@ use crate::chiapos::constants::{NUM_TABLES, PARAM_BC, PARAM_EXT};
 #[cfg(feature = "alloc")]
 use crate::chiapos::constants::{PARAM_B, PARAM_C};
 #[cfg(feature = "alloc")]
+use crate::chiapos::table::find_matches_in_buckets;
+#[cfg(feature = "alloc")]
 use crate::chiapos::table::types::Position;
 use crate::chiapos::table::types::{Metadata, X, Y};
 use crate::chiapos::table::{
     BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
     TABLE_1_YS_BATCH_SIMD, compute_f1, compute_f1_simd, compute_fn, compute_fn_simd,
 };
-#[cfg(feature = "alloc")]
-use crate::chiapos::table::{calculate_left_targets, find_matches_in_buckets};
 use ab_core_primitives::pieces::Record;
 #[cfg(feature = "alloc")]
 use alloc::collections::BTreeMap;
@@ -148,7 +148,6 @@ fn test_matches() {
         }
     }
 
-    let left_targets = calculate_left_targets();
     let bucket_ys = bucket_ys.into_values().collect::<Vec<_>>();
     let mut total_matches = 0_usize;
     for (left_bucket_index, [left_bucket_ys, right_bucket_ys]) in
@@ -188,7 +187,6 @@ fn test_matches() {
                 &left_bucket,
                 &right_bucket,
                 &mut matches,
-                &left_targets,
             )
         };
         for m in matches {
