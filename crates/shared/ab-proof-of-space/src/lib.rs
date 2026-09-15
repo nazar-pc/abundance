@@ -78,6 +78,7 @@ impl PosProofs {
     /// Note that this is not the most efficient API possible, so prefer using the `proofs` field
     /// directly if the use case allows.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn for_s_bucket(&self, s_bucket: SBucket) -> Option<PosProof> {
         let proof_index = Self::proof_index_for_s_bucket(&self.found_proofs, s_bucket)?;
 
@@ -90,6 +91,7 @@ impl PosProofs {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn proof_index_for_s_bucket(
         found_proofs: &[u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
         s_bucket: SBucket,

@@ -40,6 +40,7 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
 
 /// Find proofs for as many s-buckets as fit into `proofs`, which must be zero-initialized
 #[cfg(feature = "alloc")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn create_proofs_internal(seed: &PosSeed, proofs: &mut PosProofs) {
     let mut num_found_proofs = 0_usize;
 
@@ -74,6 +75,7 @@ fn create_proofs_internal(seed: &PosSeed, proofs: &mut PosProofs) {
 pub struct ShimTable;
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ShimTable {
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         let Some(correct_proof) = find_proof(seed, u32::from(s_bucket)) else {
             return false;
@@ -88,6 +90,7 @@ impl Table for ShimTable {
     #[cfg(feature = "alloc")]
     type Generator = ShimTableGenerator;
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
             seed, s_bucket, proof,
@@ -95,6 +98,7 @@ impl Table for ShimTable {
     }
 }
 
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
     let quality = ab_blake3::single_block_hash(&challenge_index.to_le_bytes())
         .expect("Less than a single block worth of bytes; qed");

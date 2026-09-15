@@ -44,6 +44,7 @@ impl LeftTargets {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) fn new(odd_parity: bool) -> Self {
         Self {
             squares: &Self::SQUARES[usize::from(odd_parity)],
@@ -65,6 +66,7 @@ impl LeftTargets {
     // TODO: Use `%` once LLVM looks through splats when computing ranges:
     //  https://github.com/llvm/llvm-project/issues/223468
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn add_mod<T, const N: usize>(a: Simd<T, N>, b: Simd<T, N>, modulus: Simd<T, N>) -> Simd<T, N>
     where
         T: SimdElement + Default,
@@ -79,6 +81,7 @@ impl LeftTargets {
 
     /// Calculate all [`PARAM_M`] targets of `r` at once
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) fn calculate(&self, r: R) -> [R; const { usize::from(PARAM_M) }] {
         let r = u16::from(r);
         let c = Simd::splat(r / PARAM_C);

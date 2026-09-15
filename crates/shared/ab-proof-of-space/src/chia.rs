@@ -42,6 +42,7 @@ impl TableGenerator<ChiaTable> for ChiaTableGenerator {
 pub struct ChiaTable;
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ChiaTable {
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         Tables::<K>::verify_only_raw(seed, u32::from(s_bucket), proof)
     }
@@ -52,6 +53,7 @@ impl Table for ChiaTable {
     #[cfg(feature = "alloc")]
     type Generator = ChiaTableGenerator;
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
             seed, s_bucket, proof,
