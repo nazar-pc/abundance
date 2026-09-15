@@ -36,6 +36,17 @@ impl Step for X {
     }
 
     #[inline(always)]
+    fn forward(start: Self, count: usize) -> Self {
+        Self(u32::forward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn forward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::forward_unchecked(start.0, count) })
+    }
+
+    #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u32::backward_checked(start.0, count).map(Self)
     }
@@ -44,6 +55,17 @@ impl Step for X {
     fn backward_overflowing(start: Self, count: usize) -> (Self, bool) {
         let (n, overflowing) = u32::backward_overflowing(start.0, count);
         (Self(n), overflowing)
+    }
+
+    #[inline(always)]
+    fn backward(start: Self, count: usize) -> Self {
+        Self(u32::backward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn backward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::backward_unchecked(start.0, count) })
     }
 }
 
@@ -136,6 +158,17 @@ impl Step for Position {
     }
 
     #[inline(always)]
+    fn forward(start: Self, count: usize) -> Self {
+        Self(u32::forward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn forward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::forward_unchecked(start.0, count) })
+    }
+
+    #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u32::backward_checked(start.0, count).map(Self)
     }
@@ -144,6 +177,17 @@ impl Step for Position {
     fn backward_overflowing(start: Self, count: usize) -> (Self, bool) {
         let (n, overflowing) = u32::backward_overflowing(start.0, count);
         (Self(n), overflowing)
+    }
+
+    #[inline(always)]
+    fn backward(start: Self, count: usize) -> Self {
+        Self(u32::backward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn backward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::backward_unchecked(start.0, count) })
     }
 }
 

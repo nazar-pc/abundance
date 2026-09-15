@@ -15,6 +15,8 @@ use ab_core_primitives::pos::{PosProof, PosSeed};
 use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use core::hint;
 use core::iter;
 
 /// Proof of space table generator.
@@ -30,26 +32,38 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
         // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut proofs = unsafe { Box::<PosProofs>::new_zeroed().assume_init() };
 
-        let mut num_found_proofs = 0_usize;
-        'outer: for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
-            .array_chunks::<{ u8::BITS as usize }>()
-            .zip(&mut proofs.found_proofs)
-        {
-            for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
-                if let Some(proof) = find_proof(seed, s_bucket) {
-                    *found_proofs |= 1 << proof_offset;
+        create_proofs_internal(seed, &mut proofs);
 
-                    proofs.proofs[num_found_proofs] = proof;
-                    num_found_proofs += 1;
+        proofs
+    }
+}
 
-                    if num_found_proofs == Record::NUM_CHUNKS {
-                        break 'outer;
-                    }
+/// Find proofs for as many s-buckets as fit into `proofs`, which must be zero-initialized
+#[cfg(feature = "alloc")]
+fn create_proofs_internal(seed: &PosSeed, proofs: &mut PosProofs) {
+    let mut num_found_proofs = 0_usize;
+
+    'outer: for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
+        .array_chunks::<{ u8::BITS as usize }>()
+        .zip(&mut proofs.found_proofs)
+    {
+        for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
+            if let Some(proof) = find_proof(seed, s_bucket) {
+                *found_proofs |= 1 << proof_offset;
+
+                // TODO: Remove once https://github.com/rust-lang/rust/issues/162834 is resolved
+                // SAFETY: The loop is stopped as soon as `Record::NUM_CHUNKS` proofs are found
+                unsafe {
+                    hint::assert_unchecked(num_found_proofs < Record::NUM_CHUNKS);
+                }
+                proofs.proofs[num_found_proofs] = proof;
+                num_found_proofs += 1;
+
+                if num_found_proofs == Record::NUM_CHUNKS {
+                    break 'outer;
                 }
             }
         }
-
-        proofs
     }
 }
 
