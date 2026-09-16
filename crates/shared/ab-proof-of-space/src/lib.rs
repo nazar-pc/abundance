@@ -13,6 +13,7 @@
     macroless_generic_const_args,
     min_generic_const_args,
     mut_restriction,
+    portable_simd,
     step_trait
 )]
 #![cfg_attr(test, feature(float_erf))]
@@ -21,7 +22,6 @@
     feature = "alloc",
     feature(iter_array_chunks, maybe_uninit_fill, ptr_as_uninit)
 )]
-#![cfg_attr(any(feature = "alloc", test), feature(portable_simd))]
 
 pub mod chia;
 pub mod chiapos;

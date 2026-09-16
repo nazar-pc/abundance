@@ -1,4 +1,3 @@
-#[cfg(feature = "alloc")]
 mod left_targets;
 #[cfg(any(feature = "alloc", test))]
 mod rmap;
@@ -7,14 +6,15 @@ mod tests;
 pub(super) mod types;
 
 use crate::chiapos::Seed;
-use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
 #[cfg(feature = "alloc")]
+use crate::chiapos::constants::PARAM_M;
+use crate::chiapos::constants::{PARAM_BC, PARAM_EXT};
 use crate::chiapos::table::left_targets::LeftTargets;
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::rmap::Rmap;
-use crate::chiapos::table::types::{Metadata, X, Y};
 #[cfg(feature = "alloc")]
-use crate::chiapos::table::types::{Position, R};
+use crate::chiapos::table::types::Position;
+use crate::chiapos::table::types::{Metadata, R, X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(feature = "alloc")]
 use ab_core_primitives::pieces::Record;
@@ -26,6 +26,7 @@ use alloc::vec::Vec;
 use chacha20::cipher::{Iv, KeyIvInit, StreamCipher};
 #[cfg(feature = "alloc")]
 use chacha20::{ChaCha8, Key};
+#[cfg(any(feature = "alloc", test))]
 use core::array;
 #[cfg(feature = "parallel")]
 use core::cell::SyncUnsafeCell;
@@ -463,13 +464,6 @@ unsafe fn group_by_buckets_from_buckets<const K: u8>(
     unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
 }
 
-fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
-    let param_b = u32::from(PARAM_B);
-    let param_c = u32::from(PARAM_C);
-
-    ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
-}
-
 #[cfg(feature = "alloc")]
 #[derive(Debug, Copy, Clone)]
 struct Match {
@@ -641,17 +635,11 @@ unsafe fn find_matches_in_buckets<'a>(
 /// Simplified version of [`find_matches_in_buckets`] for verification purposes.
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn has_match(left_y: Y, right_y: Y) -> bool {
-    let right_r = u32::from(right_y) % u32::from(PARAM_BC);
-    let parity = (u32::from(left_y) / u32::from(PARAM_BC)) % 2;
-    let left_r = u32::from(left_y) % u32::from(PARAM_BC);
+    let left_bucket_index = u32::from(left_y) / u32::from(PARAM_BC);
+    let left_r = R::from((u32::from(left_y) - left_bucket_index * u32::from(PARAM_BC)) as u16);
+    let right_r = R::from((u32::from(right_y) % u32::from(PARAM_BC)) as u16);
 
-    for i in 0..usize::from(PARAM_M) {
-        if calculate_left_target_on_demand(parity, left_r, i as u32) == right_r {
-            return true;
-        }
-    }
-
-    false
+    LeftTargets::new(left_bucket_index % 2 == 1).contains(left_r, right_r)
 }
 
 #[inline(always)]
