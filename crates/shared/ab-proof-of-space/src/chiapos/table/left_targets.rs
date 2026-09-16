@@ -6,6 +6,7 @@ use core::simd::prelude::*;
 use core::simd::{Mask, Simd, SimdElement};
 
 /// Number of left targets calculated at a time
+#[cfg(feature = "alloc")]
 const SIMD_FACTOR: usize = 16;
 
 /// Calculates left targets of the left bucket with a given parity.
@@ -44,6 +45,7 @@ impl LeftTargets {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) fn new(odd_parity: bool) -> Self {
         Self {
             squares: &Self::SQUARES[usize::from(odd_parity)],
@@ -65,6 +67,7 @@ impl LeftTargets {
     // TODO: Use `%` once LLVM looks through splats when computing ranges:
     //  https://github.com/llvm/llvm-project/issues/223468
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn add_mod<T, const N: usize>(a: Simd<T, N>, b: Simd<T, N>, modulus: Simd<T, N>) -> Simd<T, N>
     where
         T: SimdElement + Default,
@@ -78,7 +81,9 @@ impl LeftTargets {
     }
 
     /// Calculate all [`PARAM_M`] targets of `r` at once
+    #[cfg(feature = "alloc")]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) fn calculate(&self, r: R) -> [R; const { usize::from(PARAM_M) }] {
         let r = u16::from(r);
         let c = Simd::splat(r / PARAM_C);
@@ -105,5 +110,29 @@ impl LeftTargets {
         }
 
         R::array_from_repr(targets)
+    }
+
+    /// Calculate all [`PARAM_M`] targets of `r` at once and check whether `r_target` is one of
+    /// them.
+    ///
+    /// This is what [`Self::calculate()`] is for verification, where targets are only compared to
+    /// a single `r` and never stored.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub(super) fn contains(&self, r: R, r_target: R) -> bool {
+        let r = u16::from(r);
+        let c = Simd::splat(r / PARAM_C);
+        let d = Simd::splat(r % PARAM_C);
+        let param_b = Simd::splat(PARAM_B);
+        let param_c = Simd::splat(PARAM_C);
+
+        let ms = Simd::from_array(array::from_fn(|m| m as u16));
+
+        let target_c = Self::add_mod(c, ms, param_b);
+        let target_d = Self::add_mod(d, Simd::from_array(*self.squares), param_c);
+
+        (target_c * param_c + target_d)
+            .simd_eq(Simd::splat(u16::from(r_target)))
+            .any()
     }
 }

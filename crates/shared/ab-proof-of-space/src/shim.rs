@@ -15,6 +15,8 @@ use ab_core_primitives::pos::{PosProof, PosSeed};
 use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use core::hint;
 use core::iter;
 
 /// Proof of space table generator.
@@ -30,26 +32,39 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
         // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut proofs = unsafe { Box::<PosProofs>::new_zeroed().assume_init() };
 
-        let mut num_found_proofs = 0_usize;
-        'outer: for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
-            .array_chunks::<{ u8::BITS as usize }>()
-            .zip(&mut proofs.found_proofs)
-        {
-            for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
-                if let Some(proof) = find_proof(seed, s_bucket) {
-                    *found_proofs |= 1 << proof_offset;
+        create_proofs_internal(seed, &mut proofs);
 
-                    proofs.proofs[num_found_proofs] = proof;
-                    num_found_proofs += 1;
+        proofs
+    }
+}
 
-                    if num_found_proofs == Record::NUM_CHUNKS {
-                        break 'outer;
-                    }
+/// Find proofs for as many s-buckets as fit into `proofs`, which must be zero-initialized
+#[cfg(feature = "alloc")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+fn create_proofs_internal(seed: &PosSeed, proofs: &mut PosProofs) {
+    let mut num_found_proofs = 0_usize;
+
+    'outer: for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
+        .array_chunks::<{ u8::BITS as usize }>()
+        .zip(&mut proofs.found_proofs)
+    {
+        for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
+            if let Some(proof) = find_proof(seed, s_bucket) {
+                *found_proofs |= 1 << proof_offset;
+
+                // TODO: Remove once https://github.com/rust-lang/rust/issues/162834 is resolved
+                // SAFETY: The loop is stopped as soon as `Record::NUM_CHUNKS` proofs are found
+                unsafe {
+                    hint::assert_unchecked(num_found_proofs < Record::NUM_CHUNKS);
+                }
+                proofs.proofs[num_found_proofs] = proof;
+                num_found_proofs += 1;
+
+                if num_found_proofs == Record::NUM_CHUNKS {
+                    break 'outer;
                 }
             }
         }
-
-        proofs
     }
 }
 
@@ -60,6 +75,7 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
 pub struct ShimTable;
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ShimTable {
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         let Some(correct_proof) = find_proof(seed, u32::from(s_bucket)) else {
             return false;
@@ -74,6 +90,7 @@ impl Table for ShimTable {
     #[cfg(feature = "alloc")]
     type Generator = ShimTableGenerator;
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
             seed, s_bucket, proof,
@@ -81,6 +98,7 @@ impl Table for ShimTable {
     }
 }
 
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
     let quality = ab_blake3::single_block_hash(&challenge_index.to_le_bytes())
         .expect("Less than a single block worth of bytes; qed");

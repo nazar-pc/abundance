@@ -198,6 +198,11 @@ where
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
+    // Intentional inlining prevention doesn't allow the compiler to prove lack of panics
+    if cfg!(feature = "no-panic") {
+        return;
+    }
+
     {
         // This challenge index with the above seed is known to have a solution
         let s_bucket_with_proof = SBucket::from(31500);

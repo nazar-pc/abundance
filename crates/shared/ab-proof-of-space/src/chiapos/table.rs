@@ -1,4 +1,3 @@
-#[cfg(feature = "alloc")]
 mod left_targets;
 #[cfg(any(feature = "alloc", test))]
 mod rmap;
@@ -7,30 +6,32 @@ mod tests;
 pub(super) mod types;
 
 use crate::chiapos::Seed;
-use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
 #[cfg(feature = "alloc")]
+use crate::chiapos::constants::PARAM_M;
+use crate::chiapos::constants::{PARAM_BC, PARAM_EXT};
 use crate::chiapos::table::left_targets::LeftTargets;
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::rmap::Rmap;
-use crate::chiapos::table::types::{Metadata, X, Y};
 #[cfg(feature = "alloc")]
-use crate::chiapos::table::types::{Position, R};
+use crate::chiapos::table::types::Position;
+use crate::chiapos::table::types::{Metadata, R, X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(feature = "alloc")]
 use ab_core_primitives::pieces::Record;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
-use alloc::vec;
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 use chacha20::cipher::{Iv, KeyIvInit, StreamCipher};
 #[cfg(feature = "alloc")]
 use chacha20::{ChaCha8, Key};
+#[cfg(any(feature = "alloc", test))]
 use core::array;
 #[cfg(feature = "parallel")]
 use core::cell::SyncUnsafeCell;
+#[cfg(feature = "alloc")]
+use core::hint;
 #[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 #[cfg(any(feature = "alloc", test))]
@@ -84,6 +85,11 @@ const MAX_TABLE_SIZE<const K: u8>: usize = 1 << K;
 const TABLE_1_YS_BATCH_SIMD<const K: u8>: usize =
     usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize;
 
+/// Number of ChaCha8 keystream bytes the first table is derived from
+#[cfg(feature = "alloc")]
+const TABLE_1_PARTIAL_YS_SIZE<const K: u8>: usize =
+    (usize::from(K) * MAX_TABLE_SIZE::<K>).div_ceil(u8::BITS as usize);
+
 /// Number of bucket pairs one chunk of [`group_by_buckets_from_buckets()`] covers.
 ///
 /// Fixed rather than derived from the number of threads, so that the result never depends on how
@@ -133,21 +139,47 @@ fn strip_sync_unsafe_cell_elements<const N: usize, const M: usize, T>(
     unsafe { Box::from_raw(Box::into_raw(value).cast()) }
 }
 
-/// ChaCha8 [`Vec`] sufficient for the whole first table for [`K`].
+/// ChaCha8 keystream sufficient for the whole first table for [`K`].
 /// Prefer [`partial_y`] if you need partial y just for a single `x`.
 #[cfg(feature = "alloc")]
-fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
-    let output_len_bits = usize::from(K) * (1 << K);
-    let mut output = vec![0; output_len_bits.div_ceil(u8::BITS as usize)];
+fn partial_ys<const K: u8>(seed: Seed) -> Box<[u8; TABLE_1_PARTIAL_YS_SIZE::<K>]> {
+    // SAFETY: Data structure filled with zeroes is a valid invariant
+    let mut output =
+        unsafe { Box::<[u8; TABLE_1_PARTIAL_YS_SIZE::<K>]>::new_zeroed().assume_init() };
 
     let key = Key::from(seed);
     let iv = Iv::<ChaCha8>::default();
 
     let mut cipher = ChaCha8::new(&key, &iv);
 
-    cipher.write_keystream(&mut output);
+    cipher.write_keystream(output.as_mut_slice());
 
     output
+}
+
+/// Compute `y`s of the first table out of the ChaCha8 keystream
+#[cfg(feature = "alloc")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+fn compute_table_1_ys<'a, const K: u8>(
+    partial_ys: &[u8; TABLE_1_PARTIAL_YS_SIZE::<K>],
+    ys: &'a mut [MaybeUninit<Y>; MAX_TABLE_SIZE::<K>],
+) -> &'a [Y] {
+    for ((ys, xs_batch_start), partial_ys) in ys
+        .as_chunks_mut::<COMPUTE_F1_SIMD_FACTOR>()
+        .0
+        .iter_mut()
+        .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
+        .zip(partial_ys.as_chunks::<{ TABLE_1_YS_BATCH_SIMD::<K> }>().0)
+    {
+        let xs =
+            Simd::splat(u32::from(xs_batch_start)) + Simd::from_array(array::from_fn(|i| i as u32));
+        let ys_batch = compute_f1_simd::<K>(xs, partial_ys);
+
+        ys.write_copy_of_slice(&ys_batch);
+    }
+
+    // SAFETY: The keystream covers the whole table, so all elements were initialized
+    unsafe { ys.assume_init_ref() }
 }
 
 /// Calculate a probabilistic upper bound on the Chia bucket size for a given `k` and
@@ -201,33 +233,144 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
 fn group_by_buckets<const K: u8>(
     ys: &[Y],
 ) -> Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>]> {
-    let mut bucket_offsets = [0_u16; NUM_BUCKETS::<K>];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
         Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>]>::new_uninit()
             .assume_init()
     };
 
+    group_by_buckets_internal::<K>(ys, &mut buckets);
+
+    // SAFETY: All entries are initialized
+    unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
+}
+
+/// The part of [`group_by_buckets()`] that works with already allocated memory
+#[cfg(feature = "alloc")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+fn group_by_buckets_internal<const K: u8>(
+    ys: &[Y],
+    buckets: &mut [[MaybeUninit<(Position, Y)>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>],
+) {
+    let mut bucket_lengths = [0_u16; NUM_BUCKETS::<K>];
+
     for (&y, position) in ys.iter().zip(Position::ZERO..) {
         let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
 
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-        let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
+        let bucket_length = unsafe { bucket_lengths.get_unchecked_mut(bucket_index) };
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
         let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
 
-        if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
-            bucket[*bucket_offset as usize].write((position, y));
-            *bucket_offset += 1;
+        if *bucket_length < REDUCED_BUCKET_SIZE as u16 {
+            bucket[*bucket_length as usize].write((position, y));
+            *bucket_length += 1;
         }
     }
 
-    for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
-        bucket[usize::from(initialized)..].write_filled((Position::SENTINEL, Y::SENTINEL));
+    // SAFETY: Bucket lengths are limited to `REDUCED_BUCKET_SIZE` above
+    unsafe {
+        fill_bucket_tails::<K>(buckets, &bucket_lengths);
     }
+}
 
-    // SAFETY: All entries are initialized
-    unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
+/// Pad buckets that have fewer than [`REDUCED_BUCKET_SIZE`] entries with sentinel values.
+///
+/// # Safety
+/// Bucket lengths must not exceed [`REDUCED_BUCKET_SIZE`].
+#[cfg(feature = "alloc")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+unsafe fn fill_bucket_tails<const K: u8>(
+    buckets: &mut [[MaybeUninit<(Position, Y)>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>],
+    bucket_lengths: &[u16; NUM_BUCKETS::<K>],
+) {
+    for (bucket, &bucket_length) in buckets.iter_mut().zip(bucket_lengths) {
+        let bucket_length = usize::from(bucket_length);
+        // SAFETY: Guaranteed by function contract
+        unsafe {
+            hint::assert_unchecked(bucket_length <= REDUCED_BUCKET_SIZE);
+        }
+
+        bucket[bucket_length..].write_filled((Position::SENTINEL, Y::SENTINEL));
+    }
+}
+
+/// Count how many `y`s of a single chunk belong to each bucket.
+///
+/// # Safety
+/// `counts` must be the number of initialized `y`s in each entry of `ys`.
+#[cfg(feature = "parallel")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+unsafe fn count_ys_in_buckets<const K: u8>(
+    ys: &[[MaybeUninit<Y>; REDUCED_MATCHES_COUNT]],
+    counts: &[u16],
+    chunk_offsets: &mut [u16; NUM_BUCKETS::<K>],
+) {
+    for (ys, &count) in ys.iter().zip(counts) {
+        // SAFETY: Function contract guarantees that this many `y`s are initialized, hence the
+        // count is also within bounds
+        let ys = unsafe { ys.get_unchecked(..usize::from(count)).assume_init_ref() };
+
+        for &y in ys {
+            let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+
+            // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
+            unsafe {
+                *chunk_offsets.get_unchecked_mut(bucket_index) += 1;
+            }
+        }
+    }
+}
+
+/// Write `y`s of a single chunk into the buckets they belong to, starting at the offsets reserved
+/// for this chunk.
+///
+/// # Safety
+/// `counts` must be the number of initialized `y`s in each entry of `ys`, `batch_start` must be
+/// the position of the first `y` of `ys`, `chunk_offsets` must be the offsets within buckets that
+/// are reserved exclusively for this chunk.
+#[cfg(feature = "parallel")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[expect(clippy::type_complexity, reason = "Internal API")]
+unsafe fn scatter_ys_into_buckets<const K: u8>(
+    ys: &[[MaybeUninit<Y>; REDUCED_MATCHES_COUNT]],
+    counts: &[u16],
+    chunk_offsets: &[u16; NUM_BUCKETS::<K>],
+    batch_start: Position,
+    buckets: &[[SyncUnsafeCell<MaybeUninit<(Position, Y)>>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>],
+) {
+    let mut bucket_offsets = *chunk_offsets;
+
+    for ((ys, &count), batch_start) in ys
+        .iter()
+        .zip(counts)
+        .zip((batch_start..).step_by(REDUCED_MATCHES_COUNT))
+    {
+        // SAFETY: Function contract guarantees that this many `y`s are initialized, hence the
+        // count is also within bounds
+        let ys = unsafe { ys.get_unchecked(..usize::from(count)).assume_init_ref() };
+
+        for (&y, position) in ys.iter().zip(batch_start..) {
+            let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+
+            // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
+            let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
+
+            if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
+                // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition,
+                // the offset is below `REDUCED_BUCKET_SIZE` as checked above
+                let entry = unsafe {
+                    buckets
+                        .get_unchecked(bucket_index)
+                        .get_unchecked(usize::from(*bucket_offset))
+                };
+                // SAFETY: Function contract guarantees that offsets are exclusive to this chunk,
+                // so this is the only place where this entry is accessed
+                unsafe { &mut *entry.get() }.write((position, y));
+                *bucket_offset += 1;
+            }
+        }
+    }
 }
 
 /// Similar to [`group_by_buckets()`], but processes buckets instead of a flat list of `y`s.
@@ -271,19 +414,9 @@ unsafe fn group_by_buckets_from_buckets<const K: u8>(
             let chunk_range = chunk_range(chunk_index);
             let (ys, counts) = (&ys[chunk_range.clone()], &counts[chunk_range]);
 
-            for (ys, &count) in ys.iter().zip(counts) {
-                // SAFETY: Function contract guarantees that `y`s are initialized
-                let ys = unsafe { ys[..usize::from(count)].assume_init_ref() };
-
-                for &y in ys {
-                    let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
-
-                    // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by
-                    // definition
-                    unsafe {
-                        *chunk_offsets.get_unchecked_mut(bucket_index) += 1;
-                    }
-                }
+            // SAFETY: Guaranteed by function contract
+            unsafe {
+                count_ys_in_buckets::<K>(ys, counts, chunk_offsets);
             }
         });
 
@@ -303,12 +436,7 @@ unsafe fn group_by_buckets_from_buckets<const K: u8>(
     // elements of it concurrently, and a `&mut` to the whole bucket would claim unique access to
     // elements belonging to other chunks
     // SAFETY: Contents is `MaybeUninit`
-    let buckets = unsafe {
-        Box::<
-            [[SyncUnsafeCell<MaybeUninit<(Position, Y)>>; REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>],
-        >::new_uninit()
-        .assume_init()
-    };
+    let buckets = unsafe { Box::<_>::new_uninit().assume_init() };
 
     chunk_offsets
         .par_iter()
@@ -318,55 +446,22 @@ unsafe fn group_by_buckets_from_buckets<const K: u8>(
             let batch_start = Position::from((chunk_range.start * REDUCED_MATCHES_COUNT) as u32);
             let (ys, counts) = (&ys[chunk_range.clone()], &counts[chunk_range]);
 
-            let mut bucket_offsets = *chunk_offsets;
-
-            for ((ys, &count), batch_start) in ys
-                .iter()
-                .zip(counts)
-                .zip((batch_start..).step_by(REDUCED_MATCHES_COUNT))
-            {
-                // SAFETY: Function contract guarantees that `y`s are initialized
-                let ys = unsafe { ys[..usize::from(count)].assume_init_ref() };
-
-                for (&y, position) in ys.iter().zip(batch_start..) {
-                    let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
-
-                    // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by
-                    // definition
-                    let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
-
-                    if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
-                        // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by
-                        // definition, the offset is below `REDUCED_BUCKET_SIZE` as checked above
-                        let entry = unsafe {
-                            buckets
-                                .get_unchecked(bucket_index)
-                                .get_unchecked(usize::from(*bucket_offset))
-                        };
-                        // SAFETY: Offsets of different chunks were made disjoint by the prefix sum
-                        // above, so this is the only place where this entry is accessed
-                        unsafe { &mut *entry.get() }.write((position, y));
-                        *bucket_offset += 1;
-                    }
-                }
+            // SAFETY: Guaranteed by function contract, offsets of different chunks were made
+            // disjoint by the prefix sum above
+            unsafe {
+                scatter_ys_into_buckets::<K>(ys, counts, chunk_offsets, batch_start, &buckets);
             }
         });
 
     let mut buckets = strip_sync_unsafe_cell_elements(buckets);
 
-    for (bucket, bucket_length) in buckets.iter_mut().zip(bucket_lengths) {
-        bucket[usize::from(bucket_length)..].write_filled((Position::SENTINEL, Y::SENTINEL));
+    // SAFETY: Bucket lengths were limited to `REDUCED_BUCKET_SIZE` by the prefix sum above
+    unsafe {
+        fill_bucket_tails::<K>(&mut buckets, &bucket_lengths);
     }
 
     // SAFETY: All entries are initialized
     unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
-}
-
-fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
-    let param_b = u32::from(PARAM_B);
-    let param_c = u32::from(PARAM_C);
-
-    ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
 }
 
 #[cfg(feature = "alloc")]
@@ -378,6 +473,7 @@ struct Match {
 }
 
 /// `partial_y_offset` is in bits within `partial_y`
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn compute_f1<const K: u8>(x: X, seed: &Seed) -> Y {
     const U32S_PER_BLOCK: usize = size_of::<ChaCha8Block>() / size_of::<u32>();
 
@@ -418,6 +514,7 @@ pub(super) fn compute_f1<const K: u8>(x: X, seed: &Seed) -> Y {
 }
 
 #[cfg(any(feature = "alloc", test))]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn compute_f1_simd<const K: u8>(
     xs: Simd<u32, COMPUTE_F1_SIMD_FACTOR>,
     partial_ys: &[u8; TABLE_1_YS_BATCH_SIMD::<K>],
@@ -465,6 +562,7 @@ pub(super) fn compute_f1_simd<const K: u8>(
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
 #[cfg(feature = "alloc")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 unsafe fn find_matches_in_buckets<'a>(
     left_bucket_index: u32,
     left_bucket: &[(Position, Y); REDUCED_BUCKET_SIZE],
@@ -529,24 +627,23 @@ unsafe fn find_matches_in_buckets<'a>(
         }
     }
 
-    // SAFETY: Initialized this many matches
-    unsafe { matches[..next_match_index].assume_init_ref() }
+    // SAFETY: Initialized this many matches, which is also why the number of matches is within
+    // bounds
+    unsafe { matches.get_unchecked(..next_match_index).assume_init_ref() }
 }
 
 /// Simplified version of [`find_matches_in_buckets`] for verification purposes.
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn has_match(left_y: Y, right_y: Y) -> bool {
-    let right_r = u32::from(right_y) % u32::from(PARAM_BC);
-    let parity = (u32::from(left_y) / u32::from(PARAM_BC)) % 2;
-    let left_r = u32::from(left_y) % u32::from(PARAM_BC);
+    let left_bucket_index = u32::from(left_y) / u32::from(PARAM_BC);
+    let left_r = R::from((u32::from(left_y) - left_bucket_index * u32::from(PARAM_BC)) as u16);
+    let right_r = R::from((u32::from(right_y) % u32::from(PARAM_BC)) as u16);
 
-    let r_targets = array::from_fn::<_, const { usize::from(PARAM_M) }, _>(|i| {
-        calculate_left_target_on_demand(parity, left_r, i as u32)
-    });
-
-    r_targets.contains(&right_r)
+    LeftTargets::new(left_bucket_index % 2 == 1).contains(left_r, right_r)
 }
 
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn compute_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     y: Y,
     left_metadata: Metadata<K, PARENT_TABLE_NUMBER>,
@@ -633,6 +730,7 @@ pub(super) fn compute_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE
 //  * https://github.com/rust-lang/portable-simd/issues/108
 //  * https://github.com/BLAKE3-team/BLAKE3/issues/478#issuecomment-3200106103
 #[cfg(any(feature = "alloc", test))]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn compute_fn_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     left_ys: [Y; COMPUTE_FN_SIMD_FACTOR],
     left_metadatas: [Metadata<K, PARENT_TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
@@ -761,6 +859,7 @@ fn compute_fn_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBE
 /// `m` must contain positions that correspond to the parent table
 #[cfg(feature = "alloc")]
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 unsafe fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     m: &Match,
@@ -783,6 +882,7 @@ where
 /// `matches` must contain positions that correspond to the parent table
 #[cfg(feature = "alloc")]
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 unsafe fn match_to_result_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match; COMPUTE_FN_SIMD_FACTOR],
@@ -847,6 +947,7 @@ where
 /// `metadatas` length must be at least the length of `matches`
 #[cfg(feature = "alloc")]
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match],
@@ -857,15 +958,19 @@ unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_T
     Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
 {
     let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
-    let (grouped_ys, other_ys) = ys.split_at_mut(grouped_matches.as_flattened().len());
+    let grouped_matches_len = grouped_matches.as_flattened().len();
+    // SAFETY: Function contract guarantees that outputs are at least as long as `matches`
+    let (grouped_ys, other_ys) = unsafe { ys.split_at_mut_unchecked(grouped_matches_len) };
     let grouped_ys = grouped_ys.as_chunks_mut::<COMPUTE_FN_SIMD_FACTOR>().0;
+    // SAFETY: Function contract guarantees that outputs are at least as long as `matches`
     let (grouped_positions, other_positions) =
-        positions.split_at_mut(grouped_matches.as_flattened().len());
+        unsafe { positions.split_at_mut_unchecked(grouped_matches_len) };
     let grouped_positions = grouped_positions
         .as_chunks_mut::<COMPUTE_FN_SIMD_FACTOR>()
         .0;
+    // SAFETY: Function contract guarantees that outputs are at least as long as `matches`
     let (grouped_metadatas, other_metadatas) =
-        metadatas.split_at_mut(grouped_matches.as_flattened().len());
+        unsafe { metadatas.split_at_mut_unchecked(grouped_matches_len) };
     let grouped_metadatas = grouped_metadatas
         .as_chunks_mut::<COMPUTE_FN_SIMD_FACTOR>()
         .0;
@@ -905,6 +1010,129 @@ unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_T
     }
 }
 
+/// Find matches between a pair of adjacent buckets of the parent table and turn them into the
+/// results of the current table, returns the number of matches processed.
+///
+/// # Safety
+/// Buckets must come from `parent_table`, `ys`, `positions` and `metadatas` must have at least as
+/// many elements as there are matches in the pair of buckets (at most [`REDUCED_MATCHES_COUNT`]).
+#[cfg(feature = "alloc")]
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+unsafe fn bucket_pair_to_results<
+    const K: u8,
+    const TABLE_NUMBER: u8,
+    const PARENT_TABLE_NUMBER: u8,
+>(
+    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
+    left_bucket_index: u32,
+    [left_bucket, right_bucket]: &[[(Position, Y); REDUCED_BUCKET_SIZE]; 2],
+    ys: &mut [MaybeUninit<Y>],
+    positions: &mut [MaybeUninit<[Position; 2]>],
+    metadatas: &mut [MaybeUninit<Metadata<K, TABLE_NUMBER>>],
+) -> usize
+where
+    Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
+{
+    let mut matches = [MaybeUninit::uninit(); _];
+    // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized values
+    let matches = unsafe {
+        find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
+    };
+    // Throw away some successful matches that are not that necessary
+    let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
+
+    // SAFETY: Guaranteed by function contract
+    let (ys, positions, metadatas) = unsafe {
+        (
+            ys.get_unchecked_mut(..matches.len()),
+            positions.get_unchecked_mut(..matches.len()),
+            metadatas.get_unchecked_mut(..matches.len()),
+        )
+    };
+
+    // SAFETY: Matches come from the parent table and the size of `ys`, `positions` and `metadatas`
+    // is the same as the number of matches
+    unsafe {
+        matches_to_results(parent_table, matches, ys, positions, metadatas);
+    }
+
+    matches.len()
+}
+
+/// Find matches between a pair of adjacent buckets of the parent table, turn them into proof
+/// targets of the last table and hand each of them over to `store_target`, which is called at most
+/// [`REDUCED_MATCHES_COUNT`] times.
+///
+/// # Safety
+/// Buckets must come from `parent_table`.
+#[cfg(feature = "alloc")]
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+unsafe fn bucket_pair_to_proof_targets<const K: u8>(
+    parent_table: &Table<K, 6>,
+    left_bucket_index: u32,
+    [left_bucket, right_bucket]: &[[(Position, Y); REDUCED_BUCKET_SIZE]; 2],
+    mut store_target: impl FnMut(u16, [Position; 2]),
+) {
+    let mut matches = [MaybeUninit::uninit(); _];
+    // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized values
+    let matches = unsafe {
+        find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
+    };
+    // Throw away some successful matches that are not that necessary
+    let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
+
+    let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
+
+    for grouped_matches in grouped_matches {
+        // SAFETY: Matches come from the parent table
+        let (ys_group, positions_group, _) =
+            unsafe { match_to_result_simd::<_, 7, _>(parent_table, grouped_matches) };
+
+        let s_buckets = ys_group >> Simd::splat(u32::from(PARAM_EXT));
+
+        for (s_bucket, p) in s_buckets.to_array().into_iter().zip(positions_group) {
+            let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                continue;
+            };
+
+            store_target(s_bucket, p);
+        }
+    }
+    for other_match in other_matches {
+        // SAFETY: Matches come from the parent table
+        let (y, p, _) = unsafe { match_to_result::<_, 7, _>(parent_table, other_match) };
+
+        let Ok(s_bucket) = u16::try_from(y.first_k_bits()) else {
+            continue;
+        };
+
+        store_target(s_bucket, p);
+    }
+}
+
+/// Store a proof target unless a target for this s-bucket was already found
+#[cfg(feature = "alloc")]
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+fn store_proof_target(
+    table_6_proof_targets: &mut [[Position; 2]; const { Record::NUM_S_BUCKETS }],
+    s_bucket: u16,
+    positions: [Position; 2],
+) {
+    // There is an s-bucket for every possible `u16`, which is what makes the indexing below
+    // statically within bounds
+    const {
+        assert!(Record::NUM_S_BUCKETS == usize::from(u16::MAX) + 1);
+    }
+
+    let target = &mut table_6_proof_targets[usize::from(s_bucket)];
+    if target == &[Position::ZERO; 2] {
+        *target = positions;
+    }
+}
+
 /// Similar to [`Table`], but smaller size for later processing stages
 #[cfg(feature = "alloc")]
 #[derive(Debug)]
@@ -932,13 +1160,15 @@ impl<const K: u8, const TABLE_NUMBER: u8> PrunedTable<K, TABLE_NUMBER> {
     /// current table.
     ///
     /// # Safety
-    /// `position` must come from [`Table::buckets()`] or [`Self::position()`] and not be a sentinel
-    /// value.
+    /// `self` must not be [`Self::First`], `position` must come from [`Table::buckets()`] or
+    /// [`Self::position()`] and not be a sentinel value.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) unsafe fn position(&self, position: Position) -> [Position; 2] {
         match self {
             Self::First => {
-                unreachable!("Not the first table");
+                // SAFETY: Guaranteed by function contract
+                unsafe { hint::unreachable_unchecked() }
             }
             Self::Other { positions } => {
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
@@ -1018,22 +1248,7 @@ impl<const K: u8> Table<K, 1> {
         let mut ys =
             unsafe { Box::<[MaybeUninit<Y>; MAX_TABLE_SIZE::<K>]>::new_uninit().assume_init() };
 
-        for ((ys, xs_batch_start), partial_ys) in ys
-            .as_chunks_mut::<COMPUTE_F1_SIMD_FACTOR>()
-            .0
-            .iter_mut()
-            .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
-            .zip(partial_ys.as_chunks::<{ TABLE_1_YS_BATCH_SIMD::<K> }>().0)
-        {
-            let xs = Simd::splat(u32::from(xs_batch_start))
-                + Simd::from_array(array::from_fn(|i| i as u32));
-            let ys_batch = compute_f1_simd::<K>(xs, partial_ys);
-
-            ys.write_copy_of_slice(&ys_batch);
-        }
-
-        // SAFETY: All elements were initialized
-        let ys = unsafe { ys.assume_init_ref() };
+        let ys = compute_table_1_ys::<K>(&partial_ys, &mut ys);
 
         // TODO: Try to group buckets in the process of collecting `y`s
         let buckets = group_by_buckets::<K>(ys);
@@ -1057,22 +1272,7 @@ impl<const K: u8> Table<K, 1> {
         let mut ys =
             unsafe { Box::<[MaybeUninit<Y>; MAX_TABLE_SIZE::<K>]>::new_uninit().assume_init() };
 
-        for ((ys, xs_batch_start), partial_ys) in ys
-            .as_chunks_mut::<COMPUTE_F1_SIMD_FACTOR>()
-            .0
-            .iter_mut()
-            .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
-            .zip(partial_ys.as_chunks::<{ TABLE_1_YS_BATCH_SIMD::<K> }>().0)
-        {
-            let xs = Simd::splat(u32::from(xs_batch_start))
-                + Simd::from_array(array::from_fn(|i| i as u32));
-            let ys_batch = compute_f1_simd::<K>(xs, partial_ys);
-
-            ys.write_copy_of_slice(&ys_batch);
-        }
-
-        // SAFETY: All elements were initialized
-        let ys = unsafe { ys.assume_init_ref() };
+        let ys = compute_table_1_ys::<K>(&partial_ys, &mut ys);
 
         // TODO: Try to group buckets in the process of collecting `y`s
         let buckets = group_by_buckets::<K>(ys);
@@ -1127,7 +1327,6 @@ where
     where
         Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
     {
-        let mut initialized_elements = 0_usize;
         // SAFETY: Contents is `MaybeUninit`
         let mut ys =
             unsafe { Box::<[MaybeUninit<Y>; MAX_TABLE_SIZE::<K>]>::new_uninit().assume_init() };
@@ -1141,43 +1340,8 @@ where
                 .assume_init()
         };
 
-        for ([left_bucket, right_bucket], left_bucket_index) in
-            parent_table.buckets().array_windows().zip(0..)
-        {
-            let mut matches = [MaybeUninit::uninit(); _];
-            // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
-            // values
-            let matches = unsafe {
-                find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
-            };
-            // Throw away some successful matches that are not that necessary
-            let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
-            // SAFETY: Already initialized this many elements
-            let (ys, positions, metadatas) = unsafe {
-                (
-                    ys.get_unchecked_mut(initialized_elements..),
-                    positions.get_unchecked_mut(initialized_elements..),
-                    metadatas.get_unchecked_mut(initialized_elements..),
-                )
-            };
-
-            // SAFETY: Preallocated length is an upper bound and is always sufficient
-            let (ys, positions, metadatas) = unsafe {
-                (
-                    ys.get_unchecked_mut(..matches.len()),
-                    positions.get_unchecked_mut(..matches.len()),
-                    metadatas.get_unchecked_mut(..matches.len()),
-                )
-            };
-
-            // SAFETY: Matches come from the parent table and the size of `ys`, `positions`
-            // and `metadatas` is the same as the number of matches
-            unsafe {
-                matches_to_results(&parent_table, matches, ys, positions, metadatas);
-            }
-
-            initialized_elements += matches.len();
-        }
+        let initialized_elements =
+            Self::create_internal(&parent_table, &mut ys, &mut positions, &mut metadatas);
 
         let parent_table = parent_table.prune();
 
@@ -1199,6 +1363,48 @@ where
         };
 
         (table, parent_table)
+    }
+
+    /// The part of [`Self::create()`] that works with already allocated memory, returns the number
+    /// of initialized elements in each of the outputs
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn create_internal<const PARENT_TABLE_NUMBER: u8>(
+        parent_table: &Table<K, PARENT_TABLE_NUMBER>,
+        ys: &mut [MaybeUninit<Y>; MAX_TABLE_SIZE::<K>],
+        positions: &mut [MaybeUninit<[Position; 2]>; MAX_TABLE_SIZE::<K>],
+        metadatas: &mut [MaybeUninit<Metadata<K, TABLE_NUMBER>>; MAX_TABLE_SIZE::<K>],
+    ) -> usize
+    where
+        Table<K, PARENT_TABLE_NUMBER>: NotLastTable,
+    {
+        let mut initialized_elements = 0_usize;
+
+        for (buckets, left_bucket_index) in parent_table.buckets().array_windows().zip(0..) {
+            // SAFETY: Already initialized this many elements, preallocated length is an upper
+            // bound and is always sufficient
+            let (ys, positions, metadatas) = unsafe {
+                (
+                    ys.get_unchecked_mut(initialized_elements..),
+                    positions.get_unchecked_mut(initialized_elements..),
+                    metadatas.get_unchecked_mut(initialized_elements..),
+                )
+            };
+
+            // SAFETY: Buckets are taken from `parent_table`, preallocated length is an upper bound
+            // and is always sufficient
+            initialized_elements += unsafe {
+                bucket_pair_to_results::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+                    parent_table,
+                    left_bucket_index,
+                    buckets,
+                    ys,
+                    positions,
+                    metadatas,
+                )
+            };
+        }
+
+        initialized_elements
     }
 
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
@@ -1246,21 +1452,7 @@ where
                     break;
                 }
 
-                for (left_bucket_index, [left_bucket, right_bucket]) in buckets_batch {
-                    let mut matches = [MaybeUninit::uninit(); _];
-                    // SAFETY: Positions are taken from `Table::buckets()` and correspond to
-                    // initialized values
-                    let matches = unsafe {
-                        find_matches_in_buckets(
-                            left_bucket_index as u32,
-                            left_bucket,
-                            right_bucket,
-                            &mut matches,
-                        )
-                    };
-                    // Throw away some successful matches that are not that necessary
-                    let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
-
+                for (left_bucket_index, buckets) in buckets_batch {
                     // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
                     // at this time, and it is guaranteed to be in range
                     let ys = unsafe { &mut *ys.get_unchecked(left_bucket_index).get() };
@@ -1278,18 +1470,18 @@ where
                         &mut *global_results_counts.get_unchecked(left_bucket_index).get()
                     };
 
-                    // SAFETY: Matches come from the parent table and the size of `ys`, `positions`
+                    // SAFETY: Buckets are taken from `parent_table`, the size of `ys`, `positions`
                     // and `metadatas` is larger or equal to the number of matches
-                    unsafe {
-                        matches_to_results::<_, TABLE_NUMBER, _>(
+                    *count = unsafe {
+                        bucket_pair_to_results::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
                             &parent_table,
-                            matches,
+                            left_bucket_index as u32,
+                            buckets,
                             ys,
                             positions,
                             metadatas,
-                        );
-                    }
-                    *count = matches.len() as u16;
+                        ) as u16
+                    };
                 }
             }
         });
@@ -1318,9 +1510,10 @@ where
     /// current table.
     ///
     /// # Safety
-    /// `position` must come from [`Self::buckets()`] or [`Self::position()`] or
-    /// [`PrunedTable::position()`] and not be a sentinel value.
+    /// `self` must not be [`Self::First`], `position` must come from [`Self::buckets()`] or
+    /// [`Self::position()`] or [`PrunedTable::position()`] and not be a sentinel value.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) unsafe fn position(&self, position: Position) -> [Position; 2] {
         #[expect(
             clippy::rest_pattern_accessible_field,
@@ -1328,7 +1521,8 @@ where
         )]
         match self {
             Self::First { .. } => {
-                unreachable!("Not the first table");
+                // SAFETY: Guaranteed by function contract
+                unsafe { hint::unreachable_unchecked() }
             }
             Self::Other { positions, .. } => {
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
@@ -1369,63 +1563,32 @@ where
             Box::<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>::new_zeroed().assume_init()
         };
 
-        for ([left_bucket, right_bucket], left_bucket_index) in
-            parent_table.buckets().array_windows().zip(0..)
-        {
-            let mut matches = [MaybeUninit::uninit(); _];
-            // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
-            // values
-            let matches = unsafe {
-                find_matches_in_buckets(left_bucket_index, left_bucket, right_bucket, &mut matches)
-            };
-            // Throw away some successful matches that are not that necessary
-            let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
-
-            let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
-
-            for grouped_matches in grouped_matches {
-                // SAFETY: Guaranteed by function contract
-                let (ys_group, positions_group, _) =
-                    unsafe { match_to_result_simd::<_, 7, _>(&parent_table, grouped_matches) };
-
-                let s_buckets = ys_group >> Simd::splat(u32::from(PARAM_EXT));
-
-                for (s_bucket, p) in s_buckets.to_array().into_iter().zip(positions_group) {
-                    const {
-                        assert!(Record::NUM_S_BUCKETS == usize::from(u16::MAX) + 1);
-                    }
-                    let Ok(s_bucket) = u16::try_from(s_bucket) else {
-                        continue;
-                    };
-                    let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
-                    if positions == &[Position::ZERO; 2] {
-                        *positions = p;
-                    }
-                }
-            }
-            for other_match in other_matches {
-                // SAFETY: Guaranteed by function contract
-                let (y, p, _) = unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
-
-                let s_bucket = y.first_k_bits();
-
-                const {
-                    assert!(Record::NUM_S_BUCKETS == usize::from(u16::MAX) + 1);
-                }
-                let Ok(s_bucket) = u16::try_from(s_bucket) else {
-                    continue;
-                };
-
-                let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
-                if positions == &[Position::ZERO; 2] {
-                    *positions = p;
-                }
-            }
-        }
+        Self::create_proof_targets_internal(&parent_table, &mut table_6_proof_targets);
 
         let parent_table = parent_table.prune();
 
         (table_6_proof_targets, parent_table)
+    }
+
+    /// The part of [`Self::create_proof_targets()`] that works with already allocated memory
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn create_proof_targets_internal(
+        parent_table: &Table<K, 6>,
+        table_6_proof_targets: &mut [[Position; 2]; const { Record::NUM_S_BUCKETS }],
+    ) {
+        for (buckets, left_bucket_index) in parent_table.buckets().array_windows().zip(0..) {
+            // SAFETY: Buckets are taken from `parent_table`
+            unsafe {
+                bucket_pair_to_proof_targets(
+                    parent_table,
+                    left_bucket_index,
+                    buckets,
+                    |s_bucket, positions| {
+                        store_proof_target(table_6_proof_targets, s_bucket, positions);
+                    },
+                );
+            }
+        }
     }
 
     /// Almost the same as [`Self::create_proof_targets()`], but uses parallelism internally for
@@ -1468,21 +1631,7 @@ where
                     break;
                 }
 
-                for (left_bucket_index, [left_bucket, right_bucket]) in buckets_batch {
-                    let mut matches = [MaybeUninit::uninit(); _];
-                    // SAFETY: Positions are taken from `Table::buckets()` and correspond to
-                    // initialized values
-                    let matches = unsafe {
-                        find_matches_in_buckets(
-                            left_bucket_index as u32,
-                            left_bucket,
-                            right_bucket,
-                            &mut matches,
-                        )
-                    };
-                    // Throw away some successful matches that are not that necessary
-                    let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
-
+                for (left_bucket_index, buckets) in buckets_batch {
                     // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
                     // at this time, and it is guaranteed to be in range
                     let buckets_positions =
@@ -1493,50 +1642,28 @@ where
                         &mut *global_results_counts.get_unchecked(left_bucket_index).get()
                     };
 
-                    let (grouped_matches, other_matches) =
-                        matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
-
-                    let mut reduced_count = 0_usize;
-                    for grouped_matches in grouped_matches {
-                        // SAFETY: Guaranteed by function contract
-                        let (ys_group, positions_group, _) = unsafe {
-                            match_to_result_simd::<_, 7, _>(&parent_table, grouped_matches)
-                        };
-
-                        let s_buckets = ys_group >> Simd::splat(u32::from(PARAM_EXT));
-                        let s_buckets = s_buckets.to_array();
-
-                        for (s_bucket, p) in s_buckets.into_iter().zip(positions_group) {
-                            const {
-                                assert!(Record::NUM_S_BUCKETS == usize::from(u16::MAX) + 1);
-                            }
-                            let Ok(s_bucket) = u16::try_from(s_bucket) else {
-                                continue;
-                            };
-
-                            buckets_positions[reduced_count].write((s_bucket, p));
-                            reduced_count += 1;
+                    let mut num_targets = 0_usize;
+                    let store_target = |s_bucket, positions| {
+                        // SAFETY: Targets are stored at most `REDUCED_MATCHES_COUNT` times, which
+                        // is the size of `buckets_positions`
+                        unsafe {
+                            hint::assert_unchecked(num_targets < REDUCED_MATCHES_COUNT);
                         }
-                    }
-                    for other_match in other_matches {
-                        // SAFETY: Guaranteed by function contract
-                        let (y, p, _) =
-                            unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
+                        buckets_positions[num_targets].write((s_bucket, positions));
+                        num_targets += 1;
+                    };
 
-                        let s_bucket = y.first_k_bits();
-
-                        const {
-                            assert!(Record::NUM_S_BUCKETS == usize::from(u16::MAX) + 1);
-                        }
-                        let Ok(s_bucket) = u16::try_from(s_bucket) else {
-                            continue;
-                        };
-
-                        buckets_positions[reduced_count].write((s_bucket, p));
-                        reduced_count += 1;
+                    // SAFETY: Buckets are taken from `parent_table`
+                    unsafe {
+                        bucket_pair_to_proof_targets(
+                            &parent_table,
+                            left_bucket_index as u32,
+                            buckets,
+                            store_target,
+                        );
                     }
 
-                    *count = reduced_count as u16;
+                    *count = num_targets as u16;
                 }
             }
         });
@@ -1544,27 +1671,51 @@ where
         let parent_table = parent_table.prune();
 
         let buckets_positions = strip_sync_unsafe_cell(buckets_positions);
+        let global_results_counts = global_results_counts.map(SyncUnsafeCell::into_inner);
 
         // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut table_6_proof_targets = unsafe {
             Box::<[[Position; 2]; const { Record::NUM_S_BUCKETS }]>::new_zeroed().assume_init()
         };
 
-        for (bucket, results_count) in buckets_positions.iter().zip(
-            global_results_counts
-                .into_iter()
-                .map(|count| usize::from(count.into_inner())),
-        ) {
-            // SAFETY: `results_count` corresponds to the number of initialized `bucket` elements
-            for &(s_bucket, p) in unsafe { bucket[..results_count].assume_init_ref() } {
-                let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
-                if positions == &[Position::ZERO; 2] {
-                    *positions = p;
-                }
-            }
+        // SAFETY: `global_results_counts` corresponds to the number of initialized targets
+        unsafe {
+            Self::merge_proof_targets(
+                &buckets_positions,
+                &global_results_counts,
+                &mut table_6_proof_targets,
+            );
         }
 
         (table_6_proof_targets, parent_table)
+    }
+
+    /// Merge proof targets found by [`Self::create_proof_targets_parallel()`] in parallel.
+    ///
+    /// # Safety
+    /// `counts` must be the number of initialized targets in each entry of `buckets_targets`.
+    #[cfg(feature = "parallel")]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[expect(clippy::type_complexity, reason = "Internal API")]
+    unsafe fn merge_proof_targets(
+        buckets_targets: &[[MaybeUninit<(u16, [Position; 2])>; REDUCED_MATCHES_COUNT];
+             NUM_BUCKET_PAIRS::<K>],
+        counts: &[u16; NUM_BUCKET_PAIRS::<K>],
+        table_6_proof_targets: &mut [[Position; 2]; const { Record::NUM_S_BUCKETS }],
+    ) {
+        for (targets, &count) in buckets_targets.iter().zip(counts) {
+            // SAFETY: Function contract guarantees that this many targets are initialized, hence
+            // the count is also within bounds
+            let targets = unsafe {
+                targets
+                    .get_unchecked(..usize::from(count))
+                    .assume_init_ref()
+            };
+
+            for &(s_bucket, positions) in targets {
+                store_proof_target(table_6_proof_targets, s_bucket, positions);
+            }
+        }
     }
 }
 
@@ -1578,6 +1729,7 @@ where
     /// # Safety
     /// `position` must come from [`Self::buckets()`] and not be a sentinel value.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     unsafe fn metadata(&self, position: Position) -> Metadata<K, TABLE_NUMBER> {
         #[expect(
             clippy::rest_pattern_accessible_field,
@@ -1609,6 +1761,7 @@ where
 #[cfg(feature = "alloc")]
 impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn prune(self) -> PrunedTable<K, TABLE_NUMBER> {
         #[expect(
             clippy::rest_pattern_accessible_field,
@@ -1624,6 +1777,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER> {
 
     /// Positions of `y`s grouped by the bucket they belong to
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(super) fn buckets(&self) -> &[[(Position, Y); REDUCED_BUCKET_SIZE]; NUM_BUCKETS::<K>] {
         #[expect(
             clippy::rest_pattern_accessible_field,

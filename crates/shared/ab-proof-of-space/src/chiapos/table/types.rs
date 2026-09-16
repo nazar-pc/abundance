@@ -36,6 +36,17 @@ impl Step for X {
     }
 
     #[inline(always)]
+    fn forward(start: Self, count: usize) -> Self {
+        Self(u32::forward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn forward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::forward_unchecked(start.0, count) })
+    }
+
+    #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u32::backward_checked(start.0, count).map(Self)
     }
@@ -44,6 +55,17 @@ impl Step for X {
     fn backward_overflowing(start: Self, count: usize) -> (Self, bool) {
         let (n, overflowing) = u32::backward_overflowing(start.0, count);
         (Self(n), overflowing)
+    }
+
+    #[inline(always)]
+    fn backward(start: Self, count: usize) -> Self {
+        Self(u32::backward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn backward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::backward_unchecked(start.0, count) })
     }
 }
 
@@ -93,6 +115,7 @@ impl Y {
     /// The range of buckets where `Y`s with the provided first `K` bits are located
     #[cfg(feature = "alloc")]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub(in super::super) fn bucket_range_from_first_k_bits(value: u32) -> RangeInclusive<usize> {
         let from = value << PARAM_EXT;
         let to = from | (u32::MAX >> (u32::BITS - u32::from(PARAM_EXT)));
@@ -136,6 +159,17 @@ impl Step for Position {
     }
 
     #[inline(always)]
+    fn forward(start: Self, count: usize) -> Self {
+        Self(u32::forward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn forward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::forward_unchecked(start.0, count) })
+    }
+
+    #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u32::backward_checked(start.0, count).map(Self)
     }
@@ -144,6 +178,17 @@ impl Step for Position {
     fn backward_overflowing(start: Self, count: usize) -> (Self, bool) {
         let (n, overflowing) = u32::backward_overflowing(start.0, count);
         (Self(n), overflowing)
+    }
+
+    #[inline(always)]
+    fn backward(start: Self, count: usize) -> Self {
+        Self(u32::backward(start.0, count))
+    }
+
+    #[inline(always)]
+    unsafe fn backward_unchecked(start: Self, count: usize) -> Self {
+        // SAFETY: Guaranteed by function contract
+        Self(unsafe { u32::backward_unchecked(start.0, count) })
     }
 }
 
@@ -178,6 +223,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> Default for Metadata<K, TABLE_NUMBER> 
 
 impl<const K: u8, const TABLE_NUMBER: u8> From<Metadata<K, TABLE_NUMBER>> for u128 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn from(value: Metadata<K, TABLE_NUMBER>) -> Self {
         // `*_be_bytes()` is used such that `Ord`/`PartialOrd` impl works as expected
         let mut output = 0u128.to_be_bytes();
@@ -191,6 +237,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> From<u128> for Metadata<K, TABLE_NUMBE
     /// If used incorrectly, will truncate information, it is up to implementation to ensure `u128`
     /// only contains data in lower bits and fits into internal byte array of `Metadata`
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn from(value: u128) -> Self {
         Self(
             value.to_be_bytes()[size_of::<u128>() - METADATA_SIZE_BYTES::<K, TABLE_NUMBER>..]
