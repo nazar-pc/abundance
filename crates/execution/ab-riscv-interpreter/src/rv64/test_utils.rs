@@ -10,7 +10,7 @@ use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
+    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
@@ -446,8 +446,6 @@ where
 impl WrsHandler for Env {}
 
 impl FenceIHandler for Env {}
-
-impl_vector_registers_for_mut_ref!(Env, Reg<u64>);
 
 impl Env {
     pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {

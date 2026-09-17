@@ -3,6 +3,7 @@
 Breaking changes:
 
 * Minor changes in `InstructionFetcher` API for improved performance of threaded execution
+* `impl_vector_registers_for_mut_ref` is removed as unnecessary
 
 New features:
 
@@ -20,7 +21,7 @@ Improvements:
 
 Fixes:
 
-* Forward all `VectorRegistersExt` methods in `impl_vector_registers_for_mut_ref` macro
+* Forward all `VectorRegistersExt` methods in a generic way without `impl_vector_registers_for_mut_ref`
 
 # 0.2.0
 

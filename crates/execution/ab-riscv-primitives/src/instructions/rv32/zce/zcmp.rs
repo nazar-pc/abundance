@@ -255,7 +255,10 @@ where
     pub const fn stack_adj_base(self) -> u8 {
         match Reg::XLEN {
             // RV32: each register is 4 bytes; base = ceil(n_regs * 4 / 16) * 16
-            Self::XLEN_32 => match self.inner {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::XLEN_32
+            32 => match self.inner {
                 ZcmpUrlistInner::Ra
                 | ZcmpUrlistInner::RaS0
                 | ZcmpUrlistInner::RaS0S1
@@ -268,7 +271,10 @@ where
                 ZcmpUrlistInner::RaS0S11 => 64,
             },
             // RV64: each register is 8 bytes; base = ceil(n_regs * 8 / 16) * 16
-            Self::XLEN_64 => match self.inner {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::XLEN_64
+            64 => match self.inner {
                 ZcmpUrlistInner::Ra | ZcmpUrlistInner::RaS0 => 16,
                 ZcmpUrlistInner::RaS0S1 | ZcmpUrlistInner::RaS0S2 => 32,
                 ZcmpUrlistInner::RaS0S3 | ZcmpUrlistInner::RaS0S4 => 48,

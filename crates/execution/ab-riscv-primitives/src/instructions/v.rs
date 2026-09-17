@@ -249,10 +249,7 @@ impl Vlen {
 /// Assertion for supported ELEN + VLEN combinations, to be used in `where` bounds (panics on
 /// invalid input)
 pub const SUPPORTED_ELEN_VLEN<const ELEN: Elen, const VLEN: Vlen>: usize = {
-    assert!(
-        u32::from(ELEN) <= u32::from(VLEN),
-        "ELEN must be <= VLEN"
-    );
+    assert!(u32::from(ELEN) <= u32::from(VLEN), "ELEN must be <= VLEN");
     0
 };
 

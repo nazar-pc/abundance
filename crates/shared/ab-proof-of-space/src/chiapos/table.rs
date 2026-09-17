@@ -70,10 +70,9 @@ const {
 
 /// Number of buckets for a given `k`
 #[cfg(feature = "alloc")]
-const NUM_BUCKETS<const K: u8>: usize =
-    2_usize
-        .pow(y_size_bits(K) as u32)
-        .div_ceil(usize::from(PARAM_BC));
+const NUM_BUCKETS<const K: u8>: usize = 2_usize
+    .pow(y_size_bits(K) as u32)
+    .div_ceil(usize::from(PARAM_BC));
 #[cfg(feature = "parallel")]
 const NUM_BUCKET_PAIRS<const K: u8>: usize = NUM_BUCKETS::<K> - 1;
 

@@ -40,7 +40,6 @@
 )]
 
 use ab_riscv_interpreter::basic::{BasicEagerInstructions, BasicMemory, BasicRegisters};
-use ab_riscv_interpreter::impl_vector_registers_for_mut_ref;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
@@ -315,10 +314,6 @@ impl VectorRegistersExt<Reg<u64>> for Env {
         self.vtype = vtype;
     }
 }
-
-// Threaded execution passes the environment as `&mut Env`, and the vector traits are not
-// blanket-implemented for references the way the simpler ones are
-impl_vector_registers_for_mut_ref!(Env, Reg<u64>);
 
 impl<Regs, Memory, PC> SystemInstructionHandler<Reg<u64>, Regs, Memory, PC> for Env
 where

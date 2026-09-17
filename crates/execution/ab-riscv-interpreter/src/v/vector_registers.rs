@@ -414,101 +414,100 @@ where
 }
 
 // Convenience for threaded execution
-// TODO: Forward generically instead, once the compiler normalizes
-//  `<&mut T as VectorRegisters>::VLEN` to `T::VLEN`:
-//  https://github.com/rust-lang/rust/issues/161264
-#[macro_export]
-macro_rules! impl_vector_registers_for_mut_ref {
-    ($env:ty, $reg:ty) => {
-        impl VectorRegisters for &mut $env {
-            const ELEN: Elen = <$env as VectorRegisters>::ELEN;
-            const VLEN: Vlen = <$env as VectorRegisters>::VLEN;
+const impl<T> VectorRegisters for &mut T
+where
+    T: [const] VectorRegisters,
+{
+    const ELEN: Elen = core::direct_const_arg!(T::ELEN);
+    const VLEN: Vlen = core::direct_const_arg!(T::VLEN);
 
-            #[inline(always)]
-            fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
-                <$env as VectorRegisters>::read_vregs(self)
-            }
+    #[inline(always)]
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+        <T as VectorRegisters>::read_vregs(self)
+    }
 
-            #[inline(always)]
-            fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
-                <$env as VectorRegisters>::write_vregs(self)
-            }
+    #[inline(always)]
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+        <T as VectorRegisters>::write_vregs(self)
+    }
 
-            #[inline(always)]
-            fn vector_instructions_allowed(&self) -> bool {
-                <$env as VectorRegisters>::vector_instructions_allowed(self)
-            }
+    #[inline(always)]
+    fn vector_instructions_allowed(&self) -> bool {
+        <T as VectorRegisters>::vector_instructions_allowed(self)
+    }
 
-            #[inline(always)]
-            fn mark_vs_dirty(&mut self) {
-                <$env as VectorRegisters>::mark_vs_dirty(self);
-            }
-        }
+    #[inline(always)]
+    fn mark_vs_dirty(&mut self) {
+        <T as VectorRegisters>::mark_vs_dirty(self);
+    }
+}
 
-        // Every method is forwarded explicitly rather than left to `VectorRegistersExt`'s
-        // defaults: those go through `Csrs::write_csr()`, which the blanket `Csrs for &mut T`
-        // impl also forwards to `$env`, so an empty impl here would silently observe `$env`'s
-        // overrides for some accessors and the trait defaults for others
-        impl VectorRegistersExt<$reg> for &mut $env {
-            #[inline(always)]
-            fn vstart(&self) -> Vstart {
-                <$env as VectorRegistersExt<$reg>>::vstart(self)
-            }
+// Every method is forwarded explicitly rather than left to `VectorRegistersExt`'s defaults: those
+// go through `Csrs::write_csr()`, which the blanket `Csrs for &mut T` impl also forwards to `T`,
+// so an empty impl here would silently observe `T`'s overrides for some accessors and the trait
+// defaults for others
+const impl<Reg, T> VectorRegistersExt<Reg> for &mut T
+where
+    Reg: [const] Register,
+    T: [const] VectorRegistersExt<Reg>,
+{
+    #[inline(always)]
+    fn initialize_vector_state(&mut self) {
+        <T as VectorRegistersExt<Reg>>::initialize_vector_state(self);
+    }
 
-            #[inline(always)]
-            fn set_vstart(&mut self, vstart: Vstart) {
-                <$env as VectorRegistersExt<$reg>>::set_vstart(self, vstart);
-            }
+    #[inline(always)]
+    fn vstart(&self) -> Vstart {
+        <T as VectorRegistersExt<Reg>>::vstart(self)
+    }
 
-            #[inline(always)]
-            fn reset_vstart(&mut self) {
-                <$env as VectorRegistersExt<$reg>>::reset_vstart(self);
-            }
+    #[inline(always)]
+    fn set_vstart(&mut self, vstart: Vstart) {
+        <T as VectorRegistersExt<Reg>>::set_vstart(self, vstart);
+    }
 
-            #[inline(always)]
-            fn vxsat(&self) -> bool {
-                <$env as VectorRegistersExt<$reg>>::vxsat(self)
-            }
+    #[inline(always)]
+    fn reset_vstart(&mut self) {
+        <T as VectorRegistersExt<Reg>>::reset_vstart(self);
+    }
 
-            #[inline(always)]
-            fn set_vxsat(&mut self, vxsat: bool) {
-                <$env as VectorRegistersExt<$reg>>::set_vxsat(self, vxsat);
-            }
+    #[inline(always)]
+    fn vxsat(&self) -> bool {
+        <T as VectorRegistersExt<Reg>>::vxsat(self)
+    }
 
-            #[inline(always)]
-            fn vxrm(&self) -> Vxrm {
-                <$env as VectorRegistersExt<$reg>>::vxrm(self)
-            }
+    #[inline(always)]
+    fn set_vxsat(&mut self, vxsat: bool) {
+        <T as VectorRegistersExt<Reg>>::set_vxsat(self, vxsat);
+    }
 
-            #[inline(always)]
-            fn set_vxrm(&mut self, vxrm: Vxrm) {
-                <$env as VectorRegistersExt<$reg>>::set_vxrm(self, vxrm);
-            }
+    #[inline(always)]
+    fn vxrm(&self) -> Vxrm {
+        <T as VectorRegistersExt<Reg>>::vxrm(self)
+    }
 
-            #[inline(always)]
-            fn vl(&self) -> Vl {
-                <$env as VectorRegistersExt<$reg>>::vl(self)
-            }
+    #[inline(always)]
+    fn set_vxrm(&mut self, vxrm: Vxrm) {
+        <T as VectorRegistersExt<Reg>>::set_vxrm(self, vxrm);
+    }
 
-            #[inline(always)]
-            fn set_vl(&mut self, vl: Vl) {
-                <$env as VectorRegistersExt<$reg>>::set_vl(self, vl);
-            }
+    #[inline(always)]
+    fn vl(&self) -> Vl {
+        <T as VectorRegistersExt<Reg>>::vl(self)
+    }
 
-            #[inline(always)]
-            fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-                <$env as VectorRegistersExt<$reg>>::vtype(self)
-            }
+    #[inline(always)]
+    fn set_vl(&mut self, vl: Vl) {
+        <T as VectorRegistersExt<Reg>>::set_vl(self, vl);
+    }
 
-            #[inline(always)]
-            fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-                <$env as VectorRegistersExt<$reg>>::set_vtype(self, vtype);
-            }
+    #[inline(always)]
+    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
+        <T as VectorRegistersExt<Reg>>::vtype(self)
+    }
 
-            #[inline(always)]
-            fn initialize_vector_state(&mut self) {
-                <$env as VectorRegistersExt<$reg>>::initialize_vector_state(self);
-            }
-        }
-    };
+    #[inline(always)]
+    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
+        <T as VectorRegistersExt<Reg>>::set_vtype(self, vtype);
+    }
 }

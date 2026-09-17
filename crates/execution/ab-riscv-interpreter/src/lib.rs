@@ -1220,13 +1220,6 @@ cfg_select! {
         /// with a run-time platform requirement.
         type OpaqueLanes = core::arch::x86_64::__m256i;
     }
-    all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
-        /// AArch64 returns an aggregate larger than 16 bytes in registers only as a homogeneous
-        /// aggregate of up to four members, hence three `u64`.
-        // TODO: `[f64; 3]` is used temporarily due to compiler bug:
-        //  https://github.com/rust-lang/rust/issues/161382
-        type OpaqueLanes = [f64; 3];
-    }
     _ => {
         type OpaqueLanes = [u64; 3];
     }
@@ -1363,9 +1356,6 @@ where
                         )
                     }
                 }
-                all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
-                    [program_counter, tag, payload].map(f64::from_bits)
-                }
                 _ => [program_counter, tag, payload],
             },
             phantom: PhantomData,
@@ -1390,9 +1380,6 @@ where
                         [program_counter, tag, payload]
                     }
                 }
-                all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
-                    self.lanes.map(f64::to_bits)
-                }
                 _ => self.lanes,
             };
 
@@ -1400,38 +1387,80 @@ where
         let csr_index = payload as u16;
 
         let error = match tag {
-            Self::TAG_STOPPED => {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_STOPPED
+            0 => {
                 return ThreadedExecutionResult::stopped(program_counter);
             }
-            Self::TAG_UNALIGNED_INSTRUCTION => ExecutionError::UnalignedInstruction {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_UNALIGNED_INSTRUCTION
+            1 => ExecutionError::UnalignedInstruction {
                 address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
             },
-            Self::TAG_OUT_OF_BOUNDS_READ => ExecutionError::OutOfBoundsRead {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_OUT_OF_BOUNDS_READ
+            2 => ExecutionError::OutOfBoundsRead {
                 address: PackedAddress::new(payload),
             },
-            Self::TAG_OUT_OF_BOUNDS_WRITE => ExecutionError::OutOfBoundsWrite {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_OUT_OF_BOUNDS_WRITE
+            3 => ExecutionError::OutOfBoundsWrite {
                 address: PackedAddress::new(payload),
             },
-            Self::TAG_MISALIGNED_READ => ExecutionError::MisalignedRead {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_MISALIGNED_READ
+            4 => ExecutionError::MisalignedRead {
                 address: PackedAddress::new(payload),
             },
-            Self::TAG_MISALIGNED_WRITE => ExecutionError::MisalignedWrite {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_MISALIGNED_WRITE
+            5 => ExecutionError::MisalignedWrite {
                 address: PackedAddress::new(payload),
             },
-            Self::TAG_MISALIGNED_ATOMIC => ExecutionError::MisalignedAtomic {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_MISALIGNED_ATOMIC
+            6 => ExecutionError::MisalignedAtomic {
                 address: PackedAddress::new(payload),
             },
-            Self::TAG_ECALL_UNSUPPORTED => ExecutionError::EcallUnsupported {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_ECALL_UNSUPPORTED
+            7 => ExecutionError::EcallUnsupported {
                 address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
             },
-            Self::TAG_ILLEGAL_INSTRUCTION => ExecutionError::IllegalInstruction {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_ILLEGAL_INSTRUCTION
+            8 => ExecutionError::IllegalInstruction {
                 address: PackedAddress::new(Address::<I>::truncate_from_u64(payload)),
             },
-            Self::TAG_CSR_READ_ONLY => ExecutionError::CsrReadOnly { csr_index },
-            Self::TAG_CSR_ILLEGAL_READ => ExecutionError::CsrIllegalRead { csr_index },
-            Self::TAG_CSR_ILLEGAL_WRITE => ExecutionError::CsrIllegalWrite { csr_index },
-            Self::TAG_CSR_UNKNOWN => ExecutionError::CsrUnknown { csr_index },
-            Self::TAG_CSR_INSUFFICIENT_PRIVILEGE => {
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_CSR_READ_ONLY
+            9 => ExecutionError::CsrReadOnly { csr_index },
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_CSR_ILLEGAL_READ
+            10 => ExecutionError::CsrIllegalRead { csr_index },
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_CSR_ILLEGAL_WRITE
+            11 => ExecutionError::CsrIllegalWrite { csr_index },
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_CSR_UNKNOWN
+            12 => ExecutionError::CsrUnknown { csr_index },
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_CSR_INSUFFICIENT_PRIVILEGE
+            13 => {
                 // SAFETY: `::new()` constructor created this value with `to_bits()`
                 let required =
                     unsafe { PrivilegeLevel::from_bits((payload >> 16) as u8).unwrap_unchecked() };
@@ -1445,8 +1474,14 @@ where
                     current,
                 }
             }
-            Self::TAG_UNSUPPORTED_PLATFORM => ExecutionError::UnsupportedPlatform,
-            Self::TAG_CUSTOM => ExecutionError::Custom(payload.to_le_bytes()),
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_UNSUPPORTED_PLATFORM
+            14 => ExecutionError::UnsupportedPlatform,
+            // TODO: Associated constant doesn't compile right now:
+            //  https://github.com/rust-lang/rust/issues/162679
+            // Self::TAG_CUSTOM
+            15 => ExecutionError::Custom(payload.to_le_bytes()),
             _ => {
                 unreachable!("Lanes are only ever produced by `new()`; qed");
             }
