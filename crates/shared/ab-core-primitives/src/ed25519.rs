@@ -5,6 +5,7 @@ use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, From, Into};
+#[cfg(feature = "ed25519")]
 use ed25519_dalek::{Signature, SignatureError, Verifier, VerifyingKey};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -21,6 +22,7 @@ use serde_big_array::BigArray;
 #[repr(C)]
 pub struct Ed25519PublicKey([u8; Ed25519PublicKey::SIZE]);
 
+#[cfg(feature = "ed25519")]
 impl From<VerifyingKey> for Ed25519PublicKey {
     #[inline(always)]
     fn from(verification_key: VerifyingKey) -> Self {
@@ -105,6 +107,7 @@ impl Ed25519PublicKey {
     }
 
     /// Verify Ed25519 signature
+    #[cfg(feature = "ed25519")]
     #[inline]
     pub fn verify(&self, signature: &Ed25519Signature, msg: &[u8]) -> Result<(), SignatureError> {
         // TODO: Switch to RFC8032 / NIST validation criteria instead once
@@ -119,6 +122,7 @@ impl Ed25519PublicKey {
 #[repr(C)]
 pub struct Ed25519Signature([u8; Ed25519Signature::SIZE]);
 
+#[cfg(feature = "ed25519")]
 impl From<Signature> for Ed25519Signature {
     #[inline(always)]
     fn from(signature: Signature) -> Self {

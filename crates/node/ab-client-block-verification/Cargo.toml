@@ -17,7 +17,7 @@ all-features = true
 ab-client-api = { workspace = true }
 ab-client-consensus-common = { workspace = true }
 ab-client-proof-of-time = { workspace = true }
-ab-core-primitives = { workspace = true, features = ["scale-codec"] }
+ab-core-primitives = { workspace = true, features = ["ed25519", "scale-codec"] }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
 rand = { workspace = true, features = ["thread_rng"] }

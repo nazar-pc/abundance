@@ -26,7 +26,7 @@ harness = false
 [dependencies]
 ab-blake3 = { workspace = true }
 ab-contracts-macros = { workspace = true }
-ab-core-primitives = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["ed25519"] }
 ab-io-type = { workspace = true }
 replace_with = { workspace = true }
 

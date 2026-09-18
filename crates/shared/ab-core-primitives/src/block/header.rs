@@ -669,6 +669,7 @@ impl<'a> BlockHeaderSeal<'a> {
     }
 
     /// Verify seal against [`BlockHeader::pre_seal_hash()`]
+    #[cfg(feature = "ed25519")]
     #[inline]
     pub fn is_seal_valid(&self, pre_seal_hash: &Blake3Hash) -> bool {
         match self {
@@ -931,6 +932,7 @@ impl<'a> BeaconChainHeader<'a> {
 
     /// Verify seal against [`BeaconChainHeader::pre_seal_hash()`] and check that its public key
     /// hash corresponds to the solution
+    #[cfg(feature = "ed25519")]
     #[inline]
     pub fn is_sealed_correctly(&self) -> bool {
         self.consensus_info.solution.public_key_hash == self.seal.public_key_hash()
@@ -1220,6 +1222,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
     /// Verify seal against [`IntermediateShardHeader::pre_seal_hash()`] and check that its public
     /// key hash corresponds to the solution
+    #[cfg(feature = "ed25519")]
     #[inline]
     pub fn is_sealed_correctly(&self) -> bool {
         self.consensus_info.solution.public_key_hash == self.seal.public_key_hash()
@@ -1489,6 +1492,7 @@ impl<'a> LeafShardHeader<'a> {
 
     /// Verify seal against [`LeafShardHeader::pre_seal_hash()`] and check that its public key hash
     /// corresponds to the solution
+    #[cfg(feature = "ed25519")]
     #[inline]
     pub fn is_sealed_correctly(&self) -> bool {
         self.consensus_info.solution.public_key_hash == self.seal.public_key_hash()
@@ -1702,6 +1706,7 @@ impl<'a> BlockHeader<'a> {
 
     /// Verify seal against [`BlockHeader::pre_seal_hash()`] and check that its public key hash
     /// corresponds to the solution
+    #[cfg(feature = "ed25519")]
     #[inline]
     pub fn is_sealed_correctly(&self) -> bool {
         match self {

@@ -23,7 +23,7 @@ bech32 = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }
-ed25519-dalek = { workspace = true }
+ed25519-dalek = { workspace = true, optional = true }
 hex = { workspace = true }
 once_cell = { workspace = true, features = ["alloc"], optional = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
@@ -48,6 +48,10 @@ alloc = [
     "dep:once_cell",
     "dep:rclite",
     "serde?/alloc",
+]
+# Enables signature verification and conversions from `ed25519-dalek` types
+ed25519 = [
+    "dep:ed25519-dalek",
 ]
 scale-codec = [
     "dep:parity-scale-codec",
