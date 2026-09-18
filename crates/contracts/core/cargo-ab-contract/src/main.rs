@@ -30,6 +30,9 @@ enum Cli {
         /// Build artifacts with the specified profile
         #[arg(long, default_value = "release")]
         profile: String,
+        /// Do not activate the `default` feature
+        #[arg(long)]
+        no_default_features: bool,
     },
     /// Convert `.contract.so` ELF file to `.contract` for execution environment
     Convert {
@@ -77,6 +80,7 @@ pub fn main() -> anyhow::Result<()> {
         Cli::Build {
             package,
             features,
+            no_default_features,
             profile,
         } => {
             let target_specification =
@@ -85,6 +89,7 @@ pub fn main() -> anyhow::Result<()> {
             let cdylib_path = build_cdylib(BuildOptions {
                 package: package.as_deref(),
                 features: features.as_deref(),
+                no_default_features,
                 profile: &profile,
                 target_specification_path: target_specification.path(),
                 target_dir: None,

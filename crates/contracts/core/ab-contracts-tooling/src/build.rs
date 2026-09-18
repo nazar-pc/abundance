@@ -17,6 +17,8 @@ pub struct BuildOptions<'a> {
     pub package: Option<&'a str>,
     /// Comma separated list of features to activate
     pub features: Option<&'a str>,
+    /// Do not activate the `default` feature
+    pub no_default_features: bool,
     /// Build artifacts with the specified profile
     pub profile: &'a str,
     /// Path to the target specification JSON file
@@ -30,6 +32,7 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
     let BuildOptions {
         package,
         features,
+        no_default_features,
         profile,
         target_specification_path,
         target_dir,
@@ -41,11 +44,9 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
         // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
         // and they really don't like using normal features for it.
-        // `-Zthreads=4` takes advantage of the parallel frontend
         .env(
             "RUSTFLAGS",
-            r#"--cfg sha2_backend="riscv-zknh" --cfg sha2_backend_riscv_zknh="compact"
-            -Zthreads=4"#,
+            r#"--cfg sha2_backend="riscv-zknh" --cfg sha2_backend_riscv_zknh="compact""#,
         )
         .args([
             "rustc",
@@ -77,6 +78,9 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
     }
     if let Some(features) = features {
         command_builder.args(["--features", features]);
+    }
+    if no_default_features {
+        command_builder.arg("--no-default-features");
     }
 
     command_builder.args(["--profile", profile]);
