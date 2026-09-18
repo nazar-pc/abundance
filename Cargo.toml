@@ -159,7 +159,9 @@ prettyplease = { opt-level = 3 }
 proc-macro2 = { opt-level = 3 }
 quote = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }
-syn = { opt-level = 3 }
+# TODO: Change to `syn` once v2 is gone from dependencies
+# Only `syn` 3.x is used by proc macros with heavy expansion here
+"syn@3" = { opt-level = 3 }
 
 [profile.contract]
 inherits = "release"

@@ -31,7 +31,7 @@ replace_with = { workspace = true }
 rayon = { workspace = true, optional = true }
 rclite = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
-serde-big-array = { workspace = true }
+serde-big-array = { workspace = true, optional = true }
 thiserror = { workspace = true }
 yoke = { workspace = true, features = ["derive"] }
 
@@ -61,6 +61,7 @@ parallel = [
 ]
 serde = [
     "dep:serde",
+    "dep:serde-big-array",
     "ab-io-type/serde",
     "alloc",
     "bytes/serde",
