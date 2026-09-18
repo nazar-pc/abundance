@@ -22,9 +22,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cdylib_path = build_cdylib(BuildOptions {
         package: None,
         features: None,
+        no_default_features: false,
         profile: "contract",
         target_specification_path: target_specification.path(),
-        target_dir: Some(&out_dir),
+        target_dir: None,
     })?;
 
     let contract_path = cdylib_path.with_extension("");
