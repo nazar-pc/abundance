@@ -9,6 +9,7 @@ Breaking changes:
 Improvements:
 
 * Support instruction macros in non-src directories (tests, examples, etc.)
+* Compose `Instruction::size()` into one flat deduplicated `match`
 
 # 0.1.1
 
