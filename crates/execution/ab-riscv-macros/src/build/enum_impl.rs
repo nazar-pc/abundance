@@ -11,7 +11,8 @@ use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rus
 use anyhow::Context;
 use prettyplease::unparse;
 use quote::{ToTokens, format_ident, quote};
-use std::collections::{HashMap, HashSet};
+use std::collections::btree_map::Entry;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::{env, fs, iter};
@@ -345,7 +346,7 @@ pub(super) fn process_enum_decoding_impl(
         all_dependency_alignment_blocks.push(dependency_blocks.alignment);
 
         let variant_idents = dependency_enum_definition
-            .instructions
+            .own_instructions
             .iter()
             .map(|v| &v.ident)
             .collect::<Vec<_>>();
@@ -459,53 +460,63 @@ pub(super) fn process_enum_decoding_impl(
         }
     }
 
-    // Process `size()` method: if all dependency bodies are token-identical to the own body,
-    // leave it unchanged (optimization). Otherwise, build a `match self { ... }` where each
-    // group of variants is dispatched to its originating dependency's body.
+    // Process `size()` method: each dependency contributes the body it was written with, applied
+    // to the instructions it defines itself. Bodies that are token-identical are merged, so every
+    // instruction set that says `size_of::<u32>()` ends up in one arm rather than one each.
     if !all_dependency_size_entries.is_empty() {
-        let own_tokens = size_block.to_token_stream().to_string();
-
         // Variants covered by at least one dependency entry
         let mut already_covered = HashSet::new();
+        let mut size_bodies = BTreeMap::<String, (&Block, Vec<&Ident>)>::new();
 
-        // Filter-out extra elements
-        all_dependency_size_entries.retain_mut(|(idents, _block)| {
-            idents.retain(|ident| {
+        for (variant_idents, block) in &all_dependency_size_entries {
+            let variant_idents = variant_idents.iter().copied().filter(|ident| {
                 allowed_instructions.contains(ident) && already_covered.insert(*ident)
             });
 
-            !idents.is_empty()
-        });
+            match size_bodies.entry(block.to_token_stream().to_string()) {
+                Entry::Occupied(entry) => {
+                    let (_body, idents) = entry.into_mut();
+                    idents.extend(variant_idents);
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert((block, variant_idents.collect()));
+                }
+            }
+        }
 
-        let all_same = all_dependency_size_entries
+        // Remaining variants that belong only to the current enum's own body
+        let own_only = enum_definition
+            .instructions
             .iter()
-            .all(move |(_, block)| block.to_token_stream().to_string() == own_tokens);
+            .map(|variant| &variant.ident)
+            .filter(|ident| !already_covered.contains(ident));
 
-        if !all_same {
-            let mut match_arms = Vec::new();
-
-            for (variant_idents, block) in all_dependency_size_entries {
-                match_arms.push(quote! {
-                    #( Self::#variant_idents { .. } )|* => #block
-                });
+        match size_bodies.entry(size_block.to_token_stream().to_string()) {
+            Entry::Occupied(entry) => {
+                let (_body, idents) = entry.into_mut();
+                idents.extend(own_only);
             }
-
-            // Remaining variants that belong only to the current enum's own body
-            let mut own_only = enum_definition
-                .instructions
-                .iter()
-                .filter(|variant| !already_covered.contains(&variant.ident))
-                .peekable();
-
-            if own_only.peek().is_some() {
-                match_arms.push(quote! {
-                    #( Self::#own_only { .. } )|* => #size_block
-                });
+            Entry::Vacant(entry) => {
+                entry.insert((size_block, own_only.collect()));
             }
+        }
 
+        let mut match_arms = size_bodies
+            .values()
+            .filter_map(|(block, variant_idents)| {
+                if variant_idents.is_empty() {
+                    None
+                } else {
+                    Some(quote! {
+                        #( Self::#variant_idents { .. } )|* => #block
+                    })
+                }
+            })
+            .peekable();
+
+        if match_arms.peek().is_some() {
             *size_block = parse_quote! {{
-                #[expect(clippy::allow_attributes, reason = "Attribute below")]
-                #[allow(
+                #[expect(
                     clippy::rest_pattern_accessible_field,
                     reason = "Generated code"
                 )]
