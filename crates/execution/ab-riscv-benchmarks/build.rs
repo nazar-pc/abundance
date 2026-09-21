@@ -1,19 +1,15 @@
-use ab_contract_file::ContractFile;
-use ab_contracts_tooling::TARGET_ENV;
-use ab_contracts_tooling::build::{BuildOptions, build_cdylib};
-use ab_contracts_tooling::convert::convert;
-use ab_contracts_tooling::target_specification::TargetSpecification;
-use std::env;
-use std::error::Error;
-use std::fs::{read, write};
-use std::path::PathBuf;
+#[cfg(not(feature = "build-contract"))]
+fn main() {}
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let target_env = env::var("CARGO_CFG_TARGET_ENV").expect("Always set by Cargo; qed");
-
-    if target_env == TARGET_ENV {
-        return Ok(());
-    }
+#[cfg(feature = "build-contract")]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use ab_contract_file::ContractFile;
+    use ab_contracts_tooling::build::{BuildOptions, build_cdylib};
+    use ab_contracts_tooling::convert::convert;
+    use ab_contracts_tooling::target_specification::TargetSpecification;
+    use std::env;
+    use std::fs::{read, write};
+    use std::path::PathBuf;
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("Always set by Cargo; qed"));
 
@@ -22,7 +18,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cdylib_path = build_cdylib(BuildOptions {
         package: None,
         features: None,
-        no_default_features: false,
+        // The nested invocation compiles this build script again, and without `build-contract` it
+        // does not need any of the build dependencies, which would otherwise be compiled a second
+        // time for the `contract` profile
+        no_default_features: true,
         profile: "contract",
         target_specification_path: target_specification.path(),
         target_dir: None,

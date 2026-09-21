@@ -42,6 +42,10 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
     command_builder
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        // Remove Clippy's wrapper in place that makes Cargo fingerprint contract artifacts
+        // differently under `cargo clippy` than under `cargo build`, rebuilding all of them on
+        // every switch between the two
+        .env_remove("RUSTC_WORKSPACE_WRAPPER")
         // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
         // and they really don't like using normal features for it.
         .env(
