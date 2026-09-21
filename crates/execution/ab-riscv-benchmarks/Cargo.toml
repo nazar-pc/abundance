@@ -28,7 +28,6 @@ ab-blake3 = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["ed25519"] }
 ab-io-type = { workspace = true }
-replace_with = { workspace = true }
 
 [target.'cfg(not(target_env = "abundance"))'.dependencies]
 ab-contract-file = { workspace = true }
@@ -40,10 +39,18 @@ ed25519-dalek = { workspace = true }
 criterion = { workspace = true }
 
 [build-dependencies]
-ab-contract-file = { workspace = true }
-ab-contracts-tooling = { workspace = true }
+ab-contract-file = { workspace = true, optional = true }
+ab-contracts-tooling = { workspace = true, optional = true }
 
 [features]
+default = [
+    "build-contract",
+]
+# Enabled by default for the host, guest code disables this feature to remove build dependencies
+build-contract = [
+    "dep:ab-contract-file",
+    "dep:ab-contracts-tooling",
+]
 guest = [
     "ab-contracts-macros/guest",
 ]

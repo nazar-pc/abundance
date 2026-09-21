@@ -762,7 +762,6 @@ dependencies = [
  "ab-riscv-primitives",
  "criterion",
  "ed25519-dalek 3.0.0",
- "replace_with",
 ]
 
 [[package]]
