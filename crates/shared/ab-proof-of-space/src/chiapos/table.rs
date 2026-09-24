@@ -497,12 +497,10 @@ pub(super) fn compute_f1<const K: u8>(x: X, seed: &Seed) -> Y {
         first_block[u32_in_first_block + 1].to_be()
     };
 
-    let partial_y = (u64::from(hi) << u32::BITS) | u64::from(lo);
-
-    let pre_y = partial_y >> (u64::BITS - u32::from(K + PARAM_EXT) - partial_y_offset);
-    let pre_y = pre_y as u32;
+    // `K` bits of `partial_y` followed by `PARAM_EXT` extra bits that will be cleared
+    let pre_y = hi.funnel_shl(lo, partial_y_offset) >> (u32::BITS - u32::from(K + PARAM_EXT));
     // Mask for clearing the rest of bits of `pre_y`.
-    let pre_y_mask = (u32::MAX << PARAM_EXT) & (u32::MAX >> (u32::BITS - u32::from(K + PARAM_EXT)));
+    let pre_y_mask = u32::MAX << PARAM_EXT;
 
     // Extract `PARAM_EXT` most significant bits from `x` and store in the final offset of
     // eventual `y` with the rest of bits being zero (`x` is `0..2^K`)

@@ -6,6 +6,7 @@
     const_block_items,
     const_convert,
     const_trait_impl,
+    funnel_shifts,
     generic_const_args,
     generic_const_items,
     impl_restriction,
