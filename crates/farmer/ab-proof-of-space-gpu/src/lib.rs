@@ -4,12 +4,17 @@
 //! structures used (`ab-proof-of-space` also supports `K=25`, but this crate doesn't for now).
 
 #![cfg_attr(target_arch = "spirv", no_std)]
-#![feature(step_trait)]
 #![cfg_attr(
     not(target_arch = "spirv"),
     feature(iter_array_chunks, macroless_generic_const_args, portable_simd)
 )]
-#![feature(generic_const_args, generic_const_items, min_generic_const_args)]
+#![feature(
+    funnel_shifts,
+    generic_const_args,
+    generic_const_items,
+    min_generic_const_args,
+    step_trait
+)]
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![cfg_attr(
     all(test, not(target_arch = "spirv")),
