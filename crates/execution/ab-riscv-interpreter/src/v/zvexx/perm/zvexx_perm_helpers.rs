@@ -6,7 +6,7 @@ use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
-use core::hint::cold_path;
+use core::hint::{assert_unchecked, cold_path};
 use core::ptr;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
@@ -698,17 +698,22 @@ pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
     dst_base: VReg,
     src_base: VReg,
 ) {
+    let src_base = usize::from(src_base.to_bits());
+    let dst_base = usize::from(dst_base.to_bits());
+    // SAFETY: Guaranteed by function contract
+    unsafe {
+        assert_unchecked(src_base <= 32 - COUNT);
+        assert_unchecked(dst_base <= 32 - COUNT);
+    }
+    let registers = vregs.as_bytes_mut();
     // Snapshot all source registers before writing any destination registers.
     // This is correct for all overlap patterns without direction-dependent logic.
-    let mut tmp = [[0u8; _]; COUNT];
-    for (k, item) in tmp.iter_mut().enumerate() {
-        // SAFETY: Guaranteed by function contract
-        let src = unsafe { VReg::from_bits(src_base.to_bits() + k as u8).unwrap_unchecked() };
-        *item = *vregs.get(src);
-    }
-    for (k, item) in tmp.iter().enumerate() {
-        // SAFETY: Guaranteed by function contract
-        let dst = unsafe { VReg::from_bits(dst_base.to_bits() + k as u8).unwrap_unchecked() };
-        *vregs.get_mut(dst) = *item;
-    }
+    let src = *registers
+        .get(src_base..)
+        .and_then(<[_]>::first_chunk::<COUNT>)
+        .expect("Source register group is within the register file; qed");
+    *registers
+        .get_mut(dst_base..)
+        .and_then(<[_]>::first_chunk_mut::<COUNT>)
+        .expect("Destination register group is within the register file; qed") = src;
 }

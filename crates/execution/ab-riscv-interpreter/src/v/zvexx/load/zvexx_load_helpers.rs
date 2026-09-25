@@ -304,17 +304,12 @@ where
             usize::from(Nf::MAX.fields_per_segment())
         }];
 
-        for f in 0..nf.fields_per_segment() {
+        // `nf <= Nf::MAX`, which is exactly the length of `field_buf`, so every field has a slot
+        for (f, field) in (0..nf.fields_per_segment()).zip(&mut field_buf) {
             let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
             match read_mem_element(memory, addr, eew) {
                 Ok(data) => {
-                    // SAFETY: `f < nf` and the precondition on this function requires
-                    // `nf <= Nf::MAX` (the V spec encodes nf in 3 bits giving 1..=Nf::MAX, and the
-                    // decoder enforces this before constructing the instruction). Therefore, `f as
-                    // usize < nf as usize <= Nf::MAX`, which is exactly the length of `field_buf`.
-                    unsafe {
-                        *field_buf.get_unchecked_mut(f as usize) = data;
-                    }
+                    *field = data;
                 }
                 Err(mem_err) => {
                     cold_path();
@@ -336,7 +331,7 @@ where
         }
 
         // All nf fields for element i were read successfully; commit to the register file.
-        for f in 0..nf.fields_per_segment() {
+        for (f, field) in (0..nf.fields_per_segment()).zip(&field_buf) {
             // SAFETY: Guaranteed by function contract
             let field_base_reg =
                 unsafe { VReg::from_bits(vd.to_bits() + f * group_regs).unwrap_unchecked() };
@@ -353,16 +348,9 @@ where
             //
             // Therefore, `field_base_reg + i / elems_per_reg
             //            < field_base_reg + group_regs <= 32`.
-            //
-            // For `field_buf`: `f < nf <= Nf::MAX` (the same argument as in the read loop
-            // above), so `f as usize < Nf::MAX = field_buf.len()`.
             unsafe {
-                env.write_vregs().write_element(
-                    field_base_reg,
-                    i,
-                    eew,
-                    u64::from_le_bytes(*field_buf.get_unchecked(f as usize)),
-                );
+                env.write_vregs()
+                    .write_element(field_base_reg, i, eew, u64::from_le_bytes(*field));
             }
         }
     }
