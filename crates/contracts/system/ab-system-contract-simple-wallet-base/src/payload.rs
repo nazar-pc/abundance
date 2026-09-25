@@ -9,6 +9,8 @@
 
 #[cfg(feature = "payload-builder")]
 pub mod builder;
+#[cfg(test)]
+mod tests;
 
 use crate::EXTERNAL_ARGS_BUFFER_SIZE;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
@@ -23,7 +25,7 @@ use core::mem::{MaybeUninit, offset_of};
 use core::num::{NonZeroU8, NonZeroUsize};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use core::{ptr, slice};
+use core::{hint, ptr, slice};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -411,29 +413,37 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
 
         let num_output_arguments = self.read_u8()?;
 
+        // This can be off by 1 due to `self` not included in `ExternalArgs`, but it is good enough
+        // for this context
+        let number_of_arguments = u16::from(num_slot_arguments)
+            + u16::from(num_input_arguments)
+            + u16::from(num_output_arguments);
+        if VERIFY {
+            if number_of_arguments > u16::from(MAX_TOTAL_METHOD_ARGS) {
+                return Err(TransactionPayloadDecoderError::TooManyArguments(
+                    u8::try_from(number_of_arguments).unwrap_or(u8::MAX),
+                ));
+            }
+        } else {
+            // SAFETY: The unverified version, see struct description
+            unsafe {
+                hint::assert_unchecked(number_of_arguments <= u16::from(MAX_TOTAL_METHOD_ARGS));
+            }
+        }
+
+        let (transaction_slots, transaction_inputs) = transaction_slots_inputs
+            .split_at_checked(usize::from(num_slot_arguments))
+            .expect("Total number of arguments was checked to fit above; qed");
+        let transaction_inputs = transaction_inputs
+            .get(..usize::from(num_input_arguments))
+            .expect("Total number of arguments was checked to fit above; qed");
         // SAFETY: Just initialized elements above
         let (transaction_slots, transaction_inputs) = unsafe {
-            let (transaction_slots, transaction_inputs) =
-                transaction_slots_inputs.split_at_unchecked(usize::from(num_slot_arguments));
-            let transaction_inputs =
-                transaction_inputs.get_unchecked(..usize::from(num_input_arguments));
-
             (
                 transaction_slots.assume_init_ref(),
                 transaction_inputs.assume_init_ref(),
             )
         };
-
-        // This can be off by 1 due to `self` not included in `ExternalArgs`, but it is good enough
-        // for this context
-        let number_of_arguments = num_slot_arguments
-            .saturating_add(num_input_arguments)
-            .saturating_add(num_output_arguments);
-        if VERIFY && number_of_arguments > MAX_TOTAL_METHOD_ARGS {
-            return Err(TransactionPayloadDecoderError::TooManyArguments(
-                number_of_arguments,
-            ));
-        }
 
         let external_args = NonNull::new(self.external_args_buffer.as_mut_ptr())
             .expect("Not null; qed")
