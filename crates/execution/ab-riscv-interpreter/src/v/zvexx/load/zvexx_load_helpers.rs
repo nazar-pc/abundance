@@ -18,9 +18,11 @@ pub(crate) fn mask_bit(mask: &[u8], i: u16) -> bool {
         .is_some_and(|b| (b >> (i % u8::BITS as u16)) & 1 != 0)
 }
 
-/// Copy the mask bytes needed to cover `vl` elements from `v0` into a stack buffer and return
-/// it. The copy releases the shared borrow on the register file so the caller can immediately
-/// take an exclusive borrow for writes.
+/// Copy mask register `v0` into a stack buffer and return it. The copy releases the shared borrow
+/// on the register file so the caller can immediately take an exclusive borrow for writes.
+///
+/// The whole register is copied regardless of `vl`: a fixed-size copy needs no bounds check, and
+/// callers only read mask bits of elements below `vl`.
 ///
 /// When `vm=true` (unmasked), the buffer is filled with `0xff` so that every mask bit reads as `1`.
 /// This means callers can unconditionally call [`mask_bit()`] on the returned buffer without
@@ -28,30 +30,18 @@ pub(crate) fn mask_bit(mask: &[u8], i: u16) -> bool {
 /// a micro-optimization on the common unmasked path, but correctness does not depend on that guard:
 /// if it were removed, the `0xff` fill ensures [`mask_bit()`] would return `true` for every
 /// element, preserving the unmasked semantics.
-///
-/// # Safety
-/// `vl` must be `<= VLEN`, which is always true when `vl` is the current architectural `vl`
-/// (bounded by `VLMAX <= VLEN`).
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) unsafe fn snapshot_mask<const VLEN: Vlen>(
+pub(in super::super) fn snapshot_mask<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     vm: bool,
-    vl: Vl,
 ) -> [u8; VLENB_USIZE::<VLEN>] {
-    let mut buf = [0u8; _];
     if vm {
         // All-ones: every element active
-        buf = [0xffu8; _];
+        [0xffu8; _]
     } else {
-        let mask_bytes = usize::from(vl.bytes());
-        // SAFETY: `mask_bytes <= VLEN.bytes()` by the caller's precondition
-        unsafe {
-            buf.get_unchecked_mut(..mask_bytes)
-                .copy_from_slice(vregs.get(VReg::V0).get_unchecked(..mask_bytes));
-        }
+        *vregs.get(VReg::V0)
     }
-    buf
 }
 
 /// Return whether register groups `[a, a+a_regs)` and `[b, b+b_regs)` overlap.
@@ -283,8 +273,7 @@ where
 
     let segment_stride = u64::from(nf.fields_per_segment()) * u64::from(elem_bytes);
 
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in range {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -396,8 +385,7 @@ where
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 
-    // SAFETY: `vl <= VLMAX <= VLEN` (precondition)
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
@@ -489,8 +477,7 @@ where
     let vstart = env.vstart();
     let index_base_reg = vs2;
 
-    // SAFETY: `vl <= VLMAX <= VLEN` (precondition)
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {

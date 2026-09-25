@@ -417,8 +417,7 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
     let vl = env.vl();
     let vstart = env.vstart();
     let vxrm = env.vxrm();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -484,8 +483,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     let vl = env.vl();
     let vstart = env.vstart();
     let vxrm = env.vxrm();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);

@@ -41,8 +41,7 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
     }
     // SAFETY: element 0 always fits within register vs1
     let init = unsafe { env.read_vregs().read_element(vs1, 0, sew) };
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut acc = init;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -98,8 +97,7 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
     }
     // SAFETY: element 0 always fits within register vs1
     let init = unsafe { env.read_vregs().read_element(vs1, 0, wide_sew) };
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut acc = init;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
