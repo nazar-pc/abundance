@@ -156,28 +156,34 @@ where
         unsafe { self.state.byte_add(Self::INSTRUCTIONS_OFFSET) }.cast::<I>()
     }
 
+    /// State header in front of the decoded instructions
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    fn state(&self) -> &BasicEagerInstructionFetcherState<I> {
+        // SAFETY: State is initialized in the constructor, never modified afterward, and valid for
+        // as long as `self` is
+        unsafe { self.state.as_ref() }
+    }
+
     /// Number of decoded instructions
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn instructions_len(&self) -> usize {
-        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
-        unsafe { (*self.state.as_ptr()).instructions_len }
+        self.state().instructions_len
     }
 
     /// Guest address that corresponds to the first decoded instruction
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn base_addr(&self) -> Address<I> {
-        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
-        unsafe { (*self.state.as_ptr()).base_addr }
+        self.state().base_addr
     }
 
     /// Guest address at which execution stops gracefully
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn return_trap_address(&self) -> Address<I> {
-        // SAFETY: State is initialized in the constructor and valid for as long as `self` is
-        unsafe { (*self.state.as_ptr()).return_trap_address }
+        self.state().return_trap_address
     }
 
     /// Create a fetcher positioned at the instruction that guest address `pc` corresponds to

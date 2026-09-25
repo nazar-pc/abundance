@@ -247,6 +247,30 @@ fn mt_unbalanced_large_range() {
     }
 }
 
+#[test]
+fn mt_unbalanced_array() {
+    test_array::<1>();
+    test_array::<2>();
+    test_array::<3>();
+    test_array::<5>();
+    test_array::<8>();
+    test_array::<13>();
+}
+
+fn test_array<const N: usize>() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let mut leaves = [[0u8; OUT_LEN]; N];
+    for hash in &mut leaves {
+        rng.fill_bytes(hash);
+    }
+
+    let root = SimpleUnbalancedMerkleTree::compute_root_only(leaves.iter()).unwrap();
+    let computed_root = UnbalancedMerkleTree::compute_root_only_array(&leaves);
+
+    assert_eq!(root, computed_root, "N {N}");
+}
+
 fn test_basic(number_of_leaves: u64) {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 

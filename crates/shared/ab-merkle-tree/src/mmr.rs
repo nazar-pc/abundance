@@ -308,11 +308,10 @@ impl<const MAX_N: u64> MerkleMountainRange<MAX_N> {
         }
 
         // Place the current hash at the first inactive level
-        // SAFETY: Stack is statically guaranteed to support all active levels with number of leaves
-        // checked at the beginning of the function.
-        // In fact the same exact code in `add_leaves()` doesn't require unchecked access, but here
-        // compiler is somehow unable to prove that panic can't happen otherwise.
-        *unsafe { self.stack.get_unchecked_mut(lowest_active_levels) } = current;
+        *self
+            .stack
+            .get_mut(lowest_active_levels)
+            .expect("Stack has enough levels for `num_leaves < MAX_N`; qed") = current;
         self.num_leaves += 1;
 
         true
@@ -425,8 +424,10 @@ impl<const MAX_N: u64> MerkleMountainRange<MAX_N> {
 
             for item in self.stack.iter().take(lowest_active_levels) {
                 // If at the target leaf index, need to collect the proof
-                // SAFETY: Method signature guarantees upper bound of the proof length
-                unsafe { proof.get_unchecked_mut(proof_length) }.write(*item);
+                proof
+                    .get_mut(proof_length)
+                    .expect("Proof has enough capacity for `num_leaves < MAX_N` checked above; qed")
+                    .write(*item);
                 proof_length += 1;
 
                 current = hash_pair(item, &current);

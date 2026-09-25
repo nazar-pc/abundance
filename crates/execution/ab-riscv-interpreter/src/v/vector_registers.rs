@@ -27,16 +27,18 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
-        // SAFETY: Always in-range
-        unsafe { self.0.get_unchecked(usize::from(index.to_bits())) }
+        self.0
+            .get(usize::from(index.to_bits()))
+            .expect("There are exactly 32 vector registers, one for each `VReg`; qed")
     }
 
     /// Get mutable reference to a vector register
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
-        // SAFETY: Always in-range
-        unsafe { self.0.get_unchecked_mut(usize::from(index.to_bits())) }
+        self.0
+            .get_mut(usize::from(index.to_bits()))
+            .expect("There are exactly 32 vector registers, one for each `VReg`; qed")
     }
 
     /// All vector registers as one contiguous array of bytes.

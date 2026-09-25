@@ -248,8 +248,7 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`, so `vl.div_ceil(8) <= VLEN.bytes()`.
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in vstart.range_to(vl) {
         // When masked, inactive elements in the destination mask register are left undisturbed

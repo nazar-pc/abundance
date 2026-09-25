@@ -1,12 +1,12 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::check_vreg_group_alignment;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
-use core::hint::cold_path;
+use core::hint::{assert_unchecked, cold_path};
 use core::ptr;
 
 /// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
@@ -166,8 +166,7 @@ pub unsafe fn execute_slideup<Reg, Env>(
         return;
     }
 
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in range {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -249,8 +248,7 @@ pub unsafe fn execute_slidedown<Reg, Env>(
         return;
     }
 
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in range {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -301,8 +299,7 @@ pub unsafe fn execute_slide1up<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -353,8 +350,7 @@ pub unsafe fn execute_slide1down<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let range = vstart.range_to(vl);
     for i in range.clone() {
         if !mask_bit(&mask_buf, i) {
@@ -399,8 +395,7 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -446,8 +441,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
         // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
@@ -509,8 +503,7 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
         vl <= vlmax && u32::from(vl) <= index_capacity,
         "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
     );
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -561,9 +554,8 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
@@ -610,8 +602,7 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in vstart.range_to(vl) {
         let val = if mask_bit(&mask_buf, i) {
@@ -654,15 +645,8 @@ pub unsafe fn execute_compress<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let mask_bytes = usize::from(vl.bytes());
-    let vreg = env.read_vregs();
-    let mut vs1_buf = [0u8; VLENB_USIZE::<{ Env::VLEN }>];
-    // SAFETY: mask_bytes <= VLEN.bytes() since vl <= VLEN; vs1_base < 32
-    unsafe {
-        vs1_buf
-            .get_unchecked_mut(..mask_bytes)
-            .copy_from_slice(vreg.get(vs1).get_unchecked(..mask_bytes));
-    }
+    // The whole register is copied, which needs no bounds check, only bits below `vl` are read
+    let vs1_buf = *env.read_vregs().get(vs1);
     let mut out_idx = 0;
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&vs1_buf, i) {
@@ -698,17 +682,22 @@ pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
     dst_base: VReg,
     src_base: VReg,
 ) {
+    let src_base = usize::from(src_base.to_bits());
+    let dst_base = usize::from(dst_base.to_bits());
+    // SAFETY: Guaranteed by function contract
+    unsafe {
+        assert_unchecked(src_base <= 32 - COUNT);
+        assert_unchecked(dst_base <= 32 - COUNT);
+    }
+    let registers = vregs.as_bytes_mut();
     // Snapshot all source registers before writing any destination registers.
     // This is correct for all overlap patterns without direction-dependent logic.
-    let mut tmp = [[0u8; _]; COUNT];
-    for (k, item) in tmp.iter_mut().enumerate() {
-        // SAFETY: Guaranteed by function contract
-        let src = unsafe { VReg::from_bits(src_base.to_bits() + k as u8).unwrap_unchecked() };
-        *item = *vregs.get(src);
-    }
-    for (k, item) in tmp.iter().enumerate() {
-        // SAFETY: Guaranteed by function contract
-        let dst = unsafe { VReg::from_bits(dst_base.to_bits() + k as u8).unwrap_unchecked() };
-        *vregs.get_mut(dst) = *item;
-    }
+    let src = *registers
+        .get(src_base..)
+        .and_then(<[_]>::first_chunk::<COUNT>)
+        .expect("Source register group is within the register file; qed");
+    *registers
+        .get_mut(dst_base..)
+        .and_then(<[_]>::first_chunk_mut::<COUNT>)
+        .expect("Destination register group is within the register file; qed") = src;
 }

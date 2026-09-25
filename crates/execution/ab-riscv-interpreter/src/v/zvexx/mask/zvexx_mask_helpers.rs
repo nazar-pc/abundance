@@ -72,8 +72,7 @@ where
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     let mut count = 0u32;
     for i in vstart.range_to(vl) {
@@ -113,8 +112,7 @@ where
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
     let not_found = u64::MAX;
@@ -165,8 +163,7 @@ where
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
     for i in Vstart::ZERO.range_to(vl) {
@@ -205,8 +202,7 @@ where
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
     for i in Vstart::ZERO.range_to(vl) {
@@ -245,8 +241,7 @@ where
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
     for i in Vstart::ZERO.range_to(vl) {
@@ -300,8 +295,7 @@ pub unsafe fn execute_viota<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     // Per spec §16.8: inactive vs2 elements are treated as zero for the prefix sum.
     // The prefix count advances only when the execution mask is active AND the
@@ -344,8 +338,7 @@ where
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;

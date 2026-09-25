@@ -258,12 +258,19 @@ fn group_by_buckets_internal<const K: u8>(
         let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
 
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-        let bucket_length = unsafe { bucket_lengths.get_unchecked_mut(bucket_index) };
-        // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-        let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
+        unsafe {
+            hint::assert_unchecked(bucket_index < NUM_BUCKETS::<K>);
+        }
+        let bucket_length = bucket_lengths
+            .get_mut(bucket_index)
+            .expect("Bucket index is within bounds as asserted above; qed");
+        let bucket = buckets
+            .get_mut(bucket_index)
+            .expect("Bucket index is within bounds as asserted above; qed");
 
-        if *bucket_length < REDUCED_BUCKET_SIZE as u16 {
-            bucket[*bucket_length as usize].write((position, y));
+        // Entries past `REDUCED_BUCKET_SIZE` are thrown away
+        if let Some(entry) = bucket.get_mut(usize::from(*bucket_length)) {
+            entry.write((position, y));
             *bucket_length += 1;
         }
     }
@@ -354,16 +361,18 @@ unsafe fn scatter_ys_into_buckets<const K: u8>(
             let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
 
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
+            unsafe {
+                hint::assert_unchecked(bucket_index < NUM_BUCKETS::<K>);
+            }
+            let bucket_offset = bucket_offsets
+                .get_mut(bucket_index)
+                .expect("Bucket index is within bounds as asserted above; qed");
+            let bucket = buckets
+                .get(bucket_index)
+                .expect("Bucket index is within bounds as asserted above; qed");
 
-            if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
-                // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition,
-                // the offset is below `REDUCED_BUCKET_SIZE` as checked above
-                let entry = unsafe {
-                    buckets
-                        .get_unchecked(bucket_index)
-                        .get_unchecked(usize::from(*bucket_offset))
-                };
+            // Entries past `REDUCED_BUCKET_SIZE` are thrown away
+            if let Some(entry) = bucket.get(usize::from(*bucket_offset)) {
                 // SAFETY: Function contract guarantees that offsets are exclusive to this chunk,
                 // so this is the only place where this entry is accessed
                 unsafe { &mut *entry.get() }.write((position, y));

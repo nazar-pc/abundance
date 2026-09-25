@@ -57,7 +57,7 @@ const ROOT_ONLY_LARGE_STACK_SIZE<const N: usize>: usize = {
 /// the code being generated for a given set of parameters.
 #[derive(Debug)]
 pub struct BalancedMerkleTree<'a, const N: usize> {
-    leaves: &'a [[u8; OUT_LEN]],
+    leaves: &'a [[u8; OUT_LEN]; N],
     // This tree doesn't include leaves because we have them in `leaves` field
     tree: [[u8; OUT_LEN]; TREE_SIZE_WITHOUT_LEAVES::<N>],
 }
@@ -152,10 +152,9 @@ impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
             // levels of hashes
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
-            if parent_hashes.len().is_multiple_of(BATCH_HASH_NUM_BLOCKS) {
-                // SAFETY: Just checked to be a multiple of chunk size and not empty
-                let parent_hashes_chunks =
-                    unsafe { parent_hashes.as_chunks_unchecked_mut::<BATCH_HASH_NUM_BLOCKS>() };
+            let (parent_hashes_chunks, parent_hashes_remainder) =
+                parent_hashes.as_chunks_mut::<BATCH_HASH_NUM_BLOCKS>();
+            if parent_hashes_remainder.is_empty() {
                 for (pairs, hashes) in level_hashes
                     .as_chunks::<BATCH_HASH_NUM_LEAVES>()
                     .0
@@ -304,7 +303,6 @@ impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
             leaves: self.leaves,
             tree: &self.tree,
             leaf_index: 0,
-            len: N,
         }
     }
 
@@ -341,10 +339,17 @@ impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
 /// Iterator over proofs for a balanced Merkle tree
 #[derive(Debug)]
 pub struct ProofsIterator<'a, const N: usize> {
-    leaves: &'a [[u8; OUT_LEN]],
+    leaves: &'a [[u8; OUT_LEN]; N],
     tree: &'a [[u8; OUT_LEN]; TREE_SIZE_WITHOUT_LEAVES::<N>],
+    /// Index of the next leaf, the iterator is exhausted once it reaches `N`
     leaf_index: usize,
-    len: usize,
+}
+
+impl<const N: usize> ProofsIterator<'_, N> {
+    #[inline(always)]
+    fn remaining(&self) -> usize {
+        N - self.leaf_index
+    }
 }
 
 impl<const N: usize> Iterator for ProofsIterator<'_, N> {
@@ -352,13 +357,7 @@ impl<const N: usize> Iterator for ProofsIterator<'_, N> {
 
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.len == 0 {
-            return None;
-        }
-        self.len -= 1;
-
         let index = self.leaf_index;
-        self.leaf_index += 1;
 
         // The line below is a more efficient branchless version of this:
         // let sibling_index = if index % 2 == 0 {
@@ -367,8 +366,10 @@ impl<const N: usize> Iterator for ProofsIterator<'_, N> {
         //     index - 1
         // };
         let sibling_index = index ^ 1;
-        // SAFETY: `index < N` guaranteed by `len` tracking
-        let sibling_hash = *unsafe { self.leaves.get_unchecked(sibling_index) };
+        // `N` is an even number, so the sibling is missing exactly when `index >= N`, meaning the
+        // iterator is exhausted
+        let sibling_hash = *self.leaves.get(sibling_index)?;
+        self.leaf_index += 1;
 
         let mut proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
         proof[0].write(sibling_hash);
@@ -383,8 +384,10 @@ impl<const N: usize> Iterator for ProofsIterator<'_, N> {
         for hash in shared_proof {
             let parent_other_position = parent_position ^ 1;
 
-            // SAFETY: Statically guaranteed to be present by constructor
-            let other_hash = unsafe { tree_hashes.get_unchecked(parent_other_position) };
+            let other_hash = tree_hashes.get(parent_other_position).expect(
+                "`parent_position` is within the current level of the tree, whose size is an \
+                    even number; qed",
+            );
             hash.write(*other_hash);
             tree_hashes = &tree_hashes[parent_level_size..];
 
@@ -398,29 +401,28 @@ impl<const N: usize> Iterator for ProofsIterator<'_, N> {
 
     #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
+        let remaining = self.remaining();
+        (remaining, Some(remaining))
     }
 
     #[inline(always)]
     fn count(self) -> usize {
-        self.len
+        self.remaining()
     }
 
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn last(mut self) -> Option<Self::Item> {
-        if self.len == 0 {
+        if self.leaf_index >= N {
             return None;
         }
         self.leaf_index = N - 1;
-        self.len = 1;
         self.next()
     }
 
     #[inline(always)]
     fn advance_by(&mut self, n: usize) -> Result<(), NonZero<usize>> {
-        let advance = n.min(self.len);
+        let advance = n.min(self.remaining());
         self.leaf_index += advance;
-        self.len -= advance;
         NonZero::new(n - advance).map_or(Ok(()), Err)
     }
 
@@ -436,7 +438,7 @@ impl<const N: usize> Iterator for ProofsIterator<'_, N> {
 impl<const N: usize> ExactSizeIterator for ProofsIterator<'_, N> {
     #[inline(always)]
     fn len(&self) -> usize {
-        self.len
+        self.remaining()
     }
 }
 

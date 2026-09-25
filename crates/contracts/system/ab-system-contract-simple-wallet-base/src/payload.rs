@@ -9,6 +9,8 @@
 
 #[cfg(feature = "payload-builder")]
 pub mod builder;
+#[cfg(test)]
+mod tests;
 
 use crate::EXTERNAL_ARGS_BUFFER_SIZE;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
@@ -23,7 +25,7 @@ use core::mem::{MaybeUninit, offset_of};
 use core::num::{NonZeroU8, NonZeroUsize};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use core::{ptr, slice};
+use core::{hint, ptr, slice};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -411,29 +413,37 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
 
         let num_output_arguments = self.read_u8()?;
 
+        // This can be off by 1 due to `self` not included in `ExternalArgs`, but it is good enough
+        // for this context
+        let number_of_arguments = u16::from(num_slot_arguments)
+            + u16::from(num_input_arguments)
+            + u16::from(num_output_arguments);
+        if VERIFY {
+            if number_of_arguments > u16::from(MAX_TOTAL_METHOD_ARGS) {
+                return Err(TransactionPayloadDecoderError::TooManyArguments(
+                    u8::try_from(number_of_arguments).unwrap_or(u8::MAX),
+                ));
+            }
+        } else {
+            // SAFETY: The unverified version, see struct description
+            unsafe {
+                hint::assert_unchecked(number_of_arguments <= u16::from(MAX_TOTAL_METHOD_ARGS));
+            }
+        }
+
+        let (transaction_slots, transaction_inputs) = transaction_slots_inputs
+            .split_at_checked(usize::from(num_slot_arguments))
+            .expect("Total number of arguments was checked to fit above; qed");
+        let transaction_inputs = transaction_inputs
+            .get(..usize::from(num_input_arguments))
+            .expect("Total number of arguments was checked to fit above; qed");
         // SAFETY: Just initialized elements above
         let (transaction_slots, transaction_inputs) = unsafe {
-            let (transaction_slots, transaction_inputs) =
-                transaction_slots_inputs.split_at_unchecked(usize::from(num_slot_arguments));
-            let transaction_inputs =
-                transaction_inputs.get_unchecked(..usize::from(num_input_arguments));
-
             (
                 transaction_slots.assume_init_ref(),
                 transaction_inputs.assume_init_ref(),
             )
         };
-
-        // This can be off by 1 due to `self` not included in `ExternalArgs`, but it is good enough
-        // for this context
-        let number_of_arguments = num_slot_arguments
-            .saturating_add(num_input_arguments)
-            .saturating_add(num_output_arguments);
-        if VERIFY && number_of_arguments > MAX_TOTAL_METHOD_ARGS {
-            return Err(TransactionPayloadDecoderError::TooManyArguments(
-                number_of_arguments,
-            ));
-        }
 
         let external_args = NonNull::new(self.external_args_buffer.as_mut_ptr())
             .expect("Not null; qed")
@@ -637,14 +647,14 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
         if VERIFY {
             (value, self.payload) = self
                 .payload
-                .split_at_checked(1)
+                .split_first()
                 .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
         } else {
             // SAFETY: The unverified version, see struct description
-            (value, self.payload) = unsafe { self.payload.split_at_unchecked(1) };
+            (value, self.payload) = unsafe { self.payload.split_first().unwrap_unchecked() };
         }
 
-        Ok(value[0])
+        Ok(*value)
     }
 
     #[inline(always)]
@@ -668,7 +678,7 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
                     .split_off(padding_bytes..)
                     .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
             } else {
-                // SAFETY: Subtracted value is always smaller than alignment
+                // SAFETY: The unverified version, see struct description
                 self.payload = unsafe { self.payload.get_unchecked(padding_bytes..) };
             }
         }
@@ -725,34 +735,28 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
         // SAFETY: Subtracted value is always smaller than alignment
         let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
 
-        let new_output_buffer_cursor = if VERIFY {
-            let new_output_buffer_cursor = self
-                .output_buffer_cursor
-                .checked_add(padding_bytes)?
-                .checked_add(size)?;
+        let (offset, new_output_buffer_cursor) = if VERIFY {
+            let offset = self.output_buffer_cursor.checked_add(padding_bytes)?;
+            let new_output_buffer_cursor = offset.checked_add(size)?;
 
             if new_output_buffer_cursor > size_of_val(self.output_buffer) {
                 return None;
             }
 
-            new_output_buffer_cursor
+            (offset, new_output_buffer_cursor)
         } else {
             // SAFETY: The unverified version, see struct description
             unsafe {
-                self.output_buffer_cursor
-                    .unchecked_add(padding_bytes)
-                    .unchecked_add(size)
+                let offset = self.output_buffer_cursor.unchecked_add(padding_bytes);
+                (offset, offset.unchecked_add(size))
             }
         };
 
         // SAFETY: Bounds and alignment checks are done above
-        let (offset, buffer_ptr) = unsafe {
-            let offset = self.output_buffer_cursor.unchecked_add(padding_bytes);
-            let buffer_ptr = NonNull::new_unchecked(
-                self.output_buffer.as_mut_ptr().byte_add(offset).cast::<T>(),
-            );
-
-            (offset, buffer_ptr)
+        let buffer_ptr = unsafe {
+            NonNull::from_mut(&mut *self.output_buffer)
+                .cast::<T>()
+                .byte_add(offset)
         };
         self.output_buffer_cursor = new_output_buffer_cursor;
 

@@ -357,8 +357,10 @@ impl Vlmul {
             Self::Mf4 => u32::from(VLEN) / (sew_bits * 4),
             Self::Mf8 => u32::from(VLEN) / (sew_bits * 8),
         };
-        // SAFETY: Can't exceed the maximum vector length for any `sew` value
-        unsafe { Vl::new(vl).unwrap_unchecked() }
+        Vl::new(vl).expect(
+            "At most `8 * VLEN / 8` (`LMUL = 8`, `SEW = 8`), which never exceeds the maximum \
+            vector length; qed",
+        )
     }
 
     /// Number of vector registers occupied by one register group at this `LMUL`.

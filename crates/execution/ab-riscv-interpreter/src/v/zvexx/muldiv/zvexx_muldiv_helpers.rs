@@ -110,8 +110,7 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -166,8 +165,7 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
     let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -219,8 +217,7 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -269,8 +266,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -326,8 +322,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
     let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -380,8 +375,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;

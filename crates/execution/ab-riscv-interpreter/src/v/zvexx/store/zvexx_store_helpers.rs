@@ -142,8 +142,7 @@ where
     }
 
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in range {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -223,8 +222,7 @@ where
     let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
@@ -300,8 +298,7 @@ where
     let vl = env.vl();
     let vstart = env.vstart();
     let data_elem_bytes = data_eew.bytes_width();
-    // SAFETY: `vl <= VLMAX <= VLEN`
-    let mask_buf = unsafe { snapshot_mask(env.read_vregs(), vm, vl) };
+    let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in vstart.range_to(vl) {
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
