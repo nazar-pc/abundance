@@ -65,6 +65,7 @@ impl UnbalancedMerkleTree {
         for hash in leaves {
             // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
             // `>=` helps compiler with panic safety checks.
+            // TODO: Use `==` once https://github.com/rust-lang/rust/issues/162834 is resolved
             if num_leaves >= MAX_N {
                 return None;
             }
@@ -228,6 +229,7 @@ impl UnbalancedMerkleTree {
         for (current_index, hash) in leaves.into_iter().enumerate() {
             // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
             // `>=` helps compiler with panic safety checks.
+            // TODO: Use `==` once https://github.com/rust-lang/rust/issues/162834 is resolved
             if num_leaves >= MAX_N {
                 return None;
             }
