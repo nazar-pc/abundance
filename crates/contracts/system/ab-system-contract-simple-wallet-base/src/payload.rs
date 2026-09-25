@@ -647,14 +647,14 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
         if VERIFY {
             (value, self.payload) = self
                 .payload
-                .split_at_checked(1)
+                .split_first()
                 .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
         } else {
             // SAFETY: The unverified version, see struct description
-            (value, self.payload) = unsafe { self.payload.split_at_unchecked(1) };
+            (value, self.payload) = unsafe { self.payload.split_first().unwrap_unchecked() };
         }
 
-        Ok(value[0])
+        Ok(*value)
     }
 
     #[inline(always)]
@@ -678,7 +678,7 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
                     .split_off(padding_bytes..)
                     .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
             } else {
-                // SAFETY: Subtracted value is always smaller than alignment
+                // SAFETY: The unverified version, see struct description
                 self.payload = unsafe { self.payload.get_unchecked(padding_bytes..) };
             }
         }
@@ -735,34 +735,28 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
         // SAFETY: Subtracted value is always smaller than alignment
         let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
 
-        let new_output_buffer_cursor = if VERIFY {
-            let new_output_buffer_cursor = self
-                .output_buffer_cursor
-                .checked_add(padding_bytes)?
-                .checked_add(size)?;
+        let (offset, new_output_buffer_cursor) = if VERIFY {
+            let offset = self.output_buffer_cursor.checked_add(padding_bytes)?;
+            let new_output_buffer_cursor = offset.checked_add(size)?;
 
             if new_output_buffer_cursor > size_of_val(self.output_buffer) {
                 return None;
             }
 
-            new_output_buffer_cursor
+            (offset, new_output_buffer_cursor)
         } else {
             // SAFETY: The unverified version, see struct description
             unsafe {
-                self.output_buffer_cursor
-                    .unchecked_add(padding_bytes)
-                    .unchecked_add(size)
+                let offset = self.output_buffer_cursor.unchecked_add(padding_bytes);
+                (offset, offset.unchecked_add(size))
             }
         };
 
         // SAFETY: Bounds and alignment checks are done above
-        let (offset, buffer_ptr) = unsafe {
-            let offset = self.output_buffer_cursor.unchecked_add(padding_bytes);
-            let buffer_ptr = NonNull::new_unchecked(
-                self.output_buffer.as_mut_ptr().byte_add(offset).cast::<T>(),
-            );
-
-            (offset, buffer_ptr)
+        let buffer_ptr = unsafe {
+            NonNull::from_mut(&mut *self.output_buffer)
+                .cast::<T>()
+                .byte_add(offset)
         };
         self.output_buffer_cursor = new_output_buffer_cursor;
 
