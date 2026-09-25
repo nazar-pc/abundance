@@ -96,8 +96,10 @@ where
 
         for leaf in leaves {
             if u32::from(BITS) < u128::BITS {
-                // How many leaves were processed so far
-                if num_leaves == 2u128.pow(u32::from(BITS)) {
+                // How many leaves were processed so far. Should have been
+                // `num_leaves == 2^BITS`, but `>=` helps compiler with panic safety checks.
+                // TODO: Use `==` once https://github.com/rust-lang/rust/issues/162834 is resolved
+                if num_leaves >= 2u128.pow(u32::from(BITS)) {
                     return None;
                 }
             } else {
@@ -132,10 +134,9 @@ where
             }
 
             // Place the current hash at the first inactive level
-            // SAFETY: Number of lowest active levels corresponds to the number of inserted
-            // elements, which in turn is checked above to fit into 2^BITS, while `BITS`
-            // generic in turn ensured sufficient stack size
-            *unsafe { stack.get_unchecked_mut(lowest_active_levels) } = current;
+            *stack.get_mut(lowest_active_levels).expect(
+                "Stack has `BITS + 1` levels, enough for `num_leaves < 2^BITS` checked above; qed",
+            ) = current;
             // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
             // doesn't fit into `u128` itself
             num_leaves = num_leaves.wrapping_add(1);

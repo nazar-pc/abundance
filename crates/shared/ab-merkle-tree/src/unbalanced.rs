@@ -129,10 +129,11 @@ impl UnbalancedMerkleTree {
         Item: Into<[u8; OUT_LEN]> + Copy,
         [(); SUPPORTED_LEAVES_ARRAY_SIZE::<N>]:,
     {
-        let maybe_root =
-            Self::compute_root_only::<{ USIZE_TO_U64::<N> }, _, _>(leaves.iter().copied());
-        // SAFETY: Fixed array length matching `MAX_N` always succeeds
-        unsafe { maybe_root.unwrap_unchecked() }
+        // Iterating over indices rather than with `leaves.iter().copied()` allows the compiler to
+        // prove that the root always exists on aarch64 and riscv64 too
+        let leaves = (0..N).map(|index| *leaves.get(index).expect("Index is within array; qed"));
+        let maybe_root = Self::compute_root_only::<{ USIZE_TO_U64::<N> }, _, _>(leaves);
+        maybe_root.expect("Non-empty array with length matching `MAX_N` always has a root; qed")
     }
 
     /// Compute Merkle Tree root and generate a proof for the `leaf` at `target_index`.
