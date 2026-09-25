@@ -152,10 +152,9 @@ impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
             // levels of hashes
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
-            if parent_hashes.len().is_multiple_of(BATCH_HASH_NUM_BLOCKS) {
-                // SAFETY: Just checked to be a multiple of chunk size and not empty
-                let parent_hashes_chunks =
-                    unsafe { parent_hashes.as_chunks_unchecked_mut::<BATCH_HASH_NUM_BLOCKS>() };
+            let (parent_hashes_chunks, parent_hashes_remainder) =
+                parent_hashes.as_chunks_mut::<BATCH_HASH_NUM_BLOCKS>();
+            if parent_hashes_remainder.is_empty() {
                 for (pairs, hashes) in level_hashes
                     .as_chunks::<BATCH_HASH_NUM_LEAVES>()
                     .0
