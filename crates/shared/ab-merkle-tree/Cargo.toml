@@ -43,6 +43,7 @@ harness = false
 
 [dependencies]
 ab-blake3 = { workspace = true }
+array-reshape = { workspace = true }
 # NOTE: `blake3` is here only for `no-panic` feature
 blake3 = { workspace = true, optional = true }
 no-panic = { workspace = true, optional = true }

@@ -3,11 +3,10 @@ use crate::chiapos::constants::PARAM_BC;
 use crate::chiapos::constants::PARAM_EXT;
 use crate::chiapos::table::metadata_size_bits;
 use core::iter::Step;
-#[cfg(any(feature = "alloc", test))]
-use core::mem;
 #[cfg(feature = "alloc")]
 use core::ops::RangeInclusive;
 use derive_more::{Add, AddAssign, From, Into};
+use transparent_wrapper::TransparentWrapper;
 
 /// Metadata size in bytes
 const METADATA_SIZE_BYTES<const K: u8, const TABLE_NUMBER: u8>: usize =
@@ -89,7 +88,7 @@ impl X {
 }
 
 /// Stores data in lower bits
-#[derive(Debug, Copy, Clone, Eq, PartialEq, From, Into)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, From, Into, TransparentWrapper)]
 #[repr(transparent)]
 pub(in super::super) struct Y(u32);
 
@@ -131,9 +130,7 @@ impl Y {
     #[cfg(any(feature = "alloc", test))]
     #[inline(always)]
     pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
-        // SAFETY: `Y` is `#[repr(transparent)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute_copy(&array) }
+        <[Self; N]>::wrap(array)
     }
 }
 
@@ -255,7 +252,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> From<X> for Metadata<K, TABLE_NUMBER> 
 }
 
 /// `r` is a value of `y` minus bucket base
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into, TransparentWrapper)]
 #[repr(transparent)]
 pub(in super::super) struct R(u16);
 
@@ -270,8 +267,6 @@ impl R {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub(super) const fn array_from_repr<const N: usize>(array: [u16; N]) -> [Self; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
-        // SAFETY: `R` is `#[repr(transparent)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute_copy(&array) }
+        <[Self; N]>::wrap(array)
     }
 }

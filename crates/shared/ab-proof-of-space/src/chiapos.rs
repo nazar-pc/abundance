@@ -23,7 +23,7 @@ use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
-use core::mem;
+use array_reshape::Flatten;
 use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::mem::offset_of;
@@ -159,11 +159,7 @@ fn expand_positions<const N: usize>(
     positions: [Position; N],
     expand: impl Fn(Position) -> [Position; 2],
 ) -> [Position; EXPANDED_POSITIONS::<N>] {
-    let expanded = positions.map(expand);
-
-    // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
-    // SAFETY: `[[Position; 2]; N]` has the same layout as `[Position; N * 2]`
-    unsafe { mem::transmute_copy(&expanded) }
+    positions.map(expand).flatten()
 }
 
 /// Collection of Chia tables

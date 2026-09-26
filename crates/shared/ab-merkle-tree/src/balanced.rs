@@ -2,8 +2,8 @@ use crate::{hash_pair, hash_pair_block, hash_pairs};
 use ab_blake3::{BLOCK_LEN, OUT_LEN};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+use array_reshape::Flatten;
 use core::iter::TrustedLen;
-use core::mem;
 use core::mem::MaybeUninit;
 use core::num::NonZero;
 
@@ -167,18 +167,12 @@ impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
                 }
             } else {
                 for (pair, parent_hash) in level_hashes
-                    .as_chunks()
+                    .as_chunks::<{ BLOCK_LEN / OUT_LEN }>()
                     .0
                     .iter()
                     .zip(parent_hashes.iter_mut())
                 {
-                    // SAFETY: Same size and alignment
-                    let pair = unsafe {
-                        mem::transmute::<&[[u8; OUT_LEN]; BLOCK_LEN / OUT_LEN], &[u8; BLOCK_LEN]>(
-                            pair,
-                        )
-                    };
-                    parent_hash.write(hash_pair_block(pair));
+                    parent_hash.write(hash_pair_block(pair.flatten_ref()));
                 }
             }
 

@@ -6,11 +6,12 @@ use crate::pieces::RecordChunk;
 use crate::solutions::ShardMembershipEntropy;
 use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
+use array_reshape::{FlattenEach, UnflattenEach};
+use core::fmt;
 use core::iter::Step;
 use core::num::{NonZeroU8, NonZeroU32};
 use core::str::FromStr;
 use core::time::Duration;
-use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul,
     MulAssign, Sub, SubAssign,
@@ -21,6 +22,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde::{Deserializer, Serializer};
+use transparent_wrapper::TransparentWrapper;
 
 /// Slot duration
 #[derive(
@@ -372,6 +374,7 @@ impl PotSeed {
     Deref,
     DerefMut,
     TrivialType,
+    TransparentWrapper,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -491,20 +494,30 @@ impl PotOutput {
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `PotOutput` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(value)
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `PotOutput` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::peel_slice(value)
     }
 }
 
 /// Proof of time checkpoints, result of proving
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, TrivialType)]
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Deref,
+    DerefMut,
+    TrivialType,
+    TransparentWrapper,
+)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct PotCheckpoints([PotOutput; PotCheckpoints::NUM_CHECKPOINTS.get() as usize]);
@@ -524,17 +537,13 @@ impl PotCheckpoints {
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_bytes(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `PotOutput` and `PotCheckpoints` are `#[repr(C)]` and guaranteed to have the same
-        // memory layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(<[PotOutput; _]>::wrap_slice(value.unflatten_each_ref()))
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn bytes_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `PotOutput` and `PotCheckpoints` are `#[repr(C)]` and guaranteed to have the same
-        // memory layout
-        unsafe { mem::transmute(value) }
+        <[PotOutput; _]>::peel_slice(Self::peel_slice(value)).flatten_each_ref()
     }
 }
 

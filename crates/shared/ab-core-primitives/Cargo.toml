@@ -19,6 +19,7 @@ ab-aligned-buffer = { workspace = true, optional = true }
 ab-blake3 = { workspace = true }
 ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true }
+array-reshape = { workspace = true }
 bech32 = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true, optional = true }
@@ -33,6 +34,7 @@ rclite = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 serde-big-array = { workspace = true, optional = true }
 thiserror = { workspace = true }
+transparent-wrapper = { workspace = true }
 yoke = { workspace = true, features = ["derive"] }
 
 [target.'cfg(not(any(target_os = "none", target_os = "unknown")))'.dependencies]

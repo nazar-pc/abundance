@@ -20,13 +20,14 @@ use crate::solutions::SolutionRange;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
 use ab_io_type::trivial_type::TrivialType;
+use core::fmt;
 use core::iter::Step;
-use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use transparent_wrapper::TransparentWrapper;
 
 /// Block number
 #[derive(
@@ -247,6 +248,7 @@ impl BlockTimestamp {
     Deref,
     DerefMut,
     TrivialType,
+    TransparentWrapper,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -281,17 +283,13 @@ impl BlockRoot {
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        let value = Blake3Hash::slice_from_repr(value);
-        // SAFETY: `BlockRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(Blake3Hash::slice_from_repr(value))
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `BlockRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
-        let value = unsafe { mem::transmute::<&[Self], &[Blake3Hash]>(value) };
-        Blake3Hash::repr_from_slice(value)
+        Blake3Hash::repr_from_slice(Self::peel_slice(value))
     }
 }
 
