@@ -435,33 +435,33 @@ impl AsMut<[u8]> for Record {
     }
 }
 
-impl From<&Record> for &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
+impl<'a> From<&'a Record> for &'a [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
-    fn from(value: &Record) -> Self {
+    fn from(value: &'a Record) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &Record {
+impl<'a> From<&'a [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &'a Record {
     #[inline]
-    fn from(value: &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
+    fn from(value: &'a [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut Record> for &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
+impl<'a> From<&'a mut Record> for &'a mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
-    fn from(value: &mut Record) -> Self {
+    fn from(value: &'a mut Record) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
+impl<'a> From<&'a mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &'a mut Record {
     #[inline]
-    fn from(value: &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
+    fn from(value: &'a mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -650,36 +650,36 @@ impl AsMut<[u8]> for RecordRoot {
     }
 }
 
-impl From<&RecordRoot> for &[u8; RecordRoot::SIZE] {
+impl<'a> From<&'a RecordRoot> for &'a [u8; RecordRoot::SIZE] {
     #[inline]
-    fn from(value: &RecordRoot) -> Self {
+    fn from(value: &'a RecordRoot) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&[u8; RecordRoot::SIZE]> for &RecordRoot {
+impl<'a> From<&'a [u8; RecordRoot::SIZE]> for &'a RecordRoot {
     #[inline]
-    fn from(value: &[u8; RecordRoot::SIZE]) -> Self {
+    fn from(value: &'a [u8; RecordRoot::SIZE]) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RecordRoot> for &mut [u8; RecordRoot::SIZE] {
+impl<'a> From<&'a mut RecordRoot> for &'a mut [u8; RecordRoot::SIZE] {
     #[inline]
-    fn from(value: &mut RecordRoot) -> Self {
+    fn from(value: &'a mut RecordRoot) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut [u8; RecordRoot::SIZE]> for &mut RecordRoot {
+impl<'a> From<&'a mut [u8; RecordRoot::SIZE]> for &'a mut RecordRoot {
     #[inline]
-    fn from(value: &mut [u8; RecordRoot::SIZE]) -> Self {
+    fn from(value: &'a mut [u8; RecordRoot::SIZE]) -> Self {
         // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -791,36 +791,36 @@ impl AsMut<[u8]> for RecordChunksRoot {
     }
 }
 
-impl From<&RecordChunksRoot> for &[u8; RecordChunksRoot::SIZE] {
+impl<'a> From<&'a RecordChunksRoot> for &'a [u8; RecordChunksRoot::SIZE] {
     #[inline]
-    fn from(value: &RecordChunksRoot) -> Self {
+    fn from(value: &'a RecordChunksRoot) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&[u8; RecordChunksRoot::SIZE]> for &RecordChunksRoot {
+impl<'a> From<&'a [u8; RecordChunksRoot::SIZE]> for &'a RecordChunksRoot {
     #[inline]
-    fn from(value: &[u8; RecordChunksRoot::SIZE]) -> Self {
+    fn from(value: &'a [u8; RecordChunksRoot::SIZE]) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RecordChunksRoot> for &mut [u8; RecordChunksRoot::SIZE] {
+impl<'a> From<&'a mut RecordChunksRoot> for &'a mut [u8; RecordChunksRoot::SIZE] {
     #[inline]
-    fn from(value: &mut RecordChunksRoot) -> Self {
+    fn from(value: &'a mut RecordChunksRoot) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut [u8; RecordChunksRoot::SIZE]> for &mut RecordChunksRoot {
+impl<'a> From<&'a mut [u8; RecordChunksRoot::SIZE]> for &'a mut RecordChunksRoot {
     #[inline]
-    fn from(value: &mut [u8; RecordChunksRoot::SIZE]) -> Self {
+    fn from(value: &'a mut [u8; RecordChunksRoot::SIZE]) -> Self {
         // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -934,36 +934,36 @@ impl AsMut<[u8]> for RecordProof {
     }
 }
 
-impl From<&RecordProof> for &[u8; RecordProof::SIZE] {
+impl<'a> From<&'a RecordProof> for &'a [u8; RecordProof::SIZE] {
     #[inline]
-    fn from(value: &RecordProof) -> Self {
+    fn from(value: &'a RecordProof) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&[u8; RecordProof::SIZE]> for &RecordProof {
+impl<'a> From<&'a [u8; RecordProof::SIZE]> for &'a RecordProof {
     #[inline]
-    fn from(value: &[u8; RecordProof::SIZE]) -> Self {
+    fn from(value: &'a [u8; RecordProof::SIZE]) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RecordProof> for &mut [u8; RecordProof::SIZE] {
+impl<'a> From<&'a mut RecordProof> for &'a mut [u8; RecordProof::SIZE] {
     #[inline]
-    fn from(value: &mut RecordProof) -> Self {
+    fn from(value: &'a mut RecordProof) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut [u8; RecordProof::SIZE]> for &mut RecordProof {
+impl<'a> From<&'a mut [u8; RecordProof::SIZE]> for &'a mut RecordProof {
     #[inline]
-    fn from(value: &mut [u8; RecordProof::SIZE]) -> Self {
+    fn from(value: &'a mut [u8; RecordProof::SIZE]) -> Self {
         // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
@@ -1078,36 +1078,36 @@ impl AsMut<[u8]> for SegmentProof {
     }
 }
 
-impl From<&SegmentProof> for &[u8; SegmentProof::SIZE] {
+impl<'a> From<&'a SegmentProof> for &'a [u8; SegmentProof::SIZE] {
     #[inline]
-    fn from(value: &SegmentProof) -> Self {
+    fn from(value: &'a SegmentProof) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&[u8; SegmentProof::SIZE]> for &SegmentProof {
+impl<'a> From<&'a [u8; SegmentProof::SIZE]> for &'a SegmentProof {
     #[inline]
-    fn from(value: &[u8; SegmentProof::SIZE]) -> Self {
+    fn from(value: &'a [u8; SegmentProof::SIZE]) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut SegmentProof> for &mut [u8; SegmentProof::SIZE] {
+impl<'a> From<&'a mut SegmentProof> for &'a mut [u8; SegmentProof::SIZE] {
     #[inline]
-    fn from(value: &mut SegmentProof) -> Self {
+    fn from(value: &'a mut SegmentProof) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut [u8; SegmentProof::SIZE]> for &mut SegmentProof {
+impl<'a> From<&'a mut [u8; SegmentProof::SIZE]> for &'a mut SegmentProof {
     #[inline]
-    fn from(value: &mut [u8; SegmentProof::SIZE]) -> Self {
+    fn from(value: &'a mut [u8; SegmentProof::SIZE]) -> Self {
         // SAFETY: `SegmentProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
