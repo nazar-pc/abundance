@@ -2,12 +2,13 @@
 
 use ab_io_type::trivial_type::TrivialType;
 use blake3::{Hash, OUT_LEN};
-use core::{fmt, mem};
+use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use transparent_wrapper::TransparentWrapper;
 
 /// BLAKE3 hash output transparent wrapper
 #[derive(
@@ -25,6 +26,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
     Deref,
     DerefMut,
     TrivialType,
+    TransparentWrapper,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -135,14 +137,12 @@ impl Blake3Hash {
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `Blake3Hash` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(value)
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `Blake3Hash` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::peel_slice(value)
     }
 }

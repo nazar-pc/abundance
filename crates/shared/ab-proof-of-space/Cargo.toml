@@ -21,6 +21,7 @@ bench = false
 ab-blake3 = { workspace = true }
 ab-chacha8 = { workspace = true }
 ab-core-primitives = { workspace = true }
+array-reshape = { workspace = true }
 # NOTE: `blake3` is here only for `no-panic` feature
 blake3 = { workspace = true, optional = true }
 chacha20 = { workspace = true, features = ["cipher"], optional = true }
@@ -30,6 +31,7 @@ rayon = { workspace = true, optional = true }
 rclite = { workspace = true, optional = true }
 seq-macro = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
+transparent-wrapper = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

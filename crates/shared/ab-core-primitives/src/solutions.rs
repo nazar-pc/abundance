@@ -16,8 +16,8 @@ use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use blake3::{Hash, OUT_LEN};
+use core::fmt;
 use core::simd::Simd;
-use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
 };
@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
+use transparent_wrapper::TransparentWrapper;
 
 /// Solution distance
 #[derive(
@@ -280,7 +281,7 @@ impl fmt::Debug for ChunkProof {
 struct ChunkProofBinary(#[serde(with = "BigArray")] [[u8; OUT_LEN]; ChunkProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TransparentWrapper)]
 #[serde(transparent)]
 #[repr(transparent)]
 struct ChunkProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
@@ -298,15 +299,8 @@ impl Serialize for ChunkProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
-            // same memory layout
-            ChunkProofHex(unsafe {
-                mem::transmute::<
-                    [[u8; OUT_LEN]; Self::NUM_HASHES],
-                    [ChunkProofHexHash; Self::NUM_HASHES],
-                >(self.0)
-            })
-            .serialize(serializer)
+            ChunkProofHex(<[ChunkProofHexHash; Self::NUM_HASHES]>::wrap(self.0))
+                .serialize(serializer)
         } else {
             ChunkProofBinary(self.0).serialize(serializer)
         }
@@ -321,14 +315,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
-            // same memory layout
-            unsafe {
-                mem::transmute::<
-                    [ChunkProofHexHash; Self::NUM_HASHES],
-                    [[u8; OUT_LEN]; Self::NUM_HASHES],
-                >(ChunkProofHex::deserialize(deserializer)?.0)
-            }
+            ChunkProofHex::deserialize(deserializer)?.0.peel()
         } else {
             ChunkProofBinary::deserialize(deserializer)?.0
         }))
@@ -515,6 +502,7 @@ pub trait SolutionPotVerifier {
     Deref,
     DerefMut,
     TrivialType,
+    TransparentWrapper,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -611,17 +599,13 @@ impl ShardMembershipEntropy {
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(value)
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
+        Self::peel_slice(value)
     }
 }
 
@@ -642,6 +626,7 @@ impl ShardMembershipEntropy {
     Deref,
     DerefMut,
     TrivialType,
+    TransparentWrapper,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
@@ -750,35 +735,25 @@ impl ShardCommitmentHash {
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(value)
     }
 
     /// Convenient conversion from array of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn array_from_repr<const N: usize>(value: [[u8; Self::SIZE]; N]) -> [Self; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
-        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute_copy(&value) }
+        <[Self; N]>::wrap(value)
     }
 
     /// Convenient conversion to a slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
+        Self::peel_slice(value)
     }
 
     /// Convenient conversion to an array of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_array<const N: usize>(value: [Self; N]) -> [[u8; Self::SIZE]; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/152507
-        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute_copy(&value) }
+        value.peel()
     }
 }
 

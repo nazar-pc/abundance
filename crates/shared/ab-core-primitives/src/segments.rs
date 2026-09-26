@@ -18,11 +18,11 @@ use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::sync::Arc as StdArc;
 use blake3::{CHUNK_LEN, OUT_LEN};
+use core::fmt;
 use core::iter::Step;
 #[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 use core::num::{NonZeroU32, NonZeroU64};
-use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
     SubAssign,
@@ -33,6 +33,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
+use transparent_wrapper::TransparentWrapper;
 
 /// Super segment index
 #[derive(
@@ -579,7 +580,9 @@ impl SegmentIndex {
 }
 
 /// Segment root contained within a segment
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType, TransparentWrapper,
+)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
@@ -661,15 +664,13 @@ impl SegmentRoot {
     /// Convenient conversion from a slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::wrap_slice(value)
     }
 
     /// Convenient conversion to a slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
+        Self::peel_slice(value)
     }
 
     /// Check whether a segment root is a part of the super segment

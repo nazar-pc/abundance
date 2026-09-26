@@ -1,8 +1,9 @@
 use crate::pieces::{FlatPieces, InnerPiece, Piece, PiecePosition, Record};
 use crate::segments::RecordedHistorySegment;
+use array_reshape::Unflatten;
 use derive_more::{Deref, DerefMut};
+use std::array;
 use std::ops::{Index, IndexMut};
-use std::{array, mem};
 
 /// Archived history segment after archiving is applied.
 #[derive(Debug, Clone, Eq, PartialEq, Deref, DerefMut)]
@@ -32,36 +33,16 @@ impl AsMut<[InnerPiece; Self::NUM_PIECES]> for ArchivedHistorySegment {
 impl AsRef<[[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2]> for ArchivedHistorySegment {
     #[inline(always)]
     fn as_ref(&self) -> &[[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2] {
-        const {
-            assert!(
-                RecordedHistorySegment::NUM_PIECES == RecordedHistorySegment::NUM_RAW_RECORDS * 2
-            );
-        }
-        // SAFETY: The same size and layout
-        unsafe {
-            mem::transmute::<
-                &[InnerPiece; Self::NUM_PIECES],
-                &[[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2],
-            >(self.as_ref())
-        }
+        let pieces: &[InnerPiece; Self::NUM_PIECES] = self.as_ref();
+        pieces.unflatten_ref()
     }
 }
 
 impl AsMut<[[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2]> for ArchivedHistorySegment {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2] {
-        const {
-            assert!(
-                RecordedHistorySegment::NUM_PIECES == RecordedHistorySegment::NUM_RAW_RECORDS * 2
-            );
-        }
-        // SAFETY: The same size and layout
-        unsafe {
-            mem::transmute::<
-                &mut [InnerPiece; Self::NUM_PIECES],
-                &mut [[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2],
-            >(self.as_mut())
-        }
+        let pieces: &mut [InnerPiece; Self::NUM_PIECES] = self.as_mut();
+        pieces.unflatten_mut()
     }
 }
 
