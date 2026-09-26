@@ -186,16 +186,14 @@ where
         self.state().return_trap_address
     }
 
-    /// Create a fetcher positioned at the instruction that guest address `pc` corresponds to
+    /// Create a fetcher positioned at the instruction that guest address `pc` corresponds to.
     ///
-    /// # Safety
-    /// `pc` must be the address of one of the instructions [`Self::decode()`] was given, meaning
-    /// it is within `base_addr..base_addr + instructions.len()` and is a multiple of
-    /// [`Instruction::ALIGNMENT`], with `base_addr` and `instructions` being what that call
-    /// received.
-    #[inline(always)]
+    /// Returns `None` unless `pc` is the address of one of the instructions [`Self::decode()`] was
+    /// given, meaning it is within `base_addr..base_addr + instructions.len()` and is a multiple of
+    /// [`Instruction::ALIGNMENT`].
+    #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub unsafe fn fetcher(&self, pc: Address<I>) -> BasicEagerInstructionFetcher<'_, I> {
+    pub fn fetcher(&self, pc: Address<I>) -> Option<BasicEagerInstructionFetcher<'_, I>> {
         const {
             // When fetcher is used with threaded dispatch, it must fit into two argument registers
             // to be passed through tail calls
@@ -211,16 +209,28 @@ where
             );
         }
 
-        let instruction_offset =
-            (pc.as_u64() - self.base_addr().as_u64()) as usize / Self::GUEST_BYTES_PER_SLOT;
+        let address = pc.as_u64();
 
-        BasicEagerInstructionFetcher {
-            // SAFETY: Guaranteed by function contract, meaning `instruction_offset` is within
-            // bounds of the decoded stream
+        if !address.is_multiple_of(u64::from(I::ALIGNMENT)) {
+            cold_path();
+            return None;
+        }
+
+        let offset = usize::try_from(address.checked_sub(self.base_addr().as_u64())?).ok()?;
+        let instruction_offset = offset / Self::GUEST_BYTES_PER_SLOT;
+
+        if instruction_offset >= self.instructions_len() {
+            cold_path();
+            return None;
+        }
+
+        Some(BasicEagerInstructionFetcher {
+            // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded
+            // stream
             next_instruction: unsafe { self.instructions().add(instruction_offset) },
             instructions: self.instructions(),
             _instructions: PhantomData,
-        }
+        })
     }
 
     /// Decode `instructions` and create a new instance holding the result.

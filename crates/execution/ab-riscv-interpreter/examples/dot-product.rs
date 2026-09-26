@@ -407,8 +407,9 @@ fn main() -> anyhow::Result<()> {
         outcome,
         program_counter: _,
     } = DotProductInstruction::execute_threaded(
-        // SAFETY: The entry point is one of the instructions decoded above
-        unsafe { instructions.fetcher(elf.entry()) },
+        instructions
+            .fetcher(elf.entry())
+            .context("Entry point is not one of the decoded instructions")?,
         &mut regs,
         &mut Env::default(),
         memory.as_mut(),
