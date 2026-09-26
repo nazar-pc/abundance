@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SegmentArchiverTaskError"],"fn":["create_segment_archiver_task","decode_block","encode_block"],"struct":["ArchivedSegmentNotification"]};

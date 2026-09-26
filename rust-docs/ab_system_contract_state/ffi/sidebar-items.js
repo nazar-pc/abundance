@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["compare_and_write","initialize","is_empty","read","write"]};
