@@ -859,6 +859,7 @@ struct RecordProofBinary([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 struct RecordProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 
 #[cfg(feature = "serde")]
@@ -874,7 +875,7 @@ impl Serialize for RecordProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `RecordProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             RecordProofHex(unsafe {
                 mem::transmute::<
@@ -897,7 +898,7 @@ impl<'de> Deserialize<'de> for RecordProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `RecordProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 mem::transmute::<
@@ -1002,6 +1003,7 @@ struct SegmentProofBinary([[u8; OUT_LEN]; SegmentProof::NUM_HASHES]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 struct SegmentProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 
 #[cfg(feature = "serde")]
@@ -1017,7 +1019,7 @@ impl Serialize for SegmentProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `SegmentProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `SegmentProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             SegmentProofHex(unsafe {
                 mem::transmute::<
@@ -1040,7 +1042,7 @@ impl<'de> Deserialize<'de> for SegmentProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `SegmentProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `SegmentProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 mem::transmute::<

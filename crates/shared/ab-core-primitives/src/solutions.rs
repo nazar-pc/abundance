@@ -282,6 +282,7 @@ struct ChunkProofBinary(#[serde(with = "BigArray")] [[u8; OUT_LEN]; ChunkProof::
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 struct ChunkProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 
 #[cfg(feature = "serde")]
@@ -297,7 +298,7 @@ impl Serialize for ChunkProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             ChunkProofHex(unsafe {
                 mem::transmute::<
@@ -320,7 +321,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 mem::transmute::<
