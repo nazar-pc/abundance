@@ -19,6 +19,8 @@ use alloc::boxed::Box;
 use alloc::sync::Arc as StdArc;
 use blake3::{CHUNK_LEN, OUT_LEN};
 use core::iter::Step;
+#[cfg(feature = "alloc")]
+use core::mem::MaybeUninit;
 use core::num::{NonZeroU32, NonZeroU64};
 use core::{fmt, mem};
 use derive_more::{
@@ -343,8 +345,8 @@ impl SuperSegment {
     /// Produce a proof for a segment in the super segment at a given position
     pub fn proof_for_segment(&self, segment_position: SegmentPosition) -> Option<SegmentProof> {
         // TODO: Keyed hash
-        let mut segment_proof = SegmentProof::default();
-        UnbalancedMerkleTree::compute_root_and_proof_in::<
+        let mut segment_proof = [MaybeUninit::uninit(); _];
+        let (_root, proof_hashes) = UnbalancedMerkleTree::compute_root_and_proof_in::<
             { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
             _,
             _,
@@ -354,10 +356,20 @@ impl SuperSegment {
                     .expect("Less than a single block worth of bytes; qed")
             }),
             u32::from(segment_position) as usize,
-            segment_proof.as_uninit_repr(),
+            &mut segment_proof,
         )?;
+        let proof_length = proof_hashes.len();
 
-        Some(segment_proof)
+        // Unused hashes must be zeroed
+        segment_proof
+            .get_mut(proof_length..)
+            .expect("Proof is a prefix of the provided memory; qed")
+            .write_filled([0; OUT_LEN]);
+        // SAFETY: The first `proof_length` hashes were initialized by proof generation above, the
+        // rest were just zeroed
+        let segment_proof = unsafe { MaybeUninit::from(segment_proof).assume_init() };
+
+        Some(SegmentProof::from(segment_proof))
     }
 }
 

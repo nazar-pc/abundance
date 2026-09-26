@@ -29,6 +29,7 @@ use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::hash::Hash;
 use core::iter::Step;
+#[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::slice;
@@ -1117,16 +1118,6 @@ impl SegmentProof {
     /// Size of segment proof in bytes
     pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
     const NUM_HASHES: usize = SuperSegmentRoot::MAX_SEGMENTS.next_power_of_two().ilog2() as usize;
-
-    /// Returns a mutable reference to an internal array as uninitialized memory.
-    ///
-    /// This is a convenience method for proof generation.
-    pub fn as_uninit_repr(
-        &mut self,
-    ) -> &mut [MaybeUninit<[u8; OUT_LEN]>; SegmentProof::NUM_HASHES] {
-        // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
-        unsafe { mem::transmute(&mut self.0) }
-    }
 }
 
 /// Header for a piece of archival history.
