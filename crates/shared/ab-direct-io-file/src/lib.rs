@@ -516,7 +516,7 @@ impl DirectIoFile {
         // Calculate the size of the read including padding on both ends
         let pages_to_read = (padding + bytes_to_write.len()).div_ceil(AlignedPage::SIZE);
 
-        if padding == 0 && pages_to_read == bytes_to_write.len() {
+        if padding == 0 && bytes_to_write.len() == pages_to_read * AlignedPage::SIZE {
             let scratch_buffer = &mut scratch_buffer[..pages_to_read];
             AlignedPage::slice_mut_to_repr(scratch_buffer)
                 .as_flattened_mut()

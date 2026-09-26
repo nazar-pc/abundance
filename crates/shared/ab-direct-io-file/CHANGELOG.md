@@ -9,6 +9,11 @@ Breaking changes:
 * Removed `AlignedPage::as_uninit_slice_mut()`, which was unsound: safe code could write uninitialized values through
   it and then read them through the original slice
 
+Fixes:
+
+* `DirectIoFile::write_all_at()` no longer panics on small page-aligned writes, which were incorrectly treated as
+  writes of whole pages
+
 # 0.1.1
 
 Improvements:

@@ -8,7 +8,8 @@ use tempfile::tempdir;
 #[test]
 fn read_write_small() {
     read_write_inner::<15000>(&[
-        (0usize, 512_usize),
+        (0usize, 1_usize),
+        (0, 512),
         (0, 4096),
         (0, 500),
         (0, 4000),
