@@ -21,7 +21,6 @@ use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::hint::cold_path;
-use core::mem;
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
@@ -52,8 +51,24 @@ where
 
     #[inline(always)]
     fn offset(self) -> u8 {
-        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { mem::transmute::<Self, u8>(self) }
+        match self {
+            Self::Zero => 0,
+            Self::Ra => 1,
+            Self::Sp => 2,
+            Self::Gp => 3,
+            Self::Tp => 4,
+            Self::T0 => 5,
+            Self::T1 => 6,
+            Self::T2 => 7,
+            Self::S0 => 8,
+            Self::S1 => 9,
+            Self::A0 => 10,
+            Self::A1 => 11,
+            Self::A2 => 12,
+            Self::A3 => 13,
+            Self::A4 => 14,
+            Self::A5 => 15,
+        }
     }
 }
 
@@ -66,8 +81,40 @@ where
 
     #[inline(always)]
     fn offset(self) -> u8 {
-        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
-        unsafe { mem::transmute::<Self, u8>(self) }
+        match self {
+            Self::Zero => 0,
+            Self::Ra => 1,
+            Self::Sp => 2,
+            Self::Gp => 3,
+            Self::Tp => 4,
+            Self::T0 => 5,
+            Self::T1 => 6,
+            Self::T2 => 7,
+            Self::S0 => 8,
+            Self::S1 => 9,
+            Self::A0 => 10,
+            Self::A1 => 11,
+            Self::A2 => 12,
+            Self::A3 => 13,
+            Self::A4 => 14,
+            Self::A5 => 15,
+            Self::A6 => 16,
+            Self::A7 => 17,
+            Self::S2 => 18,
+            Self::S3 => 19,
+            Self::S4 => 20,
+            Self::S5 => 21,
+            Self::S6 => 22,
+            Self::S7 => 23,
+            Self::S8 => 24,
+            Self::S9 => 25,
+            Self::S10 => 26,
+            Self::S11 => 27,
+            Self::T3 => 28,
+            Self::T4 => 29,
+            Self::T5 => 30,
+            Self::T6 => 31,
+        }
     }
 }
 
