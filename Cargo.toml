@@ -23,7 +23,7 @@ ab-client-consensus-common = { version = "0.0.1", path = "crates/node/ab-client-
 ab-client-database = { version = "0.0.1", path = "crates/node/ab-client-database" }
 ab-client-informer = { version = "0.0.1", path = "crates/node/ab-client-informer" }
 ab-cli-utils = { version = "0.0.1", path = "crates/shared/ab-cli-utils" }
-ab-direct-io-file = { version = "0.1.1", path = "crates/shared/ab-direct-io-file" }
+ab-direct-io-file = { version = "0.2.0", path = "crates/shared/ab-direct-io-file" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
 ab-contract-file = { version = "0.0.1", path = "crates/contracts/core/ab-contract-file" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }

@@ -4,6 +4,7 @@
     const_block_items,
     const_convert,
     const_trait_impl,
+    core_io_borrowed_buf,
     default_field_values
 )]
 

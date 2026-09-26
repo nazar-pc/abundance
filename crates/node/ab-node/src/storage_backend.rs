@@ -3,6 +3,7 @@ use ab_direct_io_file::DirectIoFile;
 use futures::channel::oneshot;
 use rclite::Arc;
 use std::io;
+use std::io::BorrowedBuf;
 use tracing::{Span, debug};
 
 // TODO: This is a simple wrapper, but it will need to deal with multiple dynamic chains eventually
@@ -43,17 +44,18 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
                 );
                 let bytes = ab_direct_io_file::AlignedPage::try_uninit_slice_mut_from_repr(bytes)
                     .expect("Correctly aligned as it comes from another aligned buffer type; qed");
-                let result = match file.read_exact_at_raw(bytes, offset) {
-                    Ok(()) => {
-                        // SAFETY: Just written `length` bytes
-                        unsafe {
-                            let new_len = buffer.len() + length as usize;
-                            buffer.set_len(new_len);
+                let result =
+                    match file.read_exact_at_raw(BorrowedBuf::from(bytes).unfilled(), offset) {
+                        Ok(()) => {
+                            // SAFETY: Just written `length` bytes
+                            unsafe {
+                                let new_len = buffer.len() + length as usize;
+                                buffer.set_len(new_len);
+                            }
+                            Ok(buffer)
                         }
-                        Ok(buffer)
-                    }
-                    Err(error) => Err(error),
-                };
+                        Err(error) => Err(error),
+                    };
 
                 if sender.send(result).is_err() {
                     debug!("Failed to send a read result back, receiver dropped");
