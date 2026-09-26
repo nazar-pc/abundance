@@ -1236,8 +1236,8 @@ cfg_select! {
 /// outcome travels in registers instead of through a hidden out-pointer where possible for
 /// performance reasons (primarily on x86-64 due to a limited number of usable GPRs in the ABI).
 ///
-/// On x86-64 the lanes are a 256-bit vector, so producing one of these executes AVX instructions -
-/// see [`Self::platform_supported()`] and [`Self::new()`].
+/// On x86-64 the lanes are a 256-bit vector, so returning one of these in a register, which is what
+/// handlers do, requires AVX - see [`Self::platform_supported()`].
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct OpaqueThreadedExecutionResult<I> {
@@ -1285,12 +1285,9 @@ where
         }
     }
 
-    /// Serialize an outcome into the shape handlers return.
-    ///
-    /// # Safety
-    /// [`Self::platform_supported()`] must return `true`.
+    /// Serialize an outcome into the shape handlers return
     #[inline(always)]
-    pub unsafe fn new(result: ThreadedExecutionResult<I>) -> Self {
+    pub fn new(result: ThreadedExecutionResult<I>) -> Self {
         let program_counter = result.program_counter.as_u64();
 
         let (tag, payload) = match result.outcome {
@@ -1350,16 +1347,7 @@ where
         Self {
             lanes: cfg_select! {
                 all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
-                    // SAFETY: Method contract guarantees that `Self::platform_supported()` was
-                    // called, which ensures that AVX is supported
-                    unsafe {
-                        core::arch::x86_64::_mm256_setr_epi64x(
-                            program_counter.cast_signed(),
-                            tag.cast_signed(),
-                            payload.cast_signed(),
-                            0,
-                        )
-                    }
+                    core::simd::u64x4::from_array([program_counter, tag, payload, 0]).into()
                 }
                 all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
                     [program_counter, tag, payload].map(f64::from_bits)

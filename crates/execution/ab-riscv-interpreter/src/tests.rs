@@ -35,8 +35,7 @@ where
     I: Instruction,
 {
     let expected = alloc::format!("{result:?}");
-    // SAFETY: Tests only run on a platform they were built for
-    let opaque = unsafe { OpaqueThreadedExecutionResult::new(result) };
+    let opaque = OpaqueThreadedExecutionResult::new(result);
     let actual = alloc::format!("{:?}", opaque.into_result());
 
     assert_eq!(expected, actual);

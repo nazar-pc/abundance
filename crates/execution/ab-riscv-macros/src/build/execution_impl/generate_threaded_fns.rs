@@ -147,23 +147,17 @@ pub(super) fn generate_threaded_fns(
             match unsafe { instruction_fetcher.failed_branch(memory) } {
                 Ok(::core::ops::ControlFlow::Continue(())) => {}
                 Ok(::core::ops::ControlFlow::Break(())) => {
-                    // SAFETY: Platform support is checked before the chain is entered
-                    return unsafe {
-                        OpaqueThreadedExecutionResult::new(
-                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
-                        )
-                    };
+                    return OpaqueThreadedExecutionResult::new(
+                        ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                    );
                 }
                 Err(error) => {
-                    // SAFETY: Platform support is checked before the chain is entered
-                    return unsafe {
-                        OpaqueThreadedExecutionResult::new(
-                            ThreadedExecutionResult::failed(
-                                instruction_fetcher.get_pc(),
-                                error,
-                            ),
-                        )
-                    };
+                    return OpaqueThreadedExecutionResult::new(
+                        ThreadedExecutionResult::failed(
+                            instruction_fetcher.get_pc(),
+                            error,
+                        ),
+                    );
                 }
             }
 
@@ -176,23 +170,17 @@ pub(super) fn generate_threaded_fns(
                     handler,
                 } => (instruction, handler),
                 #dispatch_result_name::Break => {
-                    // SAFETY: Platform support is checked before the chain is entered
-                    return unsafe {
-                        OpaqueThreadedExecutionResult::new(
-                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
-                        )
-                    };
+                    return OpaqueThreadedExecutionResult::new(
+                        ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                    );
                 }
                 #dispatch_result_name::Err(error) => {
-                    // SAFETY: Platform support is checked before the chain is entered
-                    return unsafe {
-                        OpaqueThreadedExecutionResult::new(
-                            ThreadedExecutionResult::failed(
-                                instruction_fetcher.get_pc(),
-                                error,
-                            ),
-                        )
-                    };
+                    return OpaqueThreadedExecutionResult::new(
+                        ThreadedExecutionResult::failed(
+                            instruction_fetcher.get_pc(),
+                            error,
+                        ),
+                    );
                 }
             };
 
@@ -334,24 +322,18 @@ pub(super) fn generate_threaded_fns(
                     }
                     ExecutionResult::Break => {
                         ::core::hint::cold_path();
-                        // SAFETY: Platform support is checked before the chain is entered
-                        return unsafe {
-                            OpaqueThreadedExecutionResult::new(
-                                ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
-                            )
-                        };
+                        return OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        );
                     }
                     ExecutionResult::Err(error) => {
                         ::core::hint::cold_path();
-                        // SAFETY: Platform support is checked before the chain is entered
-                        return unsafe {
-                            OpaqueThreadedExecutionResult::new(
-                                ThreadedExecutionResult::failed(
-                                    instruction_fetcher.get_pc(),
-                                    error,
-                                ),
-                            )
-                        };
+                        return OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        );
                     }
                 };
 
@@ -359,24 +341,18 @@ pub(super) fn generate_threaded_fns(
                     Ok(::core::ops::ControlFlow::Continue(())) => {}
                     Ok(::core::ops::ControlFlow::Break(())) => {
                         ::core::hint::cold_path();
-                        // SAFETY: Platform support is checked before the chain is entered
-                        return unsafe {
-                            OpaqueThreadedExecutionResult::new(
-                                ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
-                            )
-                        };
+                        return OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        );
                     }
                     Err(error) => {
                         ::core::hint::cold_path();
-                        // SAFETY: Platform support is checked before the chain is entered
-                        return unsafe {
-                            OpaqueThreadedExecutionResult::new(
-                                ThreadedExecutionResult::failed(
-                                    instruction_fetcher.get_pc(),
-                                    error,
-                                ),
-                            )
-                        };
+                        return OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        );
                     }
                 }
 
@@ -390,24 +366,18 @@ pub(super) fn generate_threaded_fns(
                     } => (instruction, handler),
                     #dispatch_result_name::Break => {
                         ::core::hint::cold_path();
-                        // SAFETY: Platform support is checked before the chain is entered
-                        return unsafe {
-                            OpaqueThreadedExecutionResult::new(
-                                ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
-                            )
-                        };
+                        return OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::stopped(instruction_fetcher.get_pc()),
+                        );
                     }
                     #dispatch_result_name::Err(error) => {
                         ::core::hint::cold_path();
-                        // SAFETY: Platform support is checked before the chain is entered
-                        return unsafe {
-                            OpaqueThreadedExecutionResult::new(
-                                ThreadedExecutionResult::failed(
-                                    instruction_fetcher.get_pc(),
-                                    error,
-                                ),
-                            )
-                        };
+                        return OpaqueThreadedExecutionResult::new(
+                            ThreadedExecutionResult::failed(
+                                instruction_fetcher.get_pc(),
+                                error,
+                            ),
+                        );
                     }
                 };
 
