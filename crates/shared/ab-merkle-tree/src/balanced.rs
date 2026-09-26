@@ -161,19 +161,9 @@ impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
                     .iter()
                     .zip(parent_hashes_chunks)
                 {
-                    // TODO: Would be nice to have a convenient method for this:
-                    //  https://github.com/rust-lang/rust/pull/145504#pullrequestreview-3788155275
-                    // SAFETY: Identical layout
-                    let hashes = unsafe {
-                        mem::transmute::<
-                            &mut [MaybeUninit<[u8; OUT_LEN]>; BATCH_HASH_NUM_BLOCKS],
-                            &mut MaybeUninit<[[u8; OUT_LEN]; BATCH_HASH_NUM_BLOCKS]>,
-                        >(hashes)
-                    };
-
                     // TODO: This memory copy is unfortunate, make hashing write into this memory
                     //  directly once blake3 API improves
-                    hashes.write(hash_pairs(pairs));
+                    *hashes = MaybeUninit::new(hash_pairs(pairs)).into();
                 }
             } else {
                 for (pair, parent_hash) in level_hashes

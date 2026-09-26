@@ -24,12 +24,6 @@ impl AlignedPage {
     /// bytes
     pub const SIZE: usize = 4096;
 
-    /// Convert an exclusive slice to an uninitialized version
-    pub fn as_uninit_slice_mut(value: &mut [Self]) -> &mut [MaybeUninit<Self>] {
-        // SAFETY: Same layout
-        unsafe { mem::transmute(value) }
-    }
-
     /// Convenient conversion from slice to underlying representation for efficiency purposes
     #[inline(always)]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPage::SIZE]] {

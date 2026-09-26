@@ -227,8 +227,6 @@ use alloc::boxed::Box;
 use core::fmt;
 use core::hint::cold_path;
 use core::marker::{Destruct, PhantomData};
-#[cfg(all(target_arch = "x86_64", any(not(miri), target_feature = "avx")))]
-use core::mem;
 use core::ops::{ControlFlow, FromResidual, Sub};
 
 type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
@@ -1381,13 +1379,10 @@ where
         let [program_counter, tag, payload] =
             cfg_select! {
                 all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
-                    {
-                        // SAFETY: Same size, alignment is larger than necessary
-                        let [program_counter, tag, payload, _] = unsafe {
-                            mem::transmute::<core::arch::x86_64::__m256i, [u64; 4]>(self.lanes)
-                        };
-
-                        [program_counter, tag, payload]
+                    // TODO: `match` is used because rustfmt removes nested block braces, which
+                    //  breaks compilation: https://github.com/rust-lang/rustfmt/issues/7045
+                    match core::simd::u64x4::from(self.lanes).to_array() {
+                        [program_counter, tag, payload, _] => [program_counter, tag, payload],
                     }
                 }
                 all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {

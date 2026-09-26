@@ -7,6 +7,7 @@
 //! <https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering#alignment-and-file-access-requirements>
 //! <https://man7.org/linux/man-pages/man2/open.2.html>
 
+#![feature(core_io_borrowed_buf, maybe_uninit_as_bytes, read_buf_at)]
 // TODO: Remove once https://github.com/rust-lang/rust-clippy/issues/17498 is resolved
 #![cfg_attr(
     any(unix, windows),
@@ -22,9 +23,10 @@ mod tests;
 
 use parking_lot::Mutex;
 use std::fs::{File, OpenOptions};
+use std::io::{BorrowedBuf, BorrowedCursor};
 use std::mem::MaybeUninit;
 use std::path::Path;
-use std::{io, mem, slice};
+use std::{io, mem};
 
 /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes
 pub const DISK_PAGE_SIZE: usize = 4096;
@@ -56,12 +58,6 @@ impl AlignedPage {
     /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096
     /// bytes
     pub const SIZE: usize = 4096;
-
-    /// Convert an exclusive slice to an uninitialized version
-    pub fn as_uninit_slice_mut(value: &mut [Self]) -> &mut [MaybeUninit<Self>] {
-        // SAFETY: Same layout
-        unsafe { mem::transmute(value) }
-    }
 
     /// Convenient conversion from slice to underlying representation for efficiency purposes
     #[inline(always)]
@@ -365,45 +361,39 @@ impl DirectIoFile {
     /// `offset` needs to be page-aligned as well or use [`Self::read_exact_at()`] if you're willing
     /// to pay for the corresponding overhead.
     ///
-    /// Successful result guarantees that all bytes in `buf` were written.
+    /// Successful result guarantees that the whole `buf` was filled.
     #[inline]
     pub fn read_exact_at_raw(
         &self,
-        buf: &mut [MaybeUninit<AlignedPage>],
+        mut buf: BorrowedCursor<'_, AlignedPage>,
         offset: u64,
     ) -> io::Result<()> {
-        let buf = AlignedPage::uninit_slice_mut_to_repr(buf);
-
-        // TODO: Switch to APIs from https://github.com/rust-lang/rust/issues/140771 once
-        //  implementation lands in nightly
-        // SAFETY: `buf` is never read by Rust internal API, only written to
-        let buf = unsafe {
-            slice::from_raw_parts_mut(
-                buf.as_mut_ptr().cast::<[u8; AlignedPage::SIZE]>(),
-                buf.len(),
-            )
-        };
-
-        let buf = buf.as_flattened_mut();
+        // SAFETY: Only bytes read from the file are written into pages
+        let pages = unsafe { buf.as_mut() };
+        let num_pages = pages.len();
+        let mut bytes = BorrowedBuf::from(pages.as_bytes_mut());
 
         cfg_select! {
             unix => {
                 use std::os::unix::fs::FileExt;
 
-                self.file.read_exact_at(buf, offset)
+                self.file.read_buf_exact_at(bytes.unfilled(), offset)?;
             }
             windows => {
                 use std::os::windows::fs::FileExt;
 
-                let mut buf = buf;
+                // TODO: Switch to exact read API from
+                //  https://github.com/rust-lang/rust/issues/162868 once it lands in nightly
+                let mut bytes = bytes.unfilled();
                 let mut offset = offset;
-                while !buf.is_empty() {
-                    match self.file.seek_read(buf, offset) {
-                        Ok(0) => {
-                            break;
-                        }
-                        Ok(n) => {
-                            buf = &mut buf[n..];
+                while bytes.capacity() > 0 {
+                    let written_before = bytes.written();
+                    match self.file.seek_read_buf(bytes.reborrow(), offset) {
+                        Ok(()) => {
+                            let n = bytes.written() - written_before;
+                            if n == 0 {
+                                break;
+                            }
                             offset += n as u64;
                         }
                         Err(e) if e.kind() == io::ErrorKind::Interrupted => {
@@ -415,19 +405,24 @@ impl DirectIoFile {
                     }
                 }
 
-                if buf.is_empty() {
-                    Ok(())
-                } else {
-                    Err(io::Error::new(
+                if bytes.capacity() > 0 {
+                    return Err(io::Error::new(
                         io::ErrorKind::UnexpectedEof,
                         "failed to fill the whole buffer",
-                    ))
+                    ));
                 }
             }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
             }
         }
+
+        // SAFETY: All pages were just filled with bytes read from the file
+        unsafe {
+            buf.advance(num_pages);
+        }
+
+        Ok(())
     }
 
     /// Low-level writing from aligned memory.
@@ -447,6 +442,8 @@ impl DirectIoFile {
             windows => {
                 use std::os::windows::fs::FileExt;
 
+                // TODO: Switch to `seek_write_all()` once
+                //  https://github.com/rust-lang/rust/issues/162868 lands in nightly
                 let mut buf = buf;
                 let mut offset = offset;
                 while !buf.is_empty() {
@@ -499,7 +496,7 @@ impl DirectIoFile {
         let scratch_buffer = &mut scratch_buffer[..pages_to_read];
 
         self.read_exact_at_raw(
-            AlignedPage::as_uninit_slice_mut(scratch_buffer),
+            BorrowedBuf::from(&mut *scratch_buffer).unfilled(),
             page_aligned_offset,
         )?;
 
@@ -519,7 +516,7 @@ impl DirectIoFile {
         // Calculate the size of the read including padding on both ends
         let pages_to_read = (padding + bytes_to_write.len()).div_ceil(AlignedPage::SIZE);
 
-        if padding == 0 && pages_to_read == bytes_to_write.len() {
+        if padding == 0 && bytes_to_write.len() == pages_to_read * AlignedPage::SIZE {
             let scratch_buffer = &mut scratch_buffer[..pages_to_read];
             AlignedPage::slice_mut_to_repr(scratch_buffer)
                 .as_flattened_mut()
@@ -529,7 +526,7 @@ impl DirectIoFile {
             let scratch_buffer = &mut scratch_buffer[..pages_to_read];
             // Read whole pages where `bytes_to_write` will be written
             self.read_exact_at_raw(
-                AlignedPage::as_uninit_slice_mut(scratch_buffer),
+                BorrowedBuf::from(&mut *scratch_buffer).unfilled(),
                 page_aligned_offset,
             )?;
             // Update the contents of existing pages and write into the file

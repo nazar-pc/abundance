@@ -29,6 +29,7 @@ use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::hash::Hash;
 use core::iter::Step;
+#[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 #[cfg(feature = "alloc")]
 use core::slice;
@@ -859,6 +860,7 @@ struct RecordProofBinary([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 struct RecordProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 
 #[cfg(feature = "serde")]
@@ -874,7 +876,7 @@ impl Serialize for RecordProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `RecordProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             RecordProofHex(unsafe {
                 mem::transmute::<
@@ -897,7 +899,7 @@ impl<'de> Deserialize<'de> for RecordProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `RecordProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 mem::transmute::<
@@ -1002,6 +1004,7 @@ struct SegmentProofBinary([[u8; OUT_LEN]; SegmentProof::NUM_HASHES]);
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 struct SegmentProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
 
 #[cfg(feature = "serde")]
@@ -1017,7 +1020,7 @@ impl Serialize for SegmentProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `SegmentProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `SegmentProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             SegmentProofHex(unsafe {
                 mem::transmute::<
@@ -1040,7 +1043,7 @@ impl<'de> Deserialize<'de> for SegmentProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `SegmentProofHexHash` is `#[repr(C)]` and guaranteed to have the
+            // SAFETY: `SegmentProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 mem::transmute::<
@@ -1115,16 +1118,6 @@ impl SegmentProof {
     /// Size of segment proof in bytes
     pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
     const NUM_HASHES: usize = SuperSegmentRoot::MAX_SEGMENTS.next_power_of_two().ilog2() as usize;
-
-    /// Returns a mutable reference to an internal array as uninitialized memory.
-    ///
-    /// This is a convenience method for proof generation.
-    pub fn as_uninit_repr(
-        &mut self,
-    ) -> &mut [MaybeUninit<[u8; OUT_LEN]>; SegmentProof::NUM_HASHES] {
-        // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
-        unsafe { mem::transmute(&mut self.0) }
-    }
 }
 
 /// Header for a piece of archival history.
@@ -1233,39 +1226,39 @@ impl InnerPiece {
         RecordRoot::from(record_merkle_tree_root)
     }
 
-    /// Convenient conversion from slice of piece array to underlying representation for efficiency
+    /// Convenient conversion from slice of pieces to underlying representation for efficiency
     /// purposes.
     #[inline]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from slice of underlying representation to piece array for efficiency
+    /// Convenient conversion from slice of underlying representation to pieces for efficiency
     /// purposes.
     #[inline]
     pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from mutable slice of piece array to underlying representation for
+    /// Convenient conversion from mutable slice of pieces to underlying representation for
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from mutable slice of underlying representation to piece array for
+    /// Convenient conversion from mutable slice of underlying representation to pieces for
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 }

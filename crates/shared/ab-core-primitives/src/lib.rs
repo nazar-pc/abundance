@@ -17,6 +17,7 @@
     step_trait,
     trusted_len
 )]
+#![cfg_attr(feature = "alloc", feature(maybe_uninit_fill))]
 #![expect(incomplete_features, reason = "generic_const_*")]
 
 pub mod address;

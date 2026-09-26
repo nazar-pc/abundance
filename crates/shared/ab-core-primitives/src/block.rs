@@ -282,14 +282,14 @@ impl BlockRoot {
     #[inline(always)]
     pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         let value = Blake3Hash::slice_from_repr(value);
-        // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
+        // SAFETY: `BlockRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
     pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
+        // SAFETY: `BlockRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
         let value = unsafe { mem::transmute::<&[Self], &[Blake3Hash]>(value) };
         Blake3Hash::repr_from_slice(value)
     }

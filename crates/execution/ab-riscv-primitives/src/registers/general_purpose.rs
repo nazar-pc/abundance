@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod tests;
 
-use core::hint::unreachable_unchecked;
 use core::marker::{Destruct, PhantomData};
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr,
@@ -192,9 +191,9 @@ pub enum EReg<Type> {
     A4 = 14,
     /// Function argument: `x15`
     A5 = 15,
-    /// Phantom register that is never constructed and is only used due to type system limitations
+    /// Phantom register that can't be constructed and is only used due to type system limitations
     #[doc(hidden)]
-    Phantom(PhantomData<(!, Type)>),
+    Phantom(!, PhantomData<Type>),
 }
 
 impl<Type> fmt::Display for EReg<Type> {
@@ -216,10 +215,7 @@ impl<Type> fmt::Display for EReg<Type> {
             Self::A3 => write!(f, "a3"),
             Self::A4 => write!(f, "a4"),
             Self::A5 => write!(f, "a5"),
-            Self::Phantom(_) => {
-                // SAFETY: Phantom register can't be constructed
-                unsafe { unreachable_unchecked() }
-            }
+            Self::Phantom(never, _) => *never,
         }
     }
 }
@@ -376,9 +372,9 @@ pub enum Reg<Type> {
     T5 = 30,
     /// Temporary: `x31`
     T6 = 31,
-    /// Phantom register that is never constructed and is only used due to type system limitations
+    /// Phantom register that can't be constructed and is only used due to type system limitations
     #[doc(hidden)]
-    Phantom(PhantomData<(!, Type)>),
+    Phantom(!, PhantomData<Type>),
 }
 
 const impl<Type> From<EReg<u64>> for Reg<Type> {
@@ -401,10 +397,6 @@ const impl<Type> From<EReg<u64>> for Reg<Type> {
             EReg::A3 => Self::A3,
             EReg::A4 => Self::A4,
             EReg::A5 => Self::A5,
-            EReg::Phantom(_) => {
-                // SAFETY: Phantom register can't be constructed
-                unsafe { unreachable_unchecked() }
-            }
         }
     }
 }
@@ -444,10 +436,7 @@ impl<Type> fmt::Display for Reg<Type> {
             Self::T4 => write!(f, "t4"),
             Self::T5 => write!(f, "t5"),
             Self::T6 => write!(f, "t6"),
-            Self::Phantom(_) => {
-                // SAFETY: Phantom register can't be constructed
-                unsafe { unreachable_unchecked() }
-            }
+            Self::Phantom(never, _) => *never,
         }
     }
 }

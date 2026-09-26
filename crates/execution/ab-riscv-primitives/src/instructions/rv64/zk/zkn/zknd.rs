@@ -6,7 +6,7 @@ mod tests;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
-use core::{fmt, mem};
+use core::fmt;
 
 /// AES key schedule round constant number
 #[derive(Debug, Clone, Copy)]
@@ -54,12 +54,19 @@ impl Rv64ZkndKsRnum {
     /// Create from raw bits
     #[inline(always)]
     pub const fn from_bits(bits: u8) -> Option<Self> {
-        if bits <= Rv64ZkndKsRnum::Final as u8 {
-            // SAFETY: The transmute is safe because `Rv64ZkndKsRnum` is `#[repr(u8)]` enum with
-            // known valid values
-            Some(unsafe { mem::transmute::<u8, Self>(bits) })
-        } else {
-            None
+        match bits {
+            0x0 => Some(Self::R0),
+            0x1 => Some(Self::R1),
+            0x2 => Some(Self::R2),
+            0x3 => Some(Self::R3),
+            0x4 => Some(Self::R4),
+            0x5 => Some(Self::R5),
+            0x6 => Some(Self::R6),
+            0x7 => Some(Self::R7),
+            0x8 => Some(Self::R8),
+            0x9 => Some(Self::R9),
+            0xA => Some(Self::Final),
+            _ => None,
         }
     }
 
