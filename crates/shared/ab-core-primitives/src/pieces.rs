@@ -1235,39 +1235,39 @@ impl InnerPiece {
         RecordRoot::from(record_merkle_tree_root)
     }
 
-    /// Convenient conversion from slice of piece array to underlying representation for efficiency
+    /// Convenient conversion from slice of pieces to underlying representation for efficiency
     /// purposes.
     #[inline]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from slice of underlying representation to piece array for efficiency
+    /// Convenient conversion from slice of underlying representation to pieces for efficiency
     /// purposes.
     #[inline]
     pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from mutable slice of piece array to underlying representation for
+    /// Convenient conversion from mutable slice of pieces to underlying representation for
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from mutable slice of underlying representation to piece array for
+    /// Convenient conversion from mutable slice of underlying representation to pieces for
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
-        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
-        // layout
+        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
+        // integers and byte arrays only, so it has no padding and any bit pattern is valid
         unsafe { mem::transmute(value) }
     }
 }
