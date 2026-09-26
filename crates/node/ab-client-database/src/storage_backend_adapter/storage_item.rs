@@ -3,8 +3,8 @@ use crate::storage_backend_adapter::PageGroupKind;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
+use std::fmt;
 use std::mem::MaybeUninit;
-use std::{fmt, mem};
 
 // TODO: use this
 /// The minimum overhead that the storage item will have due to the way it is stored on disk
@@ -136,15 +136,7 @@ where
         &self,
         buffer: &mut [MaybeUninit<AlignedPage>],
     ) -> Result<(), StorageItemError> {
-        let buffer = AlignedPage::uninit_slice_mut_to_repr(buffer);
-        // SAFETY: Same size and alignment, all uninitialized
-        let buffer_bytes = unsafe {
-            mem::transmute::<
-                &mut [MaybeUninit<[u8; AlignedPage::SIZE]>],
-                &mut [[MaybeUninit<u8>; AlignedPage::SIZE]],
-            >(buffer)
-        };
-        let mut buffer = buffer_bytes.as_flattened_mut();
+        let mut buffer = buffer.as_bytes_mut();
 
         // Align buffer used by storage item to 128 bytes
         let prefix_bytes = buffer
