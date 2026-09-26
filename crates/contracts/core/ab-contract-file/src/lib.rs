@@ -37,6 +37,8 @@
     const_trait_impl,
     const_try,
     const_try_residual,
+    core_io,
+    core_io_borrowed_buf,
     derive_const,
     explicit_tail_calls,
     fn_align,
@@ -57,9 +59,9 @@ use ab_contracts_common::metadata::decode::{
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use ab_riscv_primitives::prelude::*;
+use core::io::BorrowedCursor;
 use core::iter;
 use core::iter::TrustedLen;
-use core::mem::MaybeUninit;
 use replace_with::replace_with_or_abort;
 use tracing::{debug, trace};
 
@@ -626,10 +628,11 @@ impl<'a> ContractFile<'a> {
 
     /// Initialize contract memory with file contents.
     ///
-    /// Use [`Self::contract_memory_size()`] to identify the exact necessary amount of memory.
+    /// Use [`Self::contract_memory_size()`] to identify the exact necessary amount of memory, which
+    /// must match the capacity of the cursor. The whole cursor is filled on success.
     #[must_use = "Must check that contract memory was large enough"]
-    pub fn initialize_contract_memory(&self, mut contract_memory: &mut [MaybeUninit<u8>]) -> bool {
-        let contract_memory_input_size = contract_memory.len();
+    pub fn initialize_contract_memory(&self, mut contract_memory: BorrowedCursor<'_, u8>) -> bool {
+        let contract_memory_input_size = contract_memory.capacity();
         let read_only_section_offset = ContractFileHeader::SIZE
             + u32::from(self.num_methods) * ContractFileMethodMetadata::SIZE;
         let read_only_padding_size =
@@ -641,14 +644,21 @@ impl<'a> ContractFile<'a> {
                 .get_unchecked(read_only_section_offset as usize..)
         };
 
+        // SAFETY: Only initialized bytes are written into contract memory
+        let mut contract_memory_bytes = unsafe { contract_memory.as_mut() };
+
         // Simple case: memory exactly matches the file-backed sections
-        if contract_memory.len() == source_bytes.len() {
-            contract_memory.write_copy_of_slice(source_bytes);
+        if contract_memory_bytes.len() == source_bytes.len() {
+            contract_memory_bytes.write_copy_of_slice(source_bytes);
+            // SAFETY: The whole contract memory was just initialized
+            unsafe {
+                contract_memory.advance(contract_memory_input_size);
+            }
             return true;
         }
 
         let Some(read_only_file_target_bytes) =
-            contract_memory.split_off_mut(..self.read_only_section_file_size as usize)
+            contract_memory_bytes.split_off_mut(..self.read_only_section_file_size as usize)
         else {
             trace!(
                 %contract_memory_input_size,
@@ -667,7 +677,7 @@ impl<'a> ContractFile<'a> {
         read_only_file_target_bytes.write_copy_of_slice(read_only_file_source_bytes);
 
         let Some(read_only_padding_bytes) =
-            contract_memory.split_off_mut(..read_only_padding_size as usize)
+            contract_memory_bytes.split_off_mut(..read_only_padding_size as usize)
         else {
             trace!(
                 %contract_memory_input_size,
@@ -684,7 +694,7 @@ impl<'a> ContractFile<'a> {
         // Write read-only padding
         read_only_padding_bytes.write_filled(0);
 
-        if code_source_bytes.len() != contract_memory.len() {
+        if code_source_bytes.len() != contract_memory_bytes.len() {
             trace!(
                 %contract_memory_input_size,
                 contract_memory_size = %self.contract_memory_size(),
@@ -698,7 +708,11 @@ impl<'a> ContractFile<'a> {
             return false;
         }
 
-        contract_memory.write_copy_of_slice(code_source_bytes);
+        contract_memory_bytes.write_copy_of_slice(code_source_bytes);
+        // SAFETY: The whole contract memory was just initialized
+        unsafe {
+            contract_memory.advance(contract_memory_input_size);
+        }
 
         true
     }

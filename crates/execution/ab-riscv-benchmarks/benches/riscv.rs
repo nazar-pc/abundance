@@ -1,3 +1,5 @@
+#![feature(core_io_borrowed_buf)]
+
 use ab_blake3::CHUNK_LEN;
 use ab_contract_file::ContractFile;
 use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
@@ -17,8 +19,8 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::hint::black_box;
-use std::mem::MaybeUninit;
-use std::{mem, ptr, slice};
+use std::io::BorrowedBuf;
+use std::{ptr, slice};
 
 const MEMORY_BASE_ADDRESS: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
@@ -95,13 +97,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut memory = BasicMemory::<MEMORY_BASE_ADDRESS, MEMORY_SIZE>::default();
 
     let contract_memory_size = contract_file.contract_memory_size();
-    if !contract_file.initialize_contract_memory({
-        let output_memory = memory
-            .get_mut_bytes(MEMORY_BASE_ADDRESS, contract_memory_size as usize)
-            .unwrap();
-        // SAFETY: Casting initialized memory into uninitialized memory of the same size is safe
-        unsafe { mem::transmute::<&mut [u8], &mut [MaybeUninit<u8>]>(output_memory) }
-    }) {
+    if !contract_file.initialize_contract_memory(
+        BorrowedBuf::from(
+            memory
+                .get_mut_bytes(MEMORY_BASE_ADDRESS, contract_memory_size as usize)
+                .unwrap(),
+        )
+        .unfilled(),
+    ) {
         panic!(
             "Failed to initialize contract memory of size {contract_memory_size} bytes at base \
             address 0x{MEMORY_BASE_ADDRESS:x}",
