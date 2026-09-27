@@ -1,4 +1,5 @@
 use crate::rv64::test_utils::{Env, execute, initialize_state};
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{Csrs, ExecutableInstructionCsr, RegisterFile};
 use ab_riscv_primitives::prelude::*;
@@ -1368,7 +1369,12 @@ fn ext_initialize_vector_state() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
     // Dirty it up
-    state.env.set_vl(Vl::new(42).unwrap());
+    let vtype =
+        Vtype::from_raw::<Reg<u64>>(u64::from(encode_vtype(Vsew::E8, Vlmul::M1, false, false)))
+            .unwrap();
+    state.env.set_vector_config(Some(
+        VectorConfig::new(vtype, Vl::new(12).unwrap()).unwrap(),
+    ));
     VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.env, Vstart::from(7));
     VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.env, Vxrm::Rne);
     VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.env, true);

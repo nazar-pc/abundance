@@ -2,6 +2,7 @@ use crate::basic::{BasicInstructionFetcher, BasicMemory, BasicRegisters};
 use crate::rv64::test_utils::{
     Env, TEST_BASE_ADDR, TRAP_ADDRESS, TestInterpreterState, initialize_state,
 };
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
 use crate::{
     BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
@@ -140,8 +141,9 @@ fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInst
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -762,7 +764,7 @@ fn vlm_honors_vstart_in_byte_units() {
 fn vlm_with_vill_is_illegal() {
     // `vlm.v` depends on vtype indirectly through its constraints on vl, so it respects vill
     let mut state = setup(Vl::new(3).unwrap(), Vsew::E8, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     write_mem(&mut state, TEST_BASE_ADDR, &[0x07u8]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 

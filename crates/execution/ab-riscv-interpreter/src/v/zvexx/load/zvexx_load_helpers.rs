@@ -399,7 +399,11 @@ where
                 Err(mem_err) => {
                     cold_path();
                     if FAULT_ONLY_FIRST && i > 0 {
-                        env.set_vl(Vl::from(i));
+                        // TODO: Use the configuration the instruction was executed with
+                        let config = env.vector_config();
+                        env.set_vector_config(
+                            config.map(|config| config.with_vl_at_most(Vl::from(i))),
+                        );
                         env.mark_vs_dirty();
                         env.reset_vstart();
                         return Ok(());

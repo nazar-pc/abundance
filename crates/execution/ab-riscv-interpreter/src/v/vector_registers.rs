@@ -1,6 +1,7 @@
 //! Vector registers
 
 use crate::Csrs;
+use crate::v::vector_config::VectorConfig;
 use ab_riscv_primitives::prelude::*;
 use core::marker::Destruct;
 
@@ -229,8 +230,7 @@ where
     /// deterministic behavior.
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn initialize_vector_state(&mut self) {
-        self.set_vtype(None);
-        self.set_vl(Vl::ZERO);
+        self.set_vector_config(None);
         self.set_vstart(Vstart::ZERO);
         self.set_vxrm(Vxrm::default());
         self.set_vxsat(false);
@@ -333,59 +333,74 @@ where
         debug_assert!(result.is_ok(), "Implementation must initialize `vcsr` CSR");
     }
 
-    /// Get the current vl
+    /// Get the current vector configuration, `None` when `vill` is set.
+    ///
+    /// This is the only source of `vtype` and `vl` for instructions. An instruction reads it once
+    /// and derives everything from that single value, so even an implementation that returns
+    /// different configurations from different calls can't make it combine a `vl` with a `vtype`
+    /// it does not belong to.
+    ///
+    /// The default implementation decodes the raw `vtype` and `vl` CSRs and treats an inconsistent
+    /// pair as `vill`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vl(&self) -> Vl {
-        let vl = self
-            .read_csr(VectorCsr::Vl.to_csr_index())
-            .unwrap_or_default()
-            .as_u64() as u32;
-        // Should always be `Some()`, but can't be guaranteed here
-        Vl::new(vl).unwrap_or_default()
+    fn vector_config(&self) -> Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>> {
+        let vtype = self.read_csr(VectorCsr::Vtype.to_csr_index()).ok()?;
+        let vl = self.read_csr(VectorCsr::Vl.to_csr_index()).ok()?;
+        VectorConfig::from_raw::<Reg>(vtype, vl)
     }
 
-    /// Set vl.
+    /// Set the vector configuration, `None` sets `vill` (and `vl` to zero).
     ///
-    /// The implementation must update both its internal decoded cache and the raw CSR value (for
-    /// reads via Zicsr, writes via Zicsr are not allowed).
+    /// The implementation must also make the raw `vtype` and `vl` values available for reads via
+    /// Zicsr (writes via Zicsr are not allowed).
     ///
     /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
     /// debug.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn set_vl(&mut self, vl: Vl) {
-        let result = self.write_csr(VectorCsr::Vl.to_csr_index(), Reg::Type::from(u32::from(vl)));
-        debug_assert!(result.is_ok(), "Implementation must initialize `vl` CSR");
-    }
-
-    /// Get the current decoded vtype
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-        self.read_csr(VectorCsr::Vtype.to_csr_index())
-            .ok()
-            .and_then(Vtype::from_raw::<Reg>)
-    }
-
-    /// Set the vtype register from a decoded `Vtype`.
-    ///
-    /// The implementation must update both its internal decoded cache and the raw CSR value (for
-    /// reads via Zicsr, writes via Zicsr are not allowed).
-    ///
-    /// The default implementation ignores writes to uninitialized CSR in release mode and panics in
-    /// debug.
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-        let vtype_raw = if let Some(vt) = vtype {
-            vt.to_raw::<Reg>()
+    fn set_vector_config(
+        &mut self,
+        vector_config: Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>>,
+    ) {
+        let (vtype_raw, vl_raw) = if let Some(vector_config) = vector_config {
+            (
+                vector_config.vtype().to_raw::<Reg>(),
+                Reg::Type::from(u32::from(vector_config.vl())),
+            )
         } else {
-            Vtype::<{ Self::ELEN }, { Self::VLEN }>::illegal_raw::<Reg>()
+            (
+                Vtype::<{ Self::ELEN }, { Self::VLEN }>::illegal_raw::<Reg>(),
+                Reg::Type::from(0u8),
+            )
         };
 
         let result = self.write_csr(VectorCsr::Vtype.to_csr_index(), vtype_raw);
         debug_assert!(result.is_ok(), "Implementation must initialize `vtype` CSR");
+        let result = self.write_csr(VectorCsr::Vl.to_csr_index(), vl_raw);
+        debug_assert!(result.is_ok(), "Implementation must initialize `vl` CSR");
+    }
+
+    /// `vl` of [`Self::vector_config()`]
+    // TODO: Remove once instructions use `Self::vector_config()` directly
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn vl(&self) -> Vl {
+        match self.vector_config() {
+            Some(config) => config.vl(),
+            None => Vl::ZERO,
+        }
+    }
+
+    /// `vtype` of [`Self::vector_config()`]
+    // TODO: Remove once instructions use `Self::vector_config()` directly
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
+        match self.vector_config() {
+            Some(config) => Some(config.vtype()),
+            None => None,
+        }
     }
 }
 
@@ -462,23 +477,21 @@ macro_rules! impl_vector_registers_for_mut_ref {
             }
 
             #[inline(always)]
-            fn vl(&self) -> Vl {
-                <$env as VectorRegistersExt<$reg>>::vl(self)
+            fn vector_config(
+                &self,
+            ) -> Option<$crate::v::vector_config::VectorConfig<{ Self::ELEN }, { Self::VLEN }>>
+            {
+                <$env as VectorRegistersExt<$reg>>::vector_config(self)
             }
 
             #[inline(always)]
-            fn set_vl(&mut self, vl: Vl) {
-                <$env as VectorRegistersExt<$reg>>::set_vl(self, vl);
-            }
-
-            #[inline(always)]
-            fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-                <$env as VectorRegistersExt<$reg>>::vtype(self)
-            }
-
-            #[inline(always)]
-            fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-                <$env as VectorRegistersExt<$reg>>::set_vtype(self, vtype);
+            fn set_vector_config(
+                &mut self,
+                vector_config: Option<
+                    $crate::v::vector_config::VectorConfig<{ Self::ELEN }, { Self::VLEN }>,
+                >,
+            ) {
+                <$env as VectorRegistersExt<$reg>>::set_vector_config(self, vector_config);
             }
 
             #[inline(always)]

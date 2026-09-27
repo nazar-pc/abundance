@@ -1,7 +1,8 @@
 use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
-    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
+    Csrs, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
@@ -20,8 +21,9 @@ fn setup(
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -1322,8 +1324,7 @@ fn error_vill_set_vtype() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     // vtype = None (vill set)
-    state.env.set_vtype(None);
-    state.env.set_vl(Vl::ZERO);
+    state.env.set_vector_config(None);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1724,4 +1725,33 @@ fn compare_mask_dest_outside_source_group_lmul_gt_1_ok() {
     )
     .unwrap();
     assert_eq!(state.env.read_vregs().get(VReg::V8)[0], 0xFF);
+}
+
+// Inconsistent vector configuration
+
+#[test]
+fn vl_above_vlmax_in_raw_csr_is_treated_as_vill() {
+    // e64/m1: VLMAX = 4 with VLEN = 256. Host code writing a larger `vl` directly into CSR storage
+    // produces a state the architecture can't get into, which must not be executed with.
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
+    for vl in [5, 32, 65_536] {
+        Csrs::<Reg<u64>>::write_csr(&mut state.env, VectorCsr::Vl.to_csr_index(), vl).unwrap();
+        assert!(state.env.vector_config().is_none(), "vl={vl}");
+
+        let result = exec(
+            &mut state,
+            ZveXxArithInstruction::VaddVv {
+                vd: VReg::V31,
+                vs2: VReg::V31,
+                vs1: VReg::V31,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        assert!(
+            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+            "vl={vl}"
+        );
+    }
 }

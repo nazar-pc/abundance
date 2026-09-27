@@ -1,5 +1,6 @@
 use crate::prelude::VLENB_USIZE;
 use crate::rv64::test_utils::{Env, TestInterpreterState, initialize_state};
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{mulh_ss, mulhsu_su, mulhu_uu};
 use crate::{
@@ -34,8 +35,9 @@ fn setup(
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }

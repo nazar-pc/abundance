@@ -1,4 +1,5 @@
 use crate::rv64::test_utils::initialize_state;
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
     ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
@@ -29,8 +30,9 @@ fn setup(
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -276,7 +278,7 @@ fn vmv_x_s_illegal_when_vector_disabled() {
 #[test]
 fn vmv_x_s_illegal_when_vtype_invalid() {
     let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     let err = exec(
         &mut state,
         ZveXxPermInstruction::VmvXS {
@@ -1993,7 +1995,7 @@ fn vmerge_variants_illegal_when_vtype_invalid() {
     ];
     for (instr, name) in instrs {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-        state.env.set_vtype(None);
+        state.env.set_vector_config(None);
         let err = exec(&mut state, *instr).unwrap_err();
         assert!(
             matches!(err, ExecutionError::IllegalInstruction { .. }),
@@ -2555,7 +2557,7 @@ fn vmv8r_v_misaligned_vs2_illegal() {
 fn vmvr_with_vill_is_illegal() {
     // Whole-register moves operate with `EEW = min(VLEN * EMUL, SEW)`, so they depend on vtype
     let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     set_vreg_bytes(&mut state, VReg::V2, 0xAB);
     set_vreg_bytes(&mut state, VReg::V4, 0x00);
     let err = exec(
