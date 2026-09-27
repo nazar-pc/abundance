@@ -1594,9 +1594,13 @@ where
                         ),
                     });
                 };
-                // Destination SEW must be <= 32 so that 2*SEW fits in 64 bits
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1626,7 +1630,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1634,7 +1638,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1664,7 +1668,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1688,7 +1697,7 @@ where
                     });
                 }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1696,7 +1705,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1721,7 +1730,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1744,7 +1758,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1753,7 +1767,7 @@ where
                         // Immediate is the shift amount directly; masking done inside the helper
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1779,7 +1793,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1807,7 +1826,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1815,7 +1834,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1845,7 +1864,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1869,7 +1893,7 @@ where
                     });
                 }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1877,7 +1901,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1902,7 +1926,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1925,7 +1954,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1933,7 +1962,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
                         },

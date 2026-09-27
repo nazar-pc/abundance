@@ -3,7 +3,7 @@
 use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
-use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
+use crate::v::zvexx::zvexx_helpers::{ExtensionSew, INSTRUCTION_SIZE, WideningSew};
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
@@ -290,7 +290,6 @@ fn scalar_signed_for_sew(val: u64, sew: Vsew) -> u64 {
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)` (verified by
 ///   caller)
 /// - `vl <= group_regs * VLEN.bytes() / sew.bytes_width()` (all elements fit)
-/// - SEW < 64
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -301,7 +300,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -311,8 +310,8 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: Caller guarantees SEW < 64, hence this is always valid
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
@@ -369,7 +368,6 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
 /// - `vs2` aligned to `2*group_regs`, fits in `[0,32)` (wide source)
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLEN.bytes() / sew.bytes_width()`
-/// - SEW < 64
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -380,7 +378,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -390,8 +388,8 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: Caller guarantees SEW < 64, hence this is always valid
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
@@ -445,7 +443,6 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
 ///   destination SEW is half the source SEW
 /// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - `vl <= group_regs * VLEN.bytes() / sew.bytes_width()`
-/// - SEW < 64
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -456,7 +453,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
@@ -464,8 +461,8 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: Caller guarantees SEW < 64, hence this is always valid
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
     // Shift amount mask: log2(2*SEW) bits = log2(SEW) + 1 bits
     let shamt_mask = u64::from(wide_sew.bits_width() - 1);
 
@@ -509,8 +506,8 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 
 /// Execute an integer extension (vzext/vsext).
 ///
-/// Source element width is `sew.divide_by_factor(factor).bytes_width()`; destination is
-/// `sew.bytes_width()`. `SIGN` selects sign- or zero-extension.
+/// Source element width is `sew.source()`, destination is `sew.dest()`. `SIGN` selects sign- or
+/// zero-extension.
 ///
 /// The source EMUL = LMUL / factor; the source register group is `max(1, group_regs / factor)`
 /// registers.
@@ -519,7 +516,6 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 /// - `vd` aligned to `group_regs`, fits in `[0,32)`
 /// - `vs2` aligned to `src_group_regs`, fits in `[0,32)`, does not overlap `vd`
 /// - `vl <= group_regs * VLEN.bytes() / sew.bytes_width()`
-/// - `sew.divide_by_factor(factor).is_some()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -529,8 +525,7 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    sew: Vsew,
-    factor: VsewFactor,
+    sew: ExtensionSew,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
@@ -538,8 +533,8 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
 {
     let vl = env.vl();
     let vstart = env.vstart();
-    // SAFETY: Caller guarantees SEW >= factor*8 and valid according to function contract
-    let src_sew = unsafe { sew.divide_by_factor(factor).unwrap_unchecked() };
+    let src_sew = sew.source();
+    let sew = sew.dest();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 

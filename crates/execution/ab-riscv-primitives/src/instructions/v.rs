@@ -156,7 +156,7 @@ impl Vl {
 
 /// Element length
 #[derive(ConstParamTy, Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
+#[derive_const(PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Elen {
     /// Element length is 8 bits
@@ -198,7 +198,7 @@ const impl From<Elen> for u32 {
 
 /// Vector length
 #[derive(ConstParamTy, Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
+#[derive_const(PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Vlen {
     /// Vector length is 8 bits

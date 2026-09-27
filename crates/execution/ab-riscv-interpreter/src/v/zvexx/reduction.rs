@@ -475,24 +475,24 @@ where
                         ),
                     });
                 }
-                // Widening: 2*SEW must fit in ELEN
-                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(Env::ELEN) {
+                let Some(widening_sew) =
+                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let vl = env.vl();
-                // SAFETY: `vs2` alignment checked; widening SEW constraint checked above;
+                // SAFETY: `vs2` alignment checked;
                 // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
                 unsafe {
                     zvexx_reduction_helpers::execute_widening_reduce_op::<false, _, _, _>(
@@ -502,7 +502,7 @@ where
                         vs1,
                         vm,
                         vl,
-                        sew,
+                        widening_sew,
                         // Zero-extend vs2 elements then accumulate
                         |acc, elem, _sew| acc.wrapping_add(elem),
                     );
@@ -533,21 +533,22 @@ where
                         ),
                     });
                 }
-                if u32::from(vtype.vsew().bits_width()) * 2 > u32::from(Env::ELEN) {
+                let Some(widening_sew) =
+                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let vl = env.vl();
                 // SAFETY: see `Vwredsumu`
                 unsafe {
@@ -558,7 +559,7 @@ where
                         vs1,
                         vm,
                         vl,
-                        sew,
+                        widening_sew,
                         // Sign-extend vs2 elements then accumulate
                         |acc, elem, _sew| acc.wrapping_add(elem),
                     );

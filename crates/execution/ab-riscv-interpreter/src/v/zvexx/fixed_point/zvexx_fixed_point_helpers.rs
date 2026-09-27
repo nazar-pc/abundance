@@ -6,7 +6,7 @@ pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
     OpSrc, check_vreg_group_alignment, sew_mask,
 };
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
-use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
+use crate::v::zvexx::zvexx_helpers::{INSTRUCTION_SIZE, WideningSew};
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
@@ -322,12 +322,9 @@ pub fn smul(a: u64, b: u64, sew: Vsew, mode: Vxrm, vxsat: &mut bool) -> u64 {
 /// Narrowing unsigned clip: read a 2*SEW element from `vs2`, shift right by `shamt` with
 /// rounding, saturate to unsigned SEW range, set `vxsat` on clamp.
 ///
-/// `vs2_elem` is the 2*SEW-bit element (zero-extended to u64 for SEW <= 32;
-/// for SEW = 64 the doubled width would be 128 bits, but Zve64x only supports SEW up to 64 and
-/// the narrowing destination is at most 64 bits wide, so 2*SEW = 128 - however the spec requires
-/// `ELEN >= 2*SEW` for narrowing instructions. Since `ELEN = 64` in Zve64x, narrowing is only
-/// valid for SEW <= 32 (`2*SEW <= 64`).  The caller must enforce this constraint by checking
-/// `vsew` before invoking narrowing operations.
+/// `vs2_elem` is the 2*SEW-bit element, zero-extended to `u64`. The spec requires
+/// `2*SEW <= ELEN` for narrowing instructions, which the caller must enforce with
+/// [`check_narrowing_sew()`].
 ///
 /// `vs2_elem` is passed as `u64`; for SEW = 32 it holds a 64-bit (2*SEW) value.
 #[inline(always)]
@@ -451,11 +448,7 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
 /// `vs2` holds a double-width register group (2x `group_regs` registers). `vd` holds the
 /// single-width destination. `src` provides the shift amount (Vreg or Scalar).
 ///
-/// For Zve64x narrowing instructions, `SEW` must be at most 32 because `2*SEW` must fit in 64
-/// bits. The caller must verify this constraint before invoking this function.
-///
 /// # Safety
-/// - `sew.bits_width() <= 32` (Zve64x ELEN = 64 constraint for narrowing)
 /// - `vs2.to_bits() % (2 * group_regs) == 0` and `vs2.to_bits() + 2 * group_regs <= 32`
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
@@ -469,7 +462,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -478,8 +471,8 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
-    // SAFETY: `2 * SEW <= ELEN` is a precondition, so the double width exists
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
     let vl = env.vl();
     let vstart = env.vstart();
     let vxrm = env.vxrm();
@@ -515,27 +508,27 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     env.reset_vstart();
 }
 
-/// Verify that the destination SEW is valid for narrowing (must be at most 32 in Zve64x).
+/// Verify that the destination SEW is valid for narrowing, meaning the `2*SEW` source does not
+/// exceed `ELEN`.
 ///
-/// Returns `Err(IllegalInstruction)` when `sew.bits_width() > 32`.
+/// Returns `Err(IllegalInstruction)` otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_narrowing_sew<Reg, Memory, PC>(
+pub fn check_narrowing_sew<const ELEN: Elen, Reg, Memory, PC>(
     program_counter: &PC,
     sew: Vsew,
-) -> Result<(), ExecutionError<Reg::Type>>
+) -> Result<WideningSew<ELEN>, ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    if sew.bits_width() > 32 {
+    WideningSew::<ELEN>::new(sew).ok_or_else(|| {
         cold_path();
-        return Err(ExecutionError::IllegalInstruction {
+        ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
+        }
+    })
 }
 
 /// Check that the double-width source `vs2` of a narrowing instruction is aligned to its register
@@ -547,7 +540,7 @@ where
 /// would need `EMUL=16`) is reserved. Unlike `2 * register_count()`, this correctly yields a single
 /// register with no alignment constraint for fractional `LMUL` (where `2*LMUL <= 1`).
 ///
-/// `sew` is the destination (narrow) SEW; it must be at most 32 (see [`check_narrowing_sew()`]).
+/// `sew` is the destination (narrow) SEW, see [`check_narrowing_sew()`].
 ///
 /// Per spec §11.7, `vd` may alias only the *low* part of `vs2`'s wider register group (i.e.
 /// `vd == vs2`) - any other overlap (e.g. `vd` aliasing only the high part) is illegal.

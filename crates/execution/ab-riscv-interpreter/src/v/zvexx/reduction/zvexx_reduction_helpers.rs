@@ -2,6 +2,7 @@
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
+use crate::v::zvexx::zvexx_helpers::WideningSew;
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
 
@@ -63,7 +64,6 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
 ///
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
-/// - `sew.double_width().is_some()` (verified by caller)
 /// - `vstart == 0` (verified by caller)
 /// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
 /// - `vl <= VLEN`
@@ -78,7 +78,7 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
     vs1: VReg,
     vm: bool,
     vl: Vl,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -86,10 +86,8 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let Some(wide_sew) = sew.double_width() else {
-        // SAFETY: caller verified `2*SEW <= ELEN`; E64 widening is unreachable here
-        unsafe { core::hint::unreachable_unchecked() }
-    };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
     if vl == Vl::ZERO {
         cold_path();
         env.reset_vstart();
