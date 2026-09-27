@@ -1,5 +1,6 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
+use crate::v::zvexx::load::tests::{WRAP_AROUND_HIGH_ADDR, WrapAroundMemory, execute_with_memory};
 use crate::{
     ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
@@ -1578,4 +1579,89 @@ fn vsse_out_of_bounds_write_returns_memory_access_error() {
         result,
         Err(ExecutionError::OutOfBoundsWrite { .. })
     ));
+}
+
+// Address wrap-around tests
+
+#[test]
+fn vsr_wraps_around_end_of_address_space() {
+    // The first register goes to the last 32 bytes of the address space, the second one to the
+    // first 32 bytes
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.write_vregs().get_mut(VReg::V2).fill(0x11);
+    state.env.write_vregs().get_mut(VReg::V3).fill(0x22);
+    let mut memory = WrapAroundMemory::default();
+    state.regs.write(Reg::A0, WRAP_AROUND_HIGH_ADDR + 32);
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N2,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(memory.high[..32], [0; 32]);
+    assert_eq!(memory.high[32..], [0x11; 32]);
+    assert_eq!(memory.low[..32], [0x22; 32]);
+    assert_eq!(memory.low[32..], [0; 32]);
+}
+
+#[test]
+fn vse_wraps_around_end_of_address_space() {
+    // E8/M1 with vl=32: elements 0..16 go to the end of the address space and 16..32 to its
+    // beginning
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
+    *state.env.write_vregs().get_mut(VReg::V4) = array::from_fn(|i| i as u8 + 1);
+    let mut memory = WrapAroundMemory::default();
+    state.regs.write(Reg::A0, WRAP_AROUND_HIGH_ADDR + 48);
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxStoreInstruction::Vse {
+            vs3: VReg::V4,
+            rs1: Reg::A0,
+            vm: true,
+            eew: Eew::E8,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(
+        memory.high[48..],
+        array::from_fn::<u8, 16, _>(|i| i as u8 + 1)
+    );
+    assert_eq!(
+        memory.low[..16],
+        array::from_fn::<u8, 16, _>(|i| i as u8 + 17)
+    );
+}
+
+#[test]
+fn vsm_wraps_around_end_of_address_space() {
+    // vl=32 -> 4 bytes, 2 to the end of the address space and 2 to its beginning
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.write_vregs().get_mut(VReg::V1)[..4].copy_from_slice(&[1, 2, 3, 4]);
+    let mut memory = WrapAroundMemory::default();
+    state.regs.write(Reg::A0, 0u64.wrapping_sub(2));
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxStoreInstruction::Vsm {
+            vs3: VReg::V1,
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(memory.high[62..], [1, 2]);
+    assert_eq!(memory.low[..2], [3, 4]);
 }

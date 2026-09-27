@@ -1,5 +1,7 @@
-use crate::basic::{BasicInstructionFetcher, BasicMemory};
-use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
+use crate::basic::{BasicInstructionFetcher, BasicMemory, BasicRegisters};
+use crate::rv64::test_utils::{
+    Env, TEST_BASE_ADDR, TRAP_ADDRESS, TestInterpreterState, initialize_state,
+};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
     BasicInt, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
@@ -14,6 +16,124 @@ use core::array;
 //   E8/M2=64, E16/M2=32, E32/M2=16, E64/M2=8
 //   E8/M4=128, E32/M4=32
 //   E8/Mf2=16, E16/Mf2=8
+
+/// Size of each of the two regions of [`WrapAroundMemory`]
+pub(in crate::v::zvexx) const WRAP_AROUND_REGION_SIZE: usize = 64;
+/// Address of the first byte of the upper region of [`WrapAroundMemory`]
+pub(in crate::v::zvexx) const WRAP_AROUND_HIGH_ADDR: u64 =
+    0u64.wrapping_sub(WRAP_AROUND_REGION_SIZE as u64);
+
+/// Memory with a region at the very end of the 64-bit address space and another one at address
+/// zero, for accesses that wrap around from one to the other.
+///
+/// Only slice accesses are supported, which is what vector loads and stores use.
+#[derive(Debug)]
+pub(in crate::v::zvexx) struct WrapAroundMemory {
+    pub(in crate::v::zvexx) low: [u8; WRAP_AROUND_REGION_SIZE],
+    pub(in crate::v::zvexx) high: [u8; WRAP_AROUND_REGION_SIZE],
+}
+
+impl Default for WrapAroundMemory {
+    fn default() -> Self {
+        Self {
+            low: [0; _],
+            high: [0; _],
+        }
+    }
+}
+
+impl WrapAroundMemory {
+    fn region(&self, address: u64) -> Option<&[u8]> {
+        if address >= WRAP_AROUND_HIGH_ADDR {
+            self.high.get((address - WRAP_AROUND_HIGH_ADDR) as usize..)
+        } else {
+            self.low.get(usize::try_from(address).ok()?..)
+        }
+    }
+
+    fn region_mut(&mut self, address: u64) -> Option<&mut [u8]> {
+        if address >= WRAP_AROUND_HIGH_ADDR {
+            self.high
+                .get_mut((address - WRAP_AROUND_HIGH_ADDR) as usize..)
+        } else {
+            self.low.get_mut(usize::try_from(address).ok()?..)
+        }
+    }
+}
+
+impl VirtualMemory for WrapAroundMemory {
+    fn read<T>(&self, _address: u64) -> Result<T, VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        unimplemented!("Only slice accesses are supported")
+    }
+
+    unsafe fn read_unchecked<T>(&self, _address: u64) -> T
+    where
+        T: BasicInt,
+    {
+        unimplemented!("Only slice accesses are supported")
+    }
+
+    fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
+        self.region(address)
+            .and_then(|region| region.get(..len as usize))
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
+    }
+
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
+        let region = self.region(address).unwrap_or_default();
+        region.get(..len as usize).unwrap_or(region)
+    }
+
+    fn write<T>(&mut self, _address: u64, _value: T) -> Result<(), VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        unimplemented!("Only slice accesses are supported")
+    }
+
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
+        self.region_mut(address)
+            .and_then(|region| region.get_mut(..data.len()))
+            .ok_or(VirtualMemoryError::OutOfBoundsWrite { address })?
+            .copy_from_slice(data);
+        Ok(())
+    }
+}
+
+/// Execute `instruction` with the state's registers and environment, but against `memory`
+/// instead of the state's own memory
+pub(in crate::v::zvexx) fn execute_with_memory<I, Memory>(
+    state: &mut TestInterpreterState<I>,
+    instruction: I,
+    memory: &mut Memory,
+) -> ExecutionResult<Reg<u64>>
+where
+    I: Instruction<Reg = Reg<u64>>
+        + ExecutableInstruction<
+            BasicRegisters<Reg<u64>, false>,
+            Env,
+            Memory,
+            BasicInstructionFetcher<I>,
+        >,
+    Memory: VirtualMemory,
+{
+    let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+    let mut instruction_fetcher = BasicInstructionFetcher::new(TRAP_ADDRESS, TEST_BASE_ADDR);
+    instruction.execute(
+        rs1rs2_values,
+        &mut state.regs,
+        &mut state.env,
+        memory,
+        &mut instruction_fetcher,
+    )
+}
 
 /// Initialize the state with vector CSRs and a given vtype configuration
 fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>> {
@@ -2247,4 +2367,92 @@ fn vlr_eight_registers() {
             .unwrap();
         assert_eq!(vreg_bytes(&state, reg), expected, "register v{r}");
     }
+}
+
+// Address wrap-around tests
+
+#[test]
+fn vlr_wraps_around_end_of_address_space() {
+    // The first register comes from the last 32 bytes of the address space, the second one from
+    // the first 32 bytes
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut memory = WrapAroundMemory::default();
+    memory.high.fill(0x11);
+    memory.low.fill(0x22);
+    state.regs.write(Reg::A0, WRAP_AROUND_HIGH_ADDR + 32);
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxLoadInstruction::Vlr {
+            vd: VReg::V2,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N2,
+            eew: Eew::E8,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(vreg_bytes(&state, VReg::V2), [0x11; 32]);
+    assert_eq!(vreg_bytes(&state, VReg::V3), [0x22; 32]);
+}
+
+#[test]
+fn vle_wraps_around_end_of_address_space() {
+    // E8/M1 with vl=32: elements 0..16 come from the end of the address space and 16..32 from its
+    // beginning
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut memory = WrapAroundMemory {
+        low: array::from_fn(|i| 0x80 + i as u8),
+        high: array::from_fn(|i| i as u8),
+    };
+    state.regs.write(Reg::A0, WRAP_AROUND_HIGH_ADDR + 48);
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxLoadInstruction::Vle {
+            vd: VReg::V1,
+            rs1: Reg::A0,
+            vm: true,
+            eew: Eew::E8,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    let expected = array::from_fn::<u8, 32, _>(|i| {
+        if i < 16 {
+            48 + i as u8
+        } else {
+            0x80 + (i - 16) as u8
+        }
+    });
+    assert_eq!(vreg_bytes(&state, VReg::V1), expected);
+}
+
+#[test]
+fn vlm_wraps_around_end_of_address_space() {
+    // vl=32 -> 4 bytes, 2 from the end of the address space and 2 from its beginning
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut memory = WrapAroundMemory::default();
+    memory.high.fill(0x11);
+    memory.low.fill(0x22);
+    state.regs.write(Reg::A0, 0u64.wrapping_sub(2));
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxLoadInstruction::Vlm {
+            vd: VReg::V1,
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    let mut expected = [0; 32];
+    expected[..4].copy_from_slice(&[0x11, 0x11, 0x22, 0x22]);
+    assert_eq!(vreg_bytes(&state, VReg::V1), expected);
 }

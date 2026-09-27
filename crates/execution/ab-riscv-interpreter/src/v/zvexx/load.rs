@@ -1,7 +1,7 @@
 //! ZveXx vector load instructions
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 pub mod zvexx_load_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
@@ -76,18 +76,21 @@ where
                     // SAFETY: the decoder guarantees nreg in {1,2,4,8} and vd is nreg-aligned
                     // (checked above), so vd.to_bits() + nreg - 1 <= 31.
                     let reg = unsafe { VReg::from_bits(vd.to_bits() + reg_off).unwrap_unchecked() };
-                    let bytes = memory
-                        .read_slice(
-                            base + u64::from(reg_off) * u64::from(Env::VLEN.bytes()),
-                            Env::VLEN.bytes(),
-                        )
-                        .inspect_err(|_error| {
-                            if reg_off > 0 {
-                                env.mark_vs_dirty();
-                                env.reset_vstart();
-                            }
-                        })?;
-                    env.write_vregs().get_mut(reg).copy_from_slice(bytes);
+                    let address = zvexx_load_helpers::effective_address::<Reg>(
+                        base,
+                        u64::from(reg_off) * u64::from(Env::VLEN.bytes()),
+                    );
+                    zvexx_load_helpers::read_bytes::<Reg, _>(
+                        memory,
+                        address,
+                        env.write_vregs().get_mut(reg),
+                    )
+                    .inspect_err(|_error| {
+                        if reg_off > 0 {
+                            env.mark_vs_dirty();
+                            env.reset_vstart();
+                        }
+                    })?;
                 }
                 env.mark_vs_dirty();
                 env.reset_vstart();
@@ -116,14 +119,6 @@ where
                 let byte_count = usize::from(vl.bytes());
                 if byte_count > 0 {
                     let base = rs1_value.as_u64();
-                    let bytes = memory.read_slice(base, u32::from(vl.bytes()))?;
-                    // Only the requested bytes are used, even if memory returned more
-                    let Some(src) = bytes.get(..byte_count) else {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::OutOfBoundsRead {
-                            address: PackedAddress::new(base),
-                        });
-                    };
                     // Not in bounds only with `vl` above `VLEN`, which is an inconsistent vector
                     // state
                     let Some(dst) = env.write_vregs().get_mut(vd).get_mut(..byte_count) else {
@@ -134,7 +129,7 @@ where
                             ),
                         });
                     };
-                    dst.copy_from_slice(src);
+                    zvexx_load_helpers::read_bytes::<Reg, _>(memory, base, dst)?;
                 }
                 env.mark_vs_dirty();
                 env.reset_vstart();

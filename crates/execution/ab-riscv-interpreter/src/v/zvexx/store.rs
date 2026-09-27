@@ -87,7 +87,10 @@ where
                         };
                         // SAFETY: `in_reg < VLEN.bytes()` by construction
                         let src = unsafe { env.read_vregs().get(reg).get_unchecked(in_reg..) };
-                        if let Err(error) = memory.write_slice(base + byte_off, src) {
+                        let address = zvexx_load_helpers::effective_address::<Reg>(base, byte_off);
+                        if let Err(error) =
+                            zvexx_store_helpers::write_bytes::<Reg, _>(memory, address, src)
+                        {
                             env.set_vstart(Vstart::from(byte_off as u16));
                             return ExecutionResult::Err(ExecutionError::from(error));
                         }
@@ -129,9 +132,11 @@ where
                             usize::from(u16::from(start_byte))..usize::from(evl_bytes),
                         )
                     };
-                    memory
-                        .write_slice(base + u64::from(u16::from(start_byte)), src)
-                        .map_err(ExecutionError::from)?;
+                    let address = zvexx_load_helpers::effective_address::<Reg>(
+                        base,
+                        u64::from(u16::from(start_byte)),
+                    );
+                    zvexx_store_helpers::write_bytes::<Reg, _>(memory, address, src)?;
                 }
                 env.reset_vstart();
             }
