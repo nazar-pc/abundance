@@ -2570,13 +2570,13 @@ fn vmv8r_v_misaligned_vs2_illegal() {
 }
 
 #[test]
-fn vmvr_does_not_require_valid_vtype() {
-    // Whole-register moves must work even with vtype invalid (vill=1).
+fn vmvr_with_vill_is_illegal() {
+    // Whole-register moves operate with `EEW = min(VLEN * EMUL, SEW)`, so they depend on vtype
     let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
     state.env.set_vtype(None);
     set_vreg_bytes(&mut state, VReg::V2, 0xAB);
     set_vreg_bytes(&mut state, VReg::V4, 0x00);
-    exec(
+    let err = exec(
         &mut state,
         ZveXxPermInstruction::Vmv1rV {
             vd: VReg::V4,
@@ -2585,8 +2585,9 @@ fn vmvr_does_not_require_valid_vtype() {
             rs2: Reg::Zero,
         },
     )
-    .unwrap();
-    assert_eq!(get_vreg_bytes(&state, VReg::V4), [0xAB; 32]);
+    .unwrap_err();
+    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_eq!(get_vreg_bytes(&state, VReg::V4), [0x00; 32]);
 }
 
 // Multi-register group (LMUL > 1) tests

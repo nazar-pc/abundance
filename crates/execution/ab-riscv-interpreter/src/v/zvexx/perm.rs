@@ -912,9 +912,18 @@ where
             }
             // vmv1r.v vd, vs2
             // Whole register move: copies 1 register.
-            // No masking, no vtype/vl dependency.
+            // No masking and no vl dependency, but `EEW = min(VLEN * EMUL, SEW)` depends on vtype,
+            // so it is illegal with vill set.
             Self::Vmv1rV { vd, vs2 } => {
                 if !env.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -935,6 +944,14 @@ where
             // vd and vs2 must be aligned to 2 (checked here per spec §17.6).
             Self::Vmv2rV { vd, vs2 } => {
                 if !env.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -968,6 +985,14 @@ where
                         ),
                     });
                 }
+                if env.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
                 if !vd.to_bits().is_multiple_of(4) || !vs2.to_bits().is_multiple_of(4) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -987,6 +1012,14 @@ where
             // Whole register move: copies 8 registers.
             Self::Vmv8rV { vd, vs2 } => {
                 if !env.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

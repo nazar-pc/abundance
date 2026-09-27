@@ -97,10 +97,18 @@ where
                 env.reset_vstart();
             }
             // Mask store: stores `ceil(vl / 8)` bytes from `vs3` to memory with no masking.
-            // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are written.
+            // Illegal with vill set, it depends on vtype indirectly through its constraints on vl.
             // Honors `vstart` at byte granularity: the first `vstart / 8` bytes are skipped.
             Self::Vsm { vs3, rs1: _ } => {
                 if !env.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

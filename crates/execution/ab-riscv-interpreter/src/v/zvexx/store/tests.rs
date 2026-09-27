@@ -459,6 +459,28 @@ fn vsm_vector_not_allowed_returns_illegal_instruction() {
 }
 
 #[test]
+fn vsm_with_vill_is_illegal() {
+    // `vsm.v` depends on vtype indirectly through its constraints on vl, so it respects vill
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.set_vtype(None);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+
+    let result = exec_one(
+        &mut state,
+        ZveXxStoreInstruction::Vsm {
+            vs3: VReg::V0,
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
 fn vsm_honors_vstart_in_byte_units_non_multiple_of_eight() {
     // vl=16 => ceil(vl/8) = 2 bytes to write.
     // vstart = 1 (byte units, NOT a multiple of 8) => skip the first byte of vs3,

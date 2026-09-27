@@ -94,9 +94,17 @@ where
             }
 
             // Mask load: loads ceil(vl / 8) bytes from base into vd with no masking applied.
-            // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are read.
+            // Illegal with vill set, it depends on vtype indirectly through its constraints on vl.
             Self::Vlm { vd, rs1: _ } => {
                 if !env.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

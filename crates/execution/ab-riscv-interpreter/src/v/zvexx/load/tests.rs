@@ -398,26 +398,27 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
 }
 
 #[test]
-fn vlm_does_not_require_valid_vtype() {
-    // vtype is vill; Vlm only needs vector_instructions_allowed, not valid vtype
-    let mut state = initialize_state([]);
-    state.env.init_vector_csrs();
-    // vtype stays vill; vl is 3
-    state.env.set_vl(Vl::new(3).unwrap());
+fn vlm_with_vill_is_illegal() {
+    // `vlm.v` depends on vtype indirectly through its constraints on vl, so it respects vill
+    let mut state = setup(Vl::new(3).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.set_vtype(None);
     write_mem(&mut state, TEST_BASE_ADDR, &[0x07u8]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
-    exec_one(
+    let result = exec_one(
         &mut state,
         ZveXxLoadInstruction::Vlm {
             vd: VReg::V0,
             rs1: Reg::A0,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
+    );
 
-    assert_eq!(vreg_byte(&state, VReg::V0, 0), 0x07);
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+    assert_eq!(vreg_byte(&state, VReg::V0, 0), 0);
 }
 
 #[test]
