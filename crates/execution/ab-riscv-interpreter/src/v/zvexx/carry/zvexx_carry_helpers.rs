@@ -1,5 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
     OpSrc, check_mask_dest_overlap, check_vreg_group_alignment,
@@ -36,12 +37,13 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment (verified by caller)
 /// - `vd.to_bits() != 0` (vd must not overlap v0, which holds the carry-in)
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -51,7 +53,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
@@ -97,13 +99,19 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_sub<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, src: OpSrc, sew: Vsew)
-where
+pub unsafe fn execute_carry_sub<Reg, Env>(
+    env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    vd: VReg,
+    vs2: VReg,
+    src: OpSrc,
+    sew: Vsew,
+) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
@@ -146,13 +154,14 @@ where
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes` and `vl <= VLEN`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - vd overlap constraints checked by caller
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -162,7 +171,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask = sew_mask(sew);
 
     for i in Vstart::ZERO.range_to(vl) {
@@ -215,6 +224,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -224,7 +234,7 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask = sew_mask(sew);
 
     for i in Vstart::ZERO.range_to(vl) {

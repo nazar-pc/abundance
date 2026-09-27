@@ -57,7 +57,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -65,6 +65,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -95,6 +96,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -112,7 +114,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -120,6 +122,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -145,6 +148,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -162,7 +166,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -170,6 +174,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -195,6 +200,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -213,7 +219,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -221,6 +227,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -249,6 +256,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -266,7 +274,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -274,6 +282,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -292,6 +301,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -309,7 +319,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -317,6 +327,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -335,6 +346,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -352,7 +364,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -360,6 +372,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -388,6 +401,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -405,7 +419,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -413,6 +427,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -431,6 +446,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -448,7 +464,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -456,6 +472,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -474,6 +491,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -492,7 +510,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -500,6 +518,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -529,6 +548,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -546,7 +566,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -554,6 +574,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -579,6 +600,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -597,7 +619,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -605,6 +627,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -633,6 +656,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -650,7 +674,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -658,6 +682,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -676,6 +701,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),
@@ -693,7 +719,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -701,6 +727,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -729,6 +756,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Vreg(vs1),
@@ -746,7 +774,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -754,6 +782,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -772,6 +801,7 @@ where
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_carry_helpers::OpSrc::Scalar(scalar),

@@ -1,6 +1,7 @@
 //! Opaque helpers for Zvbc extension
 
 use crate::rv64::b::zbc::rv64_zbc_helpers;
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::arith::zvexx_arith_helpers::sew_mask;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
@@ -55,12 +56,13 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vclmul<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -71,7 +73,7 @@ pub unsafe fn execute_vclmul<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
@@ -112,6 +114,7 @@ pub unsafe fn execute_vclmul<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_vclmulh<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -122,7 +125,7 @@ pub unsafe fn execute_vclmulh<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;

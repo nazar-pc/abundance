@@ -59,7 +59,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -67,6 +67,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -74,7 +75,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: `vs2` alignment checked; `vstart == 0` checked;
                 // `vs1` and `vd` are single-register scalar operands
                 unsafe {
@@ -99,7 +100,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -107,6 +108,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -114,7 +116,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -138,7 +140,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -146,6 +148,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -153,7 +156,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -177,7 +180,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -185,6 +188,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -192,7 +196,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -216,7 +220,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -224,6 +228,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -231,7 +236,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -258,7 +263,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -266,6 +271,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -273,7 +279,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -305,7 +311,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -313,6 +319,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -320,7 +327,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -347,7 +354,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -355,6 +362,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -362,7 +370,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -394,7 +402,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -402,6 +410,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let Some(widening_sew) =
                     zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
                 else {
@@ -426,7 +435,7 @@ where
                     vs1,
                     1,
                 )?;
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: `vs2` alignment checked;
                 // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
                 unsafe {
@@ -452,7 +461,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -460,6 +469,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let Some(widening_sew) =
                     zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
                 else {
@@ -484,7 +494,7 @@ where
                     vs1,
                     1,
                 )?;
-                let vl = env.vl();
+                let vl = config.vl();
                 // SAFETY: see `Vwredsumu`
                 unsafe {
                     zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _>(

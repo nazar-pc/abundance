@@ -60,7 +60,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -68,6 +68,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -97,6 +98,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -122,7 +124,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -130,6 +132,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -155,6 +158,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -175,7 +179,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -183,6 +187,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -210,6 +215,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -231,7 +237,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -239,6 +245,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -268,6 +275,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -293,7 +301,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -301,6 +309,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -326,6 +335,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -346,7 +356,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -354,6 +364,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -380,6 +391,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -401,7 +413,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -409,6 +421,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -438,6 +451,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -463,7 +477,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -471,6 +485,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -496,6 +511,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -517,7 +533,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -525,6 +541,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -554,6 +571,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -579,7 +597,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -587,6 +605,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -612,6 +631,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -633,7 +653,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -641,6 +661,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -670,6 +691,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -695,7 +717,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -703,6 +725,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -728,6 +751,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -749,7 +773,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -757,6 +781,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -786,6 +811,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -811,7 +837,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -819,6 +845,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -844,6 +871,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -865,7 +893,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -873,6 +901,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -902,6 +931,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -927,7 +957,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -935,6 +965,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -960,6 +991,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -981,7 +1013,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -989,6 +1021,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1018,6 +1051,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1043,7 +1077,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1051,6 +1085,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1076,6 +1111,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1097,7 +1133,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1105,6 +1141,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Not supported for SEW=64 in Zve64x (would need 128-bit result)
                 if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
@@ -1143,6 +1180,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1168,7 +1206,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1176,6 +1214,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Not supported for SEW=64 in Zve64x (would need 128-bit result)
                 if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
                     ::core::hint::cold_path();
@@ -1210,6 +1249,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1231,7 +1271,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1239,6 +1279,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1268,6 +1309,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1297,7 +1339,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1305,6 +1347,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1330,6 +1373,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1353,7 +1397,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1361,6 +1405,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1387,6 +1432,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
@@ -1411,7 +1457,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1419,6 +1465,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1448,6 +1495,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1475,7 +1523,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1483,6 +1531,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1508,6 +1557,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1530,7 +1580,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1538,6 +1588,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1563,6 +1614,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_fixed_point_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
@@ -1586,7 +1638,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1594,6 +1646,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
@@ -1641,6 +1694,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1666,7 +1720,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1674,6 +1728,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
@@ -1708,6 +1763,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1728,7 +1784,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1736,6 +1792,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
@@ -1769,6 +1826,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         // Immediate is the shift amount directly; masking done inside the helper
@@ -1791,7 +1849,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1799,6 +1857,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
@@ -1844,6 +1903,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
@@ -1869,7 +1929,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1877,6 +1937,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
@@ -1911,6 +1972,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
@@ -1931,7 +1993,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1939,6 +2001,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
@@ -1972,6 +2035,7 @@ where
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),

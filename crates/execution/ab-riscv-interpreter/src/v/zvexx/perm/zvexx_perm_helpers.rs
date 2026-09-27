@@ -1,5 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::check_vreg_group_alignment;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
@@ -119,13 +120,14 @@ where
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slideup<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -136,7 +138,7 @@ pub unsafe fn execute_slideup<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
     let first = Vstart::from(offset.saturating_truncate::<u16>());
     let range = first.range_to(vl);
@@ -185,13 +187,15 @@ pub unsafe fn execute_slideup<Reg, Env>(
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
-/// - `vl <= vlmax`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_slidedown<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -203,7 +207,7 @@ pub unsafe fn execute_slidedown<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
 
     let range = Vstart::ZERO.range_to(vl);
 
@@ -273,13 +277,14 @@ pub unsafe fn execute_slidedown<Reg, Env>(
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slide1up<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -290,7 +295,7 @@ pub unsafe fn execute_slide1up<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -322,13 +327,14 @@ pub unsafe fn execute_slide1up<Reg, Env>(
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_slide1down<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -339,7 +345,7 @@ pub unsafe fn execute_slide1down<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let range = Vstart::ZERO.range_to(vl);
     for i in range.clone() {
@@ -364,13 +370,15 @@ pub unsafe fn execute_slide1down<Reg, Env>(
 ///
 /// # Safety
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
-/// - `vl <= vlmax`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_rgather_vv<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -382,7 +390,7 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -408,13 +416,15 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - `vl <= vlmax`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_rgather_scalar<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -426,7 +436,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
@@ -455,8 +465,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
 ///
 /// # Safety
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
-/// - `vl <= vlmax` (for the data register group) AND `vl <= index_group_regs * VLEN.bytes() / 2`
-///   (for the index register group).
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 /// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -464,6 +473,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_rgatherei16<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -477,7 +487,7 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let index_group_regs = index_group_regs.get();
-    let vl = env.vl();
+    let vl = config.vl();
     // Maximum number of EEW=16 elements the index register group can hold.
     // Each register holds VLEN.bytes() / 2 elements at EEW=16.
     let index_capacity = u32::from(index_group_regs) * (Env::VLEN.bytes() / 2);
@@ -519,12 +529,13 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
 /// # Safety
 /// - `vd` and `vs1` are validly aligned (verified by caller).
 /// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_merge_vv<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -535,7 +546,7 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
@@ -565,12 +576,13 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
 /// # Safety
 /// - `vd` is validly aligned (verified by caller).
 /// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`.
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_merge_scalar<Reg, Env>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vm: bool,
@@ -581,7 +593,7 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in Vstart::ZERO.range_to(vl) {

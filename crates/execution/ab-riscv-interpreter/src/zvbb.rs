@@ -79,7 +79,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -87,6 +87,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -101,7 +102,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbb_helpers::execute_vbrev::<Reg, _>(env, vd, vs2, sew, vm);
+                    zvbb_helpers::execute_vbrev::<Reg, _>(env, config, vd, vs2, sew, vm);
                 }
             }
             // vclz: count leading zeros within each SEW-wide element; result in [0, SEW]
@@ -122,7 +123,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -130,6 +131,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -144,7 +146,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbb_helpers::execute_vclz::<Reg, _>(env, vd, vs2, sew, vm);
+                    zvbb_helpers::execute_vclz::<Reg, _>(env, config, vd, vs2, sew, vm);
                 }
             }
             // vctz: count trailing zeros within each SEW-wide element; result in [0, SEW]
@@ -165,7 +167,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -173,6 +175,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -187,7 +190,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbb_helpers::execute_vctz::<Reg, _>(env, vd, vs2, sew, vm);
+                    zvbb_helpers::execute_vctz::<Reg, _>(env, config, vd, vs2, sew, vm);
                 }
             }
             // vcpop: population count (number of set bits) within each SEW-wide element
@@ -208,7 +211,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -216,6 +219,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -230,7 +234,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignments checked above
                 unsafe {
-                    zvbb_helpers::execute_vcpop::<Reg, _>(env, vd, vs2, sew, vm);
+                    zvbb_helpers::execute_vcpop::<Reg, _>(env, config, vd, vs2, sew, vm);
                 }
             }
             // vwsll: widening shift-left-logical; vd is 2*SEW wide, vs2/src are SEW wide.
@@ -252,7 +256,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -260,6 +264,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -306,6 +311,7 @@ where
                 unsafe {
                     zvbb_helpers::execute_vwsll::<Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvbb_helpers::OpSrc::Vreg(vs1),
@@ -336,7 +342,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -344,6 +350,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -386,6 +393,7 @@ where
                 unsafe {
                     zvbb_helpers::execute_vwsll::<Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvbb_helpers::OpSrc::Scalar(scalar),
@@ -412,7 +420,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -420,6 +428,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -461,6 +470,7 @@ where
                 unsafe {
                     zvbb_helpers::execute_vwsll::<Reg, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvbb_helpers::OpSrc::Scalar(u64::from(uimm)),
