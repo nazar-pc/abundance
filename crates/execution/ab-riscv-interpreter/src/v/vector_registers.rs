@@ -380,28 +380,6 @@ where
         let result = self.write_csr(VectorCsr::Vl.to_csr_index(), vl_raw);
         debug_assert!(result.is_ok(), "Implementation must initialize `vl` CSR");
     }
-
-    /// `vl` of [`Self::vector_config()`]
-    // TODO: Remove once instructions use `Self::vector_config()` directly
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vl(&self) -> Vl {
-        match self.vector_config() {
-            Some(config) => config.vl(),
-            None => Vl::ZERO,
-        }
-    }
-
-    /// `vtype` of [`Self::vector_config()`]
-    // TODO: Remove once instructions use `Self::vector_config()` directly
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-        match self.vector_config() {
-            Some(config) => Some(config.vtype()),
-            None => None,
-        }
-    }
 }
 
 // Convenience for threaded execution
