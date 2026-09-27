@@ -53,8 +53,9 @@ where
     let rd_is_zero = rd == Reg::ZERO;
 
     let new_vl = if !rs1_is_zero {
-        // Truncate to `u32`: `VLMAX` fits in `u32` (max 65536)
-        let avl = rs1_value.as_u64() as u32;
+        // AVL is an unsigned XLEN-wide value. Saturate rather than truncate, since anything above
+        // `u32::MAX` exceeds any `VLMAX` just as well.
+        let avl = u32::try_from(rs1_value.as_u64()).unwrap_or(u32::MAX);
         env.compute_vl(Vl::new_saturating(avl), vlmax)
     } else if !rd_is_zero {
         //` rs1=x0, rd!=x0`: `AVL = max`, `result` is `VLMAX`

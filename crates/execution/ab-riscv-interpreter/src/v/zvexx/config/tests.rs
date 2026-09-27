@@ -71,6 +71,27 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
 }
 
 #[test]
+fn vsetvli_avl_above_u32_caps_to_vlmax() {
+    let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
+    // VLMAX = 8, AVL values that are larger than VLMAX, but not when truncated to 32 bits
+    for avl in [1u64 << 32, (1 << 32) + 3, u64::MAX - u64::from(u32::MAX)] {
+        let mut state = initialize_state([ZveXxConfigInstruction::Vsetvli {
+            rd: Reg::A0,
+            rs1: Reg::A1,
+            vtypei,
+            rs2: Reg::Zero,
+        }]);
+        state.env.init_vector_csrs();
+        state.regs.write(Reg::A1, avl);
+
+        execute(&mut state).unwrap();
+
+        assert_eq!(state.regs.read(Reg::A0), 8, "AVL {avl:#x}");
+        assert_eq!(state.env.vl(), Vl::new(8).unwrap(), "AVL {avl:#x}");
+    }
+}
+
+#[test]
 fn vsetvli_avl_zero_gives_vl_zero() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([ZveXxConfigInstruction::Vsetvli {
