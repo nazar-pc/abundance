@@ -82,8 +82,9 @@ fn every_alignment_step_of_guest_code_owns_a_slot() {
 fn every_slot_holds_the_instruction_its_bytes_decode_to() {
     let instructions = new_instructions(END_ADDR);
     let memory = Memory::default();
-    // SAFETY: This is the address of the first instruction of `code()`
-    let mut fetcher = unsafe { instructions.fetcher(BASE_ADDR) };
+    let mut fetcher = instructions
+        .fetcher(BASE_ADDR)
+        .expect("This is the address of the first instruction of `code()`; qed");
 
     for encoded_instruction in [NOP, NOP, NOP, NOP, RET] {
         let expected = I::try_decode(encoded_instruction).expect("Valid instruction; qed");
@@ -103,8 +104,30 @@ fn every_slot_holds_the_instruction_its_bytes_decode_to() {
 /// during instruction fetching, so `set_pc_relative(_, 4, offset)` branches from
 /// `BASE_ADDR + 4`
 fn new_fetcher(instructions: &BasicEagerInstructions<I>) -> BasicEagerInstructionFetcher<'_, I> {
-    // SAFETY: Program counter is valid and aligned
-    unsafe { instructions.fetcher(BASE_ADDR + 8) }
+    instructions
+        .fetcher(BASE_ADDR + 8)
+        .expect("Program counter is valid and aligned; qed")
+}
+
+#[test]
+fn fetcher_only_starts_at_a_decoded_instruction() {
+    let instructions = new_instructions(END_ADDR);
+
+    for pc in [BASE_ADDR, BASE_ADDR + 8, END_ADDR - 4] {
+        assert!(instructions.fetcher(pc).is_some(), "{pc:#x}");
+    }
+    // Before the start, past the end, unaligned and far away enough to not fit into `usize` on a
+    // 32-bit host
+    for pc in [
+        BASE_ADDR - 4,
+        END_ADDR,
+        BASE_ADDR + 2,
+        BASE_ADDR + (1 << 40),
+        0,
+        !3,
+    ] {
+        assert!(instructions.fetcher(pc).is_none(), "{pc:#x}");
+    }
 }
 
 /// Branch by `offset` from the instruction at `BASE_ADDR + 4`

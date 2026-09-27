@@ -118,8 +118,7 @@ where
                         + u64::from(contract_file.header().read_only_section_memory_size),
                 )
             };
-            // SAFETY: Program counter is trusted
-            let instruction_fetcher = unsafe { instructions.fetcher(pc) };
+            let instruction_fetcher = instructions.fetcher(pc).unwrap();
 
             let mut state = BasicInterpreterState {
                 regs,
@@ -142,8 +141,7 @@ where
                         + u64::from(contract_file.header().read_only_section_memory_size),
                 )
             };
-            // SAFETY: Program counter is trusted
-            let instruction_fetcher = unsafe { instructions.fetcher(pc) };
+            let instruction_fetcher = instructions.fetcher(pc).unwrap();
 
             ContractInstruction::execute_threaded(
                 instruction_fetcher,

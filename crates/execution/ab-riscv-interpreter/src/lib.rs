@@ -225,7 +225,7 @@ use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::fmt;
-use core::hint::cold_path;
+use core::hint::{cold_path, unreachable_unchecked};
 use core::marker::{Destruct, PhantomData};
 use core::ops::{ControlFlow, FromResidual, Sub};
 
@@ -1192,6 +1192,7 @@ where
 {
     /// Execution stopped gracefully
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn stopped(program_counter: Address<I>) -> Self {
         Self {
             program_counter,
@@ -1201,6 +1202,7 @@ where
 
     /// Execution failed
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn failed(program_counter: Address<I>, error: ExecutionError<Address<I>>) -> Self {
         cold_path();
         Self {
@@ -1236,8 +1238,8 @@ cfg_select! {
 /// outcome travels in registers instead of through a hidden out-pointer where possible for
 /// performance reasons (primarily on x86-64 due to a limited number of usable GPRs in the ABI).
 ///
-/// On x86-64 the lanes are a 256-bit vector, so producing one of these executes AVX instructions -
-/// see [`Self::platform_supported()`] and [`Self::new()`].
+/// On x86-64 the lanes are a 256-bit vector, so returning one of these in a register, which is what
+/// handlers do, requires AVX - see [`Self::platform_supported()`].
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct OpaqueThreadedExecutionResult<I> {
@@ -1274,6 +1276,7 @@ where
     /// This is called once within [`ThreadedExecutableInstruction::execute_threaded()`].
     #[inline(always)]
     #[must_use]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn platform_supported() -> bool {
         cfg_select! {
             all(target_arch = "x86_64", not(target_feature = "avx")) => {
@@ -1285,12 +1288,10 @@ where
         }
     }
 
-    /// Serialize an outcome into the shape handlers return.
-    ///
-    /// # Safety
-    /// [`Self::platform_supported()`] must return `true`.
+    /// Serialize an outcome into the shape handlers return
     #[inline(always)]
-    pub unsafe fn new(result: ThreadedExecutionResult<I>) -> Self {
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn new(result: ThreadedExecutionResult<I>) -> Self {
         let program_counter = result.program_counter.as_u64();
 
         let (tag, payload) = match result.outcome {
@@ -1350,16 +1351,7 @@ where
         Self {
             lanes: cfg_select! {
                 all(target_arch = "x86_64", any(not(miri), target_feature = "avx")) => {
-                    // SAFETY: Method contract guarantees that `Self::platform_supported()` was
-                    // called, which ensures that AVX is supported
-                    unsafe {
-                        core::arch::x86_64::_mm256_setr_epi64x(
-                            program_counter.cast_signed(),
-                            tag.cast_signed(),
-                            payload.cast_signed(),
-                            0,
-                        )
-                    }
+                    core::simd::u64x4::from_array([program_counter, tag, payload, 0]).into()
                 }
                 all(target_arch = "aarch64", any(not(miri), target_feature = "neon")) => {
                     [program_counter, tag, payload].map(f64::from_bits)
@@ -1375,6 +1367,7 @@ where
     /// The lanes only ever come from there, in this very crate, which is what makes the
     /// unknown-tag arm unreachable.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn into_result(self) -> ThreadedExecutionResult<I> {
         let [program_counter, tag, payload] =
             cfg_select! {
@@ -1443,7 +1436,9 @@ where
             Self::TAG_UNSUPPORTED_PLATFORM => ExecutionError::UnsupportedPlatform,
             Self::TAG_CUSTOM => ExecutionError::Custom(payload.to_le_bytes()),
             _ => {
-                unreachable!("Lanes are only ever produced by `new()`; qed");
+                // SAFETY: Lanes are private and only ever produced by `new()`, which uses one of
+                // the tags above
+                unsafe { unreachable_unchecked() }
             }
         };
 

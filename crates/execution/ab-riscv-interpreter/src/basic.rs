@@ -24,12 +24,10 @@ use core::hint::cold_path;
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
-/// Basic general purpose register to be used with [`BasicRegisters`]
+/// Basic general purpose register to be used with [`BasicRegisters`].
 ///
-/// # Safety
-/// `Self::offset()` must return values in `0..Self::N` range. `Self::from_bits()` must return
-/// `Some()` for `0..=31` if `Self::RVE = false` and `0..=15` if `Self::RVE = true`.
-pub const unsafe trait BasicRegister
+/// `Self::offset()` must return values in `0..Self::N` range.
+pub const trait BasicRegister
 where
     Self: [const] Register,
 {
@@ -42,8 +40,7 @@ where
     fn offset(self) -> u8;
 }
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range
-const unsafe impl<Type> BasicRegister for EReg<Type>
+const impl<Type> BasicRegister for EReg<Type>
 where
     Self: [const] Register,
 {
@@ -72,8 +69,7 @@ where
     }
 }
 
-// SAFETY: `Self::offset()` returns values within `0..Self::N` range
-const unsafe impl<Type> BasicRegister for Reg<Type>
+const impl<Type> BasicRegister for Reg<Type>
 where
     Self: [const] Register,
 {
@@ -156,18 +152,21 @@ where
             return Reg::Type::default();
         }
 
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(usize::from(reg.offset())) }
+        *self
+            .regs
+            .get(usize::from(reg.offset()))
+            .expect("Register offset is always within `0..Reg::N`; qed")
     }
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn write(&mut self, reg: Reg, value: Reg::Type) {
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(usize::from(reg.offset())) } = value;
-        if ZEROSTORE {
-            // SAFETY: The register file always has at least one slot
-            *unsafe { self.regs.get_unchecked_mut(0) } = Reg::Type::default();
+        *self
+            .regs
+            .get_mut(usize::from(reg.offset()))
+            .expect("Register offset is always within `0..Reg::N`; qed") = value;
+        if ZEROSTORE && let Some(zero) = self.regs.first_mut() {
+            *zero = Reg::Type::default();
         }
     }
 }

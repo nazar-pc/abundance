@@ -143,16 +143,20 @@ fn criterion_benchmark(c: &mut Criterion) {
         regs: ContractRegisters::<false>::default(),
         env: IllegalEcallSystemInstructionHandler,
         memory,
-        // SAFETY: Program counter is set later to the correct address
-        instruction_fetcher: unsafe { instructions.fetcher(benchmarks_blake3_hash_chunk_addr) },
+        // Program counter is set later to the correct address
+        instruction_fetcher: instructions
+            .fetcher(benchmarks_blake3_hash_chunk_addr)
+            .unwrap(),
     };
 
     let mut eager_state_zerostore = BasicInterpreterState {
         regs: ContractRegisters::<true>::default(),
         env: IllegalEcallSystemInstructionHandler,
         memory,
-        // SAFETY: Program counter is set later to the correct address
-        instruction_fetcher: unsafe { instructions.fetcher(benchmarks_blake3_hash_chunk_addr) },
+        // Program counter is set later to the correct address
+        instruction_fetcher: instructions
+            .fetcher(benchmarks_blake3_hash_chunk_addr)
+            .unwrap(),
     };
 
     {

@@ -99,8 +99,9 @@ fn main() -> anyhow::Result<()> {
             text_addr,
         )
     };
-    // SAFETY: `entry_point` is valid and aligned
-    let instruction_fetcher = unsafe { instructions.fetcher(entry_point) };
+    let instruction_fetcher = instructions
+        .fetcher(entry_point)
+        .context("Entry point is not one of the decoded instructions")?;
 
     let ThreadedExecutionResult {
         outcome,
