@@ -1,6 +1,6 @@
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
-use crate::instructions::v::{VRegGroupSize, Vlmul};
+use crate::instructions::v::{Elen, SUPPORTED_ELEN_VLEN, VRegGroupSize, Vlen, Vlmul, Vsew, Vtype};
 use crate::registers::general_purpose::Reg;
 
 #[test]
@@ -130,4 +130,60 @@ fn masked_v0_data_source_is_reserved() {
             "{name}"
         );
     }
+}
+
+const VSEWS: [Vsew; 4] = [Vsew::E8, Vsew::E16, Vsew::E32, Vsew::E64];
+const VLMULS: [Vlmul; 7] = [
+    Vlmul::Mf8,
+    Vlmul::Mf4,
+    Vlmul::Mf2,
+    Vlmul::M1,
+    Vlmul::M2,
+    Vlmul::M4,
+    Vlmul::M8,
+];
+
+/// Every valid `vtype` with `vta = vma = false`
+fn all_vtypes<const ELEN: Elen, const VLEN: Vlen>() -> impl Iterator<Item = Vtype<ELEN, VLEN>>
+where
+    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+{
+    VSEWS.into_iter().flat_map(|vsew| {
+        VLMULS.into_iter().filter_map(move |vlmul| {
+            let raw = u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3);
+            Vtype::from_raw::<Reg<u64>>(raw)
+        })
+    })
+}
+
+#[test]
+fn vtype_vlmax() {
+    fn check<const ELEN: Elen, const VLEN: Vlen>()
+    where
+        [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    {
+        let mut count = 0;
+        for vtype in all_vtypes::<ELEN, VLEN>() {
+            count += 1;
+            let vlmax = u32::from(vtype.vlmax());
+            assert!(vlmax >= 1, "{vtype:?}");
+            // Mask registers hold one bit per element in a single register
+            assert!(vlmax <= u32::from(VLEN), "{vtype:?}");
+            // All elements fit into the register group
+            let group_regs = u32::from(vtype.vlmul().register_count().get());
+            assert!(
+                vlmax * u32::from(vtype.vsew().bytes_width()) <= group_regs * VLEN.bytes(),
+                "{vtype:?}"
+            );
+        }
+        assert!(count > 0);
+    }
+
+    check::<{ Elen::L64 }, { Vlen::L64 }>();
+    check::<{ Elen::L64 }, { Vlen::L128 }>();
+    check::<{ Elen::L64 }, { Vlen::L256 }>();
+    check::<{ Elen::L64 }, { Vlen::L1024 }>();
+    check::<{ Elen::L64 }, { Vlen::L65_536 }>();
+    check::<{ Elen::L32 }, { Vlen::L32 }>();
+    check::<{ Elen::L32 }, { Vlen::L128 }>();
 }
