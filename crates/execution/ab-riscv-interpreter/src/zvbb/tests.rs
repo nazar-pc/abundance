@@ -1437,3 +1437,91 @@ fn error_vwsll_vi_masked_dest_v0() {
     );
     assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
+
+// Widening register overlap tests
+
+#[test]
+fn vwsll_vv_source_overlapping_low_part_of_destination_is_illegal() {
+    // LMUL=1: the destination is `{v4, v5}`, a narrow source may only overlap its highest part
+    for (vs2, vs1) in [(VReg::V4, VReg::V1), (VReg::V1, VReg::V4)] {
+        let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+        let result = exec(
+            &mut state,
+            ZvbbInstruction::VwsllVv {
+                vd: VReg::V4,
+                vs2,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        assert!(
+            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+            "vs2={vs2:?} vs1={vs1:?}"
+        );
+    }
+}
+
+#[test]
+fn vwsll_vi_source_overlapping_low_part_of_destination_is_illegal() {
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvbbInstruction::VwsllVi {
+            vd: VReg::V4,
+            vs2: VReg::V4,
+            uimm: 1,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vwsll_vi_source_overlapping_high_part_of_destination_is_legal() {
+    // LMUL=1: `v5` is the highest-numbered register of the `{v4, v5}` destination
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
+    write_elem(&mut state, VReg::V5, 0, Vsew::E8, 0x01);
+    write_elem(&mut state, VReg::V5, 1, Vsew::E8, 0x02);
+    exec(
+        &mut state,
+        ZvbbInstruction::VwsllVi {
+            vd: VReg::V4,
+            vs2: VReg::V5,
+            uimm: 4,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 0x0010);
+    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E16), 0x0020);
+}
+
+#[test]
+fn vwsll_at_sew_equal_to_elen_is_illegal() {
+    // ELEN=64, so `2*SEW` would exceed it
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E64, Vlmul::M1);
+    let result = exec(
+        &mut state,
+        ZvbbInstruction::VwsllVi {
+            vd: VReg::V4,
+            vs2: VReg::V2,
+            uimm: 1,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    );
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}

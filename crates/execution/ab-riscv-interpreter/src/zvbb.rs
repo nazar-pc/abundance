@@ -261,7 +261,8 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let Some(double_sew) = sew.double_width() else {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -269,6 +270,7 @@ where
                         ),
                     });
                 };
+                let double_sew = widening_sew.wide();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(dest_group_regs) =
                     vtype.vlmul().data_register_count(double_sew.as_eew(), sew)
@@ -280,9 +282,14 @@ where
                         ),
                     });
                 };
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // Also rejects overlaps of the wide destination with narrow sources that widening
+                // instructions do not allow
+                zvbb_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
+                    vs2,
+                    Some(vs1),
+                    group_regs,
                     dest_group_regs,
                 )?;
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
@@ -302,8 +309,7 @@ where
                         vd,
                         vs2,
                         zvbb_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                        double_sew,
+                        widening_sew,
                         vm,
                     );
                 }
@@ -339,7 +345,8 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let Some(double_sew) = sew.double_width() else {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -347,6 +354,7 @@ where
                         ),
                     });
                 };
+                let double_sew = widening_sew.wide();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(dest_group_regs) =
                     vtype.vlmul().data_register_count(double_sew.as_eew(), sew)
@@ -358,9 +366,14 @@ where
                         ),
                     });
                 };
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // Also rejects overlaps of the wide destination with narrow sources that widening
+                // instructions do not allow
+                zvbb_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
+                    vs2,
+                    None,
+                    group_regs,
                     dest_group_regs,
                 )?;
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
@@ -376,8 +389,7 @@ where
                         vd,
                         vs2,
                         zvbb_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                        double_sew,
+                        widening_sew,
                         vm,
                     );
                 }
@@ -409,7 +421,8 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let Some(double_sew) = sew.double_width() else {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -417,6 +430,7 @@ where
                         ),
                     });
                 };
+                let double_sew = widening_sew.wide();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(dest_group_regs) =
                     vtype.vlmul().data_register_count(double_sew.as_eew(), sew)
@@ -428,9 +442,14 @@ where
                         ),
                     });
                 };
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // Also rejects overlaps of the wide destination with narrow sources that widening
+                // instructions do not allow
+                zvbb_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
+                    vs2,
+                    None,
+                    group_regs,
                     dest_group_regs,
                 )?;
                 zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
@@ -445,8 +464,7 @@ where
                         vd,
                         vs2,
                         zvbb_helpers::OpSrc::Scalar(u64::from(uimm)),
-                        sew,
-                        double_sew,
+                        widening_sew,
                         vm,
                     );
                 }
