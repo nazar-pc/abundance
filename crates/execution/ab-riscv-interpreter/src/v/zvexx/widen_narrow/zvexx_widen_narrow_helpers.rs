@@ -32,41 +32,49 @@ where
     Ok(())
 }
 
-/// Check that an extension source `vs2` is aligned to `src_group_regs`, fits in `[0,32)`, and only
-/// overlaps `vd` (which occupies `group_regs` registers) in a manner permitted by the spec.
+/// Check that an extension source `vs2`, which has `EMUL = LMUL / factor`, is aligned to its
+/// register group, fits in `[0,32)`, and only overlaps `vd` (which occupies `group_regs` registers)
+/// in a manner permitted by the spec.
 ///
 /// Per the vector spec §5.2, the destination EEW (SEW) of an extension is greater than the source
 /// EEW (SEW/factor), so the destination may overlap the source only when the source EMUL is at
 /// least 1 and the overlap is in the highest-numbered part of the destination register group (e.g.
 /// `vzext.vf4 v0, v6` with LMUL=8, where the narrow source `{v6,v7}` aliases the high registers of
-/// the wide `{v0..v7}` destination). Any other overlap is illegal.
+/// the wide `{v0..v7}` destination). Any other overlap is illegal, in particular any overlap at all
+/// with a fractional source EMUL, even though such a source still occupies a whole register.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_vs_ext_alignment<Reg, Memory, PC>(
     program_counter: &PC,
     vs2: VReg,
-    src_group_regs: VRegGroupSize,
     vd: VReg,
     group_regs: VRegGroupSize,
+    factor: VsewFactor,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
+    let src_group_regs = group_regs.divide_by_factor(factor);
     let aligned = vs2.is_group_aligned(src_group_regs);
+    let src_emul_at_least_one = group_regs.get() >= factor.factor();
     let src_group_regs = src_group_regs.get();
     let group_regs = group_regs.get();
     let vs2_idx = vs2.to_bits();
+    let vd_idx = vd.to_bits();
     if !aligned || vs2_idx + src_group_regs > 32 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
-    // The wide destination (group_regs) may overlap the narrow source (src_group_regs) only in the
-    // highest-numbered part of the destination group, and only when the source EMUL >= 1.
-    if widen_src_overlap_illegal(vd.to_bits(), group_regs, vs2_idx, src_group_regs) {
+    let overlap_illegal = if src_emul_at_least_one {
+        widen_src_overlap_illegal(vd_idx, group_regs, vs2_idx, src_group_regs)
+    } else {
+        ranges_overlap(vd_idx, group_regs, vs2_idx, src_group_regs)
+    };
+    if overlap_illegal {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

@@ -1747,14 +1747,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                // EMUL for source = LMUL / 2; src_group = max(1, group_regs / 2)
-                let src_group = group_regs.divide_by_factor(VsewFactor::F2);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F2,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1809,13 +1807,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F4);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F4,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1870,13 +1867,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F8);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F8,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1931,13 +1927,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F2);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F2,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1992,13 +1987,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F4);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F4,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2053,13 +2047,12 @@ where
                     });
                 };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F8);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F8,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,

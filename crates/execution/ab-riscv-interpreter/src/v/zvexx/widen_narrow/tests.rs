@@ -2369,3 +2369,81 @@ fn vzext_vf4_e32_m8_vs2_non_high_part_overlap_illegal() {
     );
     assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
+
+// Extension source overlap tests
+
+#[test]
+fn vext_fractional_source_emul_overlapping_destination_is_illegal() {
+    // Source EMUL = LMUL / factor is below 1 in each of these, so the source still occupies a
+    // whole register, but may not overlap the destination at all, not even in its highest part
+    let cases = [
+        // vf4 at LMUL=2: source EMUL=1/2, destination `{v2, v3}`
+        (Vsew::E32, Vlmul::M2, VsewFactor::F4, VReg::V2, VReg::V3),
+        (Vsew::E64, Vlmul::M2, VsewFactor::F4, VReg::V2, VReg::V3),
+        // vf8 at LMUL=2: source EMUL=1/4
+        (Vsew::E64, Vlmul::M2, VsewFactor::F8, VReg::V2, VReg::V3),
+        // vf8 at LMUL=4: source EMUL=1/2, destination `{v4..v7}`
+        (Vsew::E64, Vlmul::M4, VsewFactor::F8, VReg::V4, VReg::V7),
+    ];
+    for (sew, vlmul, factor, vd, vs2) in cases {
+        for sign in [false, true] {
+            let mut state = setup(Vl::new(1).unwrap(), sew, vlmul);
+            let instruction = match (sign, factor) {
+                (false, VsewFactor::F4) => ZveXxWidenNarrowInstruction::VzextVf4 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+                (false, _) => ZveXxWidenNarrowInstruction::VzextVf8 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+                (true, VsewFactor::F4) => ZveXxWidenNarrowInstruction::VsextVf4 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+                (true, _) => ZveXxWidenNarrowInstruction::VsextVf8 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+            };
+            let result = exec(&mut state, instruction);
+            assert!(
+                matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                "{sew:?} {vlmul:?} {factor:?} sign={sign} vd={vd:?} vs2={vs2:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn vzext_vf2_source_overlapping_high_part_of_destination_is_legal() {
+    // vf2 at LMUL=2: source EMUL=1 is `v3`, the highest register of the `{v2, v3}` destination
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M2);
+    write_elem(&mut state, VReg::V3, 0, Vsew::E8, 0xab);
+    write_elem(&mut state, VReg::V3, 1, Vsew::E8, 0xcd);
+    exec(
+        &mut state,
+        ZveXxWidenNarrowInstruction::VzextVf2 {
+            vd: VReg::V2,
+            vs2: VReg::V3,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V2, 0, Vsew::E16), 0x00ab);
+    assert_eq!(read_elem(&state, VReg::V2, 1, Vsew::E16), 0x00cd);
+}
