@@ -267,7 +267,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment verified above; vl <= VLMAX; offset clamped in helper.
                 unsafe {
@@ -313,7 +313,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslidedownVx.
                 unsafe {
@@ -487,7 +487,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 // SAFETY: all alignment and overlap constraints verified above; vl <= VLMAX.
                 unsafe {
                     zvexx_perm_helpers::execute_rgather_vv(env, vd, vs2, vs1, vm, sew, vlmax);
@@ -544,7 +544,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let index = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
@@ -596,7 +596,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let index = u64::from(uimm);
                 // SAFETY: same as VrgatherVx.
                 unsafe {
@@ -686,7 +686,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX;
                 // vs1 uses EEW=16 with computed index_group_regs.
                 unsafe {

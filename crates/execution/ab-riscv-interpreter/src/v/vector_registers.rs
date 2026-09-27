@@ -182,11 +182,6 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
 ///
 /// Note that due to Rust type system limitations, you should use [`VectorRegistersExt`] in trait
 /// bounds instead of this trait directly or else the solver will fail.
-///
-/// Methods for `vtype` and `vl` live here (not in the ext trait) because they have non-trivial
-/// update semantics: `vtype` must maintain a cached decoded form and handle the XLEN-dependent vill
-/// bit, and `vl` is read-only via CSR instructions but writable by `vsetvl{i}` and fault-only-first
-/// loads.
 pub const trait VectorRegisters {
     /// Maximum vector element width `ELEN` in bits
     const ELEN: Elen;
@@ -210,27 +205,6 @@ pub const trait VectorRegisters {
     /// Must set VS to Dirty in `mstatus` (and `sstatus`/`vsstatus` shadows) when those registers
     /// exist. No-op otherwise.
     fn mark_vs_dirty(&mut self);
-
-    /// Compute `vl` from `AVL` and `VLMAX` per spec constraints.
-    ///
-    /// The simplest compliant implementation (which is used by default) is `min(AVL, VLMAX)`. More
-    /// sophisticated implementations may return values in `[ceil(AVL/2), VLMAX]` for
-    /// `AVL < 2*VLMAX`, but this simple strategy satisfies all three spec requirements.
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn compute_vl(&self, avl: Vl, vlmax: Vl) -> Vl {
-        avl.min(vlmax)
-    }
-
-    /// Compute `VLMAX` for a given vtype
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vlmax_for_vtype(&self, vtype: Vtype<{ Self::ELEN }, { Self::VLEN }>) -> Vl
-    where
-        [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
-    {
-        vtype.vlmul().vlmax::<{ Self::VLEN }>(vtype.vsew())
-    }
 }
 
 /// Derived convenience accessors for vector CSRs that are simple read/write fields (vstart, vxrm,

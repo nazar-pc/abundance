@@ -47,7 +47,7 @@ where
         return Ok(Reg::Type::from(0u8));
     };
 
-    let vlmax = env.vlmax_for_vtype(new_vtype);
+    let vlmax = new_vtype.vlmax();
 
     let rs1_is_zero = rs1 == Reg::ZERO;
     let rd_is_zero = rd == Reg::ZERO;
@@ -56,7 +56,7 @@ where
         // AVL is an unsigned XLEN-wide value. Saturate rather than truncate, since anything above
         // `u32::MAX` exceeds any `VLMAX` just as well.
         let avl = u32::try_from(rs1_value.as_u64()).unwrap_or(u32::MAX);
-        env.compute_vl(Vl::new_saturating(avl), vlmax)
+        Vl::new_saturating(avl).min(vlmax)
     } else if !rd_is_zero {
         //` rs1=x0, rd!=x0`: `AVL = max`, `result` is `VLMAX`
         vlmax
@@ -66,7 +66,7 @@ where
         // spec).
         let current_vl = env.vl();
         let old_vtype = env.vtype();
-        let old_vlmax = old_vtype.map_or_default(const |old_vtype| env.vlmax_for_vtype(old_vtype));
+        let old_vlmax = old_vtype.map_or_default(const |old_vtype| old_vtype.vlmax());
 
         if vlmax != old_vlmax {
             cold_path();
@@ -78,7 +78,7 @@ where
             return Ok(Reg::Type::from(0u8));
         }
 
-        env.compute_vl(current_vl, vlmax)
+        current_vl.min(vlmax)
     };
 
     env.set_vtype(Some(new_vtype));
@@ -121,9 +121,9 @@ where
     let vtype_raw = Reg::Type::from(vtypei);
 
     let rd_value = if let Some(new_vtype) = Vtype::from_raw::<Reg>(vtype_raw) {
-        let vlmax = env.vlmax_for_vtype(new_vtype);
+        let vlmax = new_vtype.vlmax();
         let avl = Vl::from(uimm);
-        let new_vl = env.compute_vl(avl, vlmax);
+        let new_vl = avl.min(vlmax);
 
         env.set_vtype(Some(new_vtype));
         env.set_vl(new_vl);
