@@ -105,20 +105,28 @@ where
                     });
                 }
                 let vl = env.vl();
-                let byte_count = vl.bytes();
+                let byte_count = usize::from(vl.bytes());
                 if byte_count > 0 {
                     let base = rs1_value.as_u64();
-                    let bytes = memory.read_slice(base, u32::from(byte_count))?;
-                    // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 =
-                    // VLEN.bytes()` because `vl <= VLMAX <= VLEN`, so
-                    // `..bytes.len()` is in bounds within the
-                    // `VLEN.bytes()`-byte destination register.
-                    unsafe {
-                        env.write_vregs()
-                            .get_mut(vd)
-                            .get_unchecked_mut(..bytes.len())
-                            .copy_from_slice(bytes);
-                    }
+                    let bytes = memory.read_slice(base, u32::from(vl.bytes()))?;
+                    // Only the requested bytes are used, even if memory returned more
+                    let Some(src) = bytes.get(..byte_count) else {
+                        ::core::hint::cold_path();
+                        return ExecutionResult::Err(ExecutionError::OutOfBoundsRead {
+                            address: PackedAddress::new(base),
+                        });
+                    };
+                    // Not in bounds only with `vl` above `VLEN`, which is an inconsistent vector
+                    // state
+                    let Some(dst) = env.write_vregs().get_mut(vd).get_mut(..byte_count) else {
+                        ::core::hint::cold_path();
+                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        });
+                    };
+                    dst.copy_from_slice(src);
                 }
                 env.mark_vs_dirty();
                 env.reset_vstart();

@@ -1,8 +1,10 @@
+use crate::basic::{BasicInstructionFetcher, BasicMemory};
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
-    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    BasicInt, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
+    VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use core::array;
@@ -322,6 +324,77 @@ fn vlm_vl_0_loads_no_bytes_and_leaves_dst_unchanged() {
 
     // Nothing written; destination unchanged
     assert_eq!(vreg_bytes(&state, VReg::V5), [0xABu8; 32]);
+}
+
+/// Memory whose `read_slice()` returns everything from `address` onward, ignoring `len`
+struct GreedyReadSliceMemory(BasicMemory<TEST_BASE_ADDR, 4096>);
+
+impl VirtualMemory for GreedyReadSliceMemory {
+    fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        self.0.read(address)
+    }
+
+    unsafe fn read_unchecked<T>(&self, address: u64) -> T
+    where
+        T: BasicInt,
+    {
+        // SAFETY: Guaranteed by the caller
+        unsafe { self.0.read_unchecked(address) }
+    }
+
+    fn read_slice(&self, address: u64, _len: u32) -> Result<&[u8], VirtualMemoryError> {
+        Ok(self.0.read_slice_up_to(address, u32::MAX))
+    }
+
+    fn read_slice_up_to(&self, address: u64, len: u32) -> &[u8] {
+        self.0.read_slice_up_to(address, len)
+    }
+
+    fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
+    where
+        T: BasicInt,
+    {
+        self.0.write(address, value)
+    }
+
+    fn write_slice(&mut self, address: u64, data: &[u8]) -> Result<(), VirtualMemoryError> {
+        self.0.write_slice(address, data)
+    }
+}
+
+#[test]
+fn vlm_only_uses_requested_bytes_of_longer_slice() {
+    // vl=10 -> ceil(10/8)=2 bytes, while memory hands out the whole remaining 4096 bytes
+    let mut state = setup(Vl::new(10).unwrap(), Vsew::E8, Vlmul::M1);
+    let mut memory = GreedyReadSliceMemory(BasicMemory::default());
+    memory.write_slice(TEST_BASE_ADDR, &[0xff; 4096]).unwrap();
+    let mut instruction_fetcher =
+        BasicInstructionFetcher::<ZveXxLoadInstruction<Reg<u64>>>::new(0, TEST_BASE_ADDR);
+
+    let result = ZveXxLoadInstruction::<Reg<u64>>::Vlm {
+        vd: VReg::V30,
+        rs1: Reg::A0,
+        rs2: Reg::Zero,
+    }
+    .execute(
+        Rs1Rs2OperandValues {
+            rs1_value: TEST_BASE_ADDR,
+            rs2_value: 0,
+        },
+        &mut state.regs,
+        &mut state.env,
+        &mut memory,
+        &mut instruction_fetcher,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    let mut expected = [0; 32];
+    expected[..2].fill(0xff);
+    assert_eq!(vreg_bytes(&state, VReg::V30), expected);
+    assert_eq!(vreg_bytes(&state, VReg::V31), [0; 32]);
 }
 
 #[test]
