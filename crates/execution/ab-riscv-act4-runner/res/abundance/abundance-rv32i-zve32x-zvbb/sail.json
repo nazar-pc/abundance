@@ -349,6 +349,11 @@
         }
       }
     },
+    // Zca is required by ACT4 for SsstrictSm tests to work
+    // TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved
+    "Zca": {
+      "supported": true
+    },
     "Zicsr": {
       "supported": true
     },
@@ -416,9 +421,6 @@
       "supported": false
     },
     "Zbs": {
-      "supported": false
-    },
-    "Zca": {
       "supported": false
     },
     "Zcb": {

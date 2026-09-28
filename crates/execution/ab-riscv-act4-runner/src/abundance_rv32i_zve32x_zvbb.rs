@@ -8,11 +8,13 @@ use core::ops::ControlFlow;
 
 /// Configuration of the RV32I core with Zve32x and Zvbb.
 ///
-/// M is also enabled because ACT4 requires it for all vector tests.
+/// M is also enabled because ACT4 requires it for all vector tests, Zca is enabled because ACT4's
+/// SsstrictSm tests are broken on cores without it.
 pub(crate) const ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG: CoreConfig = CoreConfig {
     misa_extensions: MISA_I | MISA_M,
     zkr: false,
-    zca: false,
+    // TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved
+    zca: true,
 };
 
 /// RV32I base ISA with Zve32x and Zvbb extensions
@@ -24,6 +26,8 @@ pub(crate) type AbundanceRv32IZve32xZvbbInstruction =
     inherit = [
         Rv32Instruction,
         Rv32MInstruction,
+        // TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved
+        Rv32ZcaInstruction,
         ZicsrInstruction,
         ZvbbInstruction,
         ZveXxInstruction,
