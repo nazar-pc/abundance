@@ -56,6 +56,15 @@ pub(crate) struct CoreConfig {
     pub(crate) misa_extensions: u32,
     /// Whether Zkr is implemented, which is what makes `seed` and `mseccfg`/`mseccfgh` CSRs exist
     pub(crate) zkr: bool,
+    /// Whether Zca is implemented. Without it IALIGN=32, so `mepc[1:0]` is always zero rather than
+    /// just `mepc[0]`.
+    pub(crate) zca: bool,
+}
+
+/// Access to the configuration of the core under test from within instruction implementations
+pub(crate) trait CoreConfigProvider {
+    /// Configuration of the core under test
+    fn core_config(&self) -> &CoreConfig;
 }
 
 /// Fixed `misa` value for the core.
@@ -118,6 +127,7 @@ where
     vregs: VectorRegisterFile<VLEN>,
     reservation: Option<Reg::Type>,
     entropy_source: ChaCha8Rng,
+    core_config: CoreConfig,
 }
 
 impl<Reg, const ELEN: Elen, const VLEN: Vlen> TestEnv<Reg, ELEN, VLEN>
@@ -214,6 +224,7 @@ where
             reservation: None,
             // Good enough for testing purposes
             entropy_source: ChaCha8Rng::from_seed([0; _]),
+            core_config,
         };
         s.initialize_vector_state();
         s
@@ -268,6 +279,15 @@ where
         *self.csrs.get_mut(&(MCsr::Mstatus as u16)).unwrap() = mstatus;
 
         self.csrs[&(MCsr::Mepc as u16)]
+    }
+}
+
+impl<Reg, const ELEN: Elen, const VLEN: Vlen> CoreConfigProvider for TestEnv<Reg, ELEN, VLEN>
+where
+    Reg: Register,
+{
+    fn core_config(&self) -> &CoreConfig {
+        &self.core_config
     }
 }
 

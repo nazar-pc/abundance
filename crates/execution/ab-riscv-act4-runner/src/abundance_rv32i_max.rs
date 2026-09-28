@@ -10,6 +10,7 @@ use core::ops::ControlFlow;
 pub(crate) const ABUNDANCE_RV32I_MAX_CONFIG: CoreConfig = CoreConfig {
     misa_extensions: MISA_A | MISA_B | MISA_I | MISA_M,
     zkr: true,
+    zca: true,
 };
 
 /// All instructions supported by the interpreter for RV32I base ISA

@@ -12,6 +12,7 @@ use core::ops::ControlFlow;
 pub(crate) const ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG: CoreConfig = CoreConfig {
     misa_extensions: MISA_I | MISA_M,
     zkr: false,
+    zca: false,
 };
 
 /// RV32I base ISA with Zve32x and Zvbb extensions

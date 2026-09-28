@@ -44,7 +44,7 @@ impl<Reg> ExecutableInstructionOperands for MachineModePlaceholder<Reg> where Re
 impl<Reg, Env> ExecutableInstructionCsr<Env> for MachineModePlaceholder<Reg>
 where
     Reg: Register,
-    Env: Csrs<Reg>,
+    Env: Csrs<Reg> + crate::interpreter::CoreConfigProvider,
 {
     fn prepare_csr_read(
         _env: &Env,
@@ -111,7 +111,13 @@ where
                 Ok(true)
             }
             Some(MCsr::Mepc) => {
-                *output_value = write_value & !Reg::Type::from(1u32);
+                // `mepc[0]` is always zero, and so is `mepc[1]` when IALIGN=32 (no Zca)
+                let mask = if env.core_config().zca {
+                    0b01u8
+                } else {
+                    0b11u8
+                };
+                *output_value = write_value & !Reg::Type::from(mask);
                 Ok(true)
             }
             Some(MCsr::Misa) => {
@@ -156,6 +162,7 @@ impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
     for MachineModePlaceholder<Reg>
 where
     Reg: Register,
+    Env: crate::interpreter::CoreConfigProvider,
 {
     fn execute(
         self,
