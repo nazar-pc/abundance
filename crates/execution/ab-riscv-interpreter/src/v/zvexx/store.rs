@@ -142,7 +142,7 @@ where
             }
             // Unit-stride store.
             //
-            // Source EMUL = EEW/SEW * LMUL, computed via `data_register_count`. This gives
+            // Source EMUL = EEW/SEW * LMUL, computed via `eew_register_count`. This gives
             // `group_regs` such that `VLMAX = group_regs * VLEN.bytes() / eew.bytes()` matches the
             // architectural `vl`.
             Self::Vse {
@@ -167,13 +167,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().data_register_count(eew, vtype.vsew()).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -224,13 +225,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().data_register_count(eew, vtype.vsew()).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -278,14 +280,13 @@ where
                 };
                 let data_eew = vtype.vsew().as_eew();
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -302,7 +303,7 @@ where
                 // - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()`: `data_group_regs` is
                 //   the EMUL that bounds `vl`
                 // - `vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()`:
-                //   `index_register_count` returns the EMUL for the index group, which by the same
+                //   `eew_register_count` returns the EMUL for the index group, which by the same
                 //   argument bounds `vl`
                 // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
@@ -348,14 +349,13 @@ where
                 };
                 let data_eew = vtype.vsew().as_eew();
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -407,13 +407,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().data_register_count(eew, vtype.vsew()).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -464,13 +465,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().data_register_count(eew, vtype.vsew()).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -521,14 +523,13 @@ where
                 };
                 let data_eew = vtype.vsew().as_eew();
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,
@@ -589,14 +590,13 @@ where
                 };
                 let data_eew = vtype.vsew().as_eew();
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_store_helpers::validate_segment_store_registers::<Reg, _, _>(
                     program_counter,
                     vs3,

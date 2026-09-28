@@ -2,9 +2,9 @@ use crate::basic::{BasicInstructionFetcher, BasicMemory, BasicRegisters};
 use crate::rv64::test_utils::{
     Env, TEST_BASE_ADDR, TRAP_ADDRESS, TestInterpreterState, initialize_state,
 };
-use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
 use crate::{
-    BasicInt, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
+    BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
     ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
     VirtualMemoryError,
 };
@@ -206,6 +206,135 @@ fn exec_one(
         Err(error)
     } else {
         Ok(())
+    }
+}
+
+/// [`Env`] of a Zve32x implementation, `ELEN = 32`
+pub(in crate::v::zvexx) struct Zve32Env(pub(in crate::v::zvexx) Env);
+
+impl Csrs<Reg<u64>> for Zve32Env {
+    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError> {
+        self.0.read_csr(csr_index)
+    }
+
+    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError> {
+        self.0.write_csr(csr_index, value)
+    }
+}
+
+impl VectorRegisters for Zve32Env {
+    const ELEN: Elen = Elen::L32;
+    const VLEN: Vlen = <Env as VectorRegisters>::VLEN;
+
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+        self.0.read_vregs()
+    }
+
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+        self.0.write_vregs()
+    }
+
+    fn vector_instructions_allowed(&self) -> bool {
+        self.0.vector_instructions_allowed()
+    }
+
+    fn mark_vs_dirty(&mut self) {
+        self.0.mark_vs_dirty();
+    }
+}
+
+impl VectorRegistersExt<Reg<u64>> for Zve32Env {}
+
+/// Execute a single instruction like [`exec_one()`], but on a Zve32x implementation
+fn exec_one_zve32(
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    instr: ZveXxLoadInstruction<Reg<u64>>,
+) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+    let mut env = Zve32Env(core::mem::take(&mut state.env));
+
+    let result = instr.execute(
+        rs1rs2_values,
+        &mut state.regs,
+        &mut env,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+    );
+    state.env = env.0;
+
+    if let ExecutionResult::Err(error) = result {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+#[test]
+fn eew_above_elen_is_illegal() {
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+
+    for eew in [Eew::E32, Eew::E64] {
+        let instructions = [
+            ZveXxLoadInstruction::Vle {
+                vd: VReg::V2,
+                rs1: Reg::A0,
+                vm: true,
+                eew,
+                rs2: Reg::Zero,
+            },
+            ZveXxLoadInstruction::Vleff {
+                vd: VReg::V2,
+                rs1: Reg::A0,
+                vm: true,
+                eew,
+                rs2: Reg::Zero,
+            },
+            ZveXxLoadInstruction::Vlse {
+                vd: VReg::V2,
+                rs1: Reg::A0,
+                rs2: Reg::Zero,
+                vm: true,
+                eew,
+            },
+            ZveXxLoadInstruction::Vluxei {
+                vd: VReg::V2,
+                rs1: Reg::A0,
+                vs2: VReg::V4,
+                vm: true,
+                eew,
+                rs2: Reg::Zero,
+            },
+            ZveXxLoadInstruction::Vlseg {
+                vd: VReg::V2,
+                rs1: Reg::A0,
+                eew,
+                vm_nf: SegVmNf::new(true, Nf::N2),
+                rs2: Reg::Zero,
+            },
+            ZveXxLoadInstruction::Vlr {
+                vd: VReg::V2,
+                rs1: Reg::A0,
+                nreg: LoadStoreNreg::N1,
+                eew,
+                rs2: Reg::Zero,
+            },
+        ];
+        for instruction in instructions {
+            let result = exec_one_zve32(&mut state, instruction);
+            if eew == Eew::E32 {
+                assert!(result.is_ok(), "{instruction}: {result:?}");
+            } else {
+                assert!(
+                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                    "{instruction}: {result:?}"
+                );
+            }
+        }
     }
 }
 

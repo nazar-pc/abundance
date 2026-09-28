@@ -924,6 +924,21 @@ where
         self.vlmul
     }
 
+    /// Number of registers in a group of elements with effective element width `eew`, where
+    /// `EMUL = (EEW / SEW) * LMUL`.
+    ///
+    /// Returns `None` when `EEW` exceeds `ELEN` or `EMUL` falls outside the legal range
+    /// `[1/8, 8]`, both of which are reserved.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn eew_register_count(&self, eew: Eew) -> Option<VRegGroupSize> {
+        if u32::from(eew.bits_width()) > u32::from(ELEN) {
+            cold_path();
+            return None;
+        }
+        self.vlmul.index_register_count(eew, self.vsew)
+    }
+
     /// Decode from raw register value.
     ///
     /// The `XLEN` is taken from `Reg::XLEN` and must be 32 for RV32 or 64 for RV64. The `vill` bit
