@@ -965,7 +965,10 @@ where
             return None;
         }
 
-        if u32::from(vlmul.vlmax::<VLEN>(vsew)) == 0 {
+        // Only `SEW <= LMUL * ELEN` must be supported for fractional `LMUL`, anything beyond that
+        // is reserved and treated as `vill` like in the Sail model. Since `ELEN <= VLEN`,
+        // this also guarantees that at least one element fits and `VLMAX` is non-zero.
+        if u32::from(sew) * 8 > u32::from(ELEN) * vlmul.eighths() {
             cold_path();
             return None;
         }

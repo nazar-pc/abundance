@@ -3348,11 +3348,11 @@ fn vl_zero_leaves_vd_undisturbed_rgather() {
 // Fractional LMUL
 
 #[test]
-fn vslideup_mf2_e64_offset_ge_vlmax_no_write() {
-    // Mf2/E64: VLMAX = VLEN/(64*2) = 256/128 = 2; this test pins vl=1.
-    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::Mf2);
-    write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0xABCD);
-    write_elem(&mut state, VReg::V4, 0, Vsew::E64, 0xDEAD);
+fn vslideup_mf2_e32_offset_ge_vlmax_no_write() {
+    // Mf2/E32: VLMAX = VLEN/(32*2) = 256/64 = 4; this test pins vl=1.
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::Mf2);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0xABCD);
+    write_elem(&mut state, VReg::V4, 0, Vsew::E32, 0xDEAD);
     // Offset 1 == vl: no active destinations.
     state.regs.write(Reg::A0, 1u64);
     exec(
@@ -3366,13 +3366,13 @@ fn vslideup_mf2_e64_offset_ge_vlmax_no_write() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0xDEAD);
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xDEAD);
 }
 
 #[test]
-fn vslidedown_mf2_e64_offset_zero_copies() {
-    let mut state = setup(Vl::new(1).unwrap(), Vsew::E64, Vlmul::Mf2);
-    write_elem(&mut state, VReg::V2, 0, Vsew::E64, 0x1234);
+fn vslidedown_mf2_e32_offset_zero_copies() {
+    let mut state = setup(Vl::new(1).unwrap(), Vsew::E32, Vlmul::Mf2);
+    write_elem(&mut state, VReg::V2, 0, Vsew::E32, 0x1234);
     state.regs.write(Reg::A0, 0u64);
     exec(
         &mut state,
@@ -3385,5 +3385,5 @@ fn vslidedown_mf2_e64_offset_zero_copies() {
         },
     )
     .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0x1234);
+    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x1234);
 }
