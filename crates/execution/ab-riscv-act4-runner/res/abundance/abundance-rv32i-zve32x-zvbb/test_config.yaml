@@ -2,7 +2,9 @@
 #
 # This is a minimal counterpart to abundance-rv32i-max: only the base ISA (plus Zicsr, Sm and
 # Ssstrict, which every core here needs) and a narrow set of vector extensions (Zve32x, Zvbb and
-# its Zvkb subset) with VLEN=128 are enabled. Everything else is disabled to avoid mostly repeating
+# its Zvkb subset) with VLEN=128 are enabled. M (and Zmmul) is enabled too, since ACT4's vector
+# test generator lists it as required for every vector test (its vector failure reporting code in
+# rvtest_failure_code.h uses `mul`), no vector tests would be selected without it. Everything else is disabled to avoid mostly repeating
 # the abundance-rv32i-max run, what remains are base ISA tests and vector tests with ELEN=32 and
 # VLEN=128.
 #

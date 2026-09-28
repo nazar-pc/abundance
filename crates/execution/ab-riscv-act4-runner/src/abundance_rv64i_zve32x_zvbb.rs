@@ -1,14 +1,16 @@
 use crate::instruction::MachineModePlaceholder;
-use crate::interpreter::{CoreConfig, MISA_I};
+use crate::interpreter::{CoreConfig, MISA_I, MISA_M};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
 
-/// Configuration of the RV64I core with Zve32x and Zvbb
+/// Configuration of the RV64I core with Zve32x and Zvbb.
+///
+/// M is also enabled because ACT4 requires it for all vector tests.
 pub(crate) const ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG: CoreConfig = CoreConfig {
-    misa_extensions: MISA_I,
+    misa_extensions: MISA_I | MISA_M,
     zkr: false,
 };
 
@@ -20,6 +22,7 @@ pub(crate) type AbundanceRv64IZve32xZvbbInstruction =
 #[instruction(
     inherit = [
         Rv64Instruction,
+        Rv64MInstruction,
         ZicsrInstruction,
         ZvbbInstruction,
         ZveXxInstruction,

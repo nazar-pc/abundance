@@ -316,6 +316,10 @@
     "max_time_to_wait": 0
   },
   "extensions": {
+    // M is required by ACT4 for all vector tests
+    "M": {
+      "supported": true
+    },
     "V": {
       // `support_level` must be one of the below strings:
       // . "Disabled" for no vector extension support
@@ -354,14 +358,14 @@
     "Zvkb": {
       "supported": true
     },
-    // Everything below is disabled, only base ISA and vector extensions above are enabled
+    "Zmmul": {
+      "supported": true
+    },
+    // Everything below is disabled, only extensions above are enabled
     "A": {
       "supported": false
     },
     "B": {
-      "supported": false
-    },
-    "M": {
       "supported": false
     },
     "Zaamo": {
@@ -450,9 +454,6 @@
       "useed_reset_value": false,
       "sseed_read_only_zero": false,
       "useed_read_only_zero": false
-    },
-    "Zmmul": {
-      "supported": false
     },
     "D": {
       "supported": false
