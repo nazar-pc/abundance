@@ -18,13 +18,21 @@
 )]
 
 mod abundance_rv32i_max;
+mod abundance_rv32i_zve32x_zvbb;
 mod abundance_rv64i_max;
+mod abundance_rv64i_zve32x_zvbb;
 mod instruction;
 mod interpreter;
 
-use crate::abundance_rv32i_max::AbundanceRv32IMaxInstruction;
-use crate::abundance_rv64i_max::AbundanceRv64IMaxInstruction;
-use crate::interpreter::TestEnv;
+use crate::abundance_rv32i_max::{ABUNDANCE_RV32I_MAX_CONFIG, AbundanceRv32IMaxInstruction};
+use crate::abundance_rv32i_zve32x_zvbb::{
+    ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG, AbundanceRv32IZve32xZvbbInstruction,
+};
+use crate::abundance_rv64i_max::{ABUNDANCE_RV64I_MAX_CONFIG, AbundanceRv64IMaxInstruction};
+use crate::abundance_rv64i_zve32x_zvbb::{
+    ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG, AbundanceRv64IZve32xZvbbInstruction,
+};
+use crate::interpreter::{CoreConfig, TestEnv};
 use ab_riscv_interpreter::basic::{
     BasicInstructionFetcher, BasicInterpreterState, BasicMemory, BasicRegister, BasicRegisters,
 };
@@ -50,19 +58,28 @@ const MRET_INSTRUCTION: u32 = 0x3020_0073;
 
 const SIZE_OF<T>: usize = size_of::<T>();
 
-/// RISC-V ISA
+/// Core under test, matches the name of the core definition in `res/abundance` without the
+/// `abundance-` prefix
 #[derive(Debug, Clone, Copy, ValueEnum)]
-enum Isa {
-    /// RV32
-    Rv32,
-    /// RV64
-    Rv64,
+enum Core {
+    /// RV32I with Zve32x and Zvbb, VLEN=128
+    #[value(name = "rv32i-zve32x-zvbb")]
+    Rv32IZve32xZvbb,
+    /// RV64I with Zve32x and Zvbb, VLEN=128
+    #[value(name = "rv64i-zve32x-zvbb")]
+    Rv64IZve32xZvbb,
+    /// RV32I with every supported extension enabled
+    #[value(name = "rv32i-max")]
+    Rv32IMax,
+    /// RV64I with every supported extension enabled
+    #[value(name = "rv64i-max")]
+    Rv64IMax,
 }
 
 #[derive(Parser)]
 #[command(about = "Run RISC-V ACT compliance tests against the interpreter")]
 struct Cli {
-    isa: Isa,
+    core: Core,
     /// Directory containing *.elf ACT4 test binaries
     elfs: PathBuf,
     /// Only run tests whose filename contains this substring
@@ -445,6 +462,7 @@ where
 
 fn run_test<I, const ELEN: Elen, const VLEN: Vlen>(
     elf_path: &Path,
+    core_config: CoreConfig,
 ) -> Result<(), TestError<RegisterType<I>>>
 where
     I: ExecutableInstruction<
@@ -466,7 +484,7 @@ where
 
     let mut state = BasicInterpreterState {
         regs: BasicRegisters::<I::Reg>::default(),
-        env: TestEnv::new(),
+        env: TestEnv::new(core_config),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<I>::new(
             // Not used by this harness (termination is always via `tohost`), so this only needs
@@ -928,6 +946,7 @@ fn process_error<RT>(
 /// Run a single test and print its outcome, returning whether the test passed
 fn run_and_report<I, const ELEN: Elen, const VLEN: Vlen>(
     elf_path: &Path,
+    core_config: CoreConfig,
     stem: &str,
     passed: &mut usize,
     failed: &mut usize,
@@ -943,7 +962,7 @@ where
         >,
     TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
 {
-    let Err(error) = run_test::<I, ELEN, VLEN>(elf_path) else {
+    let Err(error) = run_test::<I, ELEN, VLEN>(elf_path, core_config) else {
         println!("{} {stem}", "PASS".green());
         *passed += 1;
         return true;
@@ -982,17 +1001,47 @@ fn main() {
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
 
-        let test_passed = match cli.isa {
-            Isa::Rv32 => run_and_report::<
-                AbundanceRv32IMaxInstruction,
-                { Elen::L64 },
-                { Vlen::L1024 },
-            >(elf_path, stem, &mut passed, &mut failed, &mut errors),
-            Isa::Rv64 => run_and_report::<
-                AbundanceRv64IMaxInstruction,
-                { Elen::L64 },
-                { Vlen::L1024 },
-            >(elf_path, stem, &mut passed, &mut failed, &mut errors),
+        let test_passed = match cli.core {
+            Core::Rv32IZve32xZvbb => {
+                run_and_report::<AbundanceRv32IZve32xZvbbInstruction, { Elen::L32 }, { Vlen::L128 }>(
+                    elf_path,
+                    ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG,
+                    stem,
+                    &mut passed,
+                    &mut failed,
+                    &mut errors,
+                )
+            }
+            Core::Rv64IZve32xZvbb => {
+                run_and_report::<AbundanceRv64IZve32xZvbbInstruction, { Elen::L32 }, { Vlen::L128 }>(
+                    elf_path,
+                    ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG,
+                    stem,
+                    &mut passed,
+                    &mut failed,
+                    &mut errors,
+                )
+            }
+            Core::Rv32IMax => {
+                run_and_report::<AbundanceRv32IMaxInstruction, { Elen::L64 }, { Vlen::L1024 }>(
+                    elf_path,
+                    ABUNDANCE_RV32I_MAX_CONFIG,
+                    stem,
+                    &mut passed,
+                    &mut failed,
+                    &mut errors,
+                )
+            }
+            Core::Rv64IMax => {
+                run_and_report::<AbundanceRv64IMaxInstruction, { Elen::L64 }, { Vlen::L1024 }>(
+                    elf_path,
+                    ABUNDANCE_RV64I_MAX_CONFIG,
+                    stem,
+                    &mut passed,
+                    &mut failed,
+                    &mut errors,
+                )
+            }
         };
 
         if !test_passed && cli.fail_fast {

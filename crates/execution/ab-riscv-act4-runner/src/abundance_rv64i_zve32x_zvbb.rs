@@ -1,51 +1,36 @@
 use crate::instruction::MachineModePlaceholder;
-use crate::interpreter::{CoreConfig, MISA_A, MISA_B, MISA_I, MISA_M};
+use crate::interpreter::{CoreConfig, MISA_I};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
 
-/// Configuration of the RV64I-max core
-pub(crate) const ABUNDANCE_RV64I_MAX_CONFIG: CoreConfig = CoreConfig {
-    misa_extensions: MISA_A | MISA_B | MISA_I | MISA_M,
-    zkr: true,
+/// Configuration of the RV64I core with Zve32x and Zvbb
+pub(crate) const ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG: CoreConfig = CoreConfig {
+    misa_extensions: MISA_I,
+    zkr: false,
 };
 
-/// All instructions supported by the interpreter for RV64I base ISA
-pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionPrototype<Reg<u64>>;
+/// RV64I base ISA with Zve32x and Zvbb extensions
+pub(crate) type AbundanceRv64IZve32xZvbbInstruction =
+    AbundanceRv64IZve32xZvbbInstructionPrototype<Reg<u64>>;
 
-/// All instructions supported by the interpreter for RV64I base ISA
+/// RV64I base ISA with Zve32x and Zvbb extensions
 #[instruction(
     inherit = [
         Rv64Instruction,
-        Rv64AInstruction,
-        Rv64BInstruction,
-        Rv64MInstruction,
-        Rv64ZabhaInstruction,
-        Rv64ZacasInstruction,
-        Rv64ZalasrInstruction,
-        Rv64ZbcInstruction,
-        Rv64ZcaInstruction,
-        Rv64ZcbInstruction,
-        Rv64ZcmpInstruction,
-        Rv64ZknInstruction,
-        ZawrsInstruction,
-        ZicondInstruction,
         ZicsrInstruction,
-        ZifenceiInstruction,
-        ZkrInstruction,
         ZvbbInstruction,
-        ZvbcInstruction,
         ZveXxInstruction,
         MachineModePlaceholder,
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AbundanceRv64IMaxInstructionPrototype<Reg> {}
+pub(crate) enum AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {}
 
 #[instruction]
-const impl<Reg> Instruction for AbundanceRv64IMaxInstructionPrototype<Reg> {
+const impl<Reg> Instruction for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Reg = Reg;
@@ -62,7 +47,7 @@ const impl<Reg> Instruction for AbundanceRv64IMaxInstructionPrototype<Reg> {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for AbundanceRv64IMaxInstructionPrototype<Reg>
+impl<Reg> fmt::Display for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg>
 where
     Reg: Register,
 {
@@ -72,14 +57,14 @@ where
 }
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for AbundanceRv64IMaxInstructionPrototype<Reg> {}
+impl<Reg> ExecutableInstructionOperands for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {}
 
 #[instruction_execution]
-impl<Reg, Env> ExecutableInstructionCsr<Env> for AbundanceRv64IMaxInstructionPrototype<Reg> {}
+impl<Reg, Env> ExecutableInstructionCsr<Env> for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {}
 
 #[instruction_execution]
 impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for AbundanceRv64IMaxInstructionPrototype<Reg>
+    for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg>
 where
     Reg: Register,
 {

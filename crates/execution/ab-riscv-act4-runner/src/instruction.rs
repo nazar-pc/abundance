@@ -117,8 +117,9 @@ where
             Some(MCsr::Misa) => {
                 // MISA_CSR_IMPLEMENTED is false for this core: misa isn't writable, so every write
                 // is WARL-ignored - but it still reads back MXL and each implemented single-letter
-                // extension's bit accurately, see `misa_value()`.
-                *output_value = crate::interpreter::misa_value::<Reg>();
+                // extension's bit accurately, see `misa_value()`. So a write simply keeps the
+                // current value.
+                *output_value = env.read_csr(csr_index)?;
                 Ok(true)
             }
             Some(MCsr::Mstatus) => {

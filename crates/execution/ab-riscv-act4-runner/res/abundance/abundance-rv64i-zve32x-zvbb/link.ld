@@ -1,0 +1,1 @@
+../abundance-rv64i-max/link.ld

@@ -40,23 +40,38 @@ where
     mie | mpie | (vs << MSTATUS_VS_BIT) | mpp | sd
 }
 
-/// Fixed `misa` value for this core.
+/// `misa` bit of the `A` extension
+pub(crate) const MISA_A: u32 = 1 << 0;
+/// `misa` bit of the `B` extension
+pub(crate) const MISA_B: u32 = 1 << 1;
+/// `misa` bit of the `I` base ISA
+pub(crate) const MISA_I: u32 = 1 << 8;
+/// `misa` bit of the `M` extension
+pub(crate) const MISA_M: u32 = 1 << 12;
+
+/// Properties of the core under test that are not captured by its instruction set
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CoreConfig {
+    /// Single-letter extension bits reported in `misa` (see `MISA_*` constants)
+    pub(crate) misa_extensions: u32,
+    /// Whether Zkr is implemented, which is what makes `seed` and `mseccfg`/`mseccfgh` CSRs exist
+    pub(crate) zkr: bool,
+}
+
+/// Fixed `misa` value for the core.
 ///
 /// `MISA_CSR_IMPLEMENTED: false` (per `sail.json`'s `writable_misa: false`) only means misa isn't
 /// *writable* - every write is WARL-ignored - not that it reads back all zero. MXL (top 2 bits)
 /// reports the hart's fixed base ISA width, and each extension-letter bit reports whether that
 /// single-letter extension is actually implemented; both stay readable and accurate regardless of
-/// writability (verified against the reference model). Only `I`/`M`/`A`/`B` have a corresponding
-/// misa bit among this core's `implemented_extensions` - the rest are all `Z*` sub-extensions,
-/// which have no misa bit of their own.
-pub(crate) fn misa_value<Reg>() -> Reg::Type
+/// writability (verified against the reference model). `Z*` sub-extensions have no misa bit of
+/// their own, neither do `Zve*` (only the full `V` extension sets `misa.V`).
+fn misa_value<Reg>(extensions: u32) -> Reg::Type
 where
     Reg: Register,
 {
-    let one = Reg::Type::from(1u8);
     let mxl = Reg::Type::from(u8::from(Reg::XLEN == 64) + 1);
-    let extensions = one /* A */ | (one << 1) /* B */ | (one << 8) /* I */ | (one << 12) /* M */;
-    (mxl << (Reg::XLEN - 2)) | extensions
+    (mxl << (Reg::XLEN - 2)) | Reg::Type::from(extensions)
 }
 
 /// Mask a raw `mie` value down to `MSIE`/`MTIE`/`MEIE` (bits 3, 7, 11). Every other bit is either
@@ -111,7 +126,7 @@ where
     Self: VectorRegistersExt<Reg>,
 {
     /// Create a new instance with all CSRs the tests expect to exist initialized
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(core_config: CoreConfig) -> Self {
         let zero = Reg::Type::default();
 
         let mut csrs = BTreeMap::new();
@@ -141,11 +156,14 @@ where
         // trap can be taken. mstatus is the exception: mask_mstatus() forces MPP to M even from an
         // all-zero input, which is also the correct reset value (M is the only implemented mode).
         csrs.insert(MCsr::Mstatus as u16, mask_mstatus::<Reg>(zero));
-        // MISA_CSR_IMPLEMENTED is false for this core, so misa is hardwired to 0 - correctly
-        // signaling "no extensions" including no H (bit 7), which the ACT4 framework's own trap
-        // handler (under STANDARD_SM_SUPPORTED) reads unconditionally on every M-mode trap to
-        // decide whether to also save mtval2/mtinst
-        csrs.insert(MCsr::Misa as u16, misa_value::<Reg>());
+        // MISA_CSR_IMPLEMENTED is false, so misa is hardwired to the value from `misa_value()` -
+        // notably signaling no H (bit 7), which the ACT4 framework's own trap handler (under
+        // STANDARD_SM_SUPPORTED) reads unconditionally on every M-mode trap to decide whether to
+        // also save mtval2/mtinst
+        csrs.insert(
+            MCsr::Misa as u16,
+            misa_value::<Reg>(core_config.misa_extensions),
+        );
         csrs.insert(MCsr::Mie as u16, zero);
         csrs.insert(MCsr::Mtvec as u16, zero);
         csrs.insert(MCsr::Mscratch as u16, zero);
@@ -159,15 +177,21 @@ where
         // not define
         if Reg::XLEN == 32 {
             csrs.insert(MCsr::Mstatush as u16, zero);
-            csrs.insert(MCsr::Mseccfgh as u16, zero);
         }
         // mcountinhibit must always be implemented, independent of any extension
         csrs.insert(MCsr::Mcountinhibit as u16, zero);
-        // mseccfg (and mseccfgh, RV32 only, inserted above) exist because Zkr is implemented (it
-        // gates SSEED/USEED access to the seed CSR), but Smepmp (MML/MMWP/RLB) isn't, and there's
-        // no S/U mode for SSEED/USEED to grant access to, so every field of both halves is
-        // hardwired to 0 - see instruction.rs's prepare_csr_write
-        csrs.insert(MCsr::Mseccfg as u16, zero);
+        // mseccfg (and mseccfgh, RV32 only) only exist when Zkr is implemented (it gates
+        // SSEED/USEED access to the seed CSR), since neither Smepmp (MML/MMWP/RLB) nor any other
+        // extension that would need them is. There's no S/U mode for SSEED/USEED to grant access
+        // to either, so every field of both halves is hardwired to 0 - see instruction.rs's
+        // prepare_csr_write. Without Zkr, all three CSRs are absent and every access traps.
+        if core_config.zkr {
+            csrs.insert(MCsr::Mseccfg as u16, zero);
+            if Reg::XLEN == 32 {
+                csrs.insert(MCsr::Mseccfgh as u16, zero);
+            }
+            csrs.insert(SEED_CSR_INDEX, zero);
+        }
         // menvcfg/menvcfgh, mcycle/minstret/mcycleh/minstreth and mhpmcounter/mhpmeventN are
         // deliberately NOT inserted here: verified against the reference model (via its actual
         // execution trace, not just the embedded expected-signature values) that every access to
@@ -183,7 +207,6 @@ where
         //
         // mconfigptr must always be implemented (read-only); CONFIG_PTR_ADDRESS is 0 for this core
         csrs.insert(MCsr::Mconfigptr as u16, zero);
-        csrs.insert(SEED_CSR_INDEX, zero);
 
         let mut s = Self {
             csrs,
@@ -300,6 +323,8 @@ macro_rules! impl_vector_registers {
     };
 }
 
+impl_vector_registers!(Reg<u32>, Elen::L32, Vlen::L128);
+impl_vector_registers!(Reg<u64>, Elen::L32, Vlen::L128);
 impl_vector_registers!(Reg<u32>, Elen::L64, Vlen::L1024);
 impl_vector_registers!(Reg<u64>, Elen::L64, Vlen::L1024);
 

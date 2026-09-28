@@ -1,4 +1,6 @@
-// rvmodel_macros.h - abundance-rv64i-max (ACT4 self-checking framework)
+// rvmodel_macros.h - abundance RV64 cores (ACT4 self-checking framework)
+//
+// Shared by all abundance-rv64i-* cores (symlinked from other core directories).
 //
 // Halt mechanism: HTIF tohost write (Sail's exit protocol).
 //   Writing (exit_code << 1) | 1 to tohost signals exit.
@@ -7,15 +9,14 @@
 // No console, no timer, no interrupts implemented.
 
 // ---------------------------------------------------------------------------
-// This core is M-mode only (no S/U), but does implement a real, writable
-// mtvec and dispatches traps (ecall, illegal instruction, ...) through it -
-// see AbundanceRv64IMaxExtState::take_trap() in the interpreter. Defining
-// this lets the framework install and use its own real trap handler
-// (RVTEST_TRAP_HANDLER), instead of leaving tests that rely on it (e.g. any
-// RVTEST_GOTO_MMODE user, or extensions - like Zkr - whose tests are
-// registered under priv/) with no working trap handler at all. Every other
-// DUT config in this framework defines this the same way, leaving
-// RVMODEL_BOOT undefined below.
+// These cores are M-mode only (no S/U), but do implement a real, writable
+// mtvec and dispatch traps (ecall, illegal instruction, ...) through it -
+// see TestEnv::take_trap() in the runner. Defining this lets the framework
+// install and use its own real trap handler (RVTEST_TRAP_HANDLER), instead
+// of leaving tests that rely on it (e.g. any RVTEST_GOTO_MMODE user, or
+// extensions - like Zkr - whose tests are registered under priv/) with no
+// working trap handler at all. Every other DUT config in this framework
+// defines this the same way, leaving RVMODEL_BOOT undefined below.
 // ---------------------------------------------------------------------------
 #define STANDARD_SM_SUPPORTED
 
@@ -126,6 +127,6 @@
 // literal macro name in the generated assembly and broke the build under
 // STANDARD_SM_SUPPORTED. Leaving them undefined lets the framework's own
 // `#ifndef` fallback (abort via RVTEST_DFLT_INT_HNDLR) apply, which is
-// correct since this core doesn't implement the H extension and should
+// correct since these cores don't implement the H extension and should
 // never actually take a VS-mode software interrupt.
 #define RVMODEL_INTERRUPT_LATENCY

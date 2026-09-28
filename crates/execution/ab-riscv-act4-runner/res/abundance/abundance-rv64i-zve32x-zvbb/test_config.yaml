@@ -1,0 +1,26 @@
+# ACT4 framework top-level config for the abundance RV64I core with Zve32x and Zvbb.
+#
+# This is a minimal counterpart to abundance-rv64i-max: only the base ISA (plus Zicsr, Sm and
+# Ssstrict, which every core here needs) and a narrow set of vector extensions (Zve32x, Zvbb and
+# its Zvkb subset) with VLEN=128 are enabled. Everything else is disabled to avoid mostly repeating
+# the abundance-rv64i-max run, what remains are base ISA tests and vector tests with ELEN=32 and
+# VLEN=128.
+#
+# compiler_exe: riscv64-unknown-elf-gcc on $PATH, targeting lp64 ABI (no F/D).
+#   The march string must match the extensions in abundance-rv64i-zve32x-zvbb.yaml.
+#
+# ref_model_exe: sail_riscv_sim on $PATH.
+#   Run `sail_riscv_sim --help` to verify the binary name on your system;
+#   some distros install it as `riscv_sim_RV64`.
+#
+# include_priv_tests: true for the same reasons as in abundance-rv64i-max's test_config.yaml,
+#   the same M-mode trap handler is used here (see STANDARD_SM_SUPPORTED in rvmodel_macros.h).
+
+name: abundance-rv64i-zve32x-zvbb
+compiler_exe: riscv64-unknown-elf-gcc
+objdump_exe: riscv64-unknown-elf-objdump
+ref_model_exe: sail_riscv_sim
+udb_config: abundance-rv64i-zve32x-zvbb.yaml
+linker_script: link.ld
+dut_include_dir: .
+include_priv_tests: true
