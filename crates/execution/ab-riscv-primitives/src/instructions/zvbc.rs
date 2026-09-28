@@ -81,10 +81,16 @@ where
         let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
         let vd = VReg::from_bits(vd_bits)?;
         let vs2 = VReg::from_bits(vs2_bits)?;
+        if vs2.is_mask(vm) {
+            None?;
+        }
         match funct3 {
             // OPMVV: vclmul.vv, vclmulh.vv
             0b010 => {
                 let vs1 = VReg::from_bits(vs1_bits)?;
+                if vs1.is_mask(vm) {
+                    None?;
+                }
                 match funct6 {
                     0b00_1100 => Some(Self::VclmulVv { vd, vs2, vs1, vm }),
                     0b00_1101 => Some(Self::VclmulhVv { vd, vs2, vs1, vm }),

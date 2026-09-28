@@ -656,3 +656,32 @@ fn display_vwsll_vi_small_imm() {
     let decoded = ZvbbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwsll.vi v6, v10, 1");
 }
+
+#[test]
+fn masked_v0_data_source_is_reserved() {
+    for (name, funct6, vs2, vs1, funct3) in [
+        ("vandn.vv vs2", 0b00_0001, 0, 1, 0b000),
+        ("vandn.vv vs1", 0b00_0001, 1, 0, 0b000),
+        ("vrol.vx vs2", 0b01_0101, 0, 1, 0b100),
+        ("vror.vi vs2", 0b01_0100, 0, 1, 0b011),
+        ("vwsll.vv vs1", 0b11_0101, 1, 0, 0b000),
+        ("vbrev.v vs2", 0b01_0010, 0, 0b0_1010, 0b010),
+        ("vrev8.v vs2", 0b01_0010, 0, 0b0_1001, 0b010),
+        ("vcpop.v vs2", 0b01_0010, 0, 0b0_1110, 0b010),
+    ] {
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert_eq!(
+            ZvbbInstruction::<Reg<u64>>::try_decode(instruction),
+            None,
+            "{name}"
+        );
+        // Same instruction with `v4` in place of `v0`
+        let vs2 = if vs2 == 0 { 4 } else { vs2 };
+        let vs1 = if vs1 == 0 { 4 } else { vs1 };
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert!(
+            ZvbbInstruction::<Reg<u64>>::try_decode(instruction).is_some(),
+            "{name}"
+        );
+    }
+}

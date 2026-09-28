@@ -117,6 +117,9 @@ where
 
         let vd = VReg::from_bits(vd_bits)?;
         let vs2 = VReg::from_bits(vs2_bits)?;
+        if vs2.is_mask(vm) {
+            None?;
+        }
 
         match funct6 {
             // Saturating add/sub - OPIVV / OPIVX / OPIVI
@@ -125,6 +128,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VsadduVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -144,6 +150,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VsaddVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -163,6 +172,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VssubuVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -177,6 +189,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VssubVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -193,6 +208,9 @@ where
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VaadduVv { vd, vs2, vs1, vm })
                 }
                 // OPMVX
@@ -207,6 +225,9 @@ where
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VaaddVv { vd, vs2, vs1, vm })
                 }
                 // OPMVX
@@ -221,6 +242,9 @@ where
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VasubuVv { vd, vs2, vs1, vm })
                 }
                 // OPMVX
@@ -235,6 +259,9 @@ where
                 // OPMVV
                 0b010 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VasubVv { vd, vs2, vs1, vm })
                 }
                 // OPMVX
@@ -251,6 +278,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VsmulVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -267,6 +297,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VssrlVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -286,6 +319,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VssraVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -307,6 +343,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VnclipuWv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -326,6 +365,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VnclipWv { vd, vs2, vs1, vm })
                 }
                 // OPIVX

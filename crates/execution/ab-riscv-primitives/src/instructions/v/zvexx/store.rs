@@ -97,6 +97,10 @@ where
         }
 
         let vs3 = VReg::from_bits(vs3_bits)?;
+
+        if vs3.is_mask(vm) {
+            None?;
+        }
         let rs1 = Reg::from_bits(rs1_bits)?;
         let nf_val = nf + 1;
 
@@ -143,6 +147,9 @@ where
             0b01 => {
                 let eew = Eew::from_width(width)?;
                 let vs2 = VReg::from_bits(rs2_bits)?;
+                if vs2.is_mask(vm) {
+                    None?;
+                }
 
                 if !Self::implements_extension::<V<_>>()
                     && Reg::XLEN == u32::BITS as u8
@@ -195,6 +202,9 @@ where
             0b11 => {
                 let eew = Eew::from_width(width)?;
                 let vs2 = VReg::from_bits(rs2_bits)?;
+                if vs2.is_mask(vm) {
+                    None?;
+                }
 
                 if !Self::implements_extension::<V<_>>()
                     && Reg::XLEN == u32::BITS as u8
