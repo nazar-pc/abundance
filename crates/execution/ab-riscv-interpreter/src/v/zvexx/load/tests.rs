@@ -471,6 +471,92 @@ fn vlr_resets_vstart_on_success() {
 }
 
 #[test]
+fn vlr_honors_vstart_in_eew_units() {
+    let mut state = initialize_state([]);
+    state.env.init_vector_csrs();
+    set_vreg(&mut state, VReg::V1, &[0xAA; 32]);
+    let data = array::from_fn::<_, 32, _>(|i| i as u8);
+    write_mem(&mut state, TEST_BASE_ADDR, &data);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    // Element 3 of 32-bit elements starts at byte 12
+    state.env.set_vstart(Vstart::from(3));
+
+    exec_one(
+        &mut state,
+        ZveXxLoadInstruction::Vlr {
+            vd: VReg::V1,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N1,
+            eew: Eew::E32,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+
+    let vd = vreg_bytes(&state, VReg::V1);
+    assert_eq!(vd[..12], [0xAA; 12]);
+    assert_eq!(vd[12..], data[12..]);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
+}
+
+#[test]
+fn vlr_vstart_at_evl_is_illegal() {
+    let mut state = initialize_state([]);
+    state.env.init_vector_csrs();
+    set_vreg(&mut state, VReg::V1, &[0xAA; 32]);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    // `evl = 1 * VLEN / 16 = 16`, `vstart >= evl` is reserved
+    state.env.set_vstart(Vstart::from(16));
+
+    let result = exec_one(
+        &mut state,
+        ZveXxLoadInstruction::Vlr {
+            vd: VReg::V1,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N1,
+            eew: Eew::E16,
+            rs2: Reg::Zero,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+    assert_eq!(vreg_bytes(&state, VReg::V1), [0xAA; 32]);
+}
+
+#[test]
+fn vlr_fault_records_faulting_element_in_vstart() {
+    let mut state = initialize_state([]);
+    state.env.init_vector_csrs();
+    let end = TEST_BASE_ADDR + 8192;
+    let data = array::from_fn::<_, 40, _>(|i| i as u8);
+    write_mem(&mut state, end - 40, &data);
+    // Only the first 40 bytes (10 elements) of the 64-byte group are within memory
+    state.regs.write(Reg::A0, end - 40);
+
+    let result = exec_one(
+        &mut state,
+        ZveXxLoadInstruction::Vlr {
+            vd: VReg::V2,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N2,
+            eew: Eew::E32,
+            rs2: Reg::Zero,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsRead { .. })
+    ));
+    assert_eq!(vreg_bytes(&state, VReg::V2)[..], data[..32]);
+    assert_eq!(vreg_bytes(&state, VReg::V3)[..8], data[32..]);
+    assert_eq!(state.env.vstart(), Vstart::from(10));
+}
+
+#[test]
 fn vlr_misaligned_vd_is_illegal() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
@@ -644,6 +730,32 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
     expected[..2].fill(0xff);
     assert_eq!(vreg_bytes(&state, VReg::V30), expected);
     assert_eq!(vreg_bytes(&state, VReg::V31), [0; 32]);
+}
+
+#[test]
+fn vlm_honors_vstart_in_byte_units() {
+    // vl=64: 8 bytes
+    let mut state = setup(Vl::new(64).unwrap(), Vsew::E8, Vlmul::M2);
+    set_vreg(&mut state, VReg::V1, &[0xAA; 8]);
+    let data = array::from_fn::<_, 8, _>(|i| i as u8 + 1);
+    write_mem(&mut state, TEST_BASE_ADDR, &data);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+    state.env.set_vstart(Vstart::from(2));
+
+    exec_one(
+        &mut state,
+        ZveXxLoadInstruction::Vlm {
+            vd: VReg::V1,
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+
+    let vd = vreg_bytes(&state, VReg::V1);
+    assert_eq!(vd[..2], [0xAA; 2]);
+    assert_eq!(vd[2..8], data[2..]);
+    assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
 #[test]

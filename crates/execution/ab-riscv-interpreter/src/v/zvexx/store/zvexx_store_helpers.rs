@@ -119,6 +119,8 @@ where
 /// `base + i * nf * eew.bytes() + f * eew.bytes()`. When `nf == 1` this degenerates to a
 /// plain unit-stride store.
 ///
+/// `vl` is the number of elements to process, the architectural `vl` for regular stores.
+///
 /// # Safety
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
@@ -139,6 +141,7 @@ pub unsafe fn execute_unit_stride_store<Reg, Env, Memory>(
     eew: Eew,
     group_regs: VRegGroupSize,
     nf: Nf,
+    vl: Vl,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -147,7 +150,6 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 

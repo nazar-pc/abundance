@@ -376,16 +376,16 @@ fn vsr_honors_nonzero_vstart() {
 }
 
 #[test]
-fn vsr_vstart_at_or_past_evl_writes_nothing() {
+fn vsr_vstart_at_evl_is_illegal() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
-    set_vreg(&mut state, VReg::V2, &[0xAA; 16]);
+    set_vreg(&mut state, VReg::V2, &[0xAA; 32]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.memory.write::<u8>(TEST_BASE_ADDR, 0x55).unwrap();
-    // EVL = 1 * VLENB = 16; vstart = 16 => no-op
-    state.env.set_vstart(Vstart::from(16));
+    state.memory.write::<u8>(TEST_BASE_ADDR + 31, 0x55).unwrap();
+    // `evl = 1 * VLENB = 32`, `vstart >= evl` is reserved
+    state.env.set_vstart(Vstart::from(32));
 
-    exec_one(
+    let result = exec_one(
         &mut state,
         ZveXxStoreInstruction::Vsr {
             vs3: VReg::V2,
@@ -393,11 +393,42 @@ fn vsr_vstart_at_or_past_evl_writes_nothing() {
             nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
+    );
 
-    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x55);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 31).unwrap(), 0x55);
+}
+
+#[test]
+fn vsr_fault_records_faulting_element_in_vstart() {
+    let mut state = initialize_state([]);
+    state.env.init_vector_csrs();
+    set_vreg(&mut state, VReg::V2, &[0xAA; 32]);
+    // Only the first 20 bytes of the register are within memory
+    let end = TEST_BASE_ADDR + 8192;
+    state.regs.write(Reg::A0, end - 20);
+
+    let result = exec_one(
+        &mut state,
+        ZveXxStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N1,
+            rs2: Reg::Zero,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
+    // Elements (bytes) before the faulting one were stored
+    assert_eq!(state.memory.read::<u8>(end - 20).unwrap(), 0xAA);
+    assert_eq!(state.memory.read::<u8>(end - 1).unwrap(), 0xAA);
+    assert_eq!(state.env.vstart(), Vstart::from(20));
 }
 
 #[test]

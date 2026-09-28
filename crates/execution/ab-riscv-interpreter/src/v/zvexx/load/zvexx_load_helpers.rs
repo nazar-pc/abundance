@@ -298,6 +298,8 @@ where
 /// When `fault_only_first` is set: a memory error at element `i > 0` truncates `vl` to `i`
 /// and returns `Ok`. An error at element `0` always propagates.
 ///
+/// `vl` is the number of elements to process, the architectural `vl` for regular loads.
+///
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0`
 /// - `vd.to_bits() + nf * group_regs <= 32`
@@ -318,6 +320,7 @@ pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, Env, M
     eew: Eew,
     group_regs: VRegGroupSize,
     nf: Nf,
+    vl: Vl,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -326,7 +329,6 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 
