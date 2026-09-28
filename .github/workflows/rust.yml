@@ -116,7 +116,7 @@ jobs:
 
           - &install-kache-step
             name: Install kache
-            uses: kunobi-ninja/kache-action@d71ab254aa8c20bdfa2dc38856611f5e78678cc6 # v1
+            uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
             with:
               version: v0.22.0
               cache-c-cpp: 'true'
