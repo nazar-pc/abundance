@@ -59,7 +59,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         type:
           - together
@@ -275,7 +275,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -599,7 +599,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -634,7 +634,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         type:
           - default
